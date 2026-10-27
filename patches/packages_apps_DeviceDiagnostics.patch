@@ -1,0 +1,264 @@
+diff --git a/DeviceDiagnosticsLib/src/main/java/com/android/devicediagnostics/BatteryActivity.kt b/DeviceDiagnosticsLib/src/main/java/com/android/devicediagnostics/BatteryActivity.kt
+index 4f51691..ba1e67b 100644
+--- a/DeviceDiagnosticsLib/src/main/java/com/android/devicediagnostics/BatteryActivity.kt
++++ b/DeviceDiagnosticsLib/src/main/java/com/android/devicediagnostics/BatteryActivity.kt
+@@ -27,6 +27,7 @@ import androidx.fragment.app.commit
+ import androidx.preference.Preference
+ import androidx.preference.PreferenceFragmentCompat
+ import com.android.devicediagnostics.Protos.BatteryInfo
++import com.android.devicediagnostics.Protos.ProductInfo
+ import com.android.devicediagnostics.evaluated.getBatteryInfo
+ import com.android.settingslib.collapsingtoolbar.CollapsingToolbarBaseActivity
+ import com.android.settingslib.widget.UsageProgressBarPreference
+@@ -43,8 +44,11 @@ fun legacyHealthToStringId(value: Int): Int {
+     }
+ }
+ 
+-class BatteryInfoFragment(private val diagnostics: BatteryInfo, private val launchLevel: Int) :
+-    PreferenceFragmentCompat() {
++class BatteryInfoFragment @JvmOverloads constructor(
++    private val diagnostics: BatteryInfo,
++    private val launchLevel: Int,
++    private val manufactureUtcCalendar: Boolean = false,
++) : PreferenceFragmentCompat() {
+     override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
+         setPreferencesFromResource(R.xml.battery_preferences, rootKey)
+ 
+@@ -74,7 +78,8 @@ class BatteryInfoFragment(private val diagnostics: BatteryInfo, private val laun
+ 
+         findPreference<Preference>("manufacture_date")!!.also {
+             if (diagnostics.hasManufactureTimestamp()) {
+-                it.summary = localizeDateTimestamp(locale, diagnostics.manufactureTimestamp)
++                it.summary = localizeManufactureDateTimestamp(
++                    locale, diagnostics.manufactureTimestamp, manufactureUtcCalendar)
+             } else {
+                 it.summary = getString(R.string.unknown)
+                 it.isVisible = launchLevel >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE
+@@ -143,7 +148,8 @@ class BatteryActivity : CollapsingToolbarBaseActivity() {
+             val launchLevel = readLaunchLevel()
+             supportFragmentManager.commit {
+                 setReorderingAllowed(true)
+-                add(R.id.fragment_container_view, BatteryInfoFragment(diagnostics, launchLevel))
++                add(R.id.fragment_container_view,
++                    BatteryInfoFragment(diagnostics, launchLevel, readManufactureUtcCalendar()))
+             }
+         }
+     }
+@@ -157,6 +163,13 @@ class BatteryActivity : CollapsingToolbarBaseActivity() {
+         return getBatteryInfo(this)
+     }
+ 
++    private fun readManufactureUtcCalendar(): Boolean =
++        if (intent.extras != null) {
++            intent.getBooleanExtra(INTENT_MANUFACTURE_UTC_CALENDAR, false)
++        } else {
++            localManufactureDateUsesUtcCalendar()
++        }
++
+     private fun readLaunchLevel(): Int {
+         if (intent.extras != null) {
+             return intent.extras!!.getInt(INTENT_LAUNCH_LEVEL)
+@@ -167,11 +180,22 @@ class BatteryActivity : CollapsingToolbarBaseActivity() {
+     companion object Static {
+         const val INTENT_BATTERY_INFO = "battery_info"
+         const val INTENT_LAUNCH_LEVEL = "vsr_level"
++        private const val INTENT_MANUFACTURE_UTC_CALENDAR = "manufacture_utc_calendar"
++
++        fun createIntent(from: Context, diagnostics: BatteryInfo, launchLevel: Int): Intent =
++            createIntent(from, diagnostics, launchLevel, null)
+ 
+-        fun createIntent(from: Context, diagnostics: BatteryInfo, launchLevel: Int): Intent {
++        fun createIntent(
++            from: Context,
++            diagnostics: BatteryInfo,
++            launchLevel: Int,
++            product: ProductInfo?,
++        ): Intent {
+             return Intent(from, BatteryActivity::class.java)
+                 .putExtra(INTENT_BATTERY_INFO, diagnostics.toByteArray())
+                 .putExtra(INTENT_LAUNCH_LEVEL, launchLevel)
++                .putExtra(INTENT_MANUFACTURE_UTC_CALENDAR,
++                    reportedManufactureDateUsesUtcCalendar(product))
+         }
+     }
+ }
+diff --git a/DeviceDiagnosticsLib/src/main/java/com/android/devicediagnostics/DisplayResultFragment.kt b/DeviceDiagnosticsLib/src/main/java/com/android/devicediagnostics/DisplayResultFragment.kt
+index cba4f77..03d2749 100644
+--- a/DeviceDiagnosticsLib/src/main/java/com/android/devicediagnostics/DisplayResultFragment.kt
++++ b/DeviceDiagnosticsLib/src/main/java/com/android/devicediagnostics/DisplayResultFragment.kt
+@@ -42,7 +42,8 @@ class DisplayResultFragment(
+ 
+         findPreference<Preference>("battery")!!.setOnPreferenceClickListener {
+             val intent =
+-                BatteryActivity.createIntent(activity!!, report.battery, report.launchLevel)
++                BatteryActivity.createIntent(
++                    activity!!, report.battery, report.launchLevel, report.product)
+             activity!!.startActivity(intent)
+             true
+         }
+diff --git a/DeviceDiagnosticsLib/src/main/java/com/android/devicediagnostics/Utilities.kt b/DeviceDiagnosticsLib/src/main/java/com/android/devicediagnostics/Utilities.kt
+index f5f4e43..7f106dc 100644
+--- a/DeviceDiagnosticsLib/src/main/java/com/android/devicediagnostics/Utilities.kt
++++ b/DeviceDiagnosticsLib/src/main/java/com/android/devicediagnostics/Utilities.kt
+@@ -18,6 +18,9 @@ package com.android.devicediagnostics
+ import android.content.Context
+ import android.icu.text.DateFormat
+ import android.os.AsyncTask
++import android.os.Build
++import android.icu.util.TimeZone
++import com.android.devicediagnostics.Protos.ProductInfo
+ import java.time.Instant
+ import java.util.Date
+ import java.util.Locale
+@@ -43,3 +46,19 @@ fun localizeDateTimestamp(locale: Locale, seconds: Long): String {
+     val formatter = DateFormat.getDateInstance(DateFormat.LONG, locale)
+     return formatter.format(Date.from(instant))
+ }
++
++/** UI-only manufacturing-calendar policy; it grants no identity or device capabilities. */
++fun localManufactureDateUsesUtcCalendar(): Boolean =
++    Build.MODEL == "LDY-AN00" && Build.DEVICE == "ldy_an00" && Build.HARDWARE == "mt6993"
++
++/** Use the evaluated report's product, never the viewing device, for remote battery information. */
++fun reportedManufactureDateUsesUtcCalendar(product: ProductInfo?): Boolean =
++    product != null && product.model == "LDY-AN00" && product.device == "ldy_an00" &&
++        product.manufacturer == "HONOR"
++
++fun localizeManufactureDateTimestamp(locale: Locale, seconds: Long, utcCalendar: Boolean): String {
++    if (!utcCalendar) return localizeDateTimestamp(locale, seconds)
++    val formatter = DateFormat.getDateInstance(DateFormat.LONG, locale)
++    formatter.timeZone = TimeZone.getTimeZone("UTC")
++    return formatter.format(Date.from(Instant.ofEpochSecond(seconds)))
++}
+diff --git a/DeviceDiagnosticsLib/src/test/java/com/android/devicediagnostics/BatteryManufactureCalendarTest.kt b/DeviceDiagnosticsLib/src/test/java/com/android/devicediagnostics/BatteryManufactureCalendarTest.kt
+new file mode 100644
+index 0000000..08b3c74
+--- /dev/null
++++ b/DeviceDiagnosticsLib/src/test/java/com/android/devicediagnostics/BatteryManufactureCalendarTest.kt
+@@ -0,0 +1,126 @@
++/*
++ * Copyright (C) 2026 The LineageOS Project
++ * SPDX-License-Identifier: Apache-2.0
++ */
++package com.android.devicediagnostics
++
++import android.content.Context
++import android.content.Intent
++import android.os.BatteryManager
++import android.os.Build
++import androidx.test.core.app.ApplicationProvider
++import com.android.devicediagnostics.Protos.BatteryInfo
++import com.android.devicediagnostics.Protos.ProductInfo
++import com.android.devicediagnostics.evaluated.getBatteryInfo
++import java.time.LocalDate
++import java.time.ZoneOffset
++import java.util.Locale
++import java.util.TimeZone
++import org.junit.*
++import org.junit.Assert.*
++import org.junit.runner.RunWith
++import org.mockito.Mockito.*
++import org.robolectric.Robolectric
++import org.robolectric.RobolectricTestRunner
++import org.robolectric.annotation.Config
++import org.robolectric.util.ReflectionHelpers
++
++@RunWith(RobolectricTestRunner::class)
++@Config(sdk=[37])
++class BatteryManufactureCalendarTest {
++    private val oldZone = TimeZone.getDefault()
++    private val oldIcuZone = android.icu.util.TimeZone.getDefault()
++    private val base: Context = ApplicationProvider.getApplicationContext()
++    @Before fun setUp() {
++        ReflectionHelpers.setStaticField(Build::class.java,"MODEL","LDY-AN00")
++        ReflectionHelpers.setStaticField(Build::class.java,"DEVICE","ldy_an00")
++        ReflectionHelpers.setStaticField(Build::class.java,"HARDWARE","mt6993")
++        zone("America/Los_Angeles")
++    }
++    @After fun restore() {TimeZone.setDefault(oldZone);android.icu.util.TimeZone.setDefault(oldIcuZone)}
++    private fun zone(zone: String) {
++        TimeZone.setDefault(TimeZone.getTimeZone(zone))
++        android.icu.util.TimeZone.setDefault(android.icu.util.TimeZone.getTimeZone(zone))
++    }
++    private fun epoch(date: String) = LocalDate.parse(date).atStartOfDay(ZoneOffset.UTC).toEpochSecond()
++    private fun honor() = ProductInfo.newBuilder().setModel("LDY-AN00").setDevice("ldy_an00")
++        .setManufacturer("HONOR").build()
++    private fun battery() = BatteryInfo.newBuilder().setManufactureTimestamp(epoch("2025-11-25"))
++        .setFirstUsageTimestamp(epoch("2025-11-25")+1234).build()
++    private fun policy(intent: Intent): Boolean {
++        val activity=Robolectric.buildActivity(BatteryActivity::class.java).get()
++        activity.intent=intent
++        return ReflectionHelpers.callInstanceMethod(activity,"readManufactureUtcCalendar")
++    }
++    @Test fun baselineIcuUsesLocalTimezoneManufactureUtcPreservesFactoryDay() {
++        val value=epoch("2025-11-25")
++        assertEquals("November 24, 2025",localizeDateTimestamp(Locale.US,value))
++        assertEquals("November 25, 2025",localizeManufactureDateTimestamp(Locale.US,value,true))
++        assertEquals(localizeDateTimestamp(Locale.US,value),localizeManufactureDateTimestamp(Locale.US,value,false))
++    }
++    @Test fun utcCalendarSurvivesNegativeExtremeYearAndLeapBoundaries() {
++        val dates=mapOf("2025-11-25" to "November 25, 2025","2024-02-29" to "February 29, 2024", "2025-01-01" to "January 1, 2025")
++        for (z in listOf("Etc/GMT+12","America/Los_Angeles","UTC","Asia/Tokyo","Pacific/Kiritimati")) {
++            zone(z)
++            for ((date,expected) in dates) assertEquals(expected,localizeManufactureDateTimestamp(Locale.US,epoch(date),true))
++        }
++    }
++    @Test fun manufactureFormattingRemainsLocalized() {
++        assertEquals("25 novembre 2025",localizeManufactureDateTimestamp(Locale.FRANCE,epoch("2025-11-25"),true))
++    }
++    @Test fun directLocalNoExtrasUsesExactHardwarePolicy() {
++        assertTrue(policy(Intent()))
++        ReflectionHelpers.setStaticField(Build::class.java,"HARDWARE","other")
++        assertFalse(policy(Intent()))
++    }
++    @Test fun remoteOtherProductDoesNotInheritHonorViewerPolicy() {
++        val other=honor().toBuilder().setModel("other").build()
++        assertFalse(policy(BatteryActivity.createIntent(base,battery(),34,other)))
++    }
++    @Test fun remoteHonorProductUsesOriginEvenOnOtherViewer() {
++        ReflectionHelpers.setStaticField(Build::class.java,"MODEL","other")
++        ReflectionHelpers.setStaticField(Build::class.java,"DEVICE","other")
++        ReflectionHelpers.setStaticField(Build::class.java,"HARDWARE","other")
++        assertFalse(localManufactureDateUsesUtcCalendar())
++        assertTrue(policy(BatteryActivity.createIntent(base,battery(),34,honor())))
++    }
++    @Test fun missingReportProductNeverFallsBackToViewerBuild() {
++        assertTrue(localManufactureDateUsesUtcCalendar())
++        assertFalse(policy(BatteryActivity.createIntent(base,battery(),34)))
++        assertFalse(policy(BatteryActivity.createIntent(base,battery(),34,ProductInfo.getDefaultInstance())))
++    }
++    @Test fun mismatchedReportModelDeviceManufacturerKeepLegacy() {
++        assertFalse(reportedManufactureDateUsesUtcCalendar(null))
++        assertFalse(reportedManufactureDateUsesUtcCalendar(honor().toBuilder().setModel("other").build()))
++        assertFalse(reportedManufactureDateUsesUtcCalendar(honor().toBuilder().setDevice("other").build()))
++        assertFalse(reportedManufactureDateUsesUtcCalendar(honor().toBuilder().setManufacturer("other").build()))
++    }
++    @Test fun intentPreservesActualProtoAndRawEpochs() {
++        val original=battery();val intent=BatteryActivity.createIntent(base,original,34,honor())
++        assertArrayEquals(original.toByteArray(),intent.getByteArrayExtra(BatteryActivity.INTENT_BATTERY_INFO))
++        val decoded=BatteryInfo.parseFrom(intent.getByteArrayExtra(BatteryActivity.INTENT_BATTERY_INFO))
++        assertEquals(original.manufactureTimestamp,decoded.manufactureTimestamp)
++        assertEquals(original.firstUsageTimestamp,decoded.firstUsageTimestamp)
++        assertEquals(34,intent.getIntExtra(BatteryActivity.INTENT_LAUNCH_LEVEL,-1))
++    }
++    @Test fun actualProducerOmitsNonpositiveDatesRatherThanInventingEpoch() {
++        val context=mock(Context::class.java);val manager=mock(BatteryManager::class.java)
++        `when`(context.getSystemService(Context.BATTERY_SERVICE)).thenReturn(manager)
++        `when`(manager.getIntProperty(anyInt())).thenReturn(-1)
++        for(value in listOf(0L,-1L,Long.MIN_VALUE)) {
++            `when`(manager.getLongProperty(anyInt())).thenReturn(value)
++            val info=getBatteryInfo(context)
++            assertFalse(info.hasManufactureTimestamp());assertFalse(info.hasFirstUsageTimestamp())
++        }
++    }
++    @Test fun actualProducerKeepsPositiveManufactureAndFirstUseSecondsUnchanged() {
++        val context=mock(Context::class.java);val manager=mock(BatteryManager::class.java)
++        `when`(context.getSystemService(Context.BATTERY_SERVICE)).thenReturn(manager)
++        `when`(manager.getIntProperty(anyInt())).thenReturn(-1)
++        val manufacture=epoch("2025-11-25")+3600;val first=manufacture+1234
++        `when`(manager.getLongProperty(BatteryManager.BATTERY_PROPERTY_MANUFACTURING_DATE)).thenReturn(manufacture)
++        `when`(manager.getLongProperty(BatteryManager.BATTERY_PROPERTY_FIRST_USAGE_DATE)).thenReturn(first)
++        val info=getBatteryInfo(context)
++        assertEquals(manufacture,info.manufactureTimestamp);assertEquals(first,info.firstUsageTimestamp)
++    }
++}

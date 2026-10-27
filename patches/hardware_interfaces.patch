@@ -1,0 +1,15 @@
+diff --git a/common/aidl/Android.bp b/common/aidl/Android.bp
+index 792c29d..1b41c6f 100644
+--- a/common/aidl/Android.bp
++++ b/common/aidl/Android.bp
+@@ -50,3 +50,10 @@ aidl_interface {
+         "2",
+     ],
+ }
++
++// Frozen import for the private LDY-AN00 reconstructed ComposerExt wire transport.
++filegroup {
++    name: "honor_ldy_an00_nativehandle_v2_aidl",
++    srcs: ["aidl_api/android.hardware.common/2/android/hardware/common/NativeHandle.aidl"],
++    visibility: ["//frameworks/native/services/surfaceflinger/ldy_an00_composerext:__pkg__"],
++}

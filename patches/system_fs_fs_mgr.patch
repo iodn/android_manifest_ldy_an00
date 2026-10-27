@@ -1,0 +1,70 @@
+diff --git a/libsnapshot/include/libsnapshot/snapshot.h b/libsnapshot/include/libsnapshot/snapshot.h
+index a03d854..73127cf 100644
+--- a/libsnapshot/include/libsnapshot/snapshot.h
++++ b/libsnapshot/include/libsnapshot/snapshot.h
+@@ -419,6 +419,7 @@ class SnapshotManager final : public ISnapshotManager {
+     FRIEND_TEST(SnapshotTest, FirstStageMountAfterRollback);
+     FRIEND_TEST(SnapshotTest, FirstStageMountAndMerge);
+     FRIEND_TEST(SnapshotTest, FlagCheck);
++    FRIEND_TEST(SnapshotTest, SelinuxTransitionDmUserOmitsUblkFlag);
+     FRIEND_TEST(SnapshotTest, FlashSuperDuringMerge);
+     FRIEND_TEST(SnapshotTest, FlashSuperDuringUpdate);
+     FRIEND_TEST(SnapshotTest, MapPartialSnapshot);
+diff --git a/libsnapshot/snapshot.cpp b/libsnapshot/snapshot.cpp
+index 4609724..a026b2b 100644
+--- a/libsnapshot/snapshot.cpp
++++ b/libsnapshot/snapshot.cpp
+@@ -2325,10 +2325,10 @@ bool SnapshotManager::PerformInitTransition(InitTransition transition,
+         if (UpdateUsesODirect(lock.get())) {
+             snapuserd_argv->emplace_back("-o_direct");
+         }
++        // The ramdisk daemon may predate ublk support. Omitting the flag keeps
++        // its dm-user default and avoids rejecting the unknown "-noublk" flag.
+         if (UpdateUsesUblk(lock.get())) {
+             snapuserd_argv->emplace_back("-ublk");
+-        } else {
+-            snapuserd_argv->emplace_back("-noublk");
+         }
+         uint cow_op_merge_size = GetUpdateCowOpMergeSize(lock.get());
+         if (cow_op_merge_size != 0) {
+diff --git a/libsnapshot/snapshot_test.cpp b/libsnapshot/snapshot_test.cpp
+index d6a4937..05d0a5f 100644
+--- a/libsnapshot/snapshot_test.cpp
++++ b/libsnapshot/snapshot_test.cpp
+@@ -2622,6 +2622,7 @@ TEST_F(SnapshotTest, FlagCheck) {
+     status.set_io_uring_enabled(true);
+     status.set_userspace_snapshots(true);
+     status.set_cow_op_merge_size(16);
++    status.set_ublk_snapshots_enabled(true);
+ 
+     sm->WriteSnapshotUpdateStatus(lock_.get(), status);
+     // Ensure a connection to the second-stage daemon, but use the first-stage
+@@ -2645,6 +2646,28 @@ TEST_F(SnapshotTest, FlagCheck) {
+                 snapuserd_argv.end());
+     ASSERT_TRUE(std::find(snapuserd_argv.begin(), snapuserd_argv.end(), "-cow_op_merge_size=16") !=
+                 snapuserd_argv.end());
++    ASSERT_NE(std::find(snapuserd_argv.begin(), snapuserd_argv.end(), "-ublk"),
++              snapuserd_argv.end());
++}
++
++TEST_F(SnapshotTest, SelinuxTransitionDmUserOmitsUblkFlag) {
++    ASSERT_TRUE(AcquireLock());
++    SnapshotUpdateStatus status = sm->ReadSnapshotUpdateStatus(lock_.get());
++    status.set_userspace_snapshots(true);
++    status.set_ublk_snapshots_enabled(false);
++    ASSERT_TRUE(sm->WriteSnapshotUpdateStatus(lock_.get(), status));
++    ASSERT_TRUE(sm->EnsureSnapuserdConnected());
++    sm->set_use_first_stage_snapuserd(true);
++
++    auto init = NewManagerForFirstStageMount("_b");
++    ASSERT_NE(init, nullptr);
++    lock_ = nullptr;
++
++    std::vector<std::string> args;
++    ASSERT_TRUE(init->PerformInitTransition(SnapshotManager::InitTransition::SELINUX_DETACH, &args));
++    ASSERT_NE(std::find(args.begin(), args.end(), "-user_snapshot"), args.end());
++    ASSERT_EQ(std::find(args.begin(), args.end(), "-ublk"), args.end());
++    ASSERT_EQ(std::find(args.begin(), args.end(), "-noublk"), args.end());
+ }
+ 
+ TEST_F(SnapshotUpdateTest, MergeRespectsSourceUblkDisabled) {

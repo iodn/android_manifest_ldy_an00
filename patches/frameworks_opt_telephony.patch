@@ -1,0 +1,3086 @@
+diff --git a/src/java/com/android/internal/telephony/CallForwardInfo.java b/src/java/com/android/internal/telephony/CallForwardInfo.java
+index 9d6cefd..a723398 100644
+--- a/src/java/com/android/internal/telephony/CallForwardInfo.java
++++ b/src/java/com/android/internal/telephony/CallForwardInfo.java
+@@ -45,6 +45,17 @@ public class CallForwardInfo {
+     @UnsupportedAppUsage
+     public int             timeSeconds; /* for CF no reply only */
+ 
++
++    // Legacy provider metadata only; this class does not gain a parcel contract.
++    /** @hide */
++    public int startHour;
++    /** @hide */
++    public int startMinute;
++    /** @hide */
++    public int endHour;
++    /** @hide */
++    public int endMinute;
++
+     @Override
+     public String toString() {
+         return "[CallForwardInfo: status=" + (status == 0 ? " not active " : " active ")
+diff --git a/src/java/com/android/internal/telephony/euicc/EuiccConnector.java b/src/java/com/android/internal/telephony/euicc/EuiccConnector.java
+index b919bdd..243b432 100644
+--- a/src/java/com/android/internal/telephony/euicc/EuiccConnector.java
++++ b/src/java/com/android/internal/telephony/euicc/EuiccConnector.java
+@@ -36,6 +36,7 @@ import android.os.Bundle;
+ import android.os.IBinder;
+ import android.os.Looper;
+ import android.os.Message;
++import android.os.Parcel;
+ import android.os.RemoteException;
+ import android.service.euicc.DownloadSubscriptionResult;
+ import android.service.euicc.EuiccService;
+@@ -82,6 +83,7 @@ import com.android.internal.util.StateMachine;
+ 
+ import java.io.FileDescriptor;
+ import java.io.PrintWriter;
++import java.util.function.BooleanSupplier;
+ import java.util.List;
+ import java.util.Objects;
+ import java.util.Set;
+@@ -139,6 +141,8 @@ public class EuiccConnector extends StateMachine implements ServiceConnection {
+      * <p>{@link Message#obj} is a {@link Runnable} which will trigger the callback.
+      */
+     private static final int CMD_COMMAND_COMPLETE = 6;
++    private static final int CMD_HONOR_ENDPOINT_PREPARED = 7;
++    private static final long HONOR_ENDPOINT_PREPARE_TIMEOUT_MILLIS = 12000;
+ 
+     // Commands corresponding with EuiccService APIs. Keep isEuiccCommand in sync with any changes.
+     private static final int CMD_GET_EID = 100;
+@@ -157,6 +161,7 @@ public class EuiccConnector extends StateMachine implements ServiceConnection {
+     private static final int CMD_ERASE_SUBSCRIPTIONS_WITH_OPTIONS = 113;
+     private static final int CMD_DUMP_EUICC_SERVICE = 114;
+     private static final int CMD_GET_AVAILABLE_MEMORY_IN_BYTES = 115;
++    private static final int CMD_HONOR_PREPARE_ONLY = 116;
+ 
+     private static boolean isEuiccCommand(int what) {
+         return what >= CMD_GET_EID;
+@@ -296,6 +301,7 @@ public class EuiccConnector extends StateMachine implements ServiceConnection {
+     static class DeleteRequest {
+         String mIccid;
+         DeleteCommandCallback mCallback;
++        @Nullable BooleanSupplier mCurrent;
+     }
+ 
+     /** Callback class for {@link #deleteSubscription}. */
+@@ -355,6 +361,25 @@ public class EuiccConnector extends StateMachine implements ServiceConnection {
+         void onDumpEuiccServiceComplete(String logs);
+     }
+ 
++    /** Preparation observes an existing Owner; it never dispatches a profile operation. */
++    public interface HonorPrepareCallback extends BaseEuiccCommandCallback {
++        void onPrepared(HonorEuiccEndpointPreparation.Result result);
++    }
++    private static final class HonorPrepareOnly {
++        final HonorPrepareCallback callback;
++        final BooleanSupplier current;
++        HonorPrepareOnly(HonorPrepareCallback callback, BooleanSupplier current) {
++            this.callback = callback; this.current = current;
++        }
++    }
++
++    public void prepareHonorEndpoint(int cardId, int port, BooleanSupplier current,
++            HonorPrepareCallback callback) {
++        if (!getHandler().sendMessage(getHandler().obtainMessage(CMD_HONOR_PREPARE_ONLY,
++                cardId, port, new HonorPrepareOnly(callback, current))))
++            callback.onEuiccServiceUnavailable();
++    }
++
+     private Context mContext;
+     private PackageManager mPm;
+     private TelephonyManager mTm;
+@@ -382,6 +407,33 @@ public class EuiccConnector extends StateMachine implements ServiceConnection {
+     /** The callbacks for all (asynchronous) commands which are currently in flight. */
+     private Set<BaseEuiccCommandCallback> mActiveCommandCallbacks = new ArraySet<>();
+ 
++    private long mHonorBindingGeneration;
++    private final Set<HonorPreparation> mHonorPreparations = new ArraySet<>();
++    private static final class HonorPreparation {
++        final Message command;
++        final BaseEuiccCommandCallback callback;
++        final IEuiccService service;
++        final ComponentName component;
++        final int uid, port;
++        final long generation;
++        volatile boolean active = true;
++        Runnable timeout;
++        HonorPreparation(Message command, BaseEuiccCommandCallback callback,
++                IEuiccService service, ServiceInfo component, int port, long generation) {
++            this.command = copyHonorCommand(command); this.callback = callback;
++            this.service = service;
++            this.component = new ComponentName(component.packageName, component.name);
++            uid = component.applicationInfo.uid; this.port = port; this.generation = generation;
++        }
++    }
++    private static final class HonorPreparationResult {
++        final HonorPreparation request;
++        final HonorEuiccEndpointPreparation.Result result;
++        HonorPreparationResult(HonorPreparation request, HonorEuiccEndpointPreparation.Result result) {
++            this.request = request; this.result = result;
++        }
++    }
++
+     @VisibleForTesting(visibility = PACKAGE) public UnavailableState mUnavailableState;
+     @VisibleForTesting(visibility = PACKAGE) public AvailableState mAvailableState;
+     @VisibleForTesting(visibility = PACKAGE) public BindingState mBindingState;
+@@ -522,9 +574,16 @@ public class EuiccConnector extends StateMachine implements ServiceConnection {
+     /** Asynchronously delete the given subscription. */
+     @VisibleForTesting(visibility = PACKAGE)
+     public void deleteSubscription(int cardId, String iccid, DeleteCommandCallback callback) {
++        deleteSubscription(cardId, iccid, null, callback);
++    }
++
++    /** Qualified original-card DELETE with cancellation until actual LPA dispatch. */
++    public void deleteSubscription(int cardId, String iccid, @Nullable BooleanSupplier current,
++            DeleteCommandCallback callback) {
+         DeleteRequest request = new DeleteRequest();
+         request.mIccid = iccid;
+         request.mCallback = callback;
++        request.mCurrent = current;
+         sendMessage(CMD_DELETE_SUBSCRIPTION, cardId, 0 /* arg2 */, request);
+     }
+ 
+@@ -742,6 +801,7 @@ public class EuiccConnector extends StateMachine implements ServiceConnection {
+     private class ConnectedState extends State {
+         @Override
+         public void enter() {
++            mHonorBindingGeneration++;
+             removeMessages(CMD_CONNECT_TIMEOUT);
+             sendMessageDelayed(CMD_LINGER_TIMEOUT, LINGER_TIMEOUT_MILLIS);
+         }
+@@ -762,325 +822,557 @@ public class EuiccConnector extends StateMachine implements ServiceConnection {
+                 Runnable runnable = (Runnable) message.obj;
+                 runnable.run();
+                 return HANDLED;
++            } else if (message.what == CMD_HONOR_ENDPOINT_PREPARED) {
++                finishHonorEndpointPreparation((HonorPreparationResult) message.obj);
++                return HANDLED;
+             } else if (isEuiccCommand(message.what)) {
+                 final BaseEuiccCommandCallback callback = getCallback(message);
+                 onCommandStart(callback);
++                if (!isDeleteCommandCurrent(message)) {
++                    callback.onEuiccServiceUnavailable();
++                    onCommandEnd(callback);
++                    return HANDLED;
++                }
+                 final int cardId = message.arg1;
+                 final int slotId = getSlotIdFromCardId(cardId);
+-                try {
+-                    switch (message.what) {
+-                        case CMD_GET_EID: {
+-                            mEuiccService.getEid(slotId,
+-                                    new IGetEidCallback.Stub() {
+-                                        @Override
+-                                        public void onSuccess(String eid) {
+-                                            sendMessage(CMD_COMMAND_COMPLETE, (Runnable) () -> {
+-                                                ((GetEidCommandCallback) callback)
+-                                                        .onGetEidComplete(eid);
+-                                                onCommandEnd(callback);
+-                                            });
+-                                        }
++                if (message.what == CMD_HONOR_PREPARE_ONLY) {
++                    if (!HonorEuiccEndpointPreparation.isQualifiedDevice()
++                            || !((HonorPrepareOnly) message.obj).current.getAsBoolean()) {
++                        callback.onEuiccServiceUnavailable();
++                        onCommandEnd(callback);
++                    } else if (currentHonorSlotForCard(cardId, message.arg2) >= 0) {
++                        ((HonorPrepareCallback) callback).onPrepared(
++                                HonorEuiccEndpointPreparation.Result.READY);
++                        onCommandEnd(callback);
++                    } else {
++                        startHonorEndpointPreparation(message, callback);
++                    }
++                } else if (slotId < 0 && HonorEuiccEndpointPreparation.isQualifiedDevice()
++                        && needsHonorEndpointPreparation(message.what)) {
++                    int genuineSlot = currentHonorSlotForCard(cardId, honorPreparationPort(message));
++                    if (genuineSlot >= 0) dispatchEuiccCommand(message, genuineSlot, callback);
++                    else startHonorEndpointPreparation(message, callback);
++                } else {
++                    dispatchEuiccCommand(message, slotId, callback);
++                }
++                return HANDLED;
++            }
++
++            return NOT_HANDLED;
++        }
++
++        @Override
++        public void exit() {
++            removeMessages(CMD_LINGER_TIMEOUT);
++            for (HonorPreparation request : mHonorPreparations) {
++                request.active = false;
++                getHandler().removeCallbacks(request.timeout);
++                request.command.recycle();
++            }
++            mHonorPreparations.clear();
++            // Dispatch callbacks for all in-flight commands; they will no longer succeed. (The
++            // remote process cannot possibly trigger a callback at this stage because the
++            // connection has dropped).
++            for (BaseEuiccCommandCallback callback : mActiveCommandCallbacks) {
++                callback.onEuiccServiceUnavailable();
++            }
++            mActiveCommandCallbacks.clear();
++        }
++    }
++
++    private void dispatchEuiccCommand(Message message, int slotId,
++            BaseEuiccCommandCallback callback) {
++        final int cardId = message.arg1;
++        try {
++            switch (message.what) {
++                case CMD_GET_EID: {
++                    mEuiccService.getEid(slotId,
++                            new IGetEidCallback.Stub() {
++                                @Override
++                                public void onSuccess(String eid) {
++                                    sendMessage(CMD_COMMAND_COMPLETE, (Runnable) () -> {
++                                        ((GetEidCommandCallback) callback)
++                                                .onGetEidComplete(eid);
++                                        onCommandEnd(callback);
+                                     });
+-                            break;
+-                        }
+-                        case CMD_GET_AVAILABLE_MEMORY_IN_BYTES: {
+-                            mEuiccService.getAvailableMemoryInBytes(slotId,
+-                                    new IGetAvailableMemoryInBytesCallback.Stub() {
+-                                        @Override
+-                                        public void onSuccess(long availableMemoryInBytes) {
+-                                            sendMessage(CMD_COMMAND_COMPLETE, (Runnable) () -> {
+-                                                ((GetAvailableMemoryInBytesCommandCallback)
+-                                                        callback)
+-                                                        .onGetAvailableMemoryInBytesComplete(
+-                                                                availableMemoryInBytes);
+-                                                onCommandEnd(callback);
+-                                            });
+-                                        }
+-
+-                                        @Override
+-                                        public void onUnsupportedOperationException(
+-                                                String message) {
+-                                            sendMessage(CMD_COMMAND_COMPLETE, (Runnable) () -> {
+-                                                ((GetAvailableMemoryInBytesCommandCallback)
+-                                                        callback)
+-                                                        .onUnsupportedOperationExceptionComplete(
+-                                                            message);
+-                                                onCommandEnd(callback);
+-                                            });
+-                                        }
++                                }
++                            });
++                    break;
++                }
++                case CMD_GET_AVAILABLE_MEMORY_IN_BYTES: {
++                    mEuiccService.getAvailableMemoryInBytes(slotId,
++                            new IGetAvailableMemoryInBytesCallback.Stub() {
++                                @Override
++                                public void onSuccess(long availableMemoryInBytes) {
++                                    sendMessage(CMD_COMMAND_COMPLETE, (Runnable) () -> {
++                                        ((GetAvailableMemoryInBytesCommandCallback)
++                                                callback)
++                                                .onGetAvailableMemoryInBytesComplete(
++                                                        availableMemoryInBytes);
++                                        onCommandEnd(callback);
+                                     });
+-                            break;
+-                        }
+-                        case CMD_GET_DOWNLOADABLE_SUBSCRIPTION_METADATA: {
+-                            GetMetadataRequest request = (GetMetadataRequest) message.obj;
+-                            mEuiccService.getDownloadableSubscriptionMetadata(slotId,
+-                                    request.mPortIndex,
+-                                    request.mSubscription,
+-                                    request.mSwitchAfterDownload,
+-                                    request.mForceDeactivateSim,
+-                                    new IGetDownloadableSubscriptionMetadataCallback.Stub() {
+-                                        @Override
+-                                        public void onComplete(
+-                                                GetDownloadableSubscriptionMetadataResult result) {
+-                                            sendMessage(CMD_COMMAND_COMPLETE, (Runnable) () -> {
+-                                                ((GetMetadataCommandCallback) callback)
+-                                                        .onGetMetadataComplete(cardId, result);
+-                                                onCommandEnd(callback);
+-                                            });
+-                                        }
++                                }
++
++                                @Override
++                                public void onUnsupportedOperationException(
++                                        String message) {
++                                    sendMessage(CMD_COMMAND_COMPLETE, (Runnable) () -> {
++                                        ((GetAvailableMemoryInBytesCommandCallback)
++                                                callback)
++                                                .onUnsupportedOperationExceptionComplete(
++                                                    message);
++                                        onCommandEnd(callback);
+                                     });
+-                            break;
+-                        }
+-                        case CMD_DOWNLOAD_SUBSCRIPTION: {
+-                            DownloadRequest request = (DownloadRequest) message.obj;
+-                            EuiccSession.get(mContext).startSession(EuiccSession.DOWNLOAD);
+-                            mEuiccService.downloadSubscription(slotId,
+-                                    request.mPortIndex,
+-                                    request.mSubscription,
+-                                    request.mSwitchAfterDownload,
+-                                    request.mForceDeactivateSim,
+-                                    request.mResolvedBundle,
+-                                    new IDownloadSubscriptionCallback.Stub() {
+-                                        @Override
+-                                        public void onComplete(DownloadSubscriptionResult result) {
+-                                            sendMessage(CMD_COMMAND_COMPLETE, (Runnable) () -> {
+-                                                ((DownloadCommandCallback) callback)
+-                                                    .onDownloadComplete(result);
+-                                                onCommandEnd(callback);
+-                                            });
+-                                            EuiccSession.get(mContext)
+-                                                    .endSession(EuiccSession.DOWNLOAD);
+-                                        }
++                                }
++                            });
++                    break;
++                }
++                case CMD_GET_DOWNLOADABLE_SUBSCRIPTION_METADATA: {
++                    GetMetadataRequest request = (GetMetadataRequest) message.obj;
++                    mEuiccService.getDownloadableSubscriptionMetadata(slotId,
++                            request.mPortIndex,
++                            request.mSubscription,
++                            request.mSwitchAfterDownload,
++                            request.mForceDeactivateSim,
++                            new IGetDownloadableSubscriptionMetadataCallback.Stub() {
++                                @Override
++                                public void onComplete(
++                                        GetDownloadableSubscriptionMetadataResult result) {
++                                    sendMessage(CMD_COMMAND_COMPLETE, (Runnable) () -> {
++                                        ((GetMetadataCommandCallback) callback)
++                                                .onGetMetadataComplete(cardId, result);
++                                        onCommandEnd(callback);
+                                     });
+-                            break;
+-                        }
+-                        case CMD_GET_EUICC_PROFILE_INFO_LIST: {
+-                            mEuiccService.getEuiccProfileInfoList(slotId,
+-                                    new IGetEuiccProfileInfoListCallback.Stub() {
+-                                        @Override
+-                                        public void onComplete(
+-                                                GetEuiccProfileInfoListResult result) {
+-                                            sendMessage(CMD_COMMAND_COMPLETE, (Runnable) () -> {
+-                                                ((GetEuiccProfileInfoListCommandCallback) callback)
+-                                                        .onListComplete(result);
+-                                                onCommandEnd(callback);
+-                                            });
+-                                        }
++                                }
++                            });
++                    break;
++                }
++                case CMD_DOWNLOAD_SUBSCRIPTION: {
++                    DownloadRequest request = (DownloadRequest) message.obj;
++                    EuiccSession.get(mContext).startSession(EuiccSession.DOWNLOAD);
++                    mEuiccService.downloadSubscription(slotId,
++                            request.mPortIndex,
++                            request.mSubscription,
++                            request.mSwitchAfterDownload,
++                            request.mForceDeactivateSim,
++                            request.mResolvedBundle,
++                            new IDownloadSubscriptionCallback.Stub() {
++                                @Override
++                                public void onComplete(DownloadSubscriptionResult result) {
++                                    sendMessage(CMD_COMMAND_COMPLETE, (Runnable) () -> {
++                                        ((DownloadCommandCallback) callback)
++                                            .onDownloadComplete(result);
++                                        onCommandEnd(callback);
+                                     });
+-                            break;
+-                        }
+-                        case CMD_GET_DEFAULT_DOWNLOADABLE_SUBSCRIPTION_LIST: {
+-                            GetDefaultListRequest request = (GetDefaultListRequest) message.obj;
+-                            mEuiccService.getDefaultDownloadableSubscriptionList(slotId,
+-                                    request.mForceDeactivateSim,
+-                                    new IGetDefaultDownloadableSubscriptionListCallback.Stub() {
+-                                        @Override
+-                                        public void onComplete(
+-                                                GetDefaultDownloadableSubscriptionListResult result
+-                                        ) {
+-                                            sendMessage(CMD_COMMAND_COMPLETE, (Runnable) () -> {
+-                                                ((GetDefaultListCommandCallback) callback)
+-                                                        .onGetDefaultListComplete(cardId, result);
+-                                                onCommandEnd(callback);
+-                                            });
+-                                        }
++                                    EuiccSession.get(mContext)
++                                            .endSession(EuiccSession.DOWNLOAD);
++                                }
++                            });
++                    break;
++                }
++                case CMD_GET_EUICC_PROFILE_INFO_LIST: {
++                    mEuiccService.getEuiccProfileInfoList(slotId,
++                            new IGetEuiccProfileInfoListCallback.Stub() {
++                                @Override
++                                public void onComplete(
++                                        GetEuiccProfileInfoListResult result) {
++                                    sendMessage(CMD_COMMAND_COMPLETE, (Runnable) () -> {
++                                        ((GetEuiccProfileInfoListCommandCallback) callback)
++                                                .onListComplete(result);
++                                        onCommandEnd(callback);
+                                     });
+-                            break;
+-                        }
+-                        case CMD_GET_EUICC_INFO: {
+-                            mEuiccService.getEuiccInfo(slotId,
+-                                    new IGetEuiccInfoCallback.Stub() {
+-                                        @Override
+-                                        public void onSuccess(EuiccInfo euiccInfo) {
+-                                            sendMessage(CMD_COMMAND_COMPLETE, (Runnable) () -> {
+-                                                ((GetEuiccInfoCommandCallback) callback)
+-                                                        .onGetEuiccInfoComplete(euiccInfo);
+-                                                onCommandEnd(callback);
+-                                            });
+-                                        }
++                                }
++                            });
++                    break;
++                }
++                case CMD_GET_DEFAULT_DOWNLOADABLE_SUBSCRIPTION_LIST: {
++                    GetDefaultListRequest request = (GetDefaultListRequest) message.obj;
++                    mEuiccService.getDefaultDownloadableSubscriptionList(slotId,
++                            request.mForceDeactivateSim,
++                            new IGetDefaultDownloadableSubscriptionListCallback.Stub() {
++                                @Override
++                                public void onComplete(
++                                        GetDefaultDownloadableSubscriptionListResult result
++                                ) {
++                                    sendMessage(CMD_COMMAND_COMPLETE, (Runnable) () -> {
++                                        ((GetDefaultListCommandCallback) callback)
++                                                .onGetDefaultListComplete(cardId, result);
++                                        onCommandEnd(callback);
+                                     });
+-                            break;
+-                        }
+-                        case CMD_DELETE_SUBSCRIPTION: {
+-                            DeleteRequest request = (DeleteRequest) message.obj;
+-                            mEuiccService.deleteSubscription(slotId, request.mIccid,
+-                                    new IDeleteSubscriptionCallback.Stub() {
+-                                        @Override
+-                                        public void onComplete(int result) {
+-                                            sendMessage(CMD_COMMAND_COMPLETE, (Runnable) () -> {
+-                                                ((DeleteCommandCallback) callback)
+-                                                        .onDeleteComplete(result);
+-                                                onCommandEnd(callback);
+-                                            });
+-                                        }
++                                }
++                            });
++                    break;
++                }
++                case CMD_GET_EUICC_INFO: {
++                    mEuiccService.getEuiccInfo(slotId,
++                            new IGetEuiccInfoCallback.Stub() {
++                                @Override
++                                public void onSuccess(EuiccInfo euiccInfo) {
++                                    sendMessage(CMD_COMMAND_COMPLETE, (Runnable) () -> {
++                                        ((GetEuiccInfoCommandCallback) callback)
++                                                .onGetEuiccInfoComplete(euiccInfo);
++                                        onCommandEnd(callback);
+                                     });
+-                            break;
+-                        }
+-                        case CMD_SWITCH_TO_SUBSCRIPTION: {
+-                            SwitchRequest request = (SwitchRequest) message.obj;
+-                            final int portIndex = message.arg2;
+-                            mEuiccService.switchToSubscription(slotId, portIndex,
+-                                    request.mIccid,
+-                                    request.mForceDeactivateSim,
+-                                    new ISwitchToSubscriptionCallback.Stub() {
+-                                        @Override
+-                                        public void onComplete(int result) {
+-                                            sendMessage(CMD_COMMAND_COMPLETE, (Runnable) () -> {
+-                                                ((SwitchCommandCallback) callback)
+-                                                        .onSwitchComplete(result);
+-                                                onCommandEnd(callback);
+-                                            });
+-                                        }
+-                                    },
+-                                    request.mUsePortIndex);
+-                            break;
+-                        }
+-                        case CMD_UPDATE_SUBSCRIPTION_NICKNAME: {
+-                            UpdateNicknameRequest request = (UpdateNicknameRequest) message.obj;
+-                            mEuiccService.updateSubscriptionNickname(slotId, request.mIccid,
+-                                    request.mNickname,
+-                                    new IUpdateSubscriptionNicknameCallback.Stub() {
+-                                        @Override
+-                                        public void onComplete(int result) {
+-                                            sendMessage(CMD_COMMAND_COMPLETE, (Runnable) () -> {
+-                                                ((UpdateNicknameCommandCallback) callback)
+-                                                        .onUpdateNicknameComplete(result);
+-                                                onCommandEnd(callback);
+-                                            });
+-                                        }
++                                }
++                            });
++                    break;
++                }
++                case CMD_DELETE_SUBSCRIPTION: {
++                    DeleteRequest request = (DeleteRequest) message.obj;
++                    if (!isDeleteCommandCurrent(message)) {
++                        callback.onEuiccServiceUnavailable();
++                        onCommandEnd(callback);
++                        return;
++                    }
++                    mEuiccService.deleteSubscription(slotId, request.mIccid,
++                            new IDeleteSubscriptionCallback.Stub() {
++                                @Override
++                                public void onComplete(int result) {
++                                    sendMessage(CMD_COMMAND_COMPLETE, (Runnable) () -> {
++                                        ((DeleteCommandCallback) callback)
++                                                .onDeleteComplete(result);
++                                        onCommandEnd(callback);
+                                     });
+-                            break;
+-                        }
+-                        case CMD_ERASE_SUBSCRIPTIONS: {
+-                            mEuiccService.eraseSubscriptions(slotId,
+-                                    new IEraseSubscriptionsCallback.Stub() {
+-                                        @Override
+-                                        public void onComplete(int result) {
+-                                            sendMessage(CMD_COMMAND_COMPLETE, (Runnable) () -> {
+-                                                ((EraseCommandCallback) callback)
+-                                                        .onEraseComplete(result);
+-                                                onCommandEnd(callback);
+-                                            });
+-                                        }
++                                }
++                            });
++                    break;
++                }
++                case CMD_SWITCH_TO_SUBSCRIPTION: {
++                    SwitchRequest request = (SwitchRequest) message.obj;
++                    final int portIndex = message.arg2;
++                    mEuiccService.switchToSubscription(slotId, portIndex,
++                            request.mIccid,
++                            request.mForceDeactivateSim,
++                            new ISwitchToSubscriptionCallback.Stub() {
++                                @Override
++                                public void onComplete(int result) {
++                                    sendMessage(CMD_COMMAND_COMPLETE, (Runnable) () -> {
++                                        ((SwitchCommandCallback) callback)
++                                                .onSwitchComplete(result);
++                                        onCommandEnd(callback);
+                                     });
+-                            break;
+-                        }
+-                        case CMD_ERASE_SUBSCRIPTIONS_WITH_OPTIONS: {
+-                            mEuiccService.eraseSubscriptionsWithOptions(slotId,
+-                                    message.arg2 /* options */,
+-                                    new IEraseSubscriptionsCallback.Stub() {
+-                                        @Override
+-                                        public void onComplete(int result) {
+-                                            sendMessage(CMD_COMMAND_COMPLETE, (Runnable) () -> {
+-                                                ((EraseCommandCallback) callback)
+-                                                        .onEraseComplete(result);
+-                                                onCommandEnd(callback);
+-                                            });
+-                                        }
++                                }
++                            },
++                            request.mUsePortIndex);
++                    break;
++                }
++                case CMD_UPDATE_SUBSCRIPTION_NICKNAME: {
++                    UpdateNicknameRequest request = (UpdateNicknameRequest) message.obj;
++                    mEuiccService.updateSubscriptionNickname(slotId, request.mIccid,
++                            request.mNickname,
++                            new IUpdateSubscriptionNicknameCallback.Stub() {
++                                @Override
++                                public void onComplete(int result) {
++                                    sendMessage(CMD_COMMAND_COMPLETE, (Runnable) () -> {
++                                        ((UpdateNicknameCommandCallback) callback)
++                                                .onUpdateNicknameComplete(result);
++                                        onCommandEnd(callback);
+                                     });
+-                            break;
+-                        }
+-                        case CMD_RETAIN_SUBSCRIPTIONS: {
+-                            mEuiccService.retainSubscriptionsForFactoryReset(slotId,
+-                                    new IRetainSubscriptionsForFactoryResetCallback.Stub() {
+-                                        @Override
+-                                        public void onComplete(int result) {
+-                                            sendMessage(CMD_COMMAND_COMPLETE, (Runnable) () -> {
+-                                                ((RetainSubscriptionsCommandCallback) callback)
+-                                                        .onRetainSubscriptionsComplete(result);
+-                                                onCommandEnd(callback);
+-                                            });
+-                                        }
++                                }
++                            });
++                    break;
++                }
++                case CMD_ERASE_SUBSCRIPTIONS: {
++                    mEuiccService.eraseSubscriptions(slotId,
++                            new IEraseSubscriptionsCallback.Stub() {
++                                @Override
++                                public void onComplete(int result) {
++                                    sendMessage(CMD_COMMAND_COMPLETE, (Runnable) () -> {
++                                        ((EraseCommandCallback) callback)
++                                                .onEraseComplete(result);
++                                        onCommandEnd(callback);
+                                     });
+-                            break;
+-                        }
+-                        case CMD_GET_OTA_STATUS: {
+-                            mEuiccService.getOtaStatus(slotId,
+-                                    new IGetOtaStatusCallback.Stub() {
+-                                        @Override
+-                                        public void onSuccess(@OtaStatus int status) {
+-                                            sendMessage(CMD_COMMAND_COMPLETE, (Runnable) () -> {
+-                                                ((GetOtaStatusCommandCallback) callback)
+-                                                        .onGetOtaStatusComplete(status);
+-                                                onCommandEnd(callback);
+-                                            });
+-                                        }
++                                }
++                            });
++                    break;
++                }
++                case CMD_ERASE_SUBSCRIPTIONS_WITH_OPTIONS: {
++                    mEuiccService.eraseSubscriptionsWithOptions(slotId,
++                            message.arg2 /* options */,
++                            new IEraseSubscriptionsCallback.Stub() {
++                                @Override
++                                public void onComplete(int result) {
++                                    sendMessage(CMD_COMMAND_COMPLETE, (Runnable) () -> {
++                                        ((EraseCommandCallback) callback)
++                                                .onEraseComplete(result);
++                                        onCommandEnd(callback);
+                                     });
+-                            break;
+-                        }
+-                        case CMD_START_OTA_IF_NECESSARY: {
+-                            mEuiccService.startOtaIfNecessary(slotId,
+-                                    new IOtaStatusChangedCallback.Stub() {
+-                                        @Override
+-                                        public void onOtaStatusChanged(int status)
+-                                                throws RemoteException {
+-                                            if (status == EuiccManager.EUICC_OTA_IN_PROGRESS) {
+-                                                sendMessage(CMD_COMMAND_COMPLETE, (Runnable) () -> {
+-                                                    ((OtaStatusChangedCallback) callback)
+-                                                            .onOtaStatusChanged(status);
+-                                                });
+-                                            } else {
+-                                                sendMessage(CMD_COMMAND_COMPLETE, (Runnable) () -> {
+-                                                    ((OtaStatusChangedCallback) callback)
+-                                                            .onOtaStatusChanged(status);
+-                                                    onCommandEnd(callback);
+-                                                });
+-                                            }
+-                                        }
++                                }
++                            });
++                    break;
++                }
++                case CMD_RETAIN_SUBSCRIPTIONS: {
++                    mEuiccService.retainSubscriptionsForFactoryReset(slotId,
++                            new IRetainSubscriptionsForFactoryResetCallback.Stub() {
++                                @Override
++                                public void onComplete(int result) {
++                                    sendMessage(CMD_COMMAND_COMPLETE, (Runnable) () -> {
++                                        ((RetainSubscriptionsCommandCallback) callback)
++                                                .onRetainSubscriptionsComplete(result);
++                                        onCommandEnd(callback);
+                                     });
+-                            break;
+-                        }
+-                        case CMD_DUMP_EUICC_SERVICE: {
+-                            mEuiccService.dump(new IEuiccServiceDumpResultCallback.Stub() {
++                                }
++                            });
++                    break;
++                }
++                case CMD_GET_OTA_STATUS: {
++                    mEuiccService.getOtaStatus(slotId,
++                            new IGetOtaStatusCallback.Stub() {
+                                 @Override
+-                                public void onComplete(String logs)
+-                                        throws RemoteException {
++                                public void onSuccess(@OtaStatus int status) {
+                                     sendMessage(CMD_COMMAND_COMPLETE, (Runnable) () -> {
+-                                        ((DumpEuiccServiceCommandCallback) callback)
+-                                                .onDumpEuiccServiceComplete(logs);
++                                        ((GetOtaStatusCommandCallback) callback)
++                                                .onGetOtaStatusComplete(status);
+                                         onCommandEnd(callback);
+                                     });
+                                 }
+                             });
+-                            break;
+-                        }
+-                        default: {
+-                            Log.wtf(TAG, "Unimplemented eUICC command: " + message.what);
+-                            callback.onEuiccServiceUnavailable();
+-                            onCommandEnd(callback);
+-                            return HANDLED;
++                    break;
++                }
++                case CMD_START_OTA_IF_NECESSARY: {
++                    mEuiccService.startOtaIfNecessary(slotId,
++                            new IOtaStatusChangedCallback.Stub() {
++                                @Override
++                                public void onOtaStatusChanged(int status)
++                                        throws RemoteException {
++                                    if (status == EuiccManager.EUICC_OTA_IN_PROGRESS) {
++                                        sendMessage(CMD_COMMAND_COMPLETE, (Runnable) () -> {
++                                            ((OtaStatusChangedCallback) callback)
++                                                    .onOtaStatusChanged(status);
++                                        });
++                                    } else {
++                                        sendMessage(CMD_COMMAND_COMPLETE, (Runnable) () -> {
++                                            ((OtaStatusChangedCallback) callback)
++                                                    .onOtaStatusChanged(status);
++                                            onCommandEnd(callback);
++                                        });
++                                    }
++                                }
++                            });
++                    break;
++                }
++                case CMD_DUMP_EUICC_SERVICE: {
++                    mEuiccService.dump(new IEuiccServiceDumpResultCallback.Stub() {
++                        @Override
++                        public void onComplete(String logs)
++                                throws RemoteException {
++                            sendMessage(CMD_COMMAND_COMPLETE, (Runnable) () -> {
++                                ((DumpEuiccServiceCommandCallback) callback)
++                                        .onDumpEuiccServiceComplete(logs);
++                                onCommandEnd(callback);
++                            });
+                         }
+-                    }
+-                } catch (Exception e) {
+-                    // If this is a RemoteException, we expect to be disconnected soon. For other
+-                    // exceptions, this is a bug in the EuiccService implementation, but we must
+-                    // not let it crash the phone process.
+-                    Log.w(TAG, "Exception making binder call to EuiccService", e);
++                    });
++                    break;
++                }
++                default: {
++                    Log.wtf(TAG, "Unimplemented eUICC command: " + message.what);
+                     callback.onEuiccServiceUnavailable();
+                     onCommandEnd(callback);
++                    return;
+                 }
+-
+-                return HANDLED;
+             }
++        } catch (Exception e) {
++            // If this is a RemoteException, we expect to be disconnected soon. For other
++            // exceptions, this is a bug in the EuiccService implementation, but we must
++            // not let it crash the phone process.
++            Log.w(TAG, "Exception making binder call to EuiccService", e);
++            callback.onEuiccServiceUnavailable();
++            onCommandEnd(callback);
++        }
+ 
+-            return NOT_HANDLED;
++    }
++
++    private static boolean isDeleteCommandCurrent(Message command) {
++        if (command.what != CMD_DELETE_SUBSCRIPTION) return true;
++        DeleteRequest request = (DeleteRequest) command.obj;
++        return request.mCurrent == null || request.mCurrent.getAsBoolean();
++    }
++
++    private static boolean needsHonorEndpointPreparation(int command) {
++        return command == CMD_GET_EID || command == CMD_GET_EUICC_PROFILE_INFO_LIST
++                || command == CMD_DOWNLOAD_SUBSCRIPTION || command == CMD_DELETE_SUBSCRIPTION
++                || command == CMD_SWITCH_TO_SUBSCRIPTION || command == CMD_UPDATE_SUBSCRIPTION_NICKNAME;
++    }
++
++    private static int honorPreparationPort(Message command) {
++        if (command.what == CMD_HONOR_PREPARE_ONLY) return command.arg2;
++        if (command.what == CMD_SWITCH_TO_SUBSCRIPTION) {
++            SwitchRequest request = (SwitchRequest) command.obj;
++            return request.mUsePortIndex ? command.arg2 : 0;
++        }
++        if (command.what == CMD_DOWNLOAD_SUBSCRIPTION) {
++            int port = ((DownloadRequest) command.obj).mPortIndex;
++            return port == -1 ? TelephonyManager.DEFAULT_PORT_INDEX : port; // Legacy unspecified port only.
+         }
++        return 0;
++    }
++
++    /** Capture mutable framework request fields before the StateMachine recycles its Message. */
++    private static Message copyHonorCommand(Message source) {
++        Message copy = Message.obtain(source);
++        try {
++            switch (source.what) {
++                case CMD_DOWNLOAD_SUBSCRIPTION: {
++                    DownloadRequest original = (DownloadRequest) source.obj;
++                    DownloadRequest request = new DownloadRequest();
++                    Parcel parcel = Parcel.obtain();
++                    try {
++                        original.mSubscription.writeToParcel(parcel, 0);
++                        parcel.setDataPosition(0);
++                        request.mSubscription = DownloadableSubscription.CREATOR.createFromParcel(parcel);
++                    } finally {
++                        parcel.recycle();
++                    }
++                    request.mSwitchAfterDownload = original.mSwitchAfterDownload;
++                    request.mForceDeactivateSim = original.mForceDeactivateSim;
++                    request.mCallback = original.mCallback;
++                    request.mPortIndex = original.mPortIndex;
++                    request.mResolvedBundle = original.mResolvedBundle == null
++                            ? null : original.mResolvedBundle.deepCopy();
++                    copy.obj = request;
++                    break;
++                }
++                case CMD_SWITCH_TO_SUBSCRIPTION: {
++                    SwitchRequest original = (SwitchRequest) source.obj;
++                    SwitchRequest request = new SwitchRequest();
++                    request.mIccid = original.mIccid;
++                    request.mForceDeactivateSim = original.mForceDeactivateSim;
++                    request.mCallback = original.mCallback;
++                    request.mUsePortIndex = original.mUsePortIndex;
++                    copy.obj = request;
++                    break;
++                }
++                case CMD_DELETE_SUBSCRIPTION: {
++                    DeleteRequest original = (DeleteRequest) source.obj;
++                    DeleteRequest request = new DeleteRequest();
++                    request.mIccid = original.mIccid; request.mCallback = original.mCallback;
++                    request.mCurrent = original.mCurrent;
++                    copy.obj = request;
++                    break;
++                }
++                case CMD_UPDATE_SUBSCRIPTION_NICKNAME: {
++                    UpdateNicknameRequest original = (UpdateNicknameRequest) source.obj;
++                    UpdateNicknameRequest request = new UpdateNicknameRequest();
++                    request.mIccid = original.mIccid; request.mNickname = original.mNickname;
++                    request.mCallback = original.mCallback;
++                    copy.obj = request;
++                    break;
++                }
++                default: break; // Read callbacks have no mutable command payload.
++            }
++            return copy;
++        } catch (RuntimeException malformed) {
++            copy.recycle();
++            throw malformed;
++        }
++    }
+ 
+-        @Override
+-        public void exit() {
+-            removeMessages(CMD_LINGER_TIMEOUT);
+-            // Dispatch callbacks for all in-flight commands; they will no longer succeed. (The
+-            // remote process cannot possibly trigger a callback at this stage because the
+-            // connection has dropped).
+-            for (BaseEuiccCommandCallback callback : mActiveCommandCallbacks) {
+-                callback.onEuiccServiceUnavailable();
++    private void startHonorEndpointPreparation(Message command, BaseEuiccCommandCallback callback) {
++        int port = honorPreparationPort(command);
++        if (command.arg1 < 0 || port != 0 || mEuiccService == null
++                || mSelectedComponent == null || mSelectedComponent.applicationInfo == null) {
++            callback.onEuiccServiceUnavailable();
++            onCommandEnd(callback);
++            return;
++        }
++        final HonorPreparation request;
++        try {
++            request = new HonorPreparation(command, callback, mEuiccService,
++                    mSelectedComponent, port, mHonorBindingGeneration);
++        } catch (RuntimeException malformed) {
++            callback.onEuiccServiceUnavailable();
++            onCommandEnd(callback);
++            return;
++        }
++        mHonorPreparations.add(request);
++        request.timeout = () -> finishHonorEndpointPreparation(new HonorPreparationResult(request,
++                HonorEuiccEndpointPreparation.Result.REFUSED));
++        if (!getHandler().postDelayed(request.timeout, HONOR_ENDPOINT_PREPARE_TIMEOUT_MILLIS)) {
++            finishHonorEndpointPreparation(new HonorPreparationResult(request,
++                    HonorEuiccEndpointPreparation.Result.REFUSED));
++            return;
++        }
++        HonorEuiccEndpointPreparation.prepare(request.command.arg1, port, request.uid,
++                () -> request.active && isDeleteCommandCurrent(request.command)
++                        && (request.command.what != CMD_HONOR_PREPARE_ONLY
++                        || ((HonorPrepareOnly) request.command.obj).current.getAsBoolean()), result -> {
++                    if (request.active) sendMessage(CMD_HONOR_ENDPOINT_PREPARED,
++                            new HonorPreparationResult(request, result));
++                });
++    }
++
++    private void finishHonorEndpointPreparation(HonorPreparationResult completion) {
++        HonorPreparation request = completion.request;
++        if (!mHonorPreparations.remove(request)) return;
++        getHandler().removeCallbacks(request.timeout);
++        boolean current = request.active && isDeleteCommandCurrent(request.command)
++                && (request.command.what != CMD_HONOR_PREPARE_ONLY
++                    || ((HonorPrepareOnly) request.command.obj).current.getAsBoolean())
++                && getCurrentState() == mConnectedState
++                && request.generation == mHonorBindingGeneration && mEuiccService == request.service
++                && mSelectedComponent != null && mSelectedComponent.applicationInfo != null
++                && request.uid == mSelectedComponent.applicationInfo.uid
++                && request.component.equals(new ComponentName(
++                        mSelectedComponent.packageName, mSelectedComponent.name))
++                && request.service.asBinder() != null && request.service.asBinder().isBinderAlive();
++        request.active = false; // Observation expiry never releases an Owner read fence.
++        try {
++            if (request.command.what == CMD_HONOR_PREPARE_ONLY) {
++                HonorEuiccEndpointPreparation.Result result = current ? completion.result
++                        : HonorEuiccEndpointPreparation.Result.REFUSED;
++                if (result == HonorEuiccEndpointPreparation.Result.READY
++                        && currentHonorSlotForCard(request.command.arg1, request.port) < 0)
++                    result = HonorEuiccEndpointPreparation.Result.REFUSED;
++                ((HonorPrepareCallback) request.callback).onPrepared(result);
++                onCommandEnd(request.callback);
++                return;
+             }
+-            mActiveCommandCallbacks.clear();
++            int slot = current && completion.result == HonorEuiccEndpointPreparation.Result.READY
++                    ? currentHonorSlotForCard(request.command.arg1, request.port)
++                    : SubscriptionManager.INVALID_SIM_SLOT_INDEX;
++            if (slot < 0) {
++                request.callback.onEuiccServiceUnavailable();
++                onCommandEnd(request.callback);
++                return;
++            }
++            dispatchEuiccCommand(request.command, slot, request.callback);
++        } finally {
++            request.command.recycle();
+         }
+     }
+ 
++    /** A genuine current card can outlive a missing slot-status EID string. Never guess a slot. */
++    int currentHonorSlotForCard(int cardId, int port) {
++        if (cardId < 0 || port != 0 || mTm.getCardIdForDefaultEuicc() != cardId)
++            return SubscriptionManager.INVALID_SIM_SLOT_INDEX;
++        UiccCardInfo target = null;
++        List<UiccCardInfo> cards = mTm.getUiccCardsInfo();
++        if (cards == null) return SubscriptionManager.INVALID_SIM_SLOT_INDEX;
++        for (UiccCardInfo card : cards) {
++            if (card.getCardId() != cardId) continue;
++            if (target != null) return SubscriptionManager.INVALID_SIM_SLOT_INDEX;
++            target = card;
++        }
++        String original = UiccController.getInstance().convertToCardString(cardId);
++        if (target == null || !target.isEuicc() || target.getPhysicalSlotIndex() != 1
++                || target.getEid() == null || !target.getEid().matches("[0-9]{32}")
++                || !IccUtils.compareIgnoreTrailingFs(original, target.getEid()))
++            return SubscriptionManager.INVALID_SIM_SLOT_INDEX;
++        long matchingPorts = target.getPorts().stream().filter(candidate ->
++                candidate.getPortIndex() == port && candidate.isActive()
++                        && candidate.getLogicalSlotIndex() == 1).count();
++        if (matchingPorts != 1) return SubscriptionManager.INVALID_SIM_SLOT_INDEX;
++        int slotStatusMapping = getSlotIdFromCardId(cardId);
++        if (slotStatusMapping >= 0 && slotStatusMapping != target.getPhysicalSlotIndex())
++            return SubscriptionManager.INVALID_SIM_SLOT_INDEX;
++        return target.getPhysicalSlotIndex();
++    }
++
+     private static BaseEuiccCommandCallback getCallback(Message message) {
+         switch (message.what) {
++            case CMD_HONOR_PREPARE_ONLY:
++                return ((HonorPrepareOnly) message.obj).callback;
+             case CMD_GET_EID:
+             case CMD_GET_EUICC_PROFILE_INFO_LIST:
+             case CMD_GET_EUICC_INFO:
+@@ -1293,6 +1585,10 @@ public class EuiccConnector extends StateMachine implements ServiceConnection {
+ 
+     @Override
+     protected void unhandledMessage(Message msg) {
++        // A result already queued when the binding ended is an expected terminal observation.
++        if (msg.what == CMD_HONOR_ENDPOINT_PREPARED
++                && msg.obj instanceof HonorPreparationResult completion
++                && !completion.request.active) return;
+         IState state = getCurrentState();
+         Log.wtf(TAG, "Unhandled message " + msg.what + " in state "
+                 + (state == null ? "null" : state.getName()));
+diff --git a/src/java/com/android/internal/telephony/euicc/EuiccController.java b/src/java/com/android/internal/telephony/euicc/EuiccController.java
+index 2c81fb0..9cdcab5 100644
+--- a/src/java/com/android/internal/telephony/euicc/EuiccController.java
++++ b/src/java/com/android/internal/telephony/euicc/EuiccController.java
+@@ -72,6 +72,7 @@ import com.android.internal.telephony.PhoneFactory;
+ import com.android.internal.telephony.euicc.EuiccConnector.OtaStatusChangedCallback;
+ import com.android.internal.telephony.flags.FeatureFlags;
+ import com.android.internal.telephony.subscription.SubscriptionManagerService;
++import com.android.internal.telephony.subscription.SubscriptionInfoInternal;
+ import com.android.internal.telephony.uicc.IccUtils;
+ import com.android.internal.telephony.uicc.UiccController;
+ import com.android.internal.telephony.uicc.UiccPort;
+@@ -89,6 +90,7 @@ import java.util.UUID;
+ import java.util.concurrent.CountDownLatch;
+ import java.util.concurrent.TimeUnit;
+ import java.util.concurrent.atomic.AtomicReference;
++import java.util.concurrent.atomic.AtomicBoolean;
+ import java.util.stream.Collectors;
+ 
+ /** Backing implementation of {@link android.telephony.euicc.EuiccManager}. */
+@@ -1111,7 +1113,17 @@ public class EuiccController extends IEuiccController.Stub {
+                 return;
+             }
+ 
+-            deleteSubscriptionPrivileged(cardId, sub.getIccId(), callbackIntent);
++            boolean honorDelete = "LDY-AN00".equals(Build.MODEL)
++                    && "ldy_an00".equals(Build.DEVICE) && "mt6993".equals(Build.HARDWARE)
++                    && SystemProperties.getBoolean("ro.lineage.ldy_an00.esim_bridge", false);
++            SubscriptionInfoInternal target = honorDelete
++                    ? SubscriptionManagerService.getInstance().captureHonorDeletedProfile(
++                            cardId, subscriptionId, sub.getIccId()) : null;
++            if (honorDelete && target == null) {
++                sendResult(callbackIntent, ERROR, null);
++                return;
++            }
++            deleteSubscriptionPrivileged(cardId, sub.getIccId(), callbackIntent, target);
+         } finally {
+             Binder.restoreCallingIdentity(token);
+         }
+@@ -1119,19 +1131,41 @@ public class EuiccController extends IEuiccController.Stub {
+ 
+     void deleteSubscriptionPrivileged(int cardId, String iccid,
+             final PendingIntent callbackIntent) {
+-        mConnector.deleteSubscription(
+-                cardId,
+-                iccid,
++        deleteSubscriptionPrivileged(cardId, iccid, callbackIntent, null);
++    }
++
++    private void deleteSubscriptionPrivileged(int cardId, String iccid,
++            final PendingIntent callbackIntent, @Nullable SubscriptionInfoInternal target) {
++        AtomicBoolean current = new AtomicBoolean(true);
++        PendingIntent.CancelListener canceled = ignored -> current.set(false);
++        if (target != null && (!callbackIntent.addCancelListener(Runnable::run, canceled)
++                || !current.get())) {
++            callbackIntent.removeCancelListener(canceled);
++            return;
++        }
++        AtomicBoolean terminal = new AtomicBoolean();
++        EuiccConnector.DeleteCommandCallback completion =
+                 new EuiccConnector.DeleteCommandCallback() {
+                     @Override
+                     public void onDeleteComplete(int result) {
++                        if (target != null) {
++                            if (!terminal.compareAndSet(false, true)) return;
++                            callbackIntent.removeCancelListener(canceled);
++                        }
++                        // Actual LPA success remains authoritative even after UI cancellation.
+                         Intent extrasIntent = new Intent();
+                         final int resultCode;
+                         switch (result) {
+                             case EuiccService.RESULT_OK:
+                                 resultCode = OK;
+-                                refreshSubscriptionsAndSendResult(
+-                                        callbackIntent, resultCode, extrasIntent);
++                                if (target != null) {
++                                    SubscriptionManagerService.getInstance().onHonorProfileDeleted(
++                                            target, () -> sendResult(
++                                                    callbackIntent, OK, extrasIntent));
++                                } else {
++                                    refreshSubscriptionsAndSendResult(
++                                            callbackIntent, resultCode, extrasIntent);
++                                }
+                                 return;
+                             default:
+                                 resultCode = ERROR;
+@@ -1144,9 +1178,18 @@ public class EuiccController extends IEuiccController.Stub {
+ 
+                     @Override
+                     public void onEuiccServiceUnavailable() {
++                        if (target != null) {
++                            if (!terminal.compareAndSet(false, true)) return;
++                            callbackIntent.removeCancelListener(canceled);
++                        }
+                         sendResult(callbackIntent, ERROR, null /* extrasIntent */);
+                     }
+-                });
++                };
++        if (target != null) {
++            mConnector.deleteSubscription(cardId, iccid, current::get, completion);
++        } else {
++            mConnector.deleteSubscription(cardId, iccid, completion);
++        }
+     }
+ 
+     @Override
+@@ -1167,8 +1210,9 @@ public class EuiccController extends IEuiccController.Stub {
+     void switchToSubscription(int cardId, int subscriptionId, int portIndex,
+             boolean forceDeactivateSim, String callingPackage, PendingIntent callbackIntent,
+             boolean usePortIndex) {
++        final int originalUid = Binder.getCallingUid();
+         boolean callerCanWriteEmbeddedSubscriptions = callerCanWriteEmbeddedSubscriptions();
+-        mAppOpsManager.checkPackage(Binder.getCallingUid(), callingPackage);
++        mAppOpsManager.checkPackage(originalUid, callingPackage);
+         // Resolve the portIndex internally if apps targeting T and beyond are calling
+         // switchToSubscription API without portIndex.
+         boolean shouldResolvePortIndex = isCompatChangeEnabled(callingPackage,
+@@ -1238,6 +1282,10 @@ public class EuiccController extends IEuiccController.Stub {
+                 if (usePortIndex) {
+                     boolean hasValidPortIndex = isTargetPortIndexValid(cardId, portIndex);
+                     if (!hasValidPortIndex) {
++                        if (callerCanWriteEmbeddedSubscriptions && passConsent
++                                && prepareNativeSettingsSwitch(cardId, subscriptionId, portIndex,
++                                    iccid, forceDeactivateSim, callingPackage, originalUid, token,
++                                    callbackIntent, usePortIndex)) return;
+                         // Return permanent error.
+                         Log.e(TAG, "Not permitted to switch to invalid portIndex");
+                         Intent extrasIntent = new Intent();
+@@ -1280,6 +1328,109 @@ public class EuiccController extends IEuiccController.Stub {
+         }
+     }
+ 
++    /** Explicit UID checks: async callbacks run as Phone, never as the original Binder caller. */
++    private boolean nativeSettingsSwitchCaller(int uid, String pkg) {
++        if (!HonorEuiccEndpointPreparation.isQualifiedDevice() || UserHandle.getUserId(uid) != 0
++                || !"com.android.settings".equals(pkg)) return false;
++        UserManager users = mContext.getSystemService(UserManager.class);
++        if (users == null || !users.isUserUnlocked()
++                || users.hasUserRestriction(UserManager.DISALLOW_CONFIG_MOBILE_NETWORKS))
++            return false;
++        try {
++            mAppOpsManager.checkPackage(uid, pkg);
++            return mPackageManager.getApplicationInfo(pkg, 0).uid == uid
++                    && mPackageManager.checkSignatures("android", pkg)
++                        == PackageManager.SIGNATURE_MATCH
++                    && mContext.checkPermission(permission.WRITE_EMBEDDED_SUBSCRIPTIONS, -1, uid)
++                        == PackageManager.PERMISSION_GRANTED
++                    && mContext.checkPermission(permission.MODIFY_PHONE_STATE, -1, uid)
++                        == PackageManager.PERMISSION_GRANTED;
++        } catch (PackageManager.NameNotFoundException | SecurityException denied) {
++            return false;
++        }
++    }
++
++    private boolean prepareNativeSettingsSwitch(int cardId, int subId, int port, String iccid,
++            boolean forceDeactivate, String pkg, int originalUid, long callingToken,
++            PendingIntent callback, boolean usePort) {
++        if (cardId < 0 || port != TelephonyManager.DEFAULT_PORT_INDEX
++                || !nativeSettingsSwitchCaller(originalUid, pkg)) return false;
++        SubscriptionInfo original = getSubscriptionForSubscriptionId(subId);
++        if (original == null || !original.isEmbedded() || original.getCardId() != cardId
++                || TextUtils.isEmpty(iccid) || !TextUtils.equals(iccid, original.getIccId())) return false;
++        // Only missing identity/endpoint can be prepared. A genuinely invalid mapped port keeps
++        // its normal error, including SS/DSDS and port-count constraints.
++        if (mConnector.currentHonorSlotForCard(cardId, port) >= 0) return false;
++        AtomicBoolean pending = new AtomicBoolean(true);
++        PendingIntent.CancelListener cancellation = ignored -> pending.set(false);
++        try {
++            // false means already cancelled, not an installed observer or permission to query.
++            if (!callback.addCancelListener(Runnable::run, cancellation)) {
++                pending.set(false);
++                callback.removeCancelListener(cancellation);
++                return true;
++            }
++            mConnector.prepareHonorEndpoint(cardId, port, pending::get,
++                new EuiccConnector.HonorPrepareCallback() {
++                    @Override public void onPrepared(HonorEuiccEndpointPreparation.Result result) {
++                        callback.removeCancelListener(cancellation);
++                        // This CAS reserves dispatch. Later cancellation cannot undo an admitted
++                        // native mutation; earlier cancellation prevents this continuation.
++                        if (!pending.compareAndSet(true, false)) return;
++                        SubscriptionInfo current = getSubscriptionForSubscriptionId(subId);
++                        if (result != HonorEuiccEndpointPreparation.Result.READY
++                                || !nativeSettingsSwitchCaller(originalUid, pkg)
++                                || current == null || !current.isEmbedded()
++                                || current.getCardId() != cardId
++                                || !TextUtils.equals(iccid, current.getIccId())
++                                || !isTargetPortIndexValid(cardId, port)) {
++                            sendResult(callback, ERROR, null);
++                            return;
++                        }
++                        // Already authorized native Settings continuation. Do not recurse through
++                        // the Binder entry or restore its opaque identity token on this thread.
++                        switchToSubscriptionPrivileged(cardId, port, callingToken, subId, iccid,
++                                forceDeactivate, pkg, callback, usePort);
++                    }
++                    @Override public void onEuiccServiceUnavailable() {
++                        callback.removeCancelListener(cancellation);
++                        if (pending.compareAndSet(true, false)) sendResult(callback, ERROR, null);
++                    }
++                });
++        } catch (RuntimeException unavailable) {
++            callback.removeCancelListener(cancellation);
++            if (pending.compareAndSet(true, false)) sendResult(callback, ERROR, null);
++        }
++        return true;
++    }
++
++    public void prepareHonorProfileEndpoint(int originalUid, String pkg, int subId, int cardId,
++            int port, java.util.function.BooleanSupplier current,
++            java.util.function.Consumer<HonorEuiccEndpointPreparation.Result> reply) {
++        SubscriptionInfo sub = getSubscriptionForSubscriptionId(subId);
++        if (!nativeSettingsSwitchCaller(originalUid, pkg) || cardId < 0 || port != 0
++                || sub == null || !sub.isEmbedded() || sub.getCardId() != cardId
++                || TextUtils.isEmpty(sub.getIccId()) || !current.getAsBoolean()) {
++            reply.accept(HonorEuiccEndpointPreparation.Result.REFUSED);
++            return;
++        }
++        final String iccid = sub.getIccId();
++        mConnector.prepareHonorEndpoint(cardId, port, current,
++                new EuiccConnector.HonorPrepareCallback() {
++                    @Override public void onPrepared(HonorEuiccEndpointPreparation.Result result) {
++                        SubscriptionInfo fresh = getSubscriptionForSubscriptionId(subId);
++                        reply.accept(current.getAsBoolean()
++                                && nativeSettingsSwitchCaller(originalUid, pkg)
++                                && fresh != null && fresh.isEmbedded() && fresh.getCardId() == cardId
++                                && TextUtils.equals(iccid, fresh.getIccId()) ? result
++                                : HonorEuiccEndpointPreparation.Result.REFUSED);
++                    }
++                    @Override public void onEuiccServiceUnavailable() {
++                        reply.accept(HonorEuiccEndpointPreparation.Result.REFUSED);
++                    }
++                });
++    }
++
+     /**
+      * Returns the resolved portIndex or {@link TelephonyManager#INVALID_PORT_INDEX} if calling
+      * cannot manage any active subscription.
+@@ -1392,6 +1543,8 @@ public class EuiccController extends IEuiccController.Stub {
+             return false;
+         }
+         int slotIndex = getSlotIndexFromCardId(cardId);
++        if (slotIndex < 0 && HonorEuiccEndpointPreparation.isQualifiedDevice())
++            slotIndex = mConnector.currentHonorSlotForCard(cardId, targetPortIndex);
+         UiccSlot slot = UiccController.getInstance().getUiccSlot(slotIndex);
+         if (slot == null || slot.getPortList().length == 0
+                 || targetPortIndex >= slot.getPortList().length) {
+diff --git a/src/java/com/android/internal/telephony/euicc/HonorEuiccEndpointPreparation.java b/src/java/com/android/internal/telephony/euicc/HonorEuiccEndpointPreparation.java
+new file mode 100644
+index 0000000..731e9ae
+--- /dev/null
++++ b/src/java/com/android/internal/telephony/euicc/HonorEuiccEndpointPreparation.java
+@@ -0,0 +1,55 @@
++/*
++ * Copyright (C) 2026 The LineageOS Project
++ * SPDX-License-Identifier: Apache-2.0
++ */
++package com.android.internal.telephony.euicc;
++
++import android.app.Application;
++import android.os.Build;
++import android.os.Process;
++import android.os.SELinux;
++import android.os.SystemProperties;
++import java.util.function.BooleanSupplier;
++import java.util.function.Consumer;
++
++/** One in-process Phone-owned restoration hook. No Binder service, radio client or lease. */
++public final class HonorEuiccEndpointPreparation {
++    public enum Result { NO_HISTORY, READY, REFUSED }
++    public interface Restorer {
++        void prepare(int cardId, int port, int selectedLpaUid, BooleanSupplier requestCurrent,
++                Consumer<Result> reply);
++    }
++    private static volatile Restorer restorer;
++
++    private HonorEuiccEndpointPreparation() {}
++
++    static boolean isQualifiedDevice() {
++        return "LDY-AN00".equals(Build.MODEL) && "ldy_an00".equals(Build.DEVICE)
++                && SystemProperties.getBoolean("ro.lineage.ldy_an00.esim_bridge", false);
++    }
++
++    /** Installed once by the already-qualified real Owner, never by binding or a UI snapshot. */
++    public static synchronized void install(Restorer provider) {
++        if (!isQualifiedDevice() || Process.myUid() != 1001
++                || !"com.android.phone".equals(Application.getProcessName())
++                || !"u:r:radio:s0".equals(SELinux.getContext()))
++            throw new SecurityException("Phone radio process required");
++        if (restorer != null || provider == null)
++            throw new IllegalStateException("Endpoint restorer already installed or invalid");
++        restorer = provider;
++    }
++
++    static void prepare(int cardId, int port, int selectedLpaUid, BooleanSupplier requestCurrent,
++            Consumer<Result> reply) {
++        Restorer current = restorer;
++        if (current == null) {
++            reply.accept(Result.NO_HISTORY);
++            return;
++        }
++        try {
++            current.prepare(cardId, port, selectedLpaUid, requestCurrent, reply);
++        } catch (RuntimeException refused) {
++            reply.accept(Result.REFUSED);
++        }
++    }
++}
+diff --git a/src/java/com/android/internal/telephony/subscription/SubscriptionDatabaseManager.java b/src/java/com/android/internal/telephony/subscription/SubscriptionDatabaseManager.java
+index 181a996..cbc903a 100644
+--- a/src/java/com/android/internal/telephony/subscription/SubscriptionDatabaseManager.java
++++ b/src/java/com/android/internal/telephony/subscription/SubscriptionDatabaseManager.java
+@@ -1375,6 +1375,29 @@ public class SubscriptionDatabaseManager extends Handler {
+         setEmbedded(subId, isEmbedded ? 1 : 0);
+     }
+ 
++    /** Compare and retire only the confirmed deleted profile under the existing cache write lock. */
++    boolean markEmbeddedProfileDeleted(@NonNull SubscriptionInfoInternal expected) {
++        mReadWriteLock.writeLock().lock();
++        try {
++            SubscriptionInfoInternal current = mAllSubscriptionInfoInternalCache.get(
++                    expected.getSubscriptionId());
++            if (current == null || !expected.isEmbedded() || !current.isEmbedded()
++                    || expected.getCardId() < 0 || expected.getIccId().isEmpty()
++                    || !expected.getCardString().matches("[0-9]{32}")
++                    || current.getCardId() != expected.getCardId()
++                    || !current.getCardString().equals(expected.getCardString())
++                    || !current.getIccId().equals(expected.getIccId())) {
++                return false;
++            }
++            // Reentrant lock: the standard setter preserves all other fields and DB semantics.
++            setEmbedded(current.getSubscriptionId(), false);
++            return !mAllSubscriptionInfoInternalCache.get(
++                    current.getSubscriptionId()).isEmbedded();
++        } finally {
++            mReadWriteLock.writeLock().unlock();
++        }
++    }
++
+     /**
+      * Set the card string of the SIM card. This is usually the ICCID or EID.
+      *
+diff --git a/src/java/com/android/internal/telephony/subscription/SubscriptionManagerService.java b/src/java/com/android/internal/telephony/subscription/SubscriptionManagerService.java
+index 9eb5daf..83fe2aa 100644
+--- a/src/java/com/android/internal/telephony/subscription/SubscriptionManagerService.java
++++ b/src/java/com/android/internal/telephony/subscription/SubscriptionManagerService.java
+@@ -1498,11 +1498,68 @@ public class SubscriptionManagerService extends ISub.Stub {
+      */
+     public void updateEmbeddedSubscriptions(@NonNull List<Integer> cardIds,
+             @Nullable Runnable callback) {
++        updateEmbeddedSubscriptions(cardIds, callback, null);
++    }
++
++    private static boolean isHonorDeletePublicationDevice() {
++        return "LDY-AN00".equals(Build.MODEL) && "ldy_an00".equals(Build.DEVICE)
++                && "mt6993".equals(Build.HARDWARE)
++                && SystemProperties.getBoolean("ro.lineage.ldy_an00.esim_bridge", false);
++    }
++
++    /** Internal snapshot for a real, permission-checked DELETE; not live endpoint admission. */
++    @Nullable
++    public SubscriptionInfoInternal captureHonorDeletedProfile(int cardId, int subId,
++            @NonNull String iccid) {
++        if (!isHonorDeletePublicationDevice() || cardId < 0 || subId < 0 || iccid.isEmpty()) {
++            return null;
++        }
++        SubscriptionInfoInternal target = mSubscriptionDatabaseManager
++                .getSubscriptionInfoInternal(subId);
++        return target != null && target.isEmbedded() && target.getCardId() == cardId
++                && target.getIccId().equals(iccid)
++                && target.getCardString().matches("[0-9]{32}")
++                && target.getCardString().equals(mUiccController.convertToCardString(cardId))
++                ? target : null;
++    }
++
++    /** Publish only a trusted successful DELETE, then request real inventory on its original card. */
++    public void onHonorProfileDeleted(@NonNull SubscriptionInfoInternal target,
++            @NonNull Runnable callback) {
++        mHandler.post(() -> {
++            if (!isHonorDeletePublicationDevice()) {
++                callback.run();
++                return;
++            }
++            try {
++                mSubscriptionDatabaseManager.markEmbeddedProfileDeleted(target);
++            } catch (RuntimeException e) {
++                loge("Target publication failed after successful DELETE");
++            }
++            updateEmbeddedSubscriptions(List.of(target.getCardId()), callback, target);
++        });
++    }
++
++    private boolean canRefreshHonorDeletedCard(SubscriptionInfoInternal target) {
++        if (!isHonorDeletePublicationDevice() || target.getCardId() < 0
++                || !target.getCardString().matches("[0-9]{32}")
++                || !target.getCardString().equals(
++                        mUiccController.convertToCardString(target.getCardId()))) return false;
++        EuiccManager manager = mEuiccManager == null ? null
++                : mEuiccManager.createForCardId(target.getCardId());
++        // isEnabled here proves only an addressable Controller. Connector still proves the endpoint.
++        return manager != null && manager.isEnabled();
++    }
++
++    private void updateEmbeddedSubscriptions(@NonNull List<Integer> cardIds,
++            @Nullable Runnable callback, @Nullable SubscriptionInfoInternal deletedTarget) {
+         // Run this on a background thread.
+-        mBackgroundHandler.post(() -> {
++        Runnable update = () -> {
+             // Do nothing if eUICCs are disabled. (Previous entries may remain in the cache, but
+             // they are filtered out of list calls as long as EuiccManager.isEnabled returns false).
+-            if (mEuiccManager == null || !mEuiccManager.isEnabled() || mEuiccController == null) {
++            if (mEuiccController == null || (deletedTarget == null
++                    ? mEuiccManager == null || !mEuiccManager.isEnabled()
++                    : !canRefreshHonorDeletedCard(deletedTarget))) {
+                 loge("updateEmbeddedSubscriptions: eUICC not enabled");
+                 if (callback != null) {
+                     callback.run();
+@@ -1538,6 +1595,14 @@ public class SubscriptionManagerService extends ISub.Stub {
+                     continue;
+                 }
+ 
++                if (deletedTarget != null && !canRefreshHonorDeletedCard(deletedTarget)) {
++                    // Card identity changed during the actual query; publish no inventory on it.
++                    continue;
++                }
++                if (deletedTarget != null && result.getProfiles() == null) {
++                    // A null profile array is not authoritative empty-card inventory.
++                    continue;
++                }
+                 isProfileUpdateSuccessful = true;
+ 
+                 if (result.getProfiles() == null || result.getProfiles().isEmpty()) {
+@@ -1641,12 +1706,19 @@ public class SubscriptionManagerService extends ISub.Stub {
+                 // behavior) and they don't show up in Settings SIM page.
+                 mSubscriptionDatabaseManager.getAllSubscriptions().stream()
+                         .filter(SubscriptionInfoInternal::isEmbedded)
++                        .filter(subInfo -> deletedTarget == null
++                                || (subInfo.getCardId() == deletedTarget.getCardId()
++                                && subInfo.getCardString().equals(deletedTarget.getCardString())))
+                         .filter(subInfo -> !embeddedSubs.contains(subInfo.getSubscriptionId()))
+                         .forEach(subInfo -> {
+                             logl("updateEmbeddedSubscriptions: Mark the deleted sub "
+                                     + subInfo.getSubscriptionId() + " as non-embedded.");
+-                            mSubscriptionDatabaseManager.setEmbedded(
+-                                    subInfo.getSubscriptionId(), false);
++                            if (deletedTarget == null) {
++                                mSubscriptionDatabaseManager.setEmbedded(
++                                        subInfo.getSubscriptionId(), false);
++                            } else {
++                                mSubscriptionDatabaseManager.markEmbeddedProfileDeleted(subInfo);
++                            }
+                         });
+                 if (mSubscriptionDatabaseManager.getAllSubscriptions().stream()
+                         .anyMatch(subInfo -> subInfo.isEmbedded()
+@@ -1671,6 +1743,16 @@ public class SubscriptionManagerService extends ISub.Stub {
+                     callback.run();
+                 }
+             });
++        };
++        mBackgroundHandler.post(() -> {
++            try {
++                update.run();
++            } catch (RuntimeException e) {
++                if (deletedTarget == null) throw e;
++                // Metadata failure does not turn an already committed DELETE into a failed mutation.
++                loge("Original-card inventory failed after successful DELETE");
++                if (callback != null) mHandler.post(callback);
++            }
+         });
+     }
+ 
+@@ -2530,7 +2612,25 @@ public class SubscriptionManagerService extends ISub.Stub {
+                     "getAvailableSubscriptionInfoList");
+         }
+ 
+-        return getAvailableSubscriptionsInternalStream()
++        Stream<SubscriptionInfoInternal> available = getAvailableSubscriptionsInternalStream();
++        if ("LDY-AN00".equals(Build.MODEL) && "ldy_an00".equals(Build.DEVICE)
++                && "mt6993".equals(Build.HARDWARE)
++                && SystemProperties.getBoolean("ro.lineage.ldy_an00.esim_bridge", false)
++                && mTelephonyManager.getCardIdForDefaultEuicc()
++                        == TelephonyManager.UNINITIALIZED_CARD_ID) {
++            // The shared route may hide a genuine stored eUICC while SIM2 is selected.
++            // These are last-known profile records, not a live card or activation permission.
++            available = Stream.concat(available,
++                    mSubscriptionDatabaseManager.getAllSubscriptions().stream()
++                            .filter(sub -> !sub.isActive() && sub.isEmbedded()
++                                    && sub.getSubscriptionId() >= 0 && sub.getCardId() >= 0
++                                    && !TextUtils.isEmpty(sub.getIccId())
++                                    && sub.getCardString().matches("[0-9]{32}")))
++                    .collect(Collectors.toMap(SubscriptionInfoInternal::getSubscriptionId,
++                            sub -> sub, (first, duplicate) -> first))
++                    .values().stream();
++        }
++        return available
+                 .sorted(Comparator.comparing(SubscriptionInfoInternal::getSimSlotIndex)
+                         .thenComparing(SubscriptionInfoInternal::getSubscriptionId))
+                 .map(SubscriptionInfoInternal::toSubscriptionInfo)
+diff --git a/src/java/com/android/internal/telephony/uicc/HonorChannelReclamation.java b/src/java/com/android/internal/telephony/uicc/HonorChannelReclamation.java
+new file mode 100644
+index 0000000..9d17c69
+--- /dev/null
++++ b/src/java/com/android/internal/telephony/uicc/HonorChannelReclamation.java
+@@ -0,0 +1,127 @@
++/* Copyright (C) 2026 The LineageOS Project. SPDX-License-Identifier: Apache-2.0 */
++package com.android.internal.telephony.uicc;
++
++/** Single-old-handle state used by the captured scoped-channel helper.
++ * Context facts come from the trusted Phone lease/controller; this is not authentication.
++ * Only the fresh captured handle may be closed. No action ever closes the old modem integer.
++ */
++final class HonorChannelReclamation {
++    enum State { NEW, OPENING, UNLINKING_OLD, READING_FRESH, CLOSING_FRESH, RECONCILING, READY, STOP }
++    enum Action { NONE, OPEN_FRESH, UNLINK_EXACT_OLD_RECORD, READ_FRESH, CLOSE_FRESH, RECONCILE, READY, STOP }
++    static final class Context {
++        final Object lease,client,oldHandle,record,port,profile,ci,nativeStep;
++        final long radioEpoch,routeSerial;
++        // operationKind is native ENABLE=2/DISABLE=3/DELETE=4, NOT the outer lease workflow.
++        final int physicalSlot,portIndex,cardId,operationKind;
++        private final String eid;
++        final boolean ownedMode1,readyDefaultPort,positiveResetStep,singleOldHandle,othersClosed,clientAlive;
++        Context(Object lease,Object client,Object oldHandle,Object record,Object port,Object profile,
++                Object ci,Object nativeStep,long radioEpoch,long routeSerial,int physicalSlot,
++                int portIndex,int cardId,String eid,boolean ownedMode1,boolean readyDefaultPort,
++                boolean positiveResetStep,boolean singleOldHandle,boolean othersClosed,boolean clientAlive,int operationKind) {
++            this.lease=lease;this.client=client;this.oldHandle=oldHandle;this.record=record;
++            this.port=port;this.profile=profile;this.ci=ci;this.nativeStep=nativeStep;
++            this.radioEpoch=radioEpoch;this.routeSerial=routeSerial;this.physicalSlot=physicalSlot;
++            this.portIndex=portIndex;this.cardId=cardId;this.eid=eid;this.ownedMode1=ownedMode1;
++            this.readyDefaultPort=readyDefaultPort;this.positiveResetStep=positiveResetStep;
++            this.singleOldHandle=singleOldHandle;this.othersClosed=othersClosed;this.clientAlive=clientAlive;
++            this.operationKind=operationKind;
++        }
++        private boolean valid() {
++            if(lease==null || client==null || oldHandle==null || record==null || port==null
++                    || profile==null || ci==null || nativeStep==null || radioEpoch<=0 || routeSerial<=0
++                    || physicalSlot!=1 || portIndex<0 || cardId<0 || !ownedMode1 || !readyDefaultPort
++                    || operationKind<2 || operationKind>4 || !positiveResetStep || !singleOldHandle || !othersClosed || !clientAlive || eid==null || eid.length()!=32)
++                return false;
++            for(int i=0;i<eid.length();i++) if(eid.charAt(i)<'0' || eid.charAt(i)>'9') return false;
++            return true;
++        }
++        private boolean same(Context other) {
++            return other!=null && valid() && other.valid() && lease==other.lease
++                    && client==other.client && oldHandle==other.oldHandle && record==other.record
++                    && port==other.port && profile==other.profile && ci==other.ci
++                    && nativeStep==other.nativeStep && operationKind==other.operationKind && radioEpoch==other.radioEpoch
++                    && physicalSlot==other.physicalSlot && portIndex==other.portIndex
++                    && cardId==other.cardId && eid.equals(other.eid) && other.routeSerial>=routeSerial;
++        }
++        @Override public String toString() {return "ReclamationContext[identifiers omitted]";}
++    }
++    private final HonorScopedChannelState old;
++    private final Context expected;
++    private final int oldId;
++    private final long deadline;
++    private State state=State.NEW;
++    private Object reservation,openToken,readToken,closeToken,freshHandle;
++    private HonorScopedChannelState freshState;
++    private boolean sameId,readVerified;
++    private long lastNow,postCloseRouteFloor,freshReadFloor;
++    HonorChannelReclamation(HonorScopedChannelState old,Context expected,int oldId,long deadline) {
++        this.old=old;this.expected=expected;this.oldId=oldId;this.deadline=deadline;
++    }
++    State state() {return state;}
++    Object openToken() {return openToken;}
++    Object readToken() {return readToken;}
++    Object closeToken() {return closeToken;}
++    private Action stop() {
++        if(reservation!=null) old.unknown();state=State.STOP;return Action.STOP;
++    }
++    private boolean current(Context context,long now) {
++        if(state==State.STOP || state==State.READY) return false;
++        if(now<lastNow || now<0 || now>=deadline || !expected.same(context)) {stop();return false;}
++        lastNow=now;return true;
++    }
++    Action begin(boolean allocationQualified,Context context,long now) {
++        if(state!=State.NEW) return Action.NONE;
++        if(!allocationQualified || old==null || expected==null || oldId<1 || oldId>19
++                || !current(context,now)) return stop();
++        reservation=old.reserveReclamation();
++        if(reservation==null) return stop();
++        openToken=new Object();state=State.OPENING;return Action.OPEN_FRESH;
++    }
++    Action opened(Object token,Context context,Object handle,HonorScopedChannelState fresh,
++            int channel,boolean positive,long now) {
++        if(state!=State.OPENING || token!=openToken) return Action.NONE;
++        if(!current(context,now) || old.state()!=HonorScopedChannelState.State.RECLAIMING
++                || !positive || handle==null || handle==expected.oldHandle || fresh==null || fresh==old
++                || fresh.state()!=HonorScopedChannelState.State.OPEN || channel<1 || channel>19)
++            return stop();
++        freshHandle=handle;freshState=fresh;sameId=channel==oldId;
++        if(sameId) {state=State.UNLINKING_OLD;return Action.UNLINK_EXACT_OLD_RECORD;}
++        closeToken=new Object();state=State.CLOSING_FRESH;return Action.CLOSE_FRESH;
++    }
++    Action oldRecordUnlinked(Object record,boolean removed,Context context,long now) {
++        if(state!=State.UNLINKING_OLD) return Action.NONE;
++        if(!current(context,now) || record!=expected.record || !removed || !old.reclaimed(reservation))
++            return stop();
++        freshReadFloor=freshState.successfulResponses();
++        readToken=new Object();state=State.READING_FRESH;return Action.READ_FRESH;
++    }
++    Action readsCompleted(Object token,Object handle,Context context,String actualEid,
++            boolean targetProfileObserved,long now) {
++        if(state!=State.READING_FRESH || token!=readToken) return Action.NONE;
++        if(!current(context,now) || handle!=freshHandle
++                || old.state()!=HonorScopedChannelState.State.RETIRED
++                || freshState.state()!=HonorScopedChannelState.State.OPEN
++                || freshState.successfulResponses()-freshReadFloor<2
++                || !expected.eid.equals(actualEid)) return stop();
++        readVerified=targetProfileObserved;
++        closeToken=new Object();state=State.CLOSING_FRESH;return Action.CLOSE_FRESH;
++    }
++    Action freshClosed(Object token,Object handle,Context context,boolean positive,long now) {
++        if(state!=State.CLOSING_FRESH || token!=closeToken) return Action.NONE;
++        if(!current(context,now) || handle!=freshHandle || !positive
++                || freshState.state()!=HonorScopedChannelState.State.CLOSED) return stop();
++        if(!sameId || !readVerified) return stop(); // Fresh channel closed; old/target proof incomplete.
++        if(old.state()!=HonorScopedChannelState.State.RETIRED) return stop();
++        postCloseRouteFloor=context.routeSerial;state=State.RECONCILING;return Action.RECONCILE;
++    }
++    Action reconciled(Context fresh,boolean localJniDrained,long now) {
++        if(state!=State.RECONCILING) return Action.NONE;
++        if(!current(fresh,now) || fresh.routeSerial<=postCloseRouteFloor
++                || !localJniDrained || old.state()!=HonorScopedChannelState.State.RETIRED
++                || freshState.state()!=HonorScopedChannelState.State.CLOSED) return stop();
++        state=State.READY;return Action.READY; // Owner still holds ACTIVE lease, not CLEAN.
++    }
++    void unavailable() {stop();}
++    void expire(long now) {if(now<lastNow || now>=deadline) stop();}
++}
+diff --git a/src/java/com/android/internal/telephony/uicc/HonorScopedApduChannel.java b/src/java/com/android/internal/telephony/uicc/HonorScopedApduChannel.java
+new file mode 100644
+index 0000000..901541b
+--- /dev/null
++++ b/src/java/com/android/internal/telephony/uicc/HonorScopedApduChannel.java
+@@ -0,0 +1,418 @@
++/* Copyright (C) 2026 The LineageOS Project. SPDX-License-Identifier: Apache-2.0 */
++package com.android.internal.telephony.uicc;
++
++import android.os.AsyncResult;
++import android.os.Handler;
++import android.os.IBinder;
++import android.os.Message;
++import com.android.internal.telephony.IccLogicalChannelRequest;
++
++/** Phone-local captured port/profile/record. No raw current-slot integer cleanup is used. */
++public final class HonorScopedApduChannel {
++    public static final int UNKNOWN=0,OPENED=1,CLOSED=2,RETIRED=3,RESPONSE=4,RECLAIMED=5,NO_RECLAMATION=6;
++    public static final class Outcome {
++        public final int code,channel;
++        public final byte[] data;
++        Outcome(int code,int channel,byte[] data) {this.code=code;this.channel=channel;this.data=data;}
++    }
++    private static final long TIMEOUT_MS=60_000;
++    private final UiccPort port;
++    private final UiccProfile profile;
++    private final long epoch;
++    private final IBinder client;
++    private final com.android.internal.telephony.CommandsInterface ci;
++    private final UiccCard card;
++    private Reclamation reclamation,openReclamation;
++    private final HonorScopedChannelState state=new HonorScopedChannelState();
++    private UiccPort.OpenLogicalChannelRecord record;
++    private int channel=-1,openP2=-1;
++    private String openAid;
++    private Call active;
++    private ResetPreparation resetPreparation;
++    HonorScopedApduChannel(UiccPort port,UiccProfile profile,long epoch,
++            com.android.internal.telephony.CommandsInterface ci,UiccCard card,IBinder client) {
++        this.port=port;this.profile=profile;this.epoch=epoch;this.ci=ci;this.card=card;this.client=client;
++    }
++    private static void reply(Message target,Outcome value) {
++        AsyncResult.forMessage(target,value,null);target.sendToTarget();
++    }
++    private final class Call {
++        final int kind;
++        final Object token;
++        final Message target;
++        final Handler events;
++        boolean finished;
++        Runnable timeout;
++        Call(int kind,Object token,Message target) {
++            this.kind=kind;this.token=token;this.target=target;
++            events=new Handler(target.getTarget().getLooper());
++        }
++        Message callback() {
++            Handler callback=new Handler(target.getTarget().getLooper()) {
++                @Override public void handleMessage(Message message) { completed(Call.this,message); }
++            };
++            Message result=callback.obtainMessage(kind,this);
++            timeout=()->{
++                synchronized(HonorScopedApduChannel.this) {
++                    if(finished) return;
++                    state.unknown();finish(new Outcome(UNKNOWN,channel,null));
++                }
++            };
++            if(!events.postDelayed(timeout,TIMEOUT_MS)) {state.unknown();finish(new Outcome(UNKNOWN,channel,null));return null;}
++            return result;
++        }
++        void finish(Outcome outcome) {
++            if(finished) return;finished=true;
++            if(timeout!=null) events.removeCallbacks(timeout);
++            if(active==this) active=null;
++            reply(target,outcome);
++        }
++    }
++    private void refuse(Message response) {reply(response,new Outcome(UNKNOWN,channel,null));}
++    void open(String aid,int p2,Message response) {
++        port.withHonorChannel(profile,epoch,null,generation->{
++            synchronized(this) {
++                Object token=state.open(generation);
++                if(token==null || client==null || !client.isBinderAlive()) {state.unknown();refuse(response);return null;}
++                openAid=aid;openP2=p2;
++                Call call=new Call(OPENED,token,response);active=call;
++                try {Message callback=call.callback();if(callback!=null)profile.iccOpenLogicalChannel(aid,p2,callback);}
++                catch(RuntimeException failure) {state.unknown();call.finish(new Outcome(UNKNOWN,channel,null));}
++                return null;
++            }
++        });
++    }
++    public void transmit(byte[] command,Message response) {
++        port.withHonorChannel(profile,epoch,record,generation->{
++            synchronized(this) {
++                if(resetPreparation!=null) {unknown();refuse(response);return null;}
++                HonorShortApdu apdu;
++                try {apdu=new HonorShortApdu(command);}
++                catch(IllegalArgumentException unsupported) {state.unknown();refuse(response);return null;}
++                Object token=state.transmit(generation);
++                if(token==null) {state.unknown();refuse(response);return null;}
++                Call call=new Call(RESPONSE,token,response);active=call;
++                try {Message callback=call.callback();if(callback!=null)profile.iccTransmitApduLogicalChannel(channel,apdu.cla,apdu.ins,apdu.p1,apdu.p2,apdu.p3,apdu.data,true,callback);}
++                catch(RuntimeException failure) {state.unknown();call.finish(new Outcome(UNKNOWN,channel,null));}
++                return null;
++            }
++        });
++    }
++    public void close(Message response) {
++        port.withHonorChannel(profile,epoch,record,generation->{
++            synchronized(this) {
++                if(resetPreparation!=null) {unknown();refuse(response);return null;}
++                Object token=state.close(generation);
++                if(token==null) {
++                    int result=state.state()==HonorScopedChannelState.State.RETIRED ? RETIRED
++                            : state.state()==HonorScopedChannelState.State.CLOSED ? CLOSED : UNKNOWN;
++                    if(result!=UNKNOWN && record!=null) port.removeHonorChannelRecord(record);
++                    reply(response,new Outcome(result,channel,null));return null;
++                }
++                Call call=new Call(CLOSED,token,response);active=call;
++                try {Message callback=call.callback();if(callback!=null)profile.iccCloseLogicalChannel(channel,true,callback);}
++                catch(RuntimeException failure) {state.unknown();call.finish(new Outcome(UNKNOWN,channel,null));}
++                return null;
++            }
++        });
++    }
++    /** A client death/timeout never issues a new modem command or releases its lease. */
++    public synchronized void unknown() {
++        state.unknown();
++        if(active!=null) active.finish(new Outcome(UNKNOWN,channel,null));
++        if(resetPreparation!=null) resetPreparation.finish(new Outcome(UNKNOWN,channel,null));
++    }
++    private void completed(Call call,Message message) {
++        port.withHonorChannel(profile,epoch,record,generation->{
++            synchronized(this) {
++                if(call.finished) return null;
++                if(!(message.obj instanceof AsyncResult result) || result.userObj!=call) {
++                    state.unknown();call.finish(new Outcome(UNKNOWN,channel,null));return null;
++                }
++                if(call.kind==OPENED) {
++                    int[] value=result.result instanceof int[] array ? array : null;
++                    boolean positive=result.exception==null && value!=null && value.length>0 && value[0]>0 && value[0]<=19;
++                    if(!state.opened(call.token,generation,positive)) {call.finish(new Outcome(UNKNOWN,channel,null));return null;}
++                    channel=value[0];
++                    // A new allocation must not be exposed before the exact old record is retired.
++                    if(openReclamation!=null && !openReclamation.allocated(this)) {
++                        state.unknown();call.finish(new Outcome(UNKNOWN,channel,null));return null;
++                    }
++                    IccLogicalChannelRequest request=new IccLogicalChannelRequest();
++                    request.channel=channel;request.binder=client;
++                    record=port.new OpenLogicalChannelRecord(request) {
++                        @Override public void binderDied() {HonorScopedApduChannel.this.unknown();} // Never close a reused integer.
++                    };
++                    try {port.registerHonorChannelRecord(record);}
++                    catch(android.os.RemoteException|RuntimeException failure) {state.unknown();call.finish(new Outcome(UNKNOWN,channel,null));return null;}
++                    byte[] select=new byte[value.length-1];for(int i=1;i<value.length;i++)select[i-1]=(byte)value[i];
++                    call.finish(new Outcome(OPENED,channel,select));
++                } else if(call.kind==RESPONSE) {
++                    IccIoResult io=result.result instanceof IccIoResult value ? value : null;
++                    if(!state.transmitted(call.token,generation,result.exception==null && io!=null)) {
++                        call.finish(new Outcome(UNKNOWN,channel,null));return null;
++                    }
++                    byte[] payload=io.payload==null ? new byte[0] : io.payload;
++                    byte[] data=java.util.Arrays.copyOf(payload,payload.length+2);
++                    data[data.length-2]=(byte)io.sw1;data[data.length-1]=(byte)io.sw2;
++                    call.finish(new Outcome(RESPONSE,channel,data));
++                } else {
++                    if(!state.closed(call.token,generation,result.exception==null)) {
++                        call.finish(new Outcome(UNKNOWN,channel,null));return null;
++                    }
++                    if(record!=null) port.removeHonorChannelRecord(record);
++                    call.finish(new Outcome(state.state()==HonorScopedChannelState.State.RETIRED ? RETIRED : CLOSED,channel,null));
++                }
++                return null;
++            }
++        });
++    }
++
++    /** Trusted Phone binding, not an IPC proof supplied by the LPA. No identifiers are logged.
++     * The lock-free fence is dispatch admission, not synchronous cancellation: an already
++     * admitted command may finish after revocation, but its callback cannot admit another.
++     */
++    public static final class ReclamationRequest {
++        final Object lease,nativeStep;
++        final long radioGeneration;
++        final long deadline=android.os.SystemClock.elapsedRealtime()+TIMEOUT_MS;
++        final int routeQuerySerial,cardId,nativeKind;
++        final String eid,iccid;
++        final java.util.function.BooleanSupplier liveAdmission;
++        public ReclamationRequest(Object lease,Object nativeStep,long generation,int querySerial,
++                int cardId,int nativeKind,String eid,String iccid,java.util.function.BooleanSupplier liveAdmission) {
++            if(lease==null || nativeStep==null || generation<=0 || querySerial<=0 || cardId<0
++                    || eid==null || !eid.matches("[0-9]{32}") || liveAdmission==null) throw new IllegalArgumentException("Invalid reclamation binding");
++            com.android.internal.telephony.uicc.euicc.HonorReconciliationCodec.nativeTarget(nativeKind);
++            com.android.internal.telephony.uicc.euicc.HonorReconciliationCodec.requireIccid(iccid);
++            this.lease=lease;this.nativeStep=nativeStep;radioGeneration=generation;routeQuerySerial=querySerial;
++            this.cardId=cardId;this.nativeKind=nativeKind;this.eid=eid;this.iccid=iccid;this.liveAdmission=liveAdmission;
++        }
++    }
++    public void prepareResetReclamation(ReclamationRequest request,Message response) {
++        if(request==null || (request.nativeKind!=2 && request.nativeKind!=3)) {
++            port.prepareHonorReclamation(this,request,response);return;
++        }
++        ResetPreparation prepared;
++        synchronized(this) {
++            if(resetPreparation!=null || reclamation!=null
++                    || android.os.Looper.myLooper()!=response.getTarget().getLooper()) {
++                unknown();refuse(response);return;
++            }
++            prepared=new ResetPreparation(request,response);resetPreparation=prepared;
++        }
++        prepared.check.run();
++    }
++    /** The Phone Binder worker waits; only passive port checks run on the controller looper. */
++    private final class ResetPreparation {
++        final ReclamationRequest request;
++        final Message target,callback;
++        final Handler events;
++        final Runnable check;
++        boolean finished;
++        ResetPreparation(ReclamationRequest request,Message target) {
++            this.request=request;this.target=target;
++            events=new Handler(target.getTarget().getLooper()) {
++                @Override public void handleMessage(Message message) {
++                    synchronized(HonorScopedApduChannel.this) {
++                        if(finished) return;
++                        if(!(message.obj instanceof AsyncResult result) || result.userObj!=ResetPreparation.this
++                                || result.exception!=null || !(result.result instanceof Outcome value)) {
++                            unknown();return;
++                        }
++                        finish(value);
++                    }
++                }
++            };
++            callback=events.obtainMessage(0,this);
++            check=()->{
++                synchronized(HonorScopedApduChannel.this) {if(finished) return;}
++                port.prepareHonorReclamation(HonorScopedApduChannel.this,request,callback);
++            };
++        }
++        void finish(Outcome outcome) {
++            if(finished) return;finished=true;events.removeCallbacks(check);
++            if(resetPreparation==this) resetPreparation=null;
++            reply(target,outcome);
++        }
++    }
++    synchronized UiccPort.OpenLogicalChannelRecord reclamationRecord() {return record;}
++    synchronized Reclamation prepareReclamation(UiccPort currentPort,UiccProfile currentProfile,long freshEpoch,
++            com.android.internal.telephony.CommandsInterface currentCi,UiccCard currentCard,int slot,int portIndex,
++            boolean singleRecord,ReclamationRequest request,Message response) {
++        if(android.os.Looper.myLooper()!=response.getTarget().getLooper()
++                || currentPort!=port || active!=null || reclamation!=null || request==null
++                || openP2!=0 || !"A0000005591010FFFFFFFF8900000100".equalsIgnoreCase(openAid)
++                || !client.isBinderAlive()) {unknown();refuse(response);return null;}
++        var capturedState=state.state();
++        if(request.nativeKind==2 || request.nativeKind==3) {
++            ResetPreparation waiting=resetPreparation;
++            if(waiting==null || waiting.request!=request || waiting.callback!=response
++                    || waiting.finished || android.os.SystemClock.elapsedRealtime()>=request.deadline
++                    || !request.liveAdmission.getAsBoolean()) {unknown();return null;}
++            if(capturedState!=HonorScopedChannelState.State.OPEN
++                    && capturedState!=HonorScopedChannelState.State.UNQUALIFIED
++                    && capturedState!=HonorScopedChannelState.State.RETIRED) {unknown();return null;}
++            if(currentProfile==null) {
++                reply(response,new Outcome(NO_RECLAMATION,channel,null));return null;
++            }
++            if(currentProfile!=profile || currentCi!=ci || currentCard!=card || slot!=1 || portIndex!=0
++                    || !singleRecord || !port.honorReclamationCurrent(profile,ci,card,freshEpoch)) {
++                unknown();return null;
++            }
++            if(capturedState==HonorScopedChannelState.State.OPEN) {
++                if(freshEpoch==epoch) {
++                    if(!waiting.events.postDelayed(waiting.check,Math.min(100,
++                            request.deadline-android.os.SystemClock.elapsedRealtime()))) unknown();
++                    return null; // No old CLOSE until a genuine reset boundary is observed.
++                }
++                if(!state.observeResetRetirement()) {unknown();return null;}
++                capturedState=state.state();
++            }
++        }
++        if(capturedState==HonorScopedChannelState.State.RETIRED
++                || (capturedState==HonorScopedChannelState.State.OPEN
++                    || capturedState==HonorScopedChannelState.State.UNQUALIFIED)
++                    && currentProfile!=profile
++                || capturedState==HonorScopedChannelState.State.OPEN && freshEpoch==epoch
++                    && currentCi==ci && currentCard==card) {
++            reply(response,new Outcome(NO_RECLAMATION,channel,null));return null; // Existing close/drain still required.
++        }
++        // Exact stock RIL normalizes both CLA coding ranges from the separate session ID.
++        if(currentProfile!=profile || currentCi!=ci || currentCard!=card || slot!=1 || portIndex!=0
++                || !singleRecord || channel<1 || channel>19
++                || capturedState!=HonorScopedChannelState.State.UNQUALIFIED) {
++            unknown();refuse(response);return null;
++        }
++        reclamation=new Reclamation(request,freshEpoch,response);return reclamation;
++    }
++    /** Completes only the same server-owned step after fresh query/controller proof and real JNI drain. */
++    public boolean finishResetReclamation(ReclamationRequest request,int freshQuerySerial) {
++        Reclamation current;
++        synchronized(this) {current=reclamation;}
++        if(current==null || android.os.Looper.myLooper()!=current.events.getLooper()) return false;
++        return port.finishHonorReclamation(this,request,freshQuerySerial);
++    }
++    synchronized boolean finishReclamationLocked(ReclamationRequest request,int freshQuerySerial) {
++        return reclamation!=null && reclamation.request==request && reclamation.finishAfterDrain(freshQuerySerial);
++    }
++    // The Phone service creates/starts this on UiccController's Looper and uses that same
++    // Looper for every target Message and final drain call. Native callbacks enqueue Messages;
++    // start() never waits/pumps the queue. Death only changes the synchronized channel state.
++    // Guards below refuse cross-Looper callers without touching model/finished off-owner.
++    final class Reclamation {
++        final ReclamationRequest request;
++        final HonorScopedApduChannel fresh;
++        final HonorChannelReclamation model;
++        final Handler events;
++        final Message target;
++        final Runnable timeout;
++        boolean finished,readingProfiles;
++        int responses;
++        java.io.ByteArrayOutputStream bytes=new java.io.ByteArrayOutputStream();
++        String actualEid;
++        Reclamation(ReclamationRequest request,long freshEpoch,Message target) {
++            this.request=request;this.target=target;
++            fresh=new HonorScopedApduChannel(port,profile,freshEpoch,ci,card,client);
++            fresh.openReclamation=this;
++            events=new Handler(target.getTarget().getLooper());
++            model=new HonorChannelReclamation(state,context(request.routeQuerySerial),channel,
++                    request.deadline);
++            timeout=()->stop();
++        }
++        private HonorChannelReclamation.Context context(int querySerial) {
++            if(state.state()==HonorScopedChannelState.State.UNKNOWN || !request.liveAdmission.getAsBoolean()
++                    || !port.honorReclamationCurrent(profile,ci,card,fresh.epoch)
++                    || !client.isBinderAlive()) return null;
++            return new HonorChannelReclamation.Context(request.lease,client,HonorScopedApduChannel.this,
++                    record,port,profile,ci,request.nativeStep,request.radioGeneration,querySerial,1,0,
++                    request.cardId,request.eid,true,true,true,true,true,true,request.nativeKind);
++        }
++        private long now() {return android.os.SystemClock.elapsedRealtime();}
++        void start() {
++            if(android.os.Looper.myLooper()!=events.getLooper()) {events.post(this::stop);return;}
++            if(model.begin(true,context(request.routeQuerySerial),now())!=HonorChannelReclamation.Action.OPEN_FRESH
++                    || !events.postDelayed(timeout,Math.max(0,request.deadline-now()))) {stop();return;}
++            fresh.open("A0000005591010FFFFFFFF8900000100",0,callback(OPENED));
++        }
++        // Called under captured port/new-channel lock BEFORE new record registration.
++        boolean allocated(HonorScopedApduChannel candidate) {
++            synchronized(HonorScopedApduChannel.this) {
++                if(android.os.Looper.myLooper()!=events.getLooper() || finished || candidate!=fresh) return false;
++                var action=model.opened(model.openToken(),context(request.routeQuerySerial),fresh,
++                        fresh.state,fresh.channel,true,now());
++                if(action==HonorChannelReclamation.Action.UNLINK_EXACT_OLD_RECORD) {
++                    boolean removed=port.removeHonorChannelRecord(record);
++                    action=model.oldRecordUnlinked(record,removed,context(request.routeQuerySerial),now());
++                }
++                return action==HonorChannelReclamation.Action.READ_FRESH
++                        || action==HonorChannelReclamation.Action.CLOSE_FRESH;
++            }
++        }
++        private Message callback(int kind) {
++            Handler receiver=new Handler(events.getLooper()) {
++                @Override public void handleMessage(Message message) {received(kind,message);}
++            };
++            return receiver.obtainMessage(kind,this);
++        }
++        private void received(int kind,Message message) {
++            if(android.os.Looper.myLooper()!=events.getLooper()) {events.post(this::stop);return;}
++            if(finished) return;
++            if(!(message.obj instanceof AsyncResult result) || result.userObj!=this
++                    || !(result.result instanceof Outcome value) || result.exception!=null
++                    || value.code==UNKNOWN || context(request.routeQuerySerial)==null) {stop();return;}
++            try {
++                if(kind==OPENED) {
++                    if(value.code!=OPENED) {stop();return;}
++                    if(model.state()==HonorChannelReclamation.State.CLOSING_FRESH) fresh.close(callback(CLOSED));
++                    else if(model.state()==HonorChannelReclamation.State.READING_FRESH)
++                        send(com.android.internal.telephony.uicc.euicc.HonorReconciliationCodec.eidRequest());
++                    else stop();
++                } else if(kind==RESPONSE) {
++                    if(value.code!=RESPONSE || value.data==null || value.data.length<2
++                            || fresh.state.state()!=HonorScopedChannelState.State.OPEN || ++responses>256) {stop();return;}
++                    byte[] data=value.data;int sw1=data[data.length-2]&255,sw2=data[data.length-1]&255;
++                    if(bytes.size()+data.length-2>65536) {stop();return;}
++                    bytes.write(data,0,data.length-2);
++                    if(sw1==0x61) {
++                        send(new byte[]{0,(byte)0xc0,0,0,(byte)sw2});return;
++                    }
++                    if(!(sw1==0x90 && sw2==0 || sw1==0x91)) {stop();return;}
++                    if(!readingProfiles) {
++                        actualEid=com.android.internal.telephony.uicc.euicc.HonorReconciliationCodec.eid(bytes.toByteArray());
++                        if(!request.eid.equals(actualEid)) {stop();return;}
++                        bytes.reset();readingProfiles=true;
++                        send(com.android.internal.telephony.uicc.euicc.HonorReconciliationCodec.profilesRequest());
++                    } else {
++                        boolean targetFound=com.android.internal.telephony.uicc.euicc.HonorReconciliationCodec.target(
++                                bytes.toByteArray(),request.iccid,
++                                com.android.internal.telephony.uicc.euicc.HonorReconciliationCodec.nativeTarget(request.nativeKind),0);
++                        if(model.readsCompleted(model.readToken(),fresh,context(request.routeQuerySerial),actualEid,
++                                targetFound,now())!=HonorChannelReclamation.Action.CLOSE_FRESH) {stop();return;}
++                        fresh.close(callback(CLOSED));
++                    }
++                } else {
++                    if(value.code!=CLOSED || model.freshClosed(model.closeToken(),fresh,context(request.routeQuerySerial),
++                            true,now())!=HonorChannelReclamation.Action.RECONCILE) {stop();return;}
++                    finished=true;events.removeCallbacks(timeout);reply(target,new Outcome(RECLAIMED,channel,null));
++                }
++            } catch(Exception malformed) {stop();}
++        }
++        private void send(byte[] command) {
++            if(context(request.routeQuerySerial)==null || fresh.channel<1 || fresh.channel>19) {stop();return;}
++            // Keep BASE CLA. Exact 68a72 stock RIL derives wire CLA from sessionId at 48ab8c.
++            // OR-ing channel 16..19 here would incorrectly retain bit 0x10 in that bridge.
++            fresh.transmit(command,callback(RESPONSE));
++        }
++        private void stop() {
++            if(finished) return;finished=true;events.removeCallbacks(timeout);
++            model.unavailable();HonorScopedApduChannel.this.unknown();fresh.unknown();
++            reply(target,new Outcome(UNKNOWN,channel,null));
++        }
++        boolean finishAfterDrain(int freshQuerySerial) {
++            if(android.os.Looper.myLooper()!=events.getLooper()) return false;
++            return finished && model.state()==HonorChannelReclamation.State.RECONCILING
++                    && model.reconciled(context(freshQuerySerial),true,now())==HonorChannelReclamation.Action.READY;
++        }
++    }
++}
+diff --git a/src/java/com/android/internal/telephony/uicc/HonorScopedChannelState.java b/src/java/com/android/internal/telephony/uicc/HonorScopedChannelState.java
+new file mode 100644
+index 0000000..42093a4
+--- /dev/null
++++ b/src/java/com/android/internal/telephony/uicc/HonorScopedChannelState.java
+@@ -0,0 +1,73 @@
++/* Copyright (C) 2026 The LineageOS Project. SPDX-License-Identifier: Apache-2.0 */
++package com.android.internal.telephony.uicc;
++
++/** Actual scoped bridge state. A retired generation is never a target for a native close. */
++final class HonorScopedChannelState {
++    enum Generation { CURRENT, DISPOSED, CHANGED }
++    enum State { NEW, OPENING, OPEN, TRANSMITTING, CLOSING, CLOSED, RETIRED, UNQUALIFIED, RECLAIMING, UNKNOWN }
++    private State state=State.NEW;
++    private Object pending;
++    private long successfulResponses;
++    private boolean disposed,changed,closeAttempted;
++    synchronized State state() { return state; }
++    synchronized long successfulResponses() {return successfulResponses;}
++    private void observe(Generation generation) {
++        disposed|=generation==Generation.DISPOSED;
++        changed|=generation!=Generation.CURRENT;
++    }
++    private Object begin(State from,State to,Generation generation) {
++        observe(generation);
++        if(state!=from || disposed || changed || pending!=null) return null;
++        pending=new Object();state=to;return pending;
++    }
++    synchronized Object open(Generation generation) { return begin(State.NEW,State.OPENING,generation); }
++    synchronized Object transmit(Generation generation) { return begin(State.OPEN,State.TRANSMITTING,generation); }
++    /** null means no native close: caller reads RETIRED/CLOSED versus refusal separately. */
++    synchronized Object close(Generation generation) {
++        closeAttempted=true;
++        observe(generation);
++        if((state==State.OPEN || state==State.UNQUALIFIED) && pending==null && disposed) {
++            state=State.RETIRED;return null;
++        }
++        return begin(State.OPEN,State.CLOSING,generation);
++    }
++    private boolean owns(Object token,State expected) { return token!=null && token==pending && state==expected; }
++    synchronized boolean opened(Object token,Generation generation,boolean positive) {
++        if(!owns(token,State.OPENING)) return false;
++        observe(generation);pending=null;
++        if(!positive || changed) {state=State.UNKNOWN;return false;}
++        state=State.OPEN;return true;
++    }
++    /** A matching final APDU response may be delivered from the captured old generation.
++     * Further APDUs are refused; only disposal can qualify a later non-dispatch retirement. */
++    synchronized boolean transmitted(Object token,Generation generation,boolean positive) {
++        if(!owns(token,State.TRANSMITTING)) return false;
++        observe(generation);pending=null;
++        if(!positive) {state=State.UNKNOWN;return false;}
++        successfulResponses++;
++        state=disposed ? State.RETIRED : changed ? State.UNQUALIFIED : State.OPEN;
++        return true;
++    }
++    synchronized boolean closed(Object token,Generation generation,boolean positive) {
++        if(!owns(token,State.CLOSING)) return false;
++        observe(generation);pending=null;
++        if(!positive || changed && !disposed) {state=State.UNKNOWN;return false;}
++        state=disposed ? State.RETIRED : State.CLOSED;return true;
++    }
++    /** A genuine later port epoch change, observed after the final APDU, never a synthetic reset. */
++    synchronized boolean observeResetRetirement() {
++        if(state!=State.OPEN || pending!=null || disposed || closeAttempted || successfulResponses==0) return false;
++        changed=true;state=State.UNQUALIFIED;return true;
++    }
++    /** One allocation-only probe before any old close attempt; not a native retry. */
++    synchronized Object reserveReclamation() {
++        if(state!=State.UNQUALIFIED || pending!=null || disposed || !changed || closeAttempted) return null;
++        pending=new Object();state=State.RECLAIMING;return pending;
++    }
++    /** Caller has a genuine fresh allocation of the same ID and unlinked the exact old record. */
++    synchronized boolean reclaimed(Object token) {
++        if(!owns(token,State.RECLAIMING) || disposed || closeAttempted) return false;
++        pending=null;state=State.RETIRED;return true;
++    }
++    synchronized void unknown() { state=State.UNKNOWN; } // Timeout/death never dispatches cleanup.
++}
+diff --git a/src/java/com/android/internal/telephony/uicc/HonorShortApdu.java b/src/java/com/android/internal/telephony/uicc/HonorShortApdu.java
+new file mode 100644
+index 0000000..59c610d
+--- /dev/null
++++ b/src/java/com/android/internal/telephony/uicc/HonorShortApdu.java
+@@ -0,0 +1,16 @@
++/* Copyright (C) 2026 The LineageOS Project. SPDX-License-Identifier: Apache-2.0 */
++package com.android.internal.telephony.uicc;
++
++/** LPAC50cdf15 interface.c uses a five-byte header and uint8_t Lc/Le, no extended APDUs. */
++final class HonorShortApdu {
++    final int cla,ins,p1,p2,p3;
++    final String data;
++    HonorShortApdu(byte[] command) {
++        if(command==null || command.length<4 || command.length>260) throw new IllegalArgumentException("Unsupported APDU size");
++        cla=command[0]&255;ins=command[1]&255;p1=command[2]&255;p2=command[3]&255;
++        p3=command.length>4 ? command[4]&255 : -1;
++        if(command.length>5 && (p3==0 || command.length!=5+p3))
++            throw new IllegalArgumentException("Extended, malformed or case-4 APDU unsupported");
++        data=command.length>5 ? java.util.HexFormat.of().withUpperCase().formatHex(command,5,command.length) : null;
++    }
++}
+diff --git a/src/java/com/android/internal/telephony/uicc/UiccController.java b/src/java/com/android/internal/telephony/uicc/UiccController.java
+index 176b9b5..77d04ed 100644
+--- a/src/java/com/android/internal/telephony/uicc/UiccController.java
++++ b/src/java/com/android/internal/telephony/uicc/UiccController.java
+@@ -640,6 +640,15 @@ public class UiccController extends Handler {
+         }
+     }
+ 
++    /**
++     * Requests fresh card status through this controller's normal response handling.
++     * The phone index is validated on the controller thread before accessing the CI.
++     */
++    public void requestIccCardStatusRefresh(int phoneId) {
++        sendMessage(obtainMessage(EVENT_ICC_STATUS_CHANGED,
++                new AsyncResult(phoneId, null, null)));
++    }
++
+     @Override
+     public void handleMessage (Message msg) {
+         synchronized (mLock) {
+diff --git a/src/java/com/android/internal/telephony/uicc/UiccPort.java b/src/java/com/android/internal/telephony/uicc/UiccPort.java
+index 3f59582..7b3a209 100644
+--- a/src/java/com/android/internal/telephony/uicc/UiccPort.java
++++ b/src/java/com/android/internal/telephony/uicc/UiccPort.java
+@@ -55,6 +55,13 @@ public class UiccPort {
+     private Context mContext;
+     private CommandsInterface mCi;
+     private UiccProfile mUiccProfile;
++    private long mHonorChannelEpoch=1;
++    private UiccCard mHonorCard;
++    private String mHonorEid;
++    private void retireHonorChannelEpoch() {
++        if(mHonorChannelEpoch==Long.MAX_VALUE) throw new IllegalStateException("Channel epoch exhausted");
++        mHonorChannelEpoch++;
++    }
+ 
+     private final int mPhoneId;
+     private int mPortIdx;
+@@ -80,6 +87,12 @@ public class UiccPort {
+      */
+     public void update(Context c, CommandsInterface ci, IccCardStatus ics, UiccCard uiccCard) {
+         synchronized (mLock) {
++            if(mCi!=null && (mCi!=ci || !java.util.Objects.equals(mIccid,ics.iccid) || mPortIdx!=ics.mSlotPortMapping.mPortIndex
++                    || mPhysicalSlotIndex!=ics.mSlotPortMapping.mPhysicalSlotIndex
++                    || mHonorCard!=uiccCard || (ics.eid!=null && !ics.eid.isEmpty()
++                        && mHonorEid!=null && !mHonorEid.equals(ics.eid)))) retireHonorChannelEpoch();
++            mHonorCard=uiccCard;
++            if(ics.eid!=null && !ics.eid.isEmpty()) mHonorEid=ics.eid;
+             mContext = c;
+             mCi = ci;
+             mIccid = ics.iccid;
+@@ -100,6 +113,7 @@ public class UiccPort {
+      */
+     public void dispose() {
+         synchronized (mLock) {
++            retireHonorChannelEpoch();
+             if (DBG) log("Disposing Port");
+             mCloseGuard.close();
+             if (mUiccProfile != null) {
+@@ -208,6 +222,7 @@ public class UiccPort {
+     @Deprecated
+     public boolean resetAppWithAid(String aid, boolean reset) {
+         synchronized (mLock) {
++            retireHonorChannelEpoch();
+             if (mUiccProfile != null) {
+                 return mUiccProfile.resetAppWithAid(aid, reset);
+             } else {
+@@ -490,4 +505,65 @@ public class UiccPort {
+             return sb.toString();
+         }
+     }
++    /** Internal Phone-owned bridge; no Binder registration or broad normal API behavior change. */
++    public HonorScopedApduChannel openHonorLpaChannel(String aid,int p2,IBinder client,Message response) {
++        synchronized(mLock) {
++            HonorScopedApduChannel channel=new HonorScopedApduChannel(this,mUiccProfile,mHonorChannelEpoch,mCi,mHonorCard,client);
++            channel.open(aid,p2,response);return channel;
++        }
++    }
++    <T> T withHonorChannel(UiccProfile expected,long epoch,OpenLogicalChannelRecord record,
++            java.util.function.Function<HonorScopedChannelState.Generation,T> action) {
++        synchronized(mLock) {
++            synchronized(mOpenChannelRecords) {
++                HonorScopedChannelState.Generation generation;
++                if(mUiccProfile!=expected || expected==null) generation=HonorScopedChannelState.Generation.DISPOSED;
++                else if(mHonorChannelEpoch!=epoch || mCi.getRadioState()==android.telephony.TelephonyManager.RADIO_POWER_UNAVAILABLE
++                        || record!=null && !mOpenChannelRecords.contains(record)) generation=HonorScopedChannelState.Generation.CHANGED;
++                else generation=HonorScopedChannelState.Generation.CURRENT;
++                return action.apply(generation);
++            }
++        }
++    }
++    void registerHonorChannelRecord(OpenLogicalChannelRecord record) throws RemoteException {
++        synchronized(mOpenChannelRecords) {
++            record.mRequest.binder.linkToDeath(record,0);mOpenChannelRecords.add(record);
++        }
++    }
++
++    boolean removeHonorChannelRecord(OpenLogicalChannelRecord record) {
++        synchronized(mOpenChannelRecords) {
++            if(mOpenChannelRecords.remove(record) && record.mRequest.binder!=null) {
++                record.mRequest.binder.unlinkToDeath(record,0);record.mRequest.binder=null;
++                return true;
++            }
++            return false;
++        }
++    }
++    /** Reclamation is an internal captured-handle path, never a current-channel integer API. */
++    void prepareHonorReclamation(HonorScopedApduChannel old,
++            HonorScopedApduChannel.ReclamationRequest request,Message response) {
++        HonorScopedApduChannel.Reclamation work;
++        synchronized(mLock) {
++            synchronized(mOpenChannelRecords) {
++                work=old.prepareReclamation(this,mUiccProfile,mHonorChannelEpoch,mCi,mHonorCard,
++                        mPhysicalSlotIndex,mPortIdx,mOpenChannelRecords.size()==1
++                                && mOpenChannelRecords.contains(old.reclamationRecord()),request,response);
++            }
++        }
++        if(work!=null) work.start();
++    }
++    boolean honorReclamationCurrent(UiccProfile profile,CommandsInterface ci,UiccCard card,long epoch) {
++        synchronized(mLock) {
++            return profile!=null && mUiccProfile==profile && mCi==ci && mHonorCard==card
++                    && mHonorChannelEpoch==epoch && mPhysicalSlotIndex==1 && mPortIdx==0
++                    && mCi.getRadioState()!=android.telephony.TelephonyManager.RADIO_POWER_UNAVAILABLE;
++        }
++    }
++
++    boolean finishHonorReclamation(HonorScopedApduChannel old,
++            HonorScopedApduChannel.ReclamationRequest request,int querySerial) {
++        synchronized(mLock) {return old.finishReclamationLocked(request,querySerial);}
++    }
++
+ }
+diff --git a/src/java/com/android/internal/telephony/uicc/euicc/HonorReconciliationCodec.java b/src/java/com/android/internal/telephony/uicc/euicc/HonorReconciliationCodec.java
+new file mode 100644
+index 0000000..1245707
+--- /dev/null
++++ b/src/java/com/android/internal/telephony/uicc/euicc/HonorReconciliationCodec.java
+@@ -0,0 +1,96 @@
++/* Copyright (C) 2026 The LineageOS Project. SPDX-License-Identifier: Apache-2.0 */
++package com.android.internal.telephony.uicc.euicc;
++
++import com.android.internal.telephony.uicc.IccUtils;
++import com.android.internal.telephony.uicc.asn1.Asn1Decoder;
++import com.android.internal.telephony.uicc.asn1.Asn1Node;
++import java.util.HashSet;
++
++/** ISD-R read-only reconciliation codec. It never opens a channel or consults cached EID. */
++public final class HonorReconciliationCodec {
++    public enum Target { ENABLED, DISABLED, DELETED }
++    private HonorReconciliationCodec() {}
++    public static Target nativeTarget(int nativeKind) {
++        return switch(nativeKind) {
++            case 2 -> Target.ENABLED;
++            case 3 -> Target.DISABLED;
++            case 4 -> Target.DELETED;
++            default -> throw new IllegalArgumentException("Not a known-target profile step");
++        };
++    }
++    public static void requireIccid(String iccid) {
++        if(iccid==null || iccid.isEmpty() || iccid.length()>20)
++            throw new IllegalArgumentException("Invalid profile identity");
++        for(int i=0;i<iccid.length();i++) if(iccid.charAt(i)<'0' || iccid.charAt(i)>'9')
++            throw new IllegalArgumentException("Invalid profile identity");
++    }
++    public static byte[] eidRequest() {
++        return storeData(Asn1Node.newBuilder(Tags.TAG_GET_EID)
++                .addChildAsBytes(Tags.TAG_TAG_LIST,new byte[]{Tags.TAG_EID}).build().toBytes());
++    }
++    public static byte[] profilesRequest() {
++        return storeData(Asn1Node.newBuilder(Tags.TAG_GET_PROFILES)
++                .addChildAsBytes(Tags.TAG_TAG_LIST,new byte[]{Tags.TAG_ICCID,(byte)0x9f,0x70}).build().toBytes());
++    }
++    private static byte[] storeData(byte[] data) {
++        if(data.length>255) throw new IllegalArgumentException("Unsupported request length");
++        byte[] request=new byte[5+data.length];
++        request[0]=(byte)0x80;request[1]=(byte)0xe2;request[2]=(byte)0x91;
++        request[4]=(byte)data.length;System.arraycopy(data,0,request,5,data.length);return request;
++    }
++    private static Asn1Node root(byte[] response,int tag) throws Exception {
++        if(response==null || response.length==0 || response.length>65536)
++            throw new IllegalArgumentException("Invalid reconciliation response");
++        Asn1Decoder decoder=new Asn1Decoder(response);Asn1Node node=decoder.nextNode();
++        if(node.getTag()!=tag || decoder.hasNextNode())
++            throw new IllegalArgumentException("Unexpected reconciliation response");
++        return node;
++    }
++    public static String eid(byte[] response) throws Exception {
++        Asn1Node node=root(response,Tags.TAG_GET_EID);
++        if(node.getChildren().size()!=1 || node.getChildren().get(0).getTag()!=Tags.TAG_EID)
++            throw new IllegalArgumentException("Ambiguous eUICC identity");
++        byte[] value=node.getChild(Tags.TAG_EID).asBytes();
++        if(value.length!=16) throw new IllegalArgumentException("Invalid eUICC identity");
++        String eid=IccUtils.bytesToHexString(value);
++        for(int i=0;i<eid.length();i++) if(eid.charAt(i)<'0' || eid.charAt(i)>'9')
++            throw new IllegalArgumentException("Invalid eUICC identity");
++        return eid;
++    }
++    public static boolean target(byte[] response,String expected,Target desired,int port) throws Exception {
++        requireIccid(expected);
++        if(desired==null || port!=0) throw new IllegalArgumentException("Unqualified profile port");
++        Asn1Node root=root(response,Tags.TAG_GET_PROFILES);
++        if(root.getChildren().size()!=1 || root.getChildren().get(0).getTag()!=Tags.TAG_CTX_COMP_0)
++            throw new IllegalArgumentException("Ambiguous profile list");
++        var profiles=root.getChild(Tags.TAG_CTX_COMP_0).getChildren();
++        if(profiles.size()>512) throw new IllegalArgumentException("Unbounded profile response");
++        HashSet<String> seen=new HashSet<>();boolean found=false,matched=false;
++        for(Asn1Node profile:profiles) {
++            if(profile.getTag()!=Tags.TAG_PROFILE_INFO || profile.getChildren(Tags.TAG_ICCID).size()!=1
++                    || profile.getChildren(Tags.TAG_PROFILE_STATE).size()>1
++                    || profile.getChildren(Tags.TAG_PORT).size()>1)
++                throw new IllegalArgumentException("Ambiguous profile entry");
++            byte[] raw=profile.getChild(Tags.TAG_ICCID).asBytes();
++            if(raw.length!=10) throw new IllegalArgumentException("Invalid EFiccid length");
++            String iccid=IccUtils.stripTrailingFs(IccUtils.bchToString(raw,0,raw.length));
++            requireIccid(iccid);
++            if(!seen.add(iccid)) throw new IllegalArgumentException("Duplicate profile identity");
++            if(!iccid.equals(expected)) continue;
++            found=true;
++            if(desired==Target.DELETED) continue;
++            // State is OPTIONAL in the generic ASN.1, but this request explicitly asks for it.
++            // Missing data is not positive DISABLED proof (unlike the UI's liberal default).
++            int state=profile.getChild(Tags.TAG_PROFILE_STATE).asInteger();
++            if(state!=0 && state!=1) throw new IllegalArgumentException("Unknown profile state");
++            if(profile.hasChild(Tags.TAG_PORT)) {
++                int activePort=profile.getChild(Tags.TAG_PORT).asInteger();
++                if(activePort!=port) return false;
++                // Same as EuiccPort.buildProfile: a matching assigned port proves Enabled.
++                state=1;
++            }
++            matched=desired==Target.ENABLED ? state==1 : state==0;
++        }
++        return desired==Target.DELETED ? !found : found && matched;
++    }
++}
+diff --git a/tests/host/com/android/internal/telephony/uicc/HonorChannelReclamationHostTest.java b/tests/host/com/android/internal/telephony/uicc/HonorChannelReclamationHostTest.java
+new file mode 100644
+index 0000000..6b376b1
+--- /dev/null
++++ b/tests/host/com/android/internal/telephony/uicc/HonorChannelReclamationHostTest.java
+@@ -0,0 +1,165 @@
++/* Copyright (C) 2026 The LineageOS Project. SPDX-License-Identifier: Apache-2.0 */
++package com.android.internal.telephony.uicc;
++
++public final class HonorChannelReclamationHostTest {
++    private static final String TEST_ONLY_EID="12345678901234567890123456789012";
++    private static int checks;
++    private static void check(boolean value) {checks++;if(!value)throw new AssertionError("check "+checks);}
++    private static final class Fixture {
++        final Object[] refs={new Object(),new Object(),new Object(),new Object(),new Object(),new Object(),new Object(),new Object()};
++        final HonorScopedChannelState old=new HonorScopedChannelState();
++        final HonorScopedChannelState freshState=new HonorScopedChannelState();
++        final Object fresh=new Object();
++        HonorChannelReclamation model;
++        Fixture() {
++            Object opened=old.open(HonorScopedChannelState.Generation.CURRENT);
++            check(old.opened(opened,HonorScopedChannelState.Generation.CURRENT,true));
++            Object transmit=old.transmit(HonorScopedChannelState.Generation.CURRENT);
++            check(old.transmitted(transmit,HonorScopedChannelState.Generation.CHANGED,true));
++            check(old.state()==HonorScopedChannelState.State.UNQUALIFIED);
++            model=new HonorChannelReclamation(old,context(10),4,1000);
++        }
++        HonorChannelReclamation.Context context(long serial) {return context(refs,1,serial,1,0,2,TEST_ONLY_EID,true,true,true,true,true,true);}
++        HonorChannelReclamation.Context context(Object[] r,long epoch,long serial,int slot,int port,int card,
++                String eid,boolean mode,boolean ready,boolean positive,boolean one,boolean closed,boolean alive) {
++            return new HonorChannelReclamation.Context(r[0],r[1],r[2],r[3],r[4],r[5],r[6],r[7],epoch,serial,
++                    slot,port,card,eid,mode,ready,positive,one,closed,alive,2);
++        }
++        HonorChannelReclamation.Context contextForKind(int kind) {
++            return new HonorChannelReclamation.Context(refs[0],refs[1],refs[2],refs[3],refs[4],refs[5],refs[6],refs[7],
++                    1,10,1,0,2,TEST_ONLY_EID,true,true,true,true,true,true,kind);
++        }
++        void begin() {check(model.begin(true,context(10),1)==HonorChannelReclamation.Action.OPEN_FRESH);}
++        void prepareFreshOpen() {
++            Object call=freshState.open(HonorScopedChannelState.Generation.CURRENT);
++            check(freshState.opened(call,HonorScopedChannelState.Generation.CURRENT,true));
++        }
++        void opened(int channel) {
++            prepareFreshOpen();
++            check(model.opened(model.openToken(),context(10),fresh,freshState,channel,true,2)==
++                    (channel==4 ? HonorChannelReclamation.Action.UNLINK_EXACT_OLD_RECORD : HonorChannelReclamation.Action.CLOSE_FRESH));
++        }
++        void unlink() {
++            check(model.oldRecordUnlinked(refs[3],true,context(10),3)==HonorChannelReclamation.Action.READ_FRESH);
++            check(old.state()==HonorScopedChannelState.State.RETIRED);
++            check(old.close(HonorScopedChannelState.Generation.CHANGED)==null); // No old native close.
++        }
++        void respondReads() {
++            for(int i=0;i<2;i++) { // Actual fresh-state lifecycle for EID and target-profile responses.
++                Object call=freshState.transmit(HonorScopedChannelState.Generation.CURRENT);
++                check(freshState.transmitted(call,HonorScopedChannelState.Generation.CURRENT,true));
++            }
++        }
++        void read() {
++            respondReads();
++            check(model.readsCompleted(model.readToken(),fresh,context(10),TEST_ONLY_EID,true,4)==HonorChannelReclamation.Action.CLOSE_FRESH);
++        }
++        void closeNative() {
++            Object call=freshState.close(HonorScopedChannelState.Generation.CURRENT);
++            check(freshState.closed(call,HonorScopedChannelState.Generation.CURRENT,true));
++        }
++        void close() {
++            if(model.state()==HonorChannelReclamation.State.READING_FRESH) read();
++            closeNative();check(model.freshClosed(model.closeToken(),fresh,context(10),true,5)==HonorChannelReclamation.Action.RECONCILE);
++        }
++    }
++    public static void main(String[] args) {
++        Fixture f=new Fixture();
++        check(f.model.begin(false,f.context(10),1)==HonorChannelReclamation.Action.STOP);
++        check(f.old.state()==HonorScopedChannelState.State.UNQUALIFIED); // Disabled never probes.
++        f=new Fixture();f.begin();check(f.model.begin(true,f.context(10),1)==HonorChannelReclamation.Action.NONE);
++        check(f.model.opened(new Object(),f.context(10),f.fresh,f.freshState,4,true,2)==HonorChannelReclamation.Action.NONE);
++        check(f.model.freshClosed(new Object(),f.fresh,f.context(10),true,2)==HonorChannelReclamation.Action.NONE);
++        f.opened(4);check(f.old.state()==HonorScopedChannelState.State.RECLAIMING);
++        f.unlink();check(f.model.oldRecordUnlinked(f.refs[3],true,f.context(10),3)==HonorChannelReclamation.Action.NONE);
++        f.close();check(f.model.reconciled(f.context(11),true,6)==HonorChannelReclamation.Action.READY);
++        check(f.model.state()==HonorChannelReclamation.State.READY);
++        f.model.unavailable();check(f.model.state()==HonorChannelReclamation.State.STOP);
++        f=new Fixture();f.begin();f.opened(5);f.closeNative();
++        check(f.model.freshClosed(f.model.closeToken(),f.fresh,f.context(10),true,3)==HonorChannelReclamation.Action.STOP);
++        check(f.old.state()==HonorScopedChannelState.State.UNKNOWN); // Different ID proves nothing about old.
++        for(int i=0;i<8;i++) {
++            f=new Fixture();Object[] bad=f.refs.clone();bad[i]=new Object();
++            check(f.model.begin(true,f.context(bad,1,10,1,0,2,TEST_ONLY_EID,true,true,true,true,true,true),1)==HonorChannelReclamation.Action.STOP);
++        }
++        for(int i=0;i<6;i++) {
++            f=new Fixture();boolean[] facts={true,true,true,true,true,true};facts[i]=false;
++            check(f.model.begin(true,f.context(f.refs,1,10,1,0,2,TEST_ONLY_EID,
++                    facts[0],facts[1],facts[2],facts[3],facts[4],facts[5]),1)==HonorChannelReclamation.Action.STOP);
++        }
++        for(int i=0;i<6;i++) {
++            f=new Fixture();long epoch=1,serial=10;int slot=1,port=0,card=2;String eid=TEST_ONLY_EID;
++            switch(i){case 0->epoch=2;case 1->serial=0;case 2->slot=0;case 3->port=1;case 4->card=3;case 5->eid="";}
++            check(f.model.begin(true,f.context(f.refs,epoch,serial,slot,port,card,eid,true,true,true,true,true,true),1)==HonorChannelReclamation.Action.STOP);
++        }
++        for(int stage=0;stage<6;stage++) {
++            f=new Fixture();
++            if(stage>0)f.begin();if(stage>1)f.opened(4);if(stage>2)f.unlink();if(stage>3)f.read();if(stage>4)f.close();
++            if(stage==1)f.prepareFreshOpen();if(stage==3)f.respondReads();
++            f.old.unknown(); // Exact existing binderDied override; no raw integer close.
++            if(stage==4)f.closeNative();
++            HonorChannelReclamation.Action result=switch(stage) {
++                case 0->f.model.begin(true,f.context(10),1);
++                case 1->f.model.opened(f.model.openToken(),f.context(10),f.fresh,f.freshState,4,true,2);
++                case 2->f.model.oldRecordUnlinked(f.refs[3],true,f.context(10),3);
++                case 3->f.model.readsCompleted(f.model.readToken(),f.fresh,f.context(10),TEST_ONLY_EID,true,4);
++                case 4->f.model.freshClosed(f.model.closeToken(),f.fresh,f.context(10),true,5);
++                default->f.model.reconciled(f.context(11),true,6);
++            };
++            check(result==HonorChannelReclamation.Action.STOP);
++            check(f.old.state()==HonorScopedChannelState.State.UNKNOWN);
++        }
++        f=new Fixture();f.begin();f.opened(4);
++        check(f.model.oldRecordUnlinked(new Object(),true,f.context(10),3)==HonorChannelReclamation.Action.STOP);
++        f=new Fixture();f.begin();f.opened(4);
++        check(f.model.oldRecordUnlinked(f.refs[3],false,f.context(10),3)==HonorChannelReclamation.Action.STOP);
++        f=new Fixture();f.begin();f.opened(4);f.unlink();f.read();
++        check(f.model.freshClosed(f.model.closeToken(),f.fresh,f.context(10),false,5)==HonorChannelReclamation.Action.STOP);
++        f=new Fixture();f.begin();f.prepareFreshOpen();
++        check(f.model.opened(f.model.openToken(),f.context(10),f.fresh,f.freshState,0,true,2)==HonorChannelReclamation.Action.STOP);
++        f=new Fixture();f.begin();f.prepareFreshOpen();
++        check(f.model.opened(f.model.openToken(),f.context(10),f.fresh,f.freshState,4,false,2)==HonorChannelReclamation.Action.STOP);
++        for(int i=0;i<2;i++) {
++            f=new Fixture();f.begin();f.opened(4);f.unlink();f.close();
++            check(f.model.reconciled(f.context(i==0 ? 10 : 11),i!=1,6)==HonorChannelReclamation.Action.STOP);
++        }
++        f=new Fixture();f.begin();f.model.expire(1000);check(f.model.state()==HonorChannelReclamation.State.STOP);
++        check(f.model.opened(f.model.openToken(),f.context(10),f.fresh,f.freshState,4,true,1001)==HonorChannelReclamation.Action.NONE);
++        f=new Fixture();f.old.close(HonorScopedChannelState.Generation.CHANGED);
++        check(f.model.begin(true,f.context(10),1)==HonorChannelReclamation.Action.STOP);
++        f=new Fixture();f.begin();f.opened(4);f.old.close(HonorScopedChannelState.Generation.CHANGED);
++        check(f.model.oldRecordUnlinked(f.refs[3],true,f.context(10),3)==HonorChannelReclamation.Action.STOP);
++        f=new Fixture();f.begin();f.opened(4);f.old.close(HonorScopedChannelState.Generation.DISPOSED);
++        check(f.model.oldRecordUnlinked(f.refs[3],true,f.context(10),3)==HonorChannelReclamation.Action.STOP);
++        f=new Fixture();f.begin();f.opened(4);f.unlink();f.read();f.closeNative();
++        check(f.model.freshClosed(f.model.closeToken(),new Object(),f.context(10),true,5)==HonorChannelReclamation.Action.STOP);
++        f=new Fixture();f.begin();f.opened(4);f.unlink();f.close();
++        check(f.model.reconciled(f.context(11),true,3)==HonorChannelReclamation.Action.STOP); // Clock regression.
++        f=new Fixture();f.begin();f.opened(4);f.unlink();f.close();
++        check(f.model.reconciled(f.context(11),true,6)==HonorChannelReclamation.Action.READY);
++        f.model.expire(1000);check(f.model.state()==HonorChannelReclamation.State.STOP);
++        f=new Fixture();f.begin();f.opened(4);f.unlink();
++        f.respondReads();
++        Object changed=f.freshState.transmit(HonorScopedChannelState.Generation.CURRENT);
++        check(f.freshState.transmitted(changed,HonorScopedChannelState.Generation.CHANGED,true));
++        check(f.model.readsCompleted(f.model.readToken(),f.fresh,f.context(10),TEST_ONLY_EID,true,4)==HonorChannelReclamation.Action.STOP);
++        f=new Fixture();f.begin();f.opened(4);f.unlink();f.respondReads();
++        check(f.model.readsCompleted(f.model.readToken(),f.fresh,f.context(10),"",true,4)==HonorChannelReclamation.Action.STOP);
++        f=new Fixture();f.begin();f.opened(4);f.unlink();
++        for(int i=0;i<2;i++) {Object r=f.freshState.transmit(HonorScopedChannelState.Generation.CURRENT);check(f.freshState.transmitted(r,HonorScopedChannelState.Generation.CURRENT,true));}
++        check(f.model.readsCompleted(f.model.readToken(),f.fresh,f.context(10),TEST_ONLY_EID,false,4)==HonorChannelReclamation.Action.CLOSE_FRESH);
++        f.closeNative();check(f.model.freshClosed(f.model.closeToken(),f.fresh,f.context(10),true,5)==HonorChannelReclamation.Action.STOP);
++        f=new Fixture();f.begin();f.opened(4);f.unlink();f.read();
++        Object freshClose=f.freshState.close(HonorScopedChannelState.Generation.CURRENT);
++        check(!f.freshState.closed(freshClose,HonorScopedChannelState.Generation.CHANGED,true));
++        check(f.model.freshClosed(f.model.closeToken(),f.fresh,f.context(10),true,5)==HonorChannelReclamation.Action.STOP);
++        f=new Fixture();f.begin();f.opened(4);f.unlink();
++        check(f.model.readsCompleted(f.model.readToken(),f.fresh,f.context(10),TEST_ONLY_EID,true,4)==HonorChannelReclamation.Action.STOP); // No actual reads.
++        for(int kind:new int[]{0,1,5,8,9}) {
++            f=new Fixture();var unsupported=f.contextForKind(kind);
++            f.model=new HonorChannelReclamation(f.old,unsupported,4,1000);
++            check(f.model.begin(true,unsupported,1)==HonorChannelReclamation.Action.STOP);
++        }
++        System.out.println("HonorChannelReclamationHostTest PASS "+checks+" fixture assertions; no Binder/modem/allocation proof");
++    }
++}
+diff --git a/tests/host/com/android/internal/telephony/uicc/HonorDelayedResetPreparationHostTest.java b/tests/host/com/android/internal/telephony/uicc/HonorDelayedResetPreparationHostTest.java
+new file mode 100644
+index 0000000..32c615c
+--- /dev/null
++++ b/tests/host/com/android/internal/telephony/uicc/HonorDelayedResetPreparationHostTest.java
+@@ -0,0 +1,68 @@
++/* Copyright (C) 2026 The LineageOS Project. SPDX-License-Identifier: Apache-2.0 */
++package com.android.internal.telephony.uicc;
++import android.os.*;
++import com.android.internal.telephony.CommandsInterface;
++/** Actual production helper/state, deterministic Handler/port/CI boundaries; no hardware/JNI proof. */
++public final class HonorDelayedResetPreparationHostTest {
++    static int cases;
++    static void check(boolean value) {if(!value) throw new AssertionError("case "+cases);}
++    static HonorScopedReclamationAsyncHostTest.Fixture returned() {
++        var f=new HonorScopedReclamationAsyncHostTest.Fixture();
++        f.old.transmit(new byte[]{(byte)0x80,(byte)0xe2,(byte)0x91,0,0},f.sink.next());
++        f.port.profile.deliver(4,new IccIoResult(0x90,0,null),null);return f;
++    }
++    static void none(HonorScopedReclamationAsyncHostTest.Fixture f) {
++        check(f.port.profile.opens==1 && f.port.profile.closed.isEmpty());
++    }
++    static void unknown(HonorScopedReclamationAsyncHostTest.Fixture f) {
++        Handler.runReady();check(f.sink.last()==HonorScopedApduChannel.UNKNOWN);none(f);
++    }
++    public static void main(String[] args) {
++        for(int kind:new int[]{2,3}) {
++            cases++;var f=returned();f.begin(kind);none(f);
++            for(int i=0;i<4;i++)Handler.advance(100);
++            Handler.advance(60);none(f);f.port.epoch++;Handler.advance(40);
++            check(f.port.profile.opens==2 && f.port.profile.closed.isEmpty());
++            f.allocate(3);f.reads(kind);f.port.profile.deliver(2,null,null);
++            check(f.sink.last()==HonorScopedApduChannel.RECLAIMED);
++            int closes=f.port.profile.closed.size();f.old.close(f.sink.next());Handler.runReady();
++            check(f.sink.last()==HonorScopedApduChannel.RETIRED && f.port.profile.closed.size()==closes);
++        }
++        cases++;var f=returned();f.port.epoch++;f.begin(3);check(f.port.profile.opens==2);
++        cases++;f=new HonorScopedReclamationAsyncHostTest.Fixture();f.positiveFinalWithRefresh();f.begin(3);check(f.port.profile.opens==2);
++        cases++;f=returned();f.begin(3);Handler.advance(60_000);unknown(f);f.port.epoch++;Handler.advance(100);none(f);
++        cases++;f=returned();f.begin(3);Handler.advance(59_000);f.port.epoch++;Handler.advance(100);check(f.port.profile.opens==2);
++        Handler.advance(901);check(f.sink.last()==HonorScopedApduChannel.UNKNOWN);check(f.port.profile.closed.isEmpty());
++        cases++;f=returned();f.begin(3);f.port.disposed=true;Handler.advance(100);
++        check(f.sink.last()==HonorScopedApduChannel.NO_RECLAMATION);f.old.close(f.sink.next());Handler.runReady();
++        check(f.sink.last()==HonorScopedApduChannel.RETIRED);none(f);
++        for(int loss=0;loss<7;loss++) {
++            cases++;f=returned();f.begin(3);
++            switch(loss) {
++                case 0 -> f.port.currentProfile=new UiccProfile();
++                case 1 -> f.port.currentCi=new CommandsInterface(){};
++                case 2 -> f.port.currentCard=new UiccCard();
++                case 3 -> f.port.records.clear();
++                case 4 -> f.port.available=false;
++                case 5 -> f.grantLive.set(false);
++                case 6 -> f.stepLive.set(false);
++            }
++            f.port.epoch++;Handler.advance(100);unknown(f);
++        }
++        cases++;f=returned();f.begin(3);f.client.alive=false;Handler.advance(100);unknown(f);
++        cases++;f=returned();f.begin(3);f.oldRecord.binderDied();unknown(f);f.port.epoch++;Handler.advance(100);none(f);
++        cases++;f=returned();f.begin(3);int count=f.sink.results.size();f.begin(3);Handler.runReady();
++        check(f.sink.results.size()==count+2);none(f);f.port.epoch++;Handler.advance(100);none(f);
++        cases++;f=returned();f.old.close(f.sink.next());check(f.port.profile.closed.size()==1);
++        f.port.profile.deliver(2,null,new RuntimeException());f.begin(3);Handler.runReady();check(f.sink.last()==0);check(f.port.profile.opens==1);
++        cases++;f=returned();f.begin(3);f.old.close(f.sink.next());unknown(f);f.port.epoch++;Handler.advance(100);none(f);
++        cases++;f=returned();f.begin(3);f.old.unknown();unknown(f);int count2=f.sink.results.size();
++        f.old.unknown();Handler.advance(60_000);check(f.sink.results.size()==count2);
++        cases++;f=returned();f.begin(4);Handler.runReady();check(f.sink.last()==HonorScopedApduChannel.NO_RECLAMATION);none(f);
++        cases++;f=returned();f.begin(3);f.port.records.add(f.port.new OpenLogicalChannelRecord(new com.android.internal.telephony.IccLogicalChannelRequest()));
++        f.port.epoch++;Handler.advance(100);unknown(f);
++        cases++;f=returned();f.old.unknown();f.port.disposed=true;f.begin(3);Handler.runReady();
++        check(f.sink.last()==HonorScopedApduChannel.UNKNOWN);none(f);
++        System.out.println("PASS "+cases+" delayed-reset actual helper async cases; deterministic platform/native doubles only");
++    }
++}
+diff --git a/tests/host/com/android/internal/telephony/uicc/HonorScopedChannelStateHostTest.java b/tests/host/com/android/internal/telephony/uicc/HonorScopedChannelStateHostTest.java
+new file mode 100644
+index 0000000..afceada
+--- /dev/null
++++ b/tests/host/com/android/internal/telephony/uicc/HonorScopedChannelStateHostTest.java
+@@ -0,0 +1,43 @@
++package com.android.internal.telephony.uicc;
++
++public final class HonorScopedChannelStateHostTest {
++ static int checks;
++ static void ok(boolean value) {if(!value)throw new AssertionError();checks++;}
++ static void bad(Runnable action) {try{action.run();throw new AssertionError();}catch(IllegalArgumentException expected){checks++;}}
++ static HonorScopedChannelState opened() {
++  var state=new HonorScopedChannelState();Object token=state.open(HonorScopedChannelState.Generation.CURRENT);
++  ok(token!=null);ok(state.opened(token,HonorScopedChannelState.Generation.CURRENT,true));return state;
++ }
++ public static void main(String[] args) {
++  var current=HonorScopedChannelState.Generation.CURRENT;var disposed=HonorScopedChannelState.Generation.DISPOSED;var changed=HonorScopedChannelState.Generation.CHANGED;
++  var state=opened();Object call=state.transmit(current);ok(call!=null);ok(state.transmitted(call,current,true));
++  Object close=state.close(current);ok(close!=null);ok(state.closed(close,current,true));ok(state.state()==HonorScopedChannelState.State.CLOSED);
++  for(var generation:new HonorScopedChannelState.Generation[]{changed,disposed}) {
++   state=new HonorScopedChannelState();call=state.open(current);ok(!state.opened(call,generation,true));
++   ok(state.state()==HonorScopedChannelState.State.UNKNOWN);ok(state.close(current)==null); // No helpful stale-open close.
++  }
++  state=opened();call=state.transmit(current);ok(state.transmitted(call,disposed,true));
++  ok(state.state()==HonorScopedChannelState.State.RETIRED);ok(state.close(disposed)==null); // No native dispatch.
++  state=opened();call=state.transmit(current);ok(state.transmitted(call,changed,true));
++  ok(state.state()==HonorScopedChannelState.State.UNQUALIFIED);ok(state.close(changed)==null);
++  ok(state.state()!=HonorScopedChannelState.State.RETIRED);ok(state.transmit(current)==null); // Availability again cannot restore epoch.
++  state=new HonorScopedChannelState();call=state.open(current);state.unknown();ok(!state.opened(call,current,true));ok(state.close(disposed)==null);
++  state=opened();call=state.transmit(current);state.unknown();ok(!state.transmitted(call,disposed,true));ok(state.state()==HonorScopedChannelState.State.UNKNOWN);
++  var old=opened();close=old.close(current);ok(old.closed(close,current,true));var fresh=opened();
++  old.unknown(); // Already-delivered old death callback after unlink cannot affect a fresh handle.
++  ok(fresh.state()==HonorScopedChannelState.State.OPEN);ok(fresh.transmit(current)!=null);
++  state=opened();ok(state.transmit(changed)==null);ok(state.close(current)==null); // Remember a past reset even after radio available.
++  state=opened();close=state.close(current);ok(!state.closed(close,changed,true));ok(state.state()==HonorScopedChannelState.State.UNKNOWN);
++  state=new HonorScopedChannelState();call=state.open(current);ok(!state.opened(new Object(),current,true));state.unknown();ok(!state.opened(call,current,true));
++  var store=new HonorShortApdu(new byte[]{(byte)0x80,(byte)0xE2,(byte)0x91,0,3,1,2,3});
++  ok(store.cla==128 && store.ins==226 && store.p1==145 && store.p3==3 && store.data.equals("010203"));
++  var response=new HonorShortApdu(new byte[]{0,(byte)0xC0,0,0,0});ok(response.p3==0 && response.data==null);
++  var noLength=new HonorShortApdu(new byte[]{0,0,0,0});ok(noLength.data==null && noLength.p3==-1);
++  byte[] max=new byte[260];max[4]=(byte)255;ok(new HonorShortApdu(max).p3==255);
++  bad(()->new HonorShortApdu(new byte[]{0,0,0}));bad(()->new HonorShortApdu(new byte[261]));
++  bad(()->new HonorShortApdu(new byte[]{0,0,0,0,0,1,0})); // Extended length is rejected before dispatch.
++  bad(()->new HonorShortApdu(new byte[]{0,0,0,0,2,1})); // Truncated Lc.
++  bad(()->new HonorShortApdu(new byte[]{0,0,0,0,1,1,0})); // Unsupported case-4/extra byte.
++  System.out.println("HONOR_SCOPED_CHANNEL_HOST_PASS checks="+checks);
++ }
++}
+diff --git a/tests/host/com/android/internal/telephony/uicc/HonorScopedReclamationAsyncHostTest.java b/tests/host/com/android/internal/telephony/uicc/HonorScopedReclamationAsyncHostTest.java
+new file mode 100644
+index 0000000..d7c2525
+--- /dev/null
++++ b/tests/host/com/android/internal/telephony/uicc/HonorScopedReclamationAsyncHostTest.java
+@@ -0,0 +1,177 @@
++/* Copyright (C) 2026 The LineageOS Project. SPDX-License-Identifier: Apache-2.0 */
++package com.android.internal.telephony.uicc;
++import android.os.*;
++import com.android.internal.telephony.uicc.asn1.Asn1Node;
++import com.android.internal.telephony.uicc.euicc.HonorReconciliationCodec;
++import java.util.*;
++import java.util.concurrent.atomic.AtomicBoolean;
++
++/** Executes the production captured helper/codec with deterministic Handler/native doubles.
++ * It does not model Android Binder, actual port lifecycle, modem allocation or JNI execution.
++ */
++public final class HonorScopedReclamationAsyncHostTest {
++    static int checks;
++    static final String EID="12345678901234567890123456789012",ICCID="89123456789012345678";
++    static void check(boolean value){checks++;if(!value)throw new AssertionError("check "+checks);}
++    interface Checked {void run()throws Exception;}
++    static void rejects(Checked action)throws Exception {try{action.run();}catch(Exception expected){checks++;return;}throw new AssertionError("malformed input accepted");}
++    static final class Client implements IBinder {
++        boolean alive=true;final ArrayList<DeathRecipient> recipients=new ArrayList<>();
++        public boolean isBinderAlive(){return alive;}
++        public void linkToDeath(DeathRecipient r,int flags)throws RemoteException{if(!alive)throw new RemoteException();recipients.add(r);}
++        public boolean unlinkToDeath(DeathRecipient r,int flags){return recipients.remove(r);}
++    }
++    static final class Sink extends Handler {
++        final ArrayList<HonorScopedApduChannel.Outcome> results=new ArrayList<>();
++        Sink(){super(Looper.MAIN);}
++        Message next(){return obtainMessage(0,this);}
++        public void handleMessage(Message m){results.add((HonorScopedApduChannel.Outcome)((AsyncResult)m.obj).result);}
++        int last(){return results.get(results.size()-1).code;}
++    }
++    static byte[] eid(String value){return Asn1Node.newBuilder(0xbf3e).addChildAsBytes(0x5a,IccUtils.hexStringToBytes(value)).build().toBytes();}
++    static byte[] profiles(int state,boolean present){var list=Asn1Node.newBuilder(0xa0);
++        if(present)list.addChild(Asn1Node.newBuilder(0xe3).addChildAsBytes(0x5a,IccUtils.bcdToBytes(ICCID)).addChildAsInteger(0x9f70,state));
++        return Asn1Node.newBuilder(0xbf2d).addChild(list).build().toBytes();}
++    static final class Fixture {
++        final UiccPort port=new UiccPort();final Client client=new Client();final Sink sink=new Sink();
++        final AtomicBoolean grantLive=new AtomicBoolean(true),stepLive=new AtomicBoolean(true);
++        final HonorScopedApduChannel old=new HonorScopedApduChannel(port,port.profile,1,port.ci,port.card,client);
++        HonorScopedApduChannel.ReclamationRequest request;UiccPort.OpenLogicalChannelRecord oldRecord;
++        Fixture(){this(3);}
++        Fixture(int initialChannel){Handler.reset();old.open("A0000005591010FFFFFFFF8900000100",0,sink.next());port.profile.deliver(1,new int[]{initialChannel},null);
++            check(sink.last()==HonorScopedApduChannel.OPENED);oldRecord=port.records.get(0);
++        }
++        void positiveFinalWithRefresh(){old.transmit(new byte[]{(byte)0x80,(byte)0xe2,(byte)0x91,0,0},sink.next());port.epoch++;
++            port.profile.deliver(4,new IccIoResult(0x90,0,null),null);check(sink.last()==HonorScopedApduChannel.RESPONSE);}
++        void begin(int kind){request=new HonorScopedApduChannel.ReclamationRequest(new Object(),new Object(),9,101,7,kind,EID,ICCID,()->grantLive.get()&&stepLive.get());old.prepareResetReclamation(request,sink.next());}
++        void allocate(int id){port.profile.deliver(1,new int[]{id},null);}
++        void respond(int sw1,int sw2,byte[] body){port.profile.deliver(4,new IccIoResult(sw1,sw2,body),null);}
++        void reads(int kind){respond(0x90,0,eid(EID));respond(0x90,0,profiles(kind==2?1:0,kind!=4));}
++    }
++    public static void main(String[] args)throws Exception {
++        for(int kind=2;kind<=4;kind++){
++            Fixture f=new Fixture();f.positiveFinalWithRefresh();f.begin(kind);
++            check(f.port.records.size()==1&&f.port.records.get(0)==f.oldRecord);
++            f.allocate(3);check(f.port.records.size()==1&&f.port.records.get(0)!=f.oldRecord);
++            check(f.port.profile.closed.isEmpty());check(f.port.profile.commands.get(1).startsWith("80E29100"));f.reads(kind);
++            check(f.port.profile.closed.equals(List.of(3)));f.port.profile.deliver(2,null,null);
++            check(f.sink.last()==HonorScopedApduChannel.RECLAIMED);check(f.port.records.isEmpty());
++            int closeCount=f.port.profile.closed.size();f.old.close(f.sink.next());Handler.runReady();
++            check(f.sink.last()==HonorScopedApduChannel.RETIRED);check(f.port.profile.closed.size()==closeCount);
++            check(!f.old.finishResetReclamation(f.request,101)); // Fresh post-close GET serial is mandatory.
++        }
++        Fixture f=new Fixture();f.positiveFinalWithRefresh();f.begin(2);f.allocate(3);f.reads(2);f.port.profile.deliver(2,null,null);
++        f.old.close(f.sink.next());Handler.runReady();check(f.old.finishResetReclamation(f.request,102));
++        check(!f.old.finishResetReclamation(f.request,103)); // No duplicate finish/new probe.
++        f=new Fixture();f.positiveFinalWithRefresh();f.begin(2);f.allocate(4);
++        check(f.port.profile.closed.equals(List.of(4)));check(f.port.profile.commands.size()==1);
++        f.port.profile.deliver(2,null,null);check(f.sink.last()==HonorScopedApduChannel.UNKNOWN);
++        check(f.port.records.size()==1&&f.port.records.get(0)==f.oldRecord);check(f.port.profile.opens==2);
++        for(boolean stepChange:new boolean[]{false,true}){
++            f=new Fixture();f.positiveFinalWithRefresh();f.begin(2);f.allocate(3);int before=f.port.profile.commands.size();
++            if(stepChange)f.stepLive.set(false);else f.grantLive.set(false);
++            f.respond(0x90,0,eid(EID));check(f.sink.last()==HonorScopedApduChannel.UNKNOWN);
++            check(f.port.profile.commands.size()==before);check(f.port.profile.closed.isEmpty());
++        }
++        f=new Fixture();f.positiveFinalWithRefresh();f.begin(2);f.allocate(3);
++        f.oldRecord.binderDied();int before=f.port.profile.commands.size();f.respond(0x90,0,eid(EID));
++        check(f.sink.last()==HonorScopedApduChannel.UNKNOWN);check(f.port.profile.commands.size()==before);
++        f=new Fixture();f.positiveFinalWithRefresh();f.begin(2);Handler.advance(60_001);
++        check(f.sink.last()==HonorScopedApduChannel.UNKNOWN);f.allocate(3);check(f.port.records.size()==1);
++        check(f.port.profile.commands.size()==1);check(f.port.profile.closed.isEmpty());
++        f=new Fixture();f.positiveFinalWithRefresh();f.old.close(f.sink.next());Handler.runReady();check(f.sink.last()==0);
++        int opens=f.port.profile.opens;f.begin(2);Handler.runReady();check(f.port.profile.opens==opens);check(f.sink.last()==0);
++        f=new Fixture();f.positiveFinalWithRefresh();f.port.disposed=true;f.begin(2);Handler.runReady();
++        check(f.sink.last()==HonorScopedApduChannel.NO_RECLAMATION);check(f.port.profile.opens==1);
++        f.old.close(f.sink.next());Handler.runReady();check(f.sink.last()==HonorScopedApduChannel.RETIRED);check(f.port.profile.closed.isEmpty());
++        f=new Fixture();f.begin(4);Handler.runReady();check(f.sink.last()==HonorScopedApduChannel.NO_RECLAMATION);
++        check(f.port.records.size()==1);check(f.port.profile.closed.isEmpty());
++        f=new Fixture();f.positiveFinalWithRefresh();f.begin(2);f.allocate(3);
++        byte[] response=eid(EID);f.respond(0x61,0,Arrays.copyOf(response,5));
++        check(f.port.profile.commands.get(f.port.profile.commands.size()-1).equals("00C0000000"));
++        f.respond(0x90,0,Arrays.copyOfRange(response,5,response.length));f.respond(0x90,0,profiles(1,true));f.port.profile.deliver(2,null,null);
++        check(f.sink.last()==HonorScopedApduChannel.RECLAIMED);
++        f=new Fixture();f.positiveFinalWithRefresh();f.begin(2);f.allocate(3);
++        int commands=f.port.profile.commands.size();f.port.profile.lastDelivered.sendToTarget();Handler.runReady();
++        check(f.port.profile.commands.size()==commands); // Duplicate OPEN callback cannot start a second reader.
++        f.respond(0x90,0,eid(EID));commands=f.port.profile.commands.size();
++        f.port.profile.lastDelivered.sendToTarget();Handler.runReady();check(f.port.profile.commands.size()==commands);
++        f.respond(0x90,0,profiles(1,true));f.port.profile.deliver(2,null,null);check(f.sink.last()==HonorScopedApduChannel.RECLAIMED);
++        f=new Fixture();f.positiveFinalWithRefresh();f.begin(2);f.allocate(3);f.respond(0x90,0,eid(EID));f.respond(0x90,0,profiles(0,true));
++        check(f.port.profile.closed.equals(List.of(3)));f.port.profile.deliver(2,null,null);check(f.sink.last()==HonorScopedApduChannel.UNKNOWN);
++        check(f.port.profile.opens==2); // Known wrong target closes fresh only; no retry or old modem close.
++        f=new Fixture();f.positiveFinalWithRefresh();f.begin(2);f.allocate(3);f.reads(2);
++        f.port.profile.deliver(2,null,new RuntimeException("close failed"));check(f.sink.last()==HonorScopedApduChannel.UNKNOWN);check(f.port.profile.closed.size()==1);
++        f=new Fixture();f.positiveFinalWithRefresh();f.begin(2);f.allocate(3);commands=f.port.profile.commands.size();
++        f.port.disposed=true;f.respond(0x90,0,eid(EID));check(f.sink.last()==HonorScopedApduChannel.UNKNOWN);check(f.port.profile.commands.size()==commands);
++        f=new Fixture();f.positiveFinalWithRefresh();f.begin(2);f.allocate(3);commands=f.port.profile.commands.size();
++        f.respond(0x90,0,eid("22345678901234567890123456789012"));check(f.sink.last()==HonorScopedApduChannel.UNKNOWN);check(f.port.profile.commands.size()==commands);
++        f=new Fixture();f.positiveFinalWithRefresh();f.begin(2);f.grantLive.set(false);f.allocate(3);
++        check(f.sink.last()==HonorScopedApduChannel.UNKNOWN);check(f.port.profile.closed.isEmpty());
++        check(f.port.records.size()==1&&f.port.records.get(0)==f.oldRecord);check(f.port.profile.commands.size()==1);
++        f=new Fixture();f.positiveFinalWithRefresh();f.begin(2);check(f.port.removeHonorChannelRecord(f.oldRecord));f.allocate(3);
++        check(f.sink.last()==HonorScopedApduChannel.UNKNOWN);check(f.port.profile.closed.isEmpty());check(f.port.records.isEmpty());
++        f=new Fixture();f.positiveFinalWithRefresh();Looper.setForTest(new Looper());f.begin(2);Looper.setForTest(Looper.MAIN);Handler.runReady();
++        check(f.sink.last()==HonorScopedApduChannel.UNKNOWN);check(f.port.profile.opens==1);
++        f=new Fixture();f.positiveFinalWithRefresh();f.begin(2);f.allocate(3);f.reads(2);f.port.profile.deliver(2,null,null);
++        f.old.close(f.sink.next());Handler.runReady();Looper.setForTest(new Looper());check(!f.old.finishResetReclamation(f.request,102));
++        Looper.setForTest(Looper.MAIN);check(f.old.finishResetReclamation(f.request,102));
++        for(int id=1;id<=19;id++) {
++            f=new Fixture(id);f.positiveFinalWithRefresh();f.begin(2);f.allocate(id);
++            check(f.port.profile.pending.get(0).channel()==id);
++            check(f.port.profile.commands.get(1).startsWith("80E29100"));
++            byte[] body=eid(EID);f.respond(0x61,0,Arrays.copyOf(body,4));
++            check(f.port.profile.commands.get(f.port.profile.commands.size()-1).equals("00C0000000"));
++            check(f.port.profile.pending.get(0).channel()==id);
++            f.respond(0x90,0,Arrays.copyOfRange(body,4,body.length));f.respond(0x90,0,profiles(1,true));
++            check(f.port.profile.closed.equals(List.of(id)));f.port.profile.deliver(2,null,null);
++            check(f.sink.last()==HonorScopedApduChannel.RECLAIMED);f.old.close(f.sink.next());Handler.runReady();
++            check(f.old.finishResetReclamation(f.request,102));
++        }
++        for(int invalid:new int[]{0,20}) {
++            Handler.reset();UiccPort port=new UiccPort();Sink sink=new Sink();Client client=new Client();
++            var old=new HonorScopedApduChannel(port,port.profile,1,port.ci,port.card,client);
++            old.open("A0000005591010FFFFFFFF8900000100",0,sink.next());port.profile.deliver(1,new int[]{invalid},null);
++            check(sink.last()==HonorScopedApduChannel.UNKNOWN);check(port.records.isEmpty());check(port.profile.commands.isEmpty());
++        }
++        byte[] missingState=Asn1Node.newBuilder(0xbf2d).addChild(Asn1Node.newBuilder(0xa0)
++                .addChild(Asn1Node.newBuilder(0xe3).addChildAsBytes(0x5a,IccUtils.bcdToBytes(ICCID)))).build().toBytes();
++        rejects(()->HonorReconciliationCodec.target(missingState,ICCID,HonorReconciliationCodec.Target.DISABLED,0));
++        rejects(()->HonorReconciliationCodec.target(missingState,ICCID,HonorReconciliationCodec.Target.ENABLED,0));
++        check(!HonorReconciliationCodec.target(missingState,ICCID,HonorReconciliationCodec.Target.DELETED,0));
++        for(String valid:new String[]{"1","1234567890123456789",ICCID})HonorReconciliationCodec.requireIccid(valid);
++        rejects(()->HonorReconciliationCodec.requireIccid(""));
++        rejects(()->HonorReconciliationCodec.requireIccid("123456789012345678901"));
++        rejects(()->HonorReconciliationCodec.requireIccid("8912345678901234567F"));
++        check(HonorReconciliationCodec.eid(eid(EID)).equals(EID));
++        check(HonorReconciliationCodec.target(profiles(1,true),ICCID,HonorReconciliationCodec.Target.ENABLED,0));
++        check(!HonorReconciliationCodec.target(profiles(0,true),ICCID,HonorReconciliationCodec.Target.ENABLED,0));
++        check(HonorReconciliationCodec.target(profiles(0,false),ICCID,HonorReconciliationCodec.Target.DELETED,0));
++        check(java.util.HexFormat.of().withUpperCase().formatHex(HonorReconciliationCodec.profilesRequest()).equals("80E2910008BF2D055C035A9F70"));
++        byte[] samePort=Asn1Node.newBuilder(0xbf2d).addChild(Asn1Node.newBuilder(0xa0)
++                .addChild(Asn1Node.newBuilder(0xe3).addChildAsBytes(0x5a,IccUtils.bcdToBytes(ICCID))
++                    .addChildAsInteger(0x9f70,0).addChildAsInteger(0x9f24,0))).build().toBytes();
++        check(HonorReconciliationCodec.target(samePort,ICCID,HonorReconciliationCodec.Target.ENABLED,0));
++        check(!HonorReconciliationCodec.target(samePort,ICCID,HonorReconciliationCodec.Target.DISABLED,0));
++        for(int wrongPort:new int[]{1,255}) {
++            byte[] other=Asn1Node.newBuilder(0xbf2d).addChild(Asn1Node.newBuilder(0xa0)
++                .addChild(Asn1Node.newBuilder(0xe3).addChildAsBytes(0x5a,IccUtils.bcdToBytes(ICCID))
++                    .addChildAsInteger(0x9f70,1).addChildAsInteger(0x9f24,wrongPort))).build().toBytes();
++            check(!HonorReconciliationCodec.target(other,ICCID,HonorReconciliationCodec.Target.ENABLED,0));
++        }
++        String shortIccid="8912345678901234567";
++        byte[] padded=Asn1Node.newBuilder(0xbf2d).addChild(Asn1Node.newBuilder(0xa0)
++                .addChild(Asn1Node.newBuilder(0xe3).addChildAsBytes(0x5a,IccUtils.bcdToBytes(shortIccid+"F".repeat(20-shortIccid.length())))
++                    .addChildAsInteger(0x9f70,1))).build().toBytes();
++        check(HonorReconciliationCodec.target(padded,shortIccid,HonorReconciliationCodec.Target.ENABLED,0));
++        byte[] badLength=Asn1Node.newBuilder(0xbf2d).addChild(Asn1Node.newBuilder(0xa0)
++                .addChild(Asn1Node.newBuilder(0xe3).addChildAsBytes(0x5a,new byte[9])
++                    .addChildAsInteger(0x9f70,1))).build().toBytes();
++        rejects(()->HonorReconciliationCodec.target(badLength,ICCID,HonorReconciliationCodec.Target.DELETED,0));
++        rejects(()->HonorReconciliationCodec.eid(new byte[]{0}));
++        rejects(()->HonorReconciliationCodec.nativeTarget(1));
++        rejects(()->HonorReconciliationCodec.target(Asn1Node.newBuilder(0xbf2d).addChild(Asn1Node.newBuilder(0xa0).addChildAsInteger(0x81,0)).build().toBytes(),ICCID,HonorReconciliationCodec.Target.DELETED,0));
++        rejects(()->HonorReconciliationCodec.eid(Asn1Node.newBuilder(0xbf3e).addChildAsBytes(0x5a,new byte[16]).addChildAsBytes(0x5a,new byte[16]).build().toBytes()));
++        System.out.println("PASS "+checks+" actual scoped-helper/ASN.1 async fixtures; deterministic Handler/native doubles, no Android/modem/JNI proof");
++    }
++}
+diff --git a/tests/host/scoped-reclamation-fixtures/android/content/res/Resources.java b/tests/host/scoped-reclamation-fixtures/android/content/res/Resources.java
+new file mode 100644
+index 0000000..d5375b9
+--- /dev/null
++++ b/tests/host/scoped-reclamation-fixtures/android/content/res/Resources.java
+@@ -0,0 +1,4 @@
++package android.content.res;
++public class Resources {public static class NotFoundException extends RuntimeException{}
++public static Resources getSystem(){throw new AssertionError("Unqualified Android API");}
++public String getString(int resource){throw new AssertionError("Unqualified Android API");}}
+diff --git a/tests/host/scoped-reclamation-fixtures/android/os/Handler.java b/tests/host/scoped-reclamation-fixtures/android/os/Handler.java
+new file mode 100644
+index 0000000..6202c20
+--- /dev/null
++++ b/tests/host/scoped-reclamation-fixtures/android/os/Handler.java
+@@ -0,0 +1,14 @@
++package android.os;
++import java.util.ArrayList;
++public class Handler {
++ public static long now=1;private static final ArrayList<Event> queue=new ArrayList<>();
++ private record Event(long when,Runnable task,Looper looper){}private final Looper looper;
++ public Handler(Looper looper){this.looper=looper;}public Looper getLooper(){return looper;}
++ public Message obtainMessage(int what,Object obj){Message m=new Message();m.what=what;m.obj=obj;m.target=this;return m;}
++ public boolean post(Runnable task){return postDelayed(task,0);}
++ public boolean postDelayed(Runnable task,long delay){queue.add(new Event(now+delay,task,looper));return true;}
++ public void removeCallbacks(Runnable task){queue.removeIf(e->e.task==task);}
++ public void handleMessage(Message message){}
++ public static void runReady(){int count=0;while(true){int i=-1;for(int j=0;j<queue.size();j++)if(queue.get(j).when<=now){i=j;break;}if(i<0)return;if(++count>1000)throw new AssertionError("unbounded callback chain");Event event=queue.remove(i);Looper previous=Looper.myLooper();Looper.setForTest(event.looper);try{event.task.run();}finally{Looper.setForTest(previous);}}}
++ public static void reset(){queue.clear();now=1;Looper.setForTest(Looper.MAIN);}public static void advance(long time){now+=time;runReady();}
++}
+diff --git a/tests/host/scoped-reclamation-fixtures/android/os/IBinder.java b/tests/host/scoped-reclamation-fixtures/android/os/IBinder.java
+new file mode 100644
+index 0000000..9ce105c
+--- /dev/null
++++ b/tests/host/scoped-reclamation-fixtures/android/os/IBinder.java
+@@ -0,0 +1,3 @@
++package android.os;
++public interface IBinder {interface DeathRecipient{void binderDied();}boolean isBinderAlive();
++void linkToDeath(DeathRecipient recipient,int flags)throws RemoteException;boolean unlinkToDeath(DeathRecipient recipient,int flags);}
+diff --git a/tests/host/scoped-reclamation-fixtures/android/os/Looper.java b/tests/host/scoped-reclamation-fixtures/android/os/Looper.java
+new file mode 100644
+index 0000000..537bc35
+--- /dev/null
++++ b/tests/host/scoped-reclamation-fixtures/android/os/Looper.java
+@@ -0,0 +1,3 @@
++package android.os;
++public final class Looper {public static final Looper MAIN=new Looper();private static Looper current=MAIN;
++public static Looper myLooper(){return current;}public static void setForTest(Looper value){current=value;}}
+diff --git a/tests/host/scoped-reclamation-fixtures/android/os/Message.java b/tests/host/scoped-reclamation-fixtures/android/os/Message.java
+new file mode 100644
+index 0000000..1282256
+--- /dev/null
++++ b/tests/host/scoped-reclamation-fixtures/android/os/Message.java
+@@ -0,0 +1,3 @@
++package android.os;
++public final class Message {public int what;public Object obj;Handler target;
++public Handler getTarget(){return target;}public void sendToTarget(){target.post(()->target.handleMessage(this));}}
+diff --git a/tests/host/scoped-reclamation-fixtures/android/os/RemoteException.java b/tests/host/scoped-reclamation-fixtures/android/os/RemoteException.java
+new file mode 100644
+index 0000000..de29891
+--- /dev/null
++++ b/tests/host/scoped-reclamation-fixtures/android/os/RemoteException.java
+@@ -0,0 +1,2 @@
++package android.os;
++public class RemoteException extends Exception {}
+diff --git a/tests/host/scoped-reclamation-fixtures/android/os/SystemClock.java b/tests/host/scoped-reclamation-fixtures/android/os/SystemClock.java
+new file mode 100644
+index 0000000..b256976
+--- /dev/null
++++ b/tests/host/scoped-reclamation-fixtures/android/os/SystemClock.java
+@@ -0,0 +1,2 @@
++package android.os;
++public final class SystemClock {public static long elapsedRealtime(){return Handler.now;}}
+diff --git a/tests/host/scoped-reclamation-fixtures/com/android/internal/telephony/CommandsInterface.java b/tests/host/scoped-reclamation-fixtures/com/android/internal/telephony/CommandsInterface.java
+new file mode 100644
+index 0000000..1eef176
+--- /dev/null
++++ b/tests/host/scoped-reclamation-fixtures/com/android/internal/telephony/CommandsInterface.java
+@@ -0,0 +1,2 @@
++package com.android.internal.telephony;
++public interface CommandsInterface {}
+diff --git a/tests/host/scoped-reclamation-fixtures/com/android/internal/telephony/IccLogicalChannelRequest.java b/tests/host/scoped-reclamation-fixtures/com/android/internal/telephony/IccLogicalChannelRequest.java
+new file mode 100644
+index 0000000..dc94fb9
+--- /dev/null
++++ b/tests/host/scoped-reclamation-fixtures/com/android/internal/telephony/IccLogicalChannelRequest.java
+@@ -0,0 +1,2 @@
++package com.android.internal.telephony;
++public final class IccLogicalChannelRequest {public int channel;public android.os.IBinder binder;}
+diff --git a/tests/host/scoped-reclamation-fixtures/com/android/internal/telephony/uicc/IccIoResult.java b/tests/host/scoped-reclamation-fixtures/com/android/internal/telephony/uicc/IccIoResult.java
+new file mode 100644
+index 0000000..7ec574c
+--- /dev/null
++++ b/tests/host/scoped-reclamation-fixtures/com/android/internal/telephony/uicc/IccIoResult.java
+@@ -0,0 +1,2 @@
++package com.android.internal.telephony.uicc;
++final class IccIoResult {final int sw1,sw2;final byte[] payload;IccIoResult(int a,int b,byte[] p){sw1=a;sw2=b;payload=p;}}
+diff --git a/tests/host/scoped-reclamation-fixtures/com/android/internal/telephony/uicc/UiccCard.java b/tests/host/scoped-reclamation-fixtures/com/android/internal/telephony/uicc/UiccCard.java
+new file mode 100644
+index 0000000..135ae4f
+--- /dev/null
++++ b/tests/host/scoped-reclamation-fixtures/com/android/internal/telephony/uicc/UiccCard.java
+@@ -0,0 +1,2 @@
++package com.android.internal.telephony.uicc;
++final class UiccCard {}
+diff --git a/tests/host/scoped-reclamation-fixtures/com/android/internal/telephony/uicc/UiccPort.java b/tests/host/scoped-reclamation-fixtures/com/android/internal/telephony/uicc/UiccPort.java
+new file mode 100644
+index 0000000..de5bd4a
+--- /dev/null
++++ b/tests/host/scoped-reclamation-fixtures/com/android/internal/telephony/uicc/UiccPort.java
+@@ -0,0 +1,15 @@
++package com.android.internal.telephony.uicc;
++import android.os.*;import java.util.*;import com.android.internal.telephony.*;
++final class UiccPort {
++ final UiccProfile profile=new UiccProfile();final CommandsInterface ci=new CommandsInterface(){};final UiccCard card=new UiccCard();
++ long epoch=1;boolean available=true,disposed;UiccProfile currentProfile=profile;CommandsInterface currentCi=ci;UiccCard currentCard=card;final ArrayList<OpenLogicalChannelRecord> records=new ArrayList<>();
++ class OpenLogicalChannelRecord implements IBinder.DeathRecipient{final IccLogicalChannelRequest request;OpenLogicalChannelRecord(IccLogicalChannelRequest r){request=r;}public void binderDied(){throw new AssertionError("legacy raw integer close forbidden");}}
++ synchronized <T>T withHonorChannel(UiccProfile p,long e,OpenLogicalChannelRecord r,java.util.function.Function<HonorScopedChannelState.Generation,T> fn){
++  return fn.apply(disposed||p!=profile?HonorScopedChannelState.Generation.DISPOSED:epoch!=e||!available||r!=null&&!records.contains(r)?HonorScopedChannelState.Generation.CHANGED:HonorScopedChannelState.Generation.CURRENT);}
++ synchronized void registerHonorChannelRecord(OpenLogicalChannelRecord r)throws RemoteException{r.request.binder.linkToDeath(r,0);records.add(r);}
++ synchronized boolean removeHonorChannelRecord(OpenLogicalChannelRecord r){if(!records.remove(r))return false;r.request.binder.unlinkToDeath(r,0);r.request.binder=null;return true;}
++ void prepareHonorReclamation(HonorScopedApduChannel old,HonorScopedApduChannel.ReclamationRequest r,Message response){HonorScopedApduChannel.Reclamation work;
++  synchronized(this){work=old.prepareReclamation(this,disposed?null:currentProfile,epoch,currentCi,currentCard,1,0,records.size()==1&&records.contains(old.reclamationRecord()),r,response);}if(work!=null)work.start();}
++ synchronized boolean honorReclamationCurrent(UiccProfile p,CommandsInterface c,UiccCard card,long e){return !disposed&&available&&p==currentProfile&&c==currentCi&&card==currentCard&&e==epoch;}
++ synchronized boolean finishHonorReclamation(HonorScopedApduChannel old,HonorScopedApduChannel.ReclamationRequest request,int serial){return old.finishReclamationLocked(request,serial);}
++}
+diff --git a/tests/host/scoped-reclamation-fixtures/com/android/internal/telephony/uicc/UiccProfile.java b/tests/host/scoped-reclamation-fixtures/com/android/internal/telephony/uicc/UiccProfile.java
+new file mode 100644
+index 0000000..7d7e0da
+--- /dev/null
++++ b/tests/host/scoped-reclamation-fixtures/com/android/internal/telephony/uicc/UiccProfile.java
+@@ -0,0 +1,11 @@
++package com.android.internal.telephony.uicc;
++import android.os.*;import java.util.*;
++final class UiccProfile {
++ record Pending(int kind,int channel,Message target){}final ArrayList<Pending> pending=new ArrayList<>();
++ final ArrayList<Integer> closed=new ArrayList<>();final ArrayList<String> commands=new ArrayList<>();int opens;Message lastDelivered;
++ void iccOpenLogicalChannel(String aid,int p2,Message response){opens++;pending.add(new Pending(1,-1,response));}
++ void iccTransmitApduLogicalChannel(int channel,int cla,int ins,int p1,int p2,int p3,String data,boolean es10,Message response){
++  if(!es10)throw new AssertionError("ES10 flag lost");commands.add(String.format("%02X%02X%02X%02X%02X%s",cla,ins,p1,p2,p3,data==null?"":data));pending.add(new Pending(4,channel,response));}
++ void iccCloseLogicalChannel(int channel,boolean es10,Message response){if(!es10)throw new AssertionError();closed.add(channel);pending.add(new Pending(2,channel,response));}
++ void deliver(int kind,Object value,Throwable error){if(pending.isEmpty()||pending.get(0).kind!=kind)throw new AssertionError("unexpected native dispatch");Message m=pending.remove(0).target;lastDelivered=m;AsyncResult.forMessage(m,value,error);m.sendToTarget();Handler.runReady();}
++}
+diff --git a/tests/telephonytests/src/com/android/internal/telephony/uicc/UiccControllerTest.java b/tests/telephonytests/src/com/android/internal/telephony/uicc/UiccControllerTest.java
+index 990b28a..9be5dd9 100644
+--- a/tests/telephonytests/src/com/android/internal/telephony/uicc/UiccControllerTest.java
++++ b/tests/telephonytests/src/com/android/internal/telephony/uicc/UiccControllerTest.java
+@@ -24,6 +24,7 @@ import static org.mockito.Mockito.any;
+ import static org.mockito.Mockito.atLeast;
+ import static org.mockito.Mockito.doReturn;
+ import static org.mockito.Mockito.mock;
++import static org.mockito.Mockito.never;
+ import static org.mockito.Mockito.spy;
+ import static org.mockito.Mockito.times;
+ import static org.mockito.Mockito.verify;
+@@ -45,6 +46,7 @@ import android.testing.TestableLooper;
+ import androidx.test.InstrumentationRegistry;
+ import androidx.test.filters.SmallTest;
+ 
++import com.android.internal.telephony.CommandsInterface;
+ import com.android.internal.telephony.TelephonyTest;
+ import com.android.internal.telephony.flags.Flags;
+ import com.android.internal.telephony.uicc.euicc.EuiccCard;
+@@ -187,6 +189,53 @@ public class UiccControllerTest extends TelephonyTest {
+         assertNull(mUiccControllerUT.getIccFileHandler(0, UiccController.APP_FAM_IMS));
+     }
+ 
++    @Test
++    @SmallTest
++    public void testRequestIccCardStatusRefreshTargetsRequestedPhone() throws Exception {
++        CommandsInterface firstCi = mock(CommandsInterface.class);
++        CommandsInterface secondCi = mock(CommandsInterface.class);
++        replaceInstance(UiccController.class, "mCis", mUiccControllerUT,
++                new CommandsInterface[]{firstCi, secondCi});
++
++        mUiccControllerUT.requestIccCardStatusRefresh(1);
++        processAllMessages();
++
++        ArgumentCaptor<Message> response = ArgumentCaptor.forClass(Message.class);
++        verify(secondCi).getIccCardStatus(response.capture());
++        verify(firstCi, never()).getIccCardStatus(any(Message.class));
++        assertEquals(mUiccControllerUT, response.getValue().getTarget());
++        assertEquals(EVENT_GET_ICC_STATUS_DONE, response.getValue().what);
++        assertEquals(Integer.valueOf(1), response.getValue().obj);
++    }
++
++    @Test
++    @SmallTest
++    public void testRequestIccCardStatusRefreshUsesNormalCardUpdate() {
++        mUiccControllerUT.setUiccSlot(0, mMockSlot);
++
++        mUiccControllerUT.requestIccCardStatusRefresh(0);
++        processAllMessages();
++
++        verify(mSimulatedCommandsVerifier, times(2)).getIccCardStatus(any(Message.class));
++        verify(mMockSlot).update(mSimulatedCommands, mIccCardStatus, 0, 0);
++    }
++
++    @Test
++    @SmallTest
++    public void testRequestIccCardStatusRefreshRejectsInvalidPhones() throws Exception {
++        CommandsInterface firstCi = mock(CommandsInterface.class);
++        CommandsInterface secondCi = mock(CommandsInterface.class);
++        replaceInstance(UiccController.class, "mCis", mUiccControllerUT,
++                new CommandsInterface[]{firstCi, secondCi});
++
++        mUiccControllerUT.requestIccCardStatusRefresh(-1);
++        mUiccControllerUT.requestIccCardStatusRefresh(2);
++        processAllMessages();
++
++        verify(firstCi, never()).getIccCardStatus(any(Message.class));
++        verify(secondCi, never()).getIccCardStatus(any(Message.class));
++    }
++
+     @Test
+     @SmallTest
+     public void testPowerOff() {

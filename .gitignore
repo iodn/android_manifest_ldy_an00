@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+*.pk8
+*.key
+
+.venv/
+*.pem
+*.p12
+*.pfx
+*.jks
+*.keystore

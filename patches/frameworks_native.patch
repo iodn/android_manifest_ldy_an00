@@ -1,0 +1,3791 @@
+diff --git a/services/surfaceflinger/Android.bp b/services/surfaceflinger/Android.bp
+index f69e5bc..285e61d 100644
+--- a/services/surfaceflinger/Android.bp
++++ b/services/surfaceflinger/Android.bp
+@@ -157,6 +157,7 @@ cc_defaults {
+         "libutils",
+     ],
+     static_libs: [
++        "libhonor_ldy_an00_composerext_client",
+         "iinputflinger_aidl_lib_static",
+         "libaidlcommonsupport",
+         "libcompositionengine",
+@@ -182,6 +183,7 @@ cc_defaults {
+         default: [],
+     }),
+     export_static_lib_headers: [
++        "libhonor_ldy_an00_composerext_client",
+         "libcompositionengine",
+         "librenderengine",
+         "libserviceutils",
+@@ -268,6 +270,7 @@ cc_library_headers {
+ filegroup {
+     name: "libsurfaceflinger_sources",
+     srcs: [
++        "ldy_an00_composerext/ComposerExtOwner.cpp",
+         ":libsurfaceflinger_backend_sources",
+         "ActivePictureTracker.cpp",
+         "BackgroundExecutor.cpp",
+diff --git a/services/surfaceflinger/Scheduler/FrameTimeline.cpp b/services/surfaceflinger/Scheduler/FrameTimeline.cpp
+index 2302425..f95d2d1 100644
+--- a/services/surfaceflinger/Scheduler/FrameTimeline.cpp
++++ b/services/surfaceflinger/Scheduler/FrameTimeline.cpp
+@@ -1998,6 +1998,26 @@ nsecs_t FrameTimeline::DisplayFrame::trace(pid_t surfaceFlingerPid, nsecs_t mono
+     return result;
+ }
+ 
++surfaceflinger::ldy_an00::CpuPolicyHistory FrameTimeline::snapshotCpuPolicyHistory() const {
++    using namespace surfaceflinger::ldy_an00;
++    std::lock_guard lock(mMutex);
++    CpuPolicyHistory history;
++    history.reserve(mDisplayFrames.size());
++    for (const auto& frame : mDisplayFrames) {
++        const auto actual = frame->getActuals();
++        if (actual.presentTime <= 0 || actual.presentTime == Fence::SIGNAL_TIME_PENDING) continue;
++        CpuPresentMetadata metadata = CpuPresentMetadata::Unknown;
++        switch (frame->getFramePresentMetadata()) {
++            case FramePresentMetadata::OnTimePresent: metadata = CpuPresentMetadata::OnTime; break;
++            case FramePresentMetadata::LatePresent: metadata = CpuPresentMetadata::Late; break;
++            case FramePresentMetadata::EarlyPresent: metadata = CpuPresentMetadata::Early; break;
++            case FramePresentMetadata::UnknownPresent: break;
++        }
++        history.push_back({actual.startTime, actual.endTime, actual.presentTime, metadata});
++    }
++    return history;
++}
++
+ float FrameTimeline::computeFps(const std::unordered_set<int32_t>& layerIds) {
+     if (layerIds.empty()) {
+         return 0.0f;
+diff --git a/services/surfaceflinger/Scheduler/FrameTimeline.h b/services/surfaceflinger/Scheduler/FrameTimeline.h
+index f9442f6..7dfbc12 100644
+--- a/services/surfaceflinger/Scheduler/FrameTimeline.h
++++ b/services/surfaceflinger/Scheduler/FrameTimeline.h
+@@ -16,6 +16,8 @@
+ 
+ #pragma once
+ 
++#include <ldy_an00/SfCpuPolicyHistory.h>
++
+ #include <atomic>
+ #include <chrono>
+ #include <deque>
+@@ -455,6 +457,10 @@ public:
+     // The fps is compted from the linear timeline of present timestamps for DisplayFrames
+     // containing at least one layer ID.
+     virtual float computeFps(const std::unordered_set<int32_t>& layerIds) = 0;
++    // Typed copied history only. Never expose an A17 object to a stock private vtable.
++    virtual surfaceflinger::ldy_an00::CpuPolicyHistory snapshotCpuPolicyHistory() const {
++        return {};
++    }
+ 
+     // Supports the legacy FrameStats interface
+     virtual void generateFrameStats(int32_t layer, size_t count, FrameStats* outStats) const = 0;
+@@ -642,6 +648,7 @@ public:
+     void parseArgs(const Vector<String16>& args, std::string& result) override;
+     void setMaxDisplayFrames(uint32_t size) override;
+     float computeFps(const std::unordered_set<int32_t>& layerIds) override;
++    surfaceflinger::ldy_an00::CpuPolicyHistory snapshotCpuPolicyHistory() const override;
+     void generateFrameStats(int32_t layer, size_t count, FrameStats* outStats) const override;
+     void reset() override;
+     void onLayerDestroyed(int32_t layerId) override;
+diff --git a/services/surfaceflinger/Scheduler/MessageQueue.cpp b/services/surfaceflinger/Scheduler/MessageQueue.cpp
+index fb39e88..441125b 100644
+--- a/services/surfaceflinger/Scheduler/MessageQueue.cpp
++++ b/services/surfaceflinger/Scheduler/MessageQueue.cpp
+@@ -190,8 +190,21 @@ void MessageQueue::scheduleConfigure() {
+ 
+ void MessageQueue::scheduleFrame(Duration workDurationSlack) {
+     SFTRACE_CALL();
++    scheduleFrameInternal(workDurationSlack, false);
++}
++
++void MessageQueue::scheduleRetriggerFrame() {
++    SFTRACE_CALL();
++    scheduleFrameInternal(Duration::fromNs(0), true);
++}
+ 
++void MessageQueue::scheduleFrameInternal(Duration workDurationSlack, bool retrigger) {
+     std::lock_guard lock(mVsync.mutex);
++    if (retrigger) {
++        mVsync.retriggerFrameRequested = true;
++    } else {
++        mVsync.normalFrameRequested = true;
++    }
+     const auto workDuration = Duration(mVsync.workDuration.get() - workDurationSlack);
+     mVsync.scheduledFrameTimeOpt =
+             mVsync.registration->schedule({.workDuration = workDuration.ns(),
+@@ -199,6 +212,15 @@ void MessageQueue::scheduleFrame(Duration workDurationSlack) {
+                                            .lastVsync = mVsync.lastCallbackTime.ns()});
+ }
+ 
++bool MessageQueue::consumeOnlyRetriggerFrameRequests() {
++    std::lock_guard lock(mVsync.mutex);
++    const bool retriggerOnly = mVsync.retriggerFrameRequested && !mVsync.normalFrameRequested;
++    // Keep ordinary work visible until an unlocked immediate dispatch has finished publishing it.
++    mVsync.normalFrameRequested = mVsync.immediateFrameDispatches != 0;
++    mVsync.retriggerFrameRequested = false;
++    return retriggerOnly;
++}
++
+ std::optional<scheduler::ScheduleResult> MessageQueue::getScheduledFrameResult() const {
+     if (mHandler->isFramePending()) {
+         return scheduler::ScheduleResult{TimePoint::now(), mHandler->getExpectedVsyncTime()};
+@@ -211,7 +233,16 @@ std::optional<scheduler::ScheduleResult> MessageQueue::getScheduledFrameResult()
+ }
+ 
+ void MessageQueue::scheduleImmediateFrame() {
++    {
++        std::lock_guard lock(mVsync.mutex);
++        ++mVsync.immediateFrameDispatches;
++        mVsync.normalFrameRequested = true;
++    }
+     mHandler->dispatchFrame(VsyncId(), TimePoint::now());
++    {
++        std::lock_guard lock(mVsync.mutex);
++        --mVsync.immediateFrameDispatches;
++    }
+ }
+ 
+ } // namespace android::impl
+diff --git a/services/surfaceflinger/Scheduler/MessageQueue.h b/services/surfaceflinger/Scheduler/MessageQueue.h
+index 7c18d31..7e669b3 100644
+--- a/services/surfaceflinger/Scheduler/MessageQueue.h
++++ b/services/surfaceflinger/Scheduler/MessageQueue.h
+@@ -127,11 +127,16 @@ private:
+                 GUARDED_BY(mutex) = {"VsyncWorkDuration-sf", std::chrono::nanoseconds(0)};
+         TimePoint lastCallbackTime GUARDED_BY(mutex);
+         std::optional<scheduler::ScheduleResult> scheduledFrameTimeOpt GUARDED_BY(mutex);
++        bool normalFrameRequested GUARDED_BY(mutex) = false;
++        bool retriggerFrameRequested GUARDED_BY(mutex) = false;
++        uint32_t immediateFrameDispatches GUARDED_BY(mutex) = 0;
+         TracedOrdinal<int> value = {"VSYNC-sf", 0};
+     };
+ 
+     Vsync mVsync;
+ 
++    void scheduleFrameInternal(Duration workDurationSlack, bool retrigger) EXCLUDES(mVsync.mutex);
++
+     // Returns the old registration so it can be destructed outside the lock to
+     // avoid deadlock.
+     std::unique_ptr<scheduler::VSyncCallbackRegistration> onNewVsyncScheduleLocked(
+@@ -151,6 +156,11 @@ public:
+ 
+     void scheduleConfigure() override;
+     void scheduleFrame(Duration workDurationSlack = Duration::fromNs(0)) override;
++    void scheduleRetriggerFrame();
++
++    // Pending transactions and buffers need separate checks before taking a retrigger fast path.
++    bool consumeOnlyRetriggerFrameRequests() EXCLUDES(mVsync.mutex);
++
+     void scheduleImmediateFrame() override;
+ 
+     std::optional<scheduler::ScheduleResult> getScheduledFrameResult() const override;
+diff --git a/services/surfaceflinger/Scheduler/RefreshRateSelector.cpp b/services/surfaceflinger/Scheduler/RefreshRateSelector.cpp
+index 0b11899..a26a931 100644
+--- a/services/surfaceflinger/Scheduler/RefreshRateSelector.cpp
++++ b/services/surfaceflinger/Scheduler/RefreshRateSelector.cpp
+@@ -1493,6 +1493,11 @@ bool RefreshRateSelector::isPolicyValidLocked(const Policy& policy) const {
+     return primaryRanges.valid() && appRequestRanges.valid();
+ }
+ 
++bool RefreshRateSelector::hasOverridePolicy() const {
++    std::lock_guard lock(mLock);
++    return mOverridePolicy.has_value();
++}
++
+ auto RefreshRateSelector::setPolicy(const PolicyVariant& policy) -> SetPolicyResult {
+     Policy oldPolicy;
+     PhysicalDisplayId displayId;
+diff --git a/services/surfaceflinger/Scheduler/RefreshRateSelector.h b/services/surfaceflinger/Scheduler/RefreshRateSelector.h
+index 2d1415c..fabbb8f 100644
+--- a/services/surfaceflinger/Scheduler/RefreshRateSelector.h
++++ b/services/surfaceflinger/Scheduler/RefreshRateSelector.h
+@@ -144,6 +144,7 @@ public:
+     Policy getCurrentPolicy() const EXCLUDES(mLock);
+     // Gets the display manager policy, regardless of whether an override policy is active.
+     Policy getDisplayManagerPolicy() const EXCLUDES(mLock);
++    bool hasOverridePolicy() const EXCLUDES(mLock);
+ 
+     // Returns true if mode is allowed by the current policy.
+     bool isModeAllowed(const FrameRateMode&) const EXCLUDES(mLock);
+diff --git a/services/surfaceflinger/Scheduler/Scheduler.cpp b/services/surfaceflinger/Scheduler/Scheduler.cpp
+index d53c93d..47c2b88 100644
+--- a/services/surfaceflinger/Scheduler/Scheduler.cpp
++++ b/services/surfaceflinger/Scheduler/Scheduler.cpp
+@@ -413,7 +413,7 @@ void Scheduler::onFrameSignal(ICompositor& compositor, VsyncId vsyncId,
+     const auto debugPresentDelay = mDebugPresentDelay.load();
+     mDebugPresentDelay.store(std::nullopt);
+ 
+-    const FrameTargeter::BeginFrameArgs beginFrameArgs =
++    FrameTargeter::BeginFrameArgs beginFrameArgs =
+             {.frameBeginTime = mClock->now(),
+              .vsyncId = vsyncId,
+              .expectedVsyncTime = expectedVsyncTime,
+@@ -422,6 +422,8 @@ void Scheduler::onFrameSignal(ICompositor& compositor, VsyncId vsyncId,
+              .debugPresentTimeDelay = debugPresentDelay};
+ 
+     ftl::NonNull<const Display*> pacesetterPtr = pacesetterPtrLocked();
++    beginFrameArgs.extraVsync = mMtkExtraVsyncProvider
++            ? mMtkExtraVsyncProvider(pacesetterPtr->displayId) : 0;
+     pacesetterPtr->targeterPtr->beginFrame(beginFrameArgs, *pacesetterPtr->schedulePtr);
+ 
+     ui::PhysicalDisplayVector<PhysicalDisplayId> presentableDisplays = {pacesetterPtr->displayId};
+@@ -439,6 +441,8 @@ void Scheduler::onFrameSignal(ICompositor& compositor, VsyncId vsyncId,
+             if (id == pacesetterPtr->displayId) continue;
+ 
+             auto followerBeginFrameArgs = beginFrameArgs;
++            followerBeginFrameArgs.extraVsync = mMtkExtraVsyncProvider
++                    ? mMtkExtraVsyncProvider(id) : 0;
+             const TimePoint nextFollowerVsync =
+                     display.schedulePtr->vsyncDeadlineAfter(expectedVsyncTime);
+             followerBeginFrameArgs.expectedVsyncTime = nextFollowerVsync;
+@@ -766,6 +770,15 @@ void Scheduler::setDuration(std::chrono::nanoseconds workDuration,
+ 
+ #pragma clang diagnostic push
+ #pragma clang diagnostic ignored "-Wunused-value" // b/369277774
++void Scheduler::setMtkDurationState(bool enabled, bool decoupled) {
++    const auto configs = [this, enabled, decoupled] {
++        std::scoped_lock lock{mVsyncConfigLock};
++        mVsyncConfiguration->setMtkDurationState(enabled, decoupled);
++        return mVsyncConfiguration->getCurrentConfigs();
++    }();
++    setVsyncConfig(mVsyncModulator->setVsyncConfigSet(configs));
++}
++
+ void Scheduler::updatePhaseConfiguration(PhysicalDisplayId displayId, Fps refreshRate) {
+     const bool isPacesetter =
+             FTL_FAKE_GUARD(kMainThreadContext,
+diff --git a/services/surfaceflinger/Scheduler/Scheduler.h b/services/surfaceflinger/Scheduler/Scheduler.h
+index 47772a8..4c9a50d 100644
+--- a/services/surfaceflinger/Scheduler/Scheduler.h
++++ b/services/surfaceflinger/Scheduler/Scheduler.h
+@@ -124,6 +124,13 @@ public:
+     using Impl::scheduleConfigure;
+     using Impl::scheduleFrame;
+     using Impl::scheduleImmediateFrame;
++    using Impl::scheduleRetriggerFrame;
++    using Impl::consumeOnlyRetriggerFrameRequests;
++
++    void setMtkExtraVsyncProvider(std::function<uint32_t(PhysicalDisplayId)> provider)
++            REQUIRES(kMainThreadContext) {
++        mMtkExtraVsyncProvider = std::move(provider);
++    }
+ 
+     // Schedule an asynchronous or synchronous task on the main thread.
+     template <typename F, typename T = std::invoke_result_t<F>>
+@@ -199,6 +206,7 @@ public:
+     }
+ 
+     void updatePhaseConfiguration(PhysicalDisplayId, Fps) EXCLUDES(mVsyncConfigLock);
++    void setMtkDurationState(bool enabled, bool decoupled) EXCLUDES(mVsyncConfigLock);
+     void reloadPhaseConfiguration(const FrameRateMode&, Duration minSfDuration,
+                                   Duration maxSfDuration, Duration appDuration)
+             EXCLUDES(mVsyncConfigLock);
+@@ -393,6 +401,8 @@ private:
+     enum class TouchState { Inactive, Active };
+ 
+     // impl::MessageQueue overrides:
++    std::function<uint32_t(PhysicalDisplayId)> mMtkExtraVsyncProvider;
++
+     void onFrameSignal(ICompositor&, VsyncId, TimePoint expectedVsyncTime) override
+             REQUIRES(kMainThreadContext, mDisplayLock) EXCLUDES(mVsyncConfigLock);
+ 
+diff --git a/services/surfaceflinger/Scheduler/VsyncConfiguration.cpp b/services/surfaceflinger/Scheduler/VsyncConfiguration.cpp
+index 1fb97ce..ad4362d 100644
+--- a/services/surfaceflinger/Scheduler/VsyncConfiguration.cpp
++++ b/services/surfaceflinger/Scheduler/VsyncConfiguration.cpp
+@@ -287,7 +287,37 @@ nsecs_t appDurationToOffset(std::chrono::nanoseconds appDuration,
+ }
+ } // namespace
+ 
++void WorkDuration::setMtkDurationState(bool enabled, bool decoupled) {
++    std::lock_guard lock(mLock);
++    if (mMtkDurationEnabled == enabled && mMtkDecoupled == decoupled) return;
++    mMtkDurationEnabled = enabled;
++    mMtkDecoupled = decoupled;
++    mOffsetsCache.clear();
++}
++
+ std::optional<nsecs_t> WorkDuration::getDurationOverride(const char* basePropName, int fps) const {
++    if (mMtkDurationEnabled) {
++        // Stock MtkDuration::initMtkDuration: exact-rate property, clamped60/120
++        // property outside that range, then the unqualified base duration.
++        const std::string base(basePropName);
++        const bool sf = base.find(".sf.duration") != std::string::npos;
++        const char* stage = base.find("earlyGl") != std::string::npos ? "earlyGl"
++                : base.find("early") != std::string::npos ? "early" : "late";
++        const std::string vendor = std::string("vendor.debug.sf.dynamic_duration.")
++                + (sf ? "sf." : "app.") + (mMtkDecoupled ? "decouple" : stage);
++        if (mMtkDecoupled) {
++            if (auto value = getProperty(vendor.c_str()); value && *value > 0) return value;
++        } else {
++            if (auto value = getProperty((vendor + '.' + std::to_string(fps)).c_str());
++                    value && *value > 0) return value;
++            if (fps < 60 || fps > 120) {
++                if (auto value = getProperty((vendor + '.'
++                        + std::to_string(fps < 60 ? 60 : 120)).c_str());
++                        value && *value > 0) return value;
++            }
++            if (auto value = getProperty(vendor.c_str()); value && *value > 0) return value;
++        }
++    }
+     const std::string name = std::string(basePropName) + '.' + std::to_string(fps);
+     return getProperty(name.c_str());
+ }
+@@ -319,6 +349,14 @@ VsyncConfigSet WorkDuration::constructOffsets(nsecs_t vsyncDuration) const {
+     const auto appDuration = appDurationFixup(
+             getDurationOverride("debug.sf.late.app.duration", fps).value_or(mAppDuration));
+ 
++    const bool mtkDuration = mMtkDurationEnabled;
++    const auto appOffset = [mtkDuration, vsyncDuration](auto app, auto sf, nsecs_t period) {
++        // Stock MtkDuration::updateDurations/getMtkDuration subtracts one period
++        // when APP work itself spans a VSYNC. Generic A17 keeps its original formula.
++        return appDurationToOffset(app, sf, period)
++                - (mtkDuration && app.count() >= vsyncDuration ? vsyncDuration : 0);
++    };
++
+     return {
+             .early =
+                     {
+@@ -328,7 +366,7 @@ VsyncConfigSet WorkDuration::constructOffsets(nsecs_t vsyncDuration) const {
+                                     : sfDurationToOffset(sfEarlyDuration, vsyncDuration) -
+                                             vsyncDuration,
+ 
+-                            .appOffset = appDurationToOffset(appEarlyDuration, sfEarlyDuration,
++                            .appOffset = appOffset(appEarlyDuration, sfEarlyDuration,
+                                                              vsyncDuration),
+ 
+                             .sfWorkDuration = sfEarlyDuration,
+@@ -343,7 +381,7 @@ VsyncConfigSet WorkDuration::constructOffsets(nsecs_t vsyncDuration) const {
+                                     : sfDurationToOffset(sfEarlyGpuDuration, vsyncDuration) -
+                                             vsyncDuration,
+ 
+-                            .appOffset = appDurationToOffset(appEarlyGpuDuration,
++                            .appOffset = appOffset(appEarlyGpuDuration,
+                                                              sfEarlyGpuDuration, vsyncDuration),
+                             .sfWorkDuration = sfEarlyGpuDuration,
+                             .appWorkDuration = appEarlyGpuDuration,
+@@ -357,7 +395,7 @@ VsyncConfigSet WorkDuration::constructOffsets(nsecs_t vsyncDuration) const {
+                                     : sfDurationToOffset(sfDuration, vsyncDuration) - vsyncDuration,
+ 
+                             .appOffset =
+-                                    appDurationToOffset(appDuration, sfDuration, vsyncDuration),
++                                    appOffset(appDuration, sfDuration, vsyncDuration),
+ 
+                             .sfWorkDuration = sfDuration,
+                             .appWorkDuration = appDuration,
+diff --git a/services/surfaceflinger/Scheduler/VsyncConfiguration.h b/services/surfaceflinger/Scheduler/VsyncConfiguration.h
+index c2225f3..6447648 100644
+--- a/services/surfaceflinger/Scheduler/VsyncConfiguration.h
++++ b/services/surfaceflinger/Scheduler/VsyncConfiguration.h
+@@ -44,6 +44,8 @@ public:
+ 
+     virtual void setRefreshRateFps(Fps fps) = 0;
+     virtual void dump(std::string& result) const = 0;
++    // Device owner enables this only after qualifying the complete MTK connection.
++    virtual void setMtkDurationState(bool, bool) {}
+ };
+ 
+ namespace impl {
+@@ -144,6 +146,7 @@ private:
+ class WorkDuration : public VsyncConfiguration {
+ public:
+     explicit WorkDuration(Fps currentRefreshRate);
++    void setMtkDurationState(bool enabled, bool decoupled) override;
+     WorkDuration(Fps currentRefreshRate, Duration minSfDuration, Duration maxSfDuration,
+                  Duration appDuration);
+ 
+@@ -153,11 +156,14 @@ protected:
+                  nsecs_t appEarlyDuration, nsecs_t sfEarlyGpuDuration, nsecs_t appEarlyGpuDuration,
+                  nsecs_t hwcMinWorkDuration);
+ 
+-    virtual std::optional<nsecs_t> getDurationOverride(const char* basePropName, int fps) const;
++    virtual std::optional<nsecs_t> getDurationOverride(const char* basePropName, int fps) const
++            REQUIRES(mLock);
+ 
+ private:
+-    VsyncConfigSet constructOffsets(nsecs_t vsyncDuration) const override;
++    VsyncConfigSet constructOffsets(nsecs_t vsyncDuration) const override REQUIRES(mLock);
+ 
++    bool mMtkDurationEnabled GUARDED_BY(mLock) = false;
++    bool mMtkDecoupled GUARDED_BY(mLock) = false;
+     const nsecs_t mSfDuration;
+     const nsecs_t mAppDuration;
+ 
+diff --git a/services/surfaceflinger/Scheduler/VsyncModulator.cpp b/services/surfaceflinger/Scheduler/VsyncModulator.cpp
+index e26c99c..e17c4cf 100644
+--- a/services/surfaceflinger/Scheduler/VsyncModulator.cpp
++++ b/services/surfaceflinger/Scheduler/VsyncModulator.cpp
+@@ -211,6 +211,13 @@ bool VsyncModulator::isVsyncConfigEarly() const {
+     return getNextVsyncConfigType() != VsyncConfigType::Late;
+ }
+ 
++bool VsyncModulator::isEarlyTransactionConfig() const {
++    std::lock_guard lock(mMutex);
++    // Stock CPU producer excludes refresh-change-only and EarlyGpu states.
++    return !mEarlyWakeupRequests.empty() || mTransactionSchedule.load() == Schedule::EarlyEnd
++            || mEarlyTransactionFrames.load() > 0;
++}
++
+ void VsyncModulator::dump(std::string& result) const {
+     std::lock_guard<std::mutex> lock(mMutex);
+     StringAppendF(&result, " Early Wakeup Requests (count=%zu):\n", mEarlyWakeupRequests.size());
+diff --git a/services/surfaceflinger/Scheduler/VsyncModulator.h b/services/surfaceflinger/Scheduler/VsyncModulator.h
+index f238ba9..0015afb 100644
+--- a/services/surfaceflinger/Scheduler/VsyncModulator.h
++++ b/services/surfaceflinger/Scheduler/VsyncModulator.h
+@@ -57,6 +57,7 @@ public:
+     explicit VsyncModulator(const VsyncConfigSet&, Now = Clock::now);
+ 
+     bool isVsyncConfigEarly() const EXCLUDES(mMutex);
++    bool isEarlyTransactionConfig() const EXCLUDES(mMutex);
+ 
+     VsyncConfig getVsyncConfig() const EXCLUDES(mMutex);
+ 
+diff --git a/services/surfaceflinger/Scheduler/include/scheduler/FrameTargeter.h b/services/surfaceflinger/Scheduler/include/scheduler/FrameTargeter.h
+index 9f62bc9..10b713c 100644
+--- a/services/surfaceflinger/Scheduler/include/scheduler/FrameTargeter.h
++++ b/services/surfaceflinger/Scheduler/include/scheduler/FrameTargeter.h
+@@ -85,6 +85,7 @@ protected:
+     VsyncId mVsyncId;
+     TimePoint mFrameBeginTime;
+     TimePoint mExpectedPresentTime;
++    uint32_t mExtraVsync = 0;
+     std::optional<TimePoint> mEarliestPresentTime;
+     std::optional<TimePoint> mDebugPresentTimeDelay;
+ 
+@@ -138,6 +139,7 @@ public:
+         Duration sfWorkDuration;
+         Duration hwcMinWorkDuration;
+         std::optional<TimePoint> debugPresentTimeDelay; // used to introduce jank for testing
++        uint32_t extraVsync = 0; // Exact per-display MTK callback snapshot; baseline0.
+     };
+ 
+     void beginFrame(const BeginFrameArgs&, const IVsyncSource&);
+diff --git a/services/surfaceflinger/Scheduler/src/FrameTargeter.cpp b/services/surfaceflinger/Scheduler/src/FrameTargeter.cpp
+index 15e7f8c..fcbc8c3 100644
+--- a/services/surfaceflinger/Scheduler/src/FrameTargeter.cpp
++++ b/services/surfaceflinger/Scheduler/src/FrameTargeter.cpp
+@@ -15,6 +15,7 @@
+  */
+ 
+ #include <common/FlagManager.h>
++#include <limits>
+ #include <common/trace.h>
+ #include <scheduler/FrameTargeter.h>
+ #include <scheduler/IVsyncSource.h>
+@@ -35,18 +36,26 @@ FrameTarget::expectedSignaledPresentFence(Period vsyncPeriod, Period minFramePer
+ 
+     bool wouldBackpressure = true;
+     auto expectedPresentTime = mExpectedPresentTime;
++    // Shift only the fence-selection comparisons, not actual frame/present timestamps.
++    // An unrepresentable callback count preserves the generic path rather than wrapping.
++    const int64_t period = vsyncPeriod.ns();
++    const int64_t extraNs = period > 0
++            && mExtraVsync <= uint64_t(std::numeric_limits<int64_t>::max() / period)
++            ? int64_t(mExtraVsync) * period : 0;
+     for (size_t i = mPresentFences.size(); i != 0; --i) {
+         const auto& fence = mPresentFences[i - 1];
+         SFTRACE_FORMAT_INSTANT("fence at idx: %zu expectedPresentTime in %.2f", i - 1,
+                                ticks<std::milli, float>(fence.expectedPresentTime -
+                                                         TimePoint::now()));
+ 
+-        if (fence.expectedPresentTime + minFramePeriod < expectedPresentTime - vsyncPeriod / 2) {
++        const __int128 shiftedPresent = __int128(fence.expectedPresentTime.ns()) + extraNs;
++        if (shiftedPresent + minFramePeriod.ns()
++                < __int128(expectedPresentTime.ns()) - vsyncPeriod.ns() / 2) {
+             SFTRACE_FORMAT_INSTANT("would not backpressure");
+             wouldBackpressure = false;
+         }
+ 
+-        if (fence.expectedPresentTime <= mFrameBeginTime) {
++        if (shiftedPresent <= mFrameBeginTime.ns()) {
+             SFTRACE_FORMAT_INSTANT("fence at idx: %zu is %.2f before frame begin "
+                                    "(wouldBackpressure=%s)",
+                                    i - 1,
+@@ -99,6 +108,7 @@ void FrameTargeter::beginFrame(const BeginFrameArgs& args, const IVsyncSource& v
+ void FrameTargeter::beginFrame(const BeginFrameArgs& args, const IVsyncSource& vsyncSource,
+                                IsFencePendingFuncPtr isFencePendingFuncPtr) {
+     mVsyncId = args.vsyncId;
++    mExtraVsync = args.extraVsync;
+     mFrameBeginTime = args.frameBeginTime;
+     mDebugPresentTimeDelay = args.debugPresentTimeDelay;
+ 
+diff --git a/services/surfaceflinger/Scheduler/tests/FrameTargeterTest.cpp b/services/surfaceflinger/Scheduler/tests/FrameTargeterTest.cpp
+index 427a15a..a4a5bf2 100644
+--- a/services/surfaceflinger/Scheduler/tests/FrameTargeterTest.cpp
++++ b/services/surfaceflinger/Scheduler/tests/FrameTargeterTest.cpp
+@@ -67,7 +67,8 @@ public:
+         Frame(FrameTargeterTestBase* testPtr, VsyncId vsyncId, TimePoint& frameBeginTime,
+               Duration frameDuration, Fps refreshRate, Fps peakRefreshRate,
+               FrameTargeter::IsFencePendingFuncPtr isFencePendingFuncPtr = Frame::fenceSignaled,
+-              const ftl::Optional<VsyncSource>& vsyncSourceOpt = std::nullopt)
++              const ftl::Optional<VsyncSource>& vsyncSourceOpt = std::nullopt,
++              uint32_t extraVsync = 0)
+               : testPtr(testPtr),
+                 frameBeginTime(frameBeginTime),
+                 period(refreshRate.getPeriod()),
+@@ -77,7 +78,8 @@ public:
+                                                      .expectedVsyncTime =
+                                                              frameBeginTime + frameDuration,
+                                                      .sfWorkDuration = 10ms,
+-                                                     .hwcMinWorkDuration = kHwcMinWorkDuration};
++                                                     .hwcMinWorkDuration = kHwcMinWorkDuration,
++                                                     .extraVsync = extraVsync};
+ 
+             testPtr->mTargeter.beginFrame(args,
+                                           vsyncSourceOpt
+@@ -174,6 +176,55 @@ TEST_F(FrameTargeterTest, inflatesExpectedPresentTime) {
+     EXPECT_EQ(target().expectedPresentTime(), vsyncSource.vsyncDeadline + vsyncSource.vsyncPeriod);
+ }
+ 
++TEST_F(FrameTargeterTest, mtkExtraVsyncSelectsOlderActualFenceWithoutChangingTimestamps) {
++    VsyncId vsyncId{111};
++    TimePoint frameBeginTime(1000ms);
++    constexpr Fps kRate = 60_Hz;
++    constexpr Period kPeriod = kRate.getPeriod();
++    FenceTimePtr first, second;
++    { Frame frame(this, vsyncId++, frameBeginTime, 13ms, kRate, kRate);
++      first = frame.end(); }
++    { Frame frame(this, vsyncId++, frameBeginTime, 13ms, kRate, kRate);
++      second = frame.end(); }
++    Frame frame(this, vsyncId++, frameBeginTime, 13ms, kRate, kRate,
++                Frame::fenceSignaled, std::nullopt, 1);
++    const auto [backpressure, fence] = expectedSignaledPresentFence(kPeriod, kPeriod);
++    EXPECT_TRUE(backpressure);
++    EXPECT_EQ(fence.fenceTime, first);
++    EXPECT_NE(fence.fenceTime, second);
++    EXPECT_EQ(fence.expectedPresentTime, TimePoint(1013ms));
++    EXPECT_EQ(target().frameBeginTime(), frameBeginTime);
++}
++
++TEST_F(FrameTargeterTest, mtkExtraVsyncZeroRetainsGenericFenceSelection) {
++    VsyncId vsyncId{111};
++    TimePoint frameBeginTime(1000ms);
++    constexpr Fps kRate = 60_Hz;
++    constexpr Period kPeriod = kRate.getPeriod();
++    FenceTimePtr first;
++    { Frame frame(this, vsyncId++, frameBeginTime, 13ms, kRate, kRate);
++      first = frame.end(); }
++    Frame frame(this, vsyncId++, frameBeginTime, 13ms, kRate, kRate,
++                Frame::fenceSignaled, std::nullopt, 0);
++    EXPECT_EQ(expectedSignaledPresentFence(kPeriod, kPeriod).second.fenceTime, first);
++}
++
++TEST_F(FrameTargeterTest, mtkExtraVsyncSnapshotDoesNotLeakIntoNextFrame) {
++    VsyncId vsyncId{111};
++    TimePoint frameBeginTime(1000ms);
++    constexpr Fps kRate = 60_Hz;
++    constexpr Period kPeriod = kRate.getPeriod();
++    { Frame frame(this, vsyncId++, frameBeginTime, 13ms, kRate, kRate); }
++    FenceTimePtr latest;
++    { Frame frame(this, vsyncId++, frameBeginTime, 13ms, kRate, kRate,
++                  Frame::fenceSignaled, std::nullopt, 2);
++      EXPECT_EQ(expectedSignaledPresentFence(kPeriod, kPeriod).second.fenceTime,
++                FenceTime::NO_FENCE);
++      latest = frame.end(); }
++    Frame frame(this, vsyncId++, frameBeginTime, 13ms, kRate, kRate);
++    EXPECT_EQ(expectedSignaledPresentFence(kPeriod, kPeriod).second.fenceTime, latest);
++}
++
+ TEST_F(FrameTargeterTest, recallsPastVsync) {
+     VsyncId vsyncId{111};
+     TimePoint frameBeginTime(1000ms);
+diff --git a/services/surfaceflinger/SurfaceFlinger.cpp b/services/surfaceflinger/SurfaceFlinger.cpp
+index 9128394..b3e683e 100644
+--- a/services/surfaceflinger/SurfaceFlinger.cpp
++++ b/services/surfaceflinger/SurfaceFlinger.cpp
+@@ -24,6 +24,8 @@
+ #define ATRACE_TAG ATRACE_TAG_GRAPHICS
+ 
+ #include "SurfaceFlinger.h"
++#include <ldy_an00/ComposerExtOwner.h>
++#include <ldy_an00/SfCpuPolicyBridge.h>
+ 
+ #include <aidl/android/hardware/power/Boost.h>
+ #include <android-base/logging.h>
+@@ -611,7 +613,11 @@ LatchUnsignaledConfig SurfaceFlinger::getLatchUnsignaledConfig() {
+     return LatchUnsignaledConfig::Disabled;
+ }
+ 
+-SurfaceFlinger::~SurfaceFlinger() = default;
++SurfaceFlinger::~SurfaceFlinger() {
++    const auto owner = std::atomic_exchange(&mMtkDisplayExtension,
++            std::shared_ptr<surfaceflinger::ldy_an00::ComposerExtOwner>{});
++    if (owner) owner->shutdown();
++}
+ 
+ void SurfaceFlinger::binderDied(const wp<IBinder>&) {
+     // the window manager died on us. prepare its eulogy.
+@@ -1125,6 +1131,10 @@ void SurfaceFlinger::init() FTL_FAKE_GUARD(kMainThreadContext) {
+     });
+ 
+     initTransactionTraceWriter();
++    // init still holds state locks: perform no outgoing Binder call here.
++    static_cast<void>(mScheduler->schedule([this]() FTL_FAKE_GUARD(kMainThreadContext) {
++        initializeMtkDisplayExtension();
++    }));
+     ALOGV("Done initializing");
+ }
+ 
+@@ -1481,6 +1491,151 @@ void SurfaceFlinger::setDesiredMode(display::DisplayModeRequest desiredMode) {
+     }
+ }
+ 
++void SurfaceFlinger::initializeMtkDisplayExtension() {
++    if (getMtkDisplayExtension()
++            || base::GetProperty("ro.product.product.model", "") != "LDY-AN00"
++            || base::GetProperty("ro.product.product.device", "") != "ldy_an00"
++            || base::GetProperty("ro.hardware", "") != "mt6993"
++            || !base::GetBoolProperty("persist.sf.debug.mtk_composer_ext", true)
++            || !base::GetBoolProperty("ro.vendor.display.sf_debug_cpu_policy", false)) return;
++    auto cpu = surfaceflinger::ldy_an00::SfCpuPolicyBridge::create(
++            [this] { return mFrameTimeline->snapshotCpuPolicyHistory(); }, gettid());
++    if (!cpu) return;
++    const auto owner = surfaceflinger::ldy_an00::ComposerExtOwner::create(
++            sp<SurfaceFlinger>::fromExisting(this), std::move(cpu));
++    if (!owner) return;
++    std::atomic_store(&mMtkDisplayExtension, owner);
++    const std::weak_ptr<surfaceflinger::ldy_an00::ComposerExtOwner> weak = owner;
++    mScheduler->setMtkExtraVsyncProvider([weak](PhysicalDisplayId id) {
++        auto owner = weak.lock();
++        return owner ? owner->extraVsync(id) : 0;
++    });
++    owner->start();
++}
++
++void SurfaceFlinger::scheduleMtkDisplayRefresh() {
++    const auto owner = getMtkDisplayExtension();
++    if (!owner || !mScheduler) return;
++    const std::weak_ptr<surfaceflinger::ldy_an00::ComposerExtOwner> weak = owner;
++    static_cast<void>(mScheduler->schedule([weak] {
++        if (const auto owner = weak.lock()) owner->refreshDisplays();
++    }));
++}
++
++bool SurfaceFlinger::mtkNormalWorkPending() const {
++    if (mMustComposite.load() || mTransactionFlags.load()
++            || mPowerModeInProgressCount > 0 || mPowerModeChangeInProgress.load()
++            || mScheduler->getVsyncSchedule()->isModeChangeInProgress()) return true;
++    for (const auto& [_, layer] : mLegacyLayers) {
++        const auto counter = layer->getPendingBufferCounter();
++        if (counter && counter->load() > 0) return true;
++    }
++    for (const auto& [id, _] : FTL_FAKE_GUARD(mStateLock, mPhysicalDisplays)) {
++        if (mDisplayModeController.isModeSetPending(id)) return true;
++    }
++    return false;
++}
++
++uint32_t SurfaceFlinger::calculateMtkRetriggerFps(uint32_t requestedFps, Fps physicalCeiling,
++                                                Fps activeRenderFps, uint32_t originalFps) {
++    // Stock calculatedRenderFps: integer truncation and upward divisor rounding are intentional.
++    const auto ceiling = static_cast<uint32_t>(physicalCeiling.getValue());
++    if (requestedFps > physicalCeiling.getValue()) return ceiling;
++    if (originalFps == 0 && activeRenderFps.getValue() > requestedFps) {
++        return static_cast<uint32_t>(activeRenderFps.getValue());
++    }
++    const uint32_t divisor = requestedFps ? ceiling / requestedFps : 0;
++    return ceiling != divisor * requestedFps ? (divisor ? ceiling / divisor : 0) : requestedFps;
++}
++
++status_t SurfaceFlinger::updateMtkRetriggerPolicy(const sp<DisplayDevice>& display,
++                                                 uint32_t requestedFps, uint64_t* lease) {
++    if (!display || display->isVirtual() || !lease) return BAD_VALUE;
++    if (mDebugDisplayModeSetByBackdoor) return INVALID_OPERATION;
++    auto& selector = display->refreshRateSelector();
++    const auto displayId = display->getPhysicalId();
++    const bool currentDisplay = [&] {
++        MODE_TRANSITION_LOCK();
++        return getDisplayDeviceLocked(displayId) == display;
++    }();
++    if (!currentDisplay) return DEAD_OBJECT;
++    const auto activeMode = selector.getActiveMode();
++    auto it = mMtkRetriggerPolicyLeases.find(displayId);
++    if (*lease) {
++        if (it == mMtkRetriggerPolicyLeases.end() || it->second.token != *lease ||
++            it->second.display.promote() != display ||
++            it->second.modeId != activeMode.modePtr->getId()) {
++            return DEAD_OBJECT;
++        }
++        // Stock only adjusts the rate when the requested rate exceeds the saved original.
++        if (requestedFps <= it->second.originalFps) return NO_ERROR;
++    } else {
++        if (it != mMtkRetriggerPolicyLeases.end() && it->second.display.promote() != display) {
++            // A replaced DisplayDevice has a distinct selector. Never touch its predecessor's policy.
++            mMtkRetriggerPolicyLeases.erase(it);
++            it = mMtkRetriggerPolicyLeases.end();
++        }
++        if (it != mMtkRetriggerPolicyLeases.end() || selector.hasOverridePolicy() ||
++            mNextMtkRetriggerPolicyToken == UINT64_MAX) {
++            return INVALID_OPERATION;
++        }
++        // Stock enable(0) records the request but performs no render-policy mutation.
++        if (requestedFps == 0) return NO_ERROR;
++        it = mMtkRetriggerPolicyLeases
++                     .emplace(displayId,
++                              MtkRetriggerPolicyLease{++mNextMtkRetriggerPolicyToken, display,
++                                                      activeMode.modePtr->getId(), 0})
++                     .first;
++    }
++
++    const auto renderFps =
++            calculateMtkRetriggerFps(requestedFps, activeMode.modePtr->getPeakFps(),
++                                    activeMode.fps, it->second.originalFps);
++    if (renderFps == static_cast<uint32_t>(activeMode.fps.getValue())) {
++        // Stock skips the setter if already at the requested rate. Keep only a revocable
++        // reservation; it does not claim the selector's override slot.
++        if (it->second.originalFps == 0) it->second.originalFps = renderFps;
++        *lease = it->second.token;
++        return NO_ERROR;
++    }
++    scheduler::RefreshRateSelector::OverridePolicy policy;
++    // Preserve every current policy field before replacing the stock-constrained mode/ranges.
++    static_cast<scheduler::RefreshRateSelector::Policy&>(policy) = selector.getCurrentPolicy();
++    policy.defaultMode = activeMode.modePtr->getId();
++    const FpsRange physical{activeMode.modePtr->getPeakFps(), activeMode.modePtr->getPeakFps()};
++    const FpsRange render{Fps::fromValue(10), Fps::fromValue(renderFps)};
++    policy.primaryRanges = {physical, render};
++    policy.appRequestRanges = {physical, render};
++    const auto status = setDesiredDisplayModeSpecsInternal(display, policy, nullptr,
++                                                          DisplayPolicyOrigin::MtkRetrigger);
++    it = mMtkRetriggerPolicyLeases.find(displayId);
++    if (it != mMtkRetriggerPolicyLeases.end()) {
++        // An apply error does not undo the accepted selector mutation: retain release authority.
++        if (it->second.originalFps == 0) {
++            it->second.originalFps = static_cast<uint32_t>(activeMode.fps.getValue());
++        }
++        *lease = it->second.token;
++    }
++    return status;
++}
++
++status_t SurfaceFlinger::releaseMtkRetriggerPolicy(const sp<DisplayDevice>& display,
++                                                  uint64_t lease) {
++    if (!display || display->isVirtual() || !lease) return BAD_VALUE;
++    const auto it = mMtkRetriggerPolicyLeases.find(display->getPhysicalId());
++    if (it == mMtkRetriggerPolicyLeases.end() || it->second.token != lease ||
++        it->second.display.promote() != display) {
++        return DEAD_OBJECT;
++    }
++    if (!it->second.overrideInstalled) {
++        mMtkRetriggerPolicyLeases.erase(it);
++        return NO_ERROR;
++    }
++    return setDesiredDisplayModeSpecsInternal(
++            display, scheduler::RefreshRateSelector::NoOverridePolicy{}, nullptr,
++            DisplayPolicyOrigin::MtkRetrigger);
++}
++
+ status_t SurfaceFlinger::setActiveModeFromBackdoor(const sp<display::DisplayToken>& displayToken,
+                                                    DisplayModeId modeId, Fps minFps, Fps maxFps) {
+     SFTRACE_CALL();
+@@ -1533,6 +1688,8 @@ status_t SurfaceFlinger::setActiveModeFromBackdoor(const sp<display::DisplayToke
+ }
+ 
+ bool SurfaceFlinger::finalizeDisplayModeChange(PhysicalDisplayId displayId) {
++    mMtkDisplayStateEpoch.fetch_add(1);
++    scheduleMtkDisplayRefresh();
+     SFTRACE_NAME(ftl::Concat(__func__, ' ', displayId.value).c_str());
+ 
+     const auto pendingModeOpt = mDisplayModeController.getPendingMode(displayId);
+@@ -3007,6 +3164,12 @@ bool SurfaceFlinger::commit(PhysicalDisplayId pacesetterId,
+                             const scheduler::FrameTargets& frameTargets) EXCLUDES(mStateLock) {
+     const scheduler::FrameTarget* pacesetterFrameTargetPtr = frameTargets.get(pacesetterId)->get();
+     const VsyncId vsyncId = pacesetterFrameTargetPtr->vsyncId();
++    const bool mtkPureRetrigger = mScheduler->consumeOnlyRetriggerFrameRequests();
++    if (const auto owner = getMtkDisplayExtension()) {
++        owner->frameStarted(ftl::to_underlying(vsyncId),
++                                          pacesetterFrameTargetPtr->frameBeginTime().ns());
++    }
++
+ 
+     panopticon::Ids ids;
+     {
+@@ -3208,6 +3371,15 @@ bool SurfaceFlinger::commit(PhysicalDisplayId pacesetterId,
+ 
+     persistDisplayBrightness(mustComposite);
+ 
++    if (const auto owner = getMtkDisplayExtension();
++            owner && mBootStage != BootStage::BOOTLOADER) {
++        const uint64_t epoch = mMtkDisplayStateEpoch.load();
++        owner->committed(
++                pacesetterId, pacesetterFrameTargetPtr->expectedPresentTime().ns(),
++                mtkPureRetrigger, mustComposite, [this, epoch]() FTL_FAKE_GUARD(kMainThreadContext) {
++                    return mMtkDisplayStateEpoch.load() != epoch || mtkNormalWorkPending();
++                });
++    }
+     return mustComposite && CC_LIKELY(mBootStage != BootStage::BOOTLOADER);
+ }
+ 
+@@ -3848,6 +4020,12 @@ void SurfaceFlinger::onCompositionPresented(PhysicalDisplayId pacesetterId,
+     // to clients, so they get jank classification as early as possible.
+     mFrameTimeline->setSfPresent(presentTime.ns(), pacesetterPresentFenceTime,
+                                  pacesetterGpuCompositionDoneFenceTime);
++    if (const auto owner = getMtkDisplayExtension()) {
++        owner->frameFinished(ftl::to_underlying(
++                frameTargeters.get(pacesetterId)->get()->target().vsyncId()), presentTime.ns(),
++                multiDisplayUnion(mCompositionCoverage).test(CompositionCoverage::Gpu));
++    }
++
+ 
+     // We use the CompositionEngine::getLastFrameRefreshTimestamp() which might
+     // be sampled a little later than when we started doing work for this frame,
+@@ -4377,6 +4555,8 @@ std::optional<DisplayModeId> SurfaceFlinger::processHotplugConnect(
+ 
+ void SurfaceFlinger::processHotplugDisconnect(PhysicalDisplayId displayId,
+                                               const char* displayString) {
++    mMtkDisplayStateEpoch.fetch_add(1);
++    scheduleMtkDisplayRefresh();
+     ALOGI("Disconnecting %s", displayString);
+ 
+     const auto displayOpt = mPhysicalDisplays.get(displayId);
+@@ -5023,6 +5203,7 @@ void SurfaceFlinger::requestHardwareVsync(PhysicalDisplayId displayId, bool enab
+ }
+ 
+ void SurfaceFlinger::requestDisplayModes(std::vector<display::DisplayModeRequest> modeRequests) {
++    mMtkDisplayStateEpoch.fetch_add(1);
+     if (mBootStage != BootStage::FINISHED) [[unlikely]] {
+         return;
+     }
+@@ -6638,6 +6819,7 @@ void SurfaceFlinger::applyOptimizationPolicy(const char* whence) FTL_FAKE_GUARD(
+ }
+ 
+ void SurfaceFlinger::setPowerMode(const sp<IBinder>& displayToken, int mode) {
++    mMtkDisplayStateEpoch.fetch_add(1);
+     const auto powerMode = static_cast<hal::PowerMode>(mode);
+     const char* whence = __func__;
+     SFTRACE_FORMAT("%s(%s)", whence, toString(powerMode).c_str());
+@@ -6681,6 +6863,7 @@ void SurfaceFlinger::setPowerMode(const sp<IBinder>& displayToken, int mode) {
+     hwcFuture.get();
+     mScheduler->schedule([c = std::move(finalizer)]() {}).wait();
+     mPowerModeInProgressCount--;
++    scheduleMtkDisplayRefresh();
+ }
+ 
+ status_t SurfaceFlinger::doDump(int fd, const DumpArgs& args, bool asProto) {
+@@ -9041,28 +9224,60 @@ ftl::Optional<scheduler::FrameRateMode> SurfaceFlinger::getPreferredDisplayMode(
+ 
+ status_t SurfaceFlinger::setDesiredDisplayModeSpecsInternal(
+         const sp<DisplayDevice>& display,
+-        const scheduler::RefreshRateSelector::PolicyVariant& policy, sp<IBinder> displayToken) {
++        const scheduler::RefreshRateSelector::PolicyVariant& policy, sp<IBinder> displayToken,
++        DisplayPolicyOrigin origin) {
+     const auto displayId = display->getPhysicalId();
+     SFTRACE_NAME(ftl::Concat(__func__, ' ', displayId.value).c_str());
+ 
+     MODE_TRANSITION_LOCK();
+ 
++    auto owner = mMtkRetriggerPolicyLeases.find(displayId);
++    const bool ownsLease = owner != mMtkRetriggerPolicyLeases.end() &&
++            owner->second.display.promote() == display;
++    if (origin == DisplayPolicyOrigin::MtkRetrigger &&
++        (mDebugDisplayModeSetByBackdoor || !ownsLease ||
++         getDisplayDeviceLocked(displayId) != display)) {
++        if (ownsLease && owner->second.originalFps == 0) {
++            mMtkRetriggerPolicyLeases.erase(owner);
++        }
++        return INVALID_OPERATION;
++    }
+     if (mDebugDisplayModeSetByBackdoor) {
+         // ignore this request as mode is overridden by backdoor
+         return NO_ERROR;
+     }
+ 
+     auto& selector = display->refreshRateSelector();
+-    using SetPolicyResult = scheduler::RefreshRateSelector::SetPolicyResult;
++    using Selector = scheduler::RefreshRateSelector;
++    using SetPolicyResult = Selector::SetPolicyResult;
++    auto result = selector.setPolicy(policy);
++    if (result == SetPolicyResult::Invalid) {
++        // Invalid updates retain the existing lease; a rejected first acquisition owns nothing.
++        if (origin == DisplayPolicyOrigin::MtkRetrigger && ownsLease &&
++            owner->second.originalFps == 0) {
++            mMtkRetriggerPolicyLeases.erase(owner);
++        }
++        return BAD_VALUE;
++    }
+ 
+-    switch (selector.setPolicy(policy)) {
+-        case SetPolicyResult::Invalid:
+-            return BAD_VALUE;
+-        case SetPolicyResult::Unchanged:
+-            return NO_ERROR;
+-        case SetPolicyResult::Changed:
+-            break;
++    if (origin == DisplayPolicyOrigin::External) {
++        // An accepted identical override is still a new writer. Likewise a hidden DM update is
++        // accepted even when setPolicy returns Unchanged. Do not infer ownership from values.
++        if (ownsLease && owner->second.overrideInstalled &&
++            std::holds_alternative<Selector::DisplayManagerPolicy>(policy)) {
++            // The new DM policy has already passed validation. Remove only our override, allowing
++            // the newest DM policy to become effective, then apply the final policy once.
++            if (selector.setPolicy(Selector::NoOverridePolicy{}) == SetPolicyResult::Changed) {
++                result = SetPolicyResult::Changed;
++            }
++        }
++        mMtkRetriggerPolicyLeases.erase(displayId);
++    } else if (std::holds_alternative<Selector::NoOverridePolicy>(policy)) {
++        mMtkRetriggerPolicyLeases.erase(displayId);
++    } else {
++        owner->second.overrideInstalled = true;
+     }
++    if (result == SetPolicyResult::Unchanged) return NO_ERROR;
+ 
+     return applyRefreshRateSelectorPolicy(displayId, selector, displayToken);
+ }
+@@ -9431,7 +9646,11 @@ uint32_t SurfaceFlinger::getMaxAcquiredBufferCountForCurrentRefreshRate(uid_t ui
+ int SurfaceFlinger::getMaxAcquiredBufferCountForRefreshRate(Fps refreshRate) const {
+     const auto vsyncConfig = mScheduler->getVsyncConfigsForRefreshRate(refreshRate).late;
+     const auto presentLatency = vsyncConfig.appWorkDuration + vsyncConfig.sfWorkDuration;
+-    return calculateMaxAcquiredBufferCount(refreshRate, presentLatency);
++    const int baseline = calculateMaxAcquiredBufferCount(refreshRate, presentLatency);
++    const auto owner = getMtkDisplayExtension();
++    const int extra = owner ? owner->extraBuffers() : 0;
++    return extra > 0 && baseline <= std::numeric_limits<int>::max() - extra
++            ? baseline + extra : baseline;
+ }
+ 
+ void SurfaceFlinger::sample() {
+diff --git a/services/surfaceflinger/SurfaceFlinger.h b/services/surfaceflinger/SurfaceFlinger.h
+index 9d8ef03..15d42ef 100644
+--- a/services/surfaceflinger/SurfaceFlinger.h
++++ b/services/surfaceflinger/SurfaceFlinger.h
+@@ -129,6 +129,7 @@
+ using namespace android::surfaceflinger;
+ 
+ namespace android {
++namespace surfaceflinger::ldy_an00 { class ComposerExtOwner; }
+ 
+ class EventThread;
+ class FlagManager;
+@@ -214,6 +215,7 @@ class SurfaceFlinger : public BnSurfaceComposer,
+                        private ICompositor,
+                        private scheduler::ISchedulerCallback,
+                        private compositionengine::ICEPowerCallback {
++    friend class surfaceflinger::ldy_an00::ComposerExtOwner;
+ public:
+     struct SkipInitializationTag {};
+ 
+@@ -725,6 +727,37 @@ private:
+ 
+     void setDesiredMode(display::DisplayModeRequest) REQUIRES(mStateLock);
+ 
++    void initializeMtkDisplayExtension() REQUIRES(kMainThreadContext);
++    void scheduleMtkDisplayRefresh();
++    bool mtkNormalWorkPending() const REQUIRES(kMainThreadContext);
++    std::shared_ptr<surfaceflinger::ldy_an00::ComposerExtOwner> getMtkDisplayExtension() const {
++        return std::atomic_load(&mMtkDisplayExtension);
++    }
++    std::shared_ptr<surfaceflinger::ldy_an00::ComposerExtOwner> mMtkDisplayExtension;
++    std::atomic<uint64_t> mMtkDisplayStateEpoch{1};
++
++    // Main-thread-only render override. Zero starts a lease; a nonzero token updates only that
++    // exact lease. The token remains set if policy installation succeeded but application failed.
++    status_t updateMtkRetriggerPolicy(const sp<DisplayDevice>&, uint32_t requestedFps,
++                                     uint64_t* lease) EXCLUDES(mStateLock, mModeTransitionMutex)
++            REQUIRES(kMainThreadContext);
++    status_t releaseMtkRetriggerPolicy(const sp<DisplayDevice>&, uint64_t lease)
++            EXCLUDES(mStateLock, mModeTransitionMutex) REQUIRES(kMainThreadContext);
++    static uint32_t calculateMtkRetriggerFps(uint32_t requestedFps, Fps physicalCeiling,
++                                           Fps activeRenderFps, uint32_t originalFps);
++
++    enum class DisplayPolicyOrigin { External, MtkRetrigger };
++    struct MtkRetriggerPolicyLease {
++        uint64_t token;
++        wp<DisplayDevice> display;
++        DisplayModeId modeId;
++        uint32_t originalFps;
++        bool overrideInstalled = false;
++    };
++    uint64_t mNextMtkRetriggerPolicyToken GUARDED_BY(kMainThreadContext) = 0;
++    std::unordered_map<PhysicalDisplayId, MtkRetriggerPolicyLease> mMtkRetriggerPolicyLeases
++            GUARDED_BY(kMainThreadContext);
++
+     status_t setActiveModeFromBackdoor(const sp<display::DisplayToken>&, DisplayModeId, Fps minFps,
+                                        Fps maxFps);
+ 
+@@ -774,7 +807,9 @@ private:
+ 
+     status_t setDesiredDisplayModeSpecsInternal(
+             const sp<DisplayDevice>&, const scheduler::RefreshRateSelector::PolicyVariant&,
+-            sp<IBinder> displaySyncToken = nullptr) EXCLUDES(mStateLock, mModeTransitionMutex)
++            sp<IBinder> displaySyncToken = nullptr,
++            DisplayPolicyOrigin origin = DisplayPolicyOrigin::External)
++            EXCLUDES(mStateLock, mModeTransitionMutex)
+             REQUIRES(kMainThreadContext);
+ 
+     // TODO(b/241285191): Look up RefreshRateSelector on Scheduler to remove redundant parameter.
+diff --git a/services/surfaceflinger/ldy_an00_composerext/Android.bp b/services/surfaceflinger/ldy_an00_composerext/Android.bp
+new file mode 100644
+index 0000000..eada4f2
+--- /dev/null
++++ b/services/surfaceflinger/ldy_an00_composerext/Android.bp
+@@ -0,0 +1,91 @@
++// Reconstructed frozen stock113 wire metadata; original vendor field names are unknown.
++// Used by the device-qualified complete SurfaceFlinger owner; wire metadata is frozen.
++package {
++    default_applicable_licenses: ["frameworks_native_license"],
++}
++
++genrule {
++    name: "honor_ldy_an00_composerext_wire_gen",
++    tools: ["aidl"],
++    srcs: [
++        "aidl/vendor/mediatek/hardware/composer_ext/IComposerExt.aidl",
++        "aidl/vendor/mediatek/hardware/composer_ext/IComposerExtCallback.aidl",
++        "aidl/vendor/mediatek/hardware/composer_ext/parcelable_perform.aidl",
++        "aidl/vendor/mediatek/hardware/composer_ext/parcelable_registerClient.aidl",
++        "//hardware/interfaces/common/aidl:honor_ldy_an00_nativehandle_v2_aidl",
++    ],
++    out: [
++        "src/vendor/mediatek/hardware/composer_ext/IComposerExt.cpp",
++        "src/vendor/mediatek/hardware/composer_ext/IComposerExtCallback.cpp",
++        "src/vendor/mediatek/hardware/composer_ext/parcelable_perform.cpp",
++        "src/vendor/mediatek/hardware/composer_ext/parcelable_registerClient.cpp",
++        "include/aidl/vendor/mediatek/hardware/composer_ext/IComposerExt.h",
++        "include/aidl/vendor/mediatek/hardware/composer_ext/BnComposerExt.h",
++        "include/aidl/vendor/mediatek/hardware/composer_ext/BpComposerExt.h",
++        "include/aidl/vendor/mediatek/hardware/composer_ext/IComposerExtCallback.h",
++        "include/aidl/vendor/mediatek/hardware/composer_ext/BnComposerExtCallback.h",
++        "include/aidl/vendor/mediatek/hardware/composer_ext/BpComposerExtCallback.h",
++        "include/aidl/vendor/mediatek/hardware/composer_ext/parcelable_perform.h",
++        "include/aidl/vendor/mediatek/hardware/composer_ext/Bnparcelable_perform.h",
++        "include/aidl/vendor/mediatek/hardware/composer_ext/Bpparcelable_perform.h",
++        "include/aidl/vendor/mediatek/hardware/composer_ext/parcelable_registerClient.h",
++        "include/aidl/vendor/mediatek/hardware/composer_ext/Bnparcelable_registerClient.h",
++        "include/aidl/vendor/mediatek/hardware/composer_ext/Bpparcelable_registerClient.h",
++    ],
++    export_include_dirs: ["include"],
++    cmd: "mkdir -p $(genDir)/imports/vendor/mediatek/hardware/composer_ext $(genDir)/imports/android/hardware/common $(genDir)/src $(genDir)/include && " +
++        "cp $(location aidl/vendor/mediatek/hardware/composer_ext/IComposerExt.aidl) $(genDir)/imports/vendor/mediatek/hardware/composer_ext/IComposerExt.aidl && " +
++        "cp $(location aidl/vendor/mediatek/hardware/composer_ext/IComposerExtCallback.aidl) $(genDir)/imports/vendor/mediatek/hardware/composer_ext/IComposerExtCallback.aidl && " +
++        "cp $(location aidl/vendor/mediatek/hardware/composer_ext/parcelable_perform.aidl) $(genDir)/imports/vendor/mediatek/hardware/composer_ext/parcelable_perform.aidl && " +
++        "cp $(location aidl/vendor/mediatek/hardware/composer_ext/parcelable_registerClient.aidl) $(genDir)/imports/vendor/mediatek/hardware/composer_ext/parcelable_registerClient.aidl && " +
++        "cp $(location //hardware/interfaces/common/aidl:honor_ldy_an00_nativehandle_v2_aidl) $(genDir)/imports/android/hardware/common/NativeHandle.aidl && " +
++        "$(location aidl) --lang=ndk --structured --stability=vintf --version=1 --hash=022c728d211f6b275911cb0602f6641afdd275d6 --header_out=$(genDir)/include --out=$(genDir)/src -I$(genDir)/imports $(genDir)/imports/vendor/mediatek/hardware/composer_ext/IComposerExt.aidl && " +
++        "$(location aidl) --lang=ndk --structured --stability=vintf --version=1 --hash=022c728d211f6b275911cb0602f6641afdd275d6 --header_out=$(genDir)/include --out=$(genDir)/src -I$(genDir)/imports $(genDir)/imports/vendor/mediatek/hardware/composer_ext/IComposerExtCallback.aidl && " +
++        "$(location aidl) --lang=ndk --structured --stability=vintf --version=1 --hash=022c728d211f6b275911cb0602f6641afdd275d6 --header_out=$(genDir)/include --out=$(genDir)/src -I$(genDir)/imports $(genDir)/imports/vendor/mediatek/hardware/composer_ext/parcelable_perform.aidl && " +
++        "$(location aidl) --lang=ndk --structured --stability=vintf --version=1 --hash=022c728d211f6b275911cb0602f6641afdd275d6 --header_out=$(genDir)/include --out=$(genDir)/src -I$(genDir)/imports $(genDir)/imports/vendor/mediatek/hardware/composer_ext/parcelable_registerClient.aidl",
++    visibility: [":__pkg__"],
++}
++
++cc_library_static {
++    name: "libhonor_ldy_an00_composerext_wire",
++    srcs: [
++        ":honor_ldy_an00_composerext_wire_gen{src/vendor/mediatek/hardware/composer_ext/IComposerExt.cpp}",
++        ":honor_ldy_an00_composerext_wire_gen{src/vendor/mediatek/hardware/composer_ext/IComposerExtCallback.cpp}",
++        ":honor_ldy_an00_composerext_wire_gen{src/vendor/mediatek/hardware/composer_ext/parcelable_perform.cpp}",
++        ":honor_ldy_an00_composerext_wire_gen{src/vendor/mediatek/hardware/composer_ext/parcelable_registerClient.cpp}",
++    ],
++    generated_headers: ["honor_ldy_an00_composerext_wire_gen"],
++    export_generated_headers: ["honor_ldy_an00_composerext_wire_gen"],
++    shared_libs: [
++        "libbinder_ndk",
++        "android.hardware.common-V2-ndk",
++    ],
++    export_shared_lib_headers: [
++        "libbinder_ndk",
++        "android.hardware.common-V2-ndk",
++    ],
++    cflags: ["-DBINDER_STABILITY_SUPPORT"],
++    compile_multilib: "64",
++    visibility: ["//frameworks/native/services/surfaceflinger:__pkg__"],
++}
++
++// Private transport, duration state and exact stock CPU C-ABI bridge.
++cc_library_static {
++    name: "libhonor_ldy_an00_composerext_client",
++    srcs: ["ComposerExtCodec.cpp", "ComposerExtDispatch.cpp", "ComposerExtClient.cpp",
++           "ComposerExtTiming.cpp", "SfCpuPolicyBridge.cpp"],
++    export_include_dirs: ["include"],
++    whole_static_libs: ["libhonor_ldy_an00_composerext_wire"],
++    export_static_lib_headers: ["libhonor_ldy_an00_composerext_wire"],
++    shared_libs: ["libbinder_ndk", "android.hardware.common-V2-ndk", "libbase", "libdl"],
++    cflags: ["-DBINDER_STABILITY_SUPPORT", "-Wall", "-Wextra", "-Werror"],
++    compile_multilib: "64",
++    visibility: [
++        "//frameworks/native/services/surfaceflinger:__pkg__",
++        "//frameworks/native/services/surfaceflinger/fuzzer:__pkg__",
++        "//frameworks/native/services/surfaceflinger/Tracing/tools:__pkg__",
++        "//frameworks/native/services/surfaceflinger/tests/benchmarks:__pkg__",
++        "//frameworks/native/services/surfaceflinger/tests/tracing:__pkg__",
++        "//frameworks/native/services/surfaceflinger/tests/unittests:__pkg__",
++    ],
++}
+diff --git a/services/surfaceflinger/ldy_an00_composerext/ComposerExtClient.cpp b/services/surfaceflinger/ldy_an00_composerext/ComposerExtClient.cpp
+new file mode 100644
+index 0000000..5cae836
+--- /dev/null
++++ b/services/surfaceflinger/ldy_an00_composerext/ComposerExtClient.cpp
+@@ -0,0 +1,202 @@
++// Copyright (C) 2026 The LineageOS Project; SPDX-License-Identifier: Apache-2.0
++#include <ldy_an00/ComposerExtClient.h>
++#include <aidl/vendor/mediatek/hardware/composer_ext/BnComposerExtCallback.h>
++#include <aidl/vendor/mediatek/hardware/composer_ext/IComposerExt.h>
++#include <android/binder_manager.h>
++#include <atomic>
++#include <unistd.h>
++
++namespace android::surfaceflinger::ldy_an00 {
++namespace wire = aidl::vendor::mediatek::hardware::composer_ext;
++namespace {
++constexpr char kService[] = "vendor.mediatek.hardware.composer_ext.IComposerExt/default";
++constexpr char kHash[] = "022c728d211f6b275911cb0602f6641afdd275d6";
++class Callback final : public wire::BnComposerExtCallback {
++public:
++    Callback(std::weak_ptr<CallbackOwner> owner, std::weak_ptr<CallbackGate> gate)
++          : mOwner(std::move(owner)), mGate(std::move(gate)) {}
++    ndk::ScopedAStatus syncPerform(int64_t opcode, const Bytes& params, const Fds& fds,
++                                   const Handles& handles, Reply* reply) override {
++        auto gate = mGate.lock();
++        dispatchSync(mOwner, gate ? gate->ticket() : CallbackTicket{},
++                     opcode, params, fds, handles, reply);
++        return ndk::ScopedAStatus::ok();
++    }
++    ndk::ScopedAStatus asyncPerform(int64_t opcode, const Bytes& params, const Fds& fds,
++                                    const Handles& handles) override {
++        auto gate = mGate.lock();
++        dispatchAsync(mOwner, gate ? gate->ticket() : CallbackTicket{},
++                      opcode, params, fds, handles);
++        return ndk::ScopedAStatus::ok();
++    }
++private:
++    const std::weak_ptr<CallbackOwner> mOwner;
++    const std::weak_ptr<CallbackGate> mGate;
++};
++struct DeathCookie { std::weak_ptr<CallbackGate> gate; std::weak_ptr<CallbackOwner> owner; };
++void died(void* raw) {
++    auto* cookie = static_cast<DeathCookie*>(raw);
++    if (auto gate = cookie->gate.lock(); gate && gate->close()) {
++        if (auto owner = cookie->owner.lock()) owner->onConnectionClosed();
++    }
++}
++void unlinked(void* raw) { delete static_cast<DeathCookie*>(raw); }
++struct Connection {
++    std::shared_ptr<wire::IComposerExt> proxy;
++    std::shared_ptr<Callback> callback;
++    ndk::SpAIBinder binder;
++    ndk::ScopedAIBinder_DeathRecipient death;
++    int64_t client = 0;  // Opaque signed64; zero is valid after result0.
++};
++// Admission only, never a blocking lock. Binder callbacks cannot wait on this flag.
++struct Outbound {
++    explicit Outbound(std::atomic_flag& flag) : flag(flag), admitted(!flag.test_and_set()) {}
++    ~Outbound() { if (admitted) flag.clear(); }
++    std::atomic_flag& flag;
++    bool admitted;
++};
++}  // namespace
++struct ComposerExtClient::Impl {
++    explicit Impl(std::weak_ptr<CallbackOwner> owner) : owner(std::move(owner)) {}
++    std::mutex mutex;
++    std::atomic_flag outbound = ATOMIC_FLAG_INIT;
++    bool attempted = false;
++    const std::weak_ptr<CallbackOwner> owner;
++    const std::shared_ptr<CallbackGate> gate = std::make_shared<CallbackGate>();
++    std::shared_ptr<Connection> connection;
++    void closeGate() {
++        if (gate->close()) {
++            if (auto target = owner.lock()) target->onConnectionClosed();
++        }
++    }
++};
++ComposerExtClient::ComposerExtClient(std::weak_ptr<CallbackOwner> owner)
++      : mImpl(std::make_shared<Impl>(std::move(owner))) {}
++ComposerExtClient::~ComposerExtClient() { detach(); }
++CallResult ComposerExtClient::connect() {
++    const auto state = mImpl;
++    CallResult result;
++    Outbound operation(state->outbound);
++    if (!operation.admitted) { result.result = -16; return result; }
++    {
++        std::lock_guard guard(state->mutex);
++        if (state->attempted) return result;
++        state->attempted = true;
++    }
++    auto connection = std::make_shared<Connection>();
++    connection->binder = ndk::SpAIBinder(AServiceManager_checkService(kService));
++    if (!connection->binder.get() || state->owner.expired()) { state->closeGate(); return result; }
++    connection->proxy = wire::IComposerExt::fromBinder(connection->binder);
++    if (!connection->proxy) { state->closeGate(); return result; }
++    int32_t version = 0;
++    std::string hash;
++    result.status = connection->proxy->getInterfaceVersion(&version);
++    if (result.status.isOk()) result.status = connection->proxy->getInterfaceHash(&hash);
++    if (!result.status.isOk()) { result.result = -112; state->closeGate(); return result; }
++    if (version != 1 || hash != kHash) { result.result = -22; state->closeGate(); return result; }
++    connection->callback = ndk::SharedRefBase::make<Callback>(state->owner, state->gate);
++    connection->death = ndk::ScopedAIBinder_DeathRecipient(AIBinder_DeathRecipient_new(died));
++    AIBinder_DeathRecipient_setOnUnlinked(connection->death.get(), unlinked);
++    // Binder owns this cookie until onUnlinked, INCLUDING linkToDeath error paths.
++    auto* cookie = new DeathCookie{state->gate, state->owner};
++    binder_status_t linked = AIBinder_linkToDeath(connection->binder.get(),
++                                                connection->death.get(), cookie);
++    if (linked != STATUS_OK) {
++        result.status = ndk::ScopedAStatus::fromStatus(linked);
++        result.result = -112;
++        state->closeGate();
++        return result;
++    }
++    if (!state->gate->beginRegistration()) return result;
++    wire::parcelable_registerClient reply;
++    const std::string name = std::to_string(getpid()) + "_SurfaceFlinger";
++    result.dispatched = true;
++    result.status = connection->proxy->registerClient(name, connection->callback, &reply);
++    if (!result.status.isOk()) { result.result = -112; state->closeGate(); return result; }
++    result.result = reply.result;
++    if (reply.result != 0) { state->closeGate(); return result; }
++    connection->client = reply.client;
++    {
++        std::lock_guard guard(state->mutex);
++        state->connection = connection;  // Keep known cleanup handle even if death closed the gate.
++    }
++    if (!state->gate->commitRegistration()) result.result = -112;
++    return result;
++}
++CallResult ComposerExtClient::retrigger(uint64_t display, int64_t time) {
++    const auto state = mImpl;
++    CallResult result;
++    Outbound operation(state->outbound);
++    if (!operation.admitted) { result.result = -16; return result; }
++    std::shared_ptr<Connection> connection;
++    {
++        std::lock_guard guard(state->mutex);
++        connection = state->connection;
++    }
++    result.ticket = state->gate->ticket();
++    if (!connection || !result.ticket.isCurrent()) return result;
++    Reply reply;
++    result.dispatched = true;
++    result.status = connection->proxy->syncPerform(connection->client, kRetrigger,
++                                                   encodeRetrigger(display, time),
++                                                   std::nullopt, std::nullopt, &reply);
++    if (!result.status.isOk()) { result.result = -112; state->closeGate(); return result; }
++    result.result = reply.result;
++    // The synchronous RPC may finish after death/detach. Do not return a late usable FD.
++    result.fence = takeRetriggerFence(result.ticket, reply.result, reply.outputFds);
++    if (!result.ticket.isCurrent()) result.fence.set(-1);
++    // Caller rechecks canApplyFence() at actual owner-thread sample application.
++    return result;
++}
++std::optional<int32_t> ComposerExtClient::queryFeature(int32_t feature) {
++    const auto state = mImpl;
++    Outbound operation(state->outbound);
++    if (!operation.admitted) return std::nullopt;
++    std::shared_ptr<Connection> connection;
++    {
++        std::lock_guard guard(state->mutex);
++        connection = state->connection;
++    }
++    const auto ticket = state->gate->ticket();
++    if (!connection || !ticket.isCurrent()) return std::nullopt;
++    Reply reply;
++    auto status = connection->proxy->syncPerform(connection->client, kQueryFeature,
++                                                 encodeInt32(feature), std::nullopt,
++                                                 std::nullopt, &reply);
++    if (!status.isOk()) { state->closeGate(); return std::nullopt; }
++    if (!ticket.isCurrent() || reply.result != 0 || !reply.outputFds.empty()
++            || !reply.outputHandles.empty()) return std::nullopt;
++    return decodeInt32(reply.outputParams);
++}
++CallResult ComposerExtClient::destroy() {
++    const auto state = mImpl;
++    state->closeGate();
++    CallResult result;
++    Outbound operation(state->outbound);
++    if (!operation.admitted) { result.result = -16; return result; }
++    std::shared_ptr<Connection> connection;
++    {
++        std::lock_guard guard(state->mutex);
++        connection.swap(state->connection);
++    }
++    if (!connection) return result;
++    Reply reply;
++    result.dispatched = true;
++    result.status = connection->proxy->syncPerform(connection->client, kDestroy,
++                                                   std::nullopt, std::nullopt, std::nullopt, &reply);
++    result.result = result.status.isOk() ? reply.result : -112;
++    // Neither BinderOK nor result0 establishes remote callback/render-queue drain.
++    return result;
++}
++void ComposerExtClient::detach() {
++    const auto state = mImpl;
++    state->closeGate();
++    std::shared_ptr<Connection> old;
++    {
++        std::lock_guard guard(state->mutex);
++        old.swap(state->connection);
++    }
++    // Scoped recipient deletion unlinks without synchronous cookie reclamation.
++    // old (callback/proxy/binder) is destroyed outside our mutex; cookie survives to onUnlinked.
++}
++}  // namespace android::surfaceflinger::ldy_an00
+diff --git a/services/surfaceflinger/ldy_an00_composerext/ComposerExtCodec.cpp b/services/surfaceflinger/ldy_an00_composerext/ComposerExtCodec.cpp
+new file mode 100644
+index 0000000..ec82424
+--- /dev/null
++++ b/services/surfaceflinger/ldy_an00_composerext/ComposerExtCodec.cpp
+@@ -0,0 +1,63 @@
++// Copyright (C) 2026 The LineageOS Project; SPDX-License-Identifier: Apache-2.0
++#include <ldy_an00/ComposerExtCodec.h>
++#include <cstring>
++
++namespace android::surfaceflinger::ldy_an00 {
++static uint64_t readLe(const std::vector<uint8_t>& b, size_t start, size_t size) {
++    uint64_t value = 0;
++    for (size_t i = 0; i < size; ++i) value |= uint64_t(b[start + i]) << (8 * i);
++    return value;
++}
++std::optional<int32_t> decodeInt32(const Bytes& b) {
++    if (!b || b->size() != 4) return std::nullopt;
++    uint32_t bits = uint32_t(readLe(*b, 0, 4));
++    int32_t value;
++    std::memcpy(&value, &bits, sizeof(value));
++    return value;
++}
++Bytes encodeInt32(int32_t value) {
++    uint32_t bits;
++    std::memcpy(&bits, &value, sizeof(bits));
++    return std::vector<uint8_t>{uint8_t(bits), uint8_t(bits >> 8),
++                                uint8_t(bits >> 16), uint8_t(bits >> 24)};
++}
++std::optional<CompositionRequest> decodeComposition(const Bytes& b) {
++    if (!b || b->size() != 16) return std::nullopt;
++    const uint32_t bits = uint32_t(readLe(*b, 8, 4));
++    int32_t mode;
++    std::memcpy(&mode, &bits, sizeof(mode));
++    return CompositionRequest{readLe(*b, 0, 8), mode, uint32_t(readLe(*b, 12, 4))};
++}
++std::optional<ExtraVsyncRequest> decodeExtraVsync(const Bytes& b) {
++    if (!b || b->size() < 20) return std::nullopt;
++    const uint64_t count = readLe(*b, 8, 8);
++    // Check against the supplied bounded vector before multiplication/allocation.
++    if (count != (b->size() - 20) / 8 || (b->size() - 20) % 8) return std::nullopt;
++    ExtraVsyncRequest request{readLe(*b, 0, 8), {},
++                              uint32_t(readLe(*b, b->size() - 4, 4))};
++    request.layers.reserve(size_t(count));
++    for (size_t i = 0; i < size_t(count); ++i) {
++        request.layers.push_back(readLe(*b, 16 + i * 8, 8));
++    }
++    return request;
++}
++std::optional<EnableRequest> decodeEnable(const Bytes& b) {
++    if (!b || b->size() != 13) return std::nullopt;
++    return EnableRequest{readLe(*b, 0, 8), uint32_t(readLe(*b, 8, 4)), (*b)[12]};
++}
++std::optional<uint64_t> decodeOnce(const Bytes& b) {
++    if (!b || b->size() != 8) return std::nullopt;
++    return readLe(*b, 0, 8);
++}
++Bytes encodeRetrigger(uint64_t display, int64_t time) {
++    uint64_t bits;
++    static_assert(sizeof(bits) == sizeof(time));
++    std::memcpy(&bits, &time, sizeof(bits));
++    std::vector<uint8_t> result(16);
++    for (size_t i = 0; i < 8; ++i) {
++        result[i] = uint8_t(display >> (8 * i));
++        result[8 + i] = uint8_t(bits >> (8 * i));
++    }
++    return result;
++}
++}  // namespace android::surfaceflinger::ldy_an00
+diff --git a/services/surfaceflinger/ldy_an00_composerext/ComposerExtDispatch.cpp b/services/surfaceflinger/ldy_an00_composerext/ComposerExtDispatch.cpp
+new file mode 100644
+index 0000000..ca56af5
+--- /dev/null
++++ b/services/surfaceflinger/ldy_an00_composerext/ComposerExtDispatch.cpp
+@@ -0,0 +1,43 @@
++// Copyright (C) 2026 The LineageOS Project; SPDX-License-Identifier: Apache-2.0
++#include <ldy_an00/ComposerExtClient.h>
++
++namespace android::surfaceflinger::ldy_an00 {
++void dispatchSync(const std::weak_ptr<CallbackOwner>& weak, const CallbackTicket& ticket,
++                  int64_t opcode, const Bytes& params, const Fds& fds,
++                  const Handles& handles, Reply* reply) {
++    *reply = Reply{};
++    reply->result = -22;
++    auto owner = weak.lock();
++    if (!owner || !ticket.isAdmissible()) return;
++    bool accepted;
++    if (opcode == kEnable) {
++        auto request = decodeEnable(params);
++        if (!request) return;
++        accepted = owner->enqueueEnable(ticket, *request);
++    } else if (opcode == kOnce) {
++        auto display = decodeOnce(params);
++        if (!display) return;
++        accepted = owner->enqueueOnce(ticket, *display);
++    } else {
++        if (!owner->unknownSync(ticket, opcode, params, fds, handles, reply)
++                || !ticket.isAdmissible()) {
++            *reply = Reply{};
++            reply->result = -22;
++        }
++        return;
++    }
++    if (!ticket.isAdmissible()) return;
++    reply->result = 0;
++    reply->outputParams = {uint8_t(accepted ? 1 : 0)};
++}
++void dispatchAsync(const std::weak_ptr<CallbackOwner>& weak, const CallbackTicket& ticket,
++                   int64_t opcode, const Bytes& params, const Fds& fds, const Handles& handles) {
++    auto owner = weak.lock();
++    if (owner && ticket.isAdmissible()) owner->unknownAsync(ticket, opcode, params, fds, handles);
++}
++ndk::ScopedFileDescriptor takeRetriggerFence(const CallbackTicket& ticket, int32_t result,
++                                            std::vector<ndk::ScopedFileDescriptor>& fds) {
++    if (!ticket.isCurrent() || result != 0 || fds.empty()) return {};
++    return ndk::ScopedFileDescriptor(fds.front().release());
++}
++}  // namespace android::surfaceflinger::ldy_an00
+diff --git a/services/surfaceflinger/ldy_an00_composerext/ComposerExtOwner.cpp b/services/surfaceflinger/ldy_an00_composerext/ComposerExtOwner.cpp
+new file mode 100644
+index 0000000..1a3f6d7
+--- /dev/null
++++ b/services/surfaceflinger/ldy_an00_composerext/ComposerExtOwner.cpp
+@@ -0,0 +1,386 @@
++// Copyright (C) 2026 The LineageOS Project; SPDX-License-Identifier: Apache-2.0
++#undef LOG_TAG
++#define LOG_TAG "LdyAn00Display"
++#include <ldy_an00/ComposerExtOwner.h>
++#include <ldy_an00/SfCpuPolicyBridge.h>
++#include "../SurfaceFlinger.h"
++#include "../Layer.h"
++#include <android-base/properties.h>
++#include <ftl/cast.h>
++#include <limits>
++#include <log/log.h>
++
++namespace android::surfaceflinger::ldy_an00 {
++std::shared_ptr<ComposerExtOwner> ComposerExtOwner::create(
++        const sp<SurfaceFlinger>& sf, std::unique_ptr<SfCpuPolicyBridge> cpu) {
++    if (!sf || !cpu) return {};
++    auto owner = std::shared_ptr<ComposerExtOwner>(new ComposerExtOwner(sf, std::move(cpu)));
++    owner->mClient = std::make_unique<ComposerExtClient>(owner);
++    return owner;
++}
++ComposerExtOwner::ComposerExtOwner(const sp<SurfaceFlinger>& sf,
++                                   std::unique_ptr<SfCpuPolicyBridge> cpu)
++      : mFlinger(sf), mCpu(std::move(cpu)),
++        mTiming(base::GetBoolProperty("vendor.debug.sf.dynamic_duration.switch", true),
++                false, 0),
++        mExtraBuffers(base::GetIntProperty("vendor.debug.sf.dynamic_duration.extra_buffers", 1)),
++        mDebugDiagnostics(base::GetBoolProperty("ro.debuggable", false)) {
++    mDynamicDuration = base::GetBoolProperty("vendor.debug.sf.dynamic_duration.switch", true);
++    mRetriggerEnabled = base::GetBoolProperty("ro.vendor.display.sf.mtk_retrigger", true);
++}
++ComposerExtOwner::~ComposerExtOwner() { shutdown(); }
++void ComposerExtOwner::diagnosticOnce(uint32_t bit, const char* message) {
++    if (!mDebugDiagnostics || (mDiagnosticsSeen.load(std::memory_order_relaxed) & bit)) return;
++    if (!(mDiagnosticsSeen.fetch_or(bit, std::memory_order_relaxed) & bit)) ALOGI("%s", message);
++}
++void ComposerExtOwner::shutdown() {
++    mReady.store(false);
++    mClosed.store(true);
++    if (mClient) mClient->detach();
++    if (mCpu) mCpu->shutdown(); // Joins plugin before its typed history provider can disappear.
++}
++void ComposerExtOwner::post(std::function<void(ComposerExtOwner&, SurfaceFlinger&)> work) {
++    auto sf = mFlinger.promote();
++    if (!sf) return;
++    const std::weak_ptr<ComposerExtOwner> weak = weak_from_this();
++    static_cast<void>(sf->mScheduler->schedule([weak, work = std::move(work)] {
++        auto owner = weak.lock();
++        if (!owner) return;
++        auto flinger = owner->mFlinger.promote();
++        if (flinger) work(*owner, *flinger);
++    }));
++}
++void ComposerExtOwner::start() {
++    ftl::FakeGuard mainGuard(kMainThreadContext);
++    if (mAttempted || mClosed.load()) return;
++    mAttempted = true;
++    refreshDisplays(); // Authoritative internal identities precede reentrant callbacks.
++    auto sf = mFlinger.promote();
++    const auto facts = sf ? frameFacts(*sf) : std::nullopt;
++    if (!facts || !mCpu->configure(*facts) || !mCpu->ready()) {
++        diagnosticOnce(1u << 0, "startup failed: CPU facts/configuration");
++        close(); return;
++    }
++    mCpuPowerSuspended = facts->powerSuspended;
++    auto result = mClient->connect();
++    if (!result.status.isOk() || result.result != 0 || mClosed.load()) {
++        diagnosticOnce(1u << 0, "startup failed: composer registration");
++        close(); return;
++    }
++    bool extraSupported = false;
++    if (mDynamicDuration) {
++        const auto support = mClient->queryFeature(1);
++        if (!support || mClosed.load()) {
++            diagnosticOnce(1u << 0, "startup failed: capability query");
++            close(); return;
++        } // Unknown is not unsupported.
++        extraSupported = *support > 0;
++    }
++    mExtraSupported.store(extraSupported);
++    mTiming.setExtraSupported(extraSupported);
++    mReady.store(true);
++    diagnosticOnce(1u << 1, "owner ready: CPU configured and composer registered");
++    if (auto sf = mFlinger.promote()) sf->mScheduler->setMtkDurationState(mDynamicDuration, false);
++}
++std::optional<SfCpuPolicyBridge::FrameFacts> ComposerExtOwner::frameFacts(
++        SurfaceFlinger& sf) const {
++    ftl::FakeGuard mainGuard(kMainThreadContext);
++    const auto renderTid = sf.getRenderEngine().getRenderEngineTid();
++    if (!renderTid || *renderTid <= 0) return std::nullopt;
++    SfCpuPolicyBridge::FrameFacts facts;
++    facts.renderEngineTid = *renderTid;
++    facts.renderFps = sf.mScheduler->getPacesetterRefreshRate().getValue();
++    facts.sfWorkDurationNs = sf.mScheduler->vsyncModulator().getVsyncConfig()
++                                    .sfWorkDuration.count();
++    facts.transactionEarly = sf.mScheduler->vsyncModulator().isEarlyTransactionConfig();
++    facts.previousGpuComposition = mPreviousGpuComposition;
++    {
++        Mutex::Autolock lock(sf.mStateLock);
++        for (const auto& [_, device] : sf.mDisplays) {
++            if (device->isPoweredOn()) ++facts.poweredDisplayCount;
++            const auto& state = device->getCompositionDisplay()->getState();
++            facts.usesClientComposition |= state.usesClientComposition;
++            facts.reusedClientComposition |= state.reusedClientComposition;
++        }
++    }
++    facts.powerSuspended = facts.poweredDisplayCount == 0;
++    for (const auto& [_, layer] : sf.mLegacyLayers) {
++        if (layer->getName().find("Record") != std::string::npos) {
++            facts.recording = true;
++            break;
++        }
++    }
++    // Normal stock state has no vendor debug force/heavy/CPU-mask transaction.
++    return facts;
++}
++void ComposerExtOwner::frameStarted(int64_t vsyncId, int64_t frameBeginNs) {
++    if (!mReady.load() || mClosed.load()) return;
++    if (!mCpu->startFrame(vsyncId, frameBeginNs)) close();
++}
++void ComposerExtOwner::frameFinished(int64_t vsyncId, int64_t frameEndNs, bool previousGpu) {
++    mPreviousGpuComposition = previousGpu;
++    if (!mReady.load() || mClosed.load()) return;
++    auto sf = mFlinger.promote();
++    const auto facts = sf ? frameFacts(*sf) : std::nullopt;
++    if (!facts || !mCpu->configure(*facts) || !mCpu->finishFrame(vsyncId, frameEndNs)) {
++        close();
++        return;
++    }
++    mCpuPowerSuspended = facts->powerSuspended;
++    diagnosticOnce(1u << 2, "first CPU frame pair completed");
++    // Stock99a61c is reached only from composite via47799c/49be58.
++    // Timing-only retrigger samples must not advance its five-refresh countdown.
++    const auto duration = mTiming.onDisplayRefresh();
++    const bool decoupled = duration && duration->decoupled;
++    if (decoupled != mLastDecoupled) {
++        mLastDecoupled = decoupled;
++        sf->mScheduler->setMtkDurationState(mDynamicDuration, decoupled);
++    }
++}
++void ComposerExtOwner::cleanup(SurfaceFlinger& sf) {
++    ftl::FakeGuard mainGuard(kMainThreadContext);
++    for (auto& [_, display] : mDisplays) {
++        if (display.lease) {
++            if (auto device = display.device.promote()) {
++                sf.releaseMtkRetriggerPolicy(device, display.lease);
++            }
++        }
++    }
++    mDisplays.clear();
++    mTiming.clear();
++    sf.mScheduler->setMtkDurationState(false, false);
++}
++void ComposerExtOwner::close() {
++    mReady.store(false);
++    const bool alreadyClosed = mClosed.exchange(true);
++    diagnosticOnce(1u << 7, "owner closed");
++    // Known healthy local shutdown submits exactly one destroy. Transport death/
++    // unknown completion already closed admission and must not provoke another RPC.
++    if (!alreadyClosed && mClient) {
++        static_cast<void>(mClient->destroy());
++    }
++    if (auto sf = mFlinger.promote()) cleanup(*sf);
++    shutdown();
++}
++void ComposerExtOwner::onConnectionClosed() {
++    mReady.store(false);
++    mClosed.store(true); // Immediate admission fence, cleanup never waits for the SF executor.
++    diagnosticOnce(1u << 7, "connection closed");
++    post([](ComposerExtOwner& owner, SurfaceFlinger& sf) {
++        owner.cleanup(sf);
++        owner.shutdown();
++        sf.mScheduler->scheduleFrame();
++    });
++}
++void ComposerExtOwner::refreshDisplays() {
++    ftl::FakeGuard mainGuard(kMainThreadContext);
++    auto sf = mFlinger.promote();
++    if (!sf || mClosed.load()) return;
++    std::map<uint64_t, Display> current;
++    {
++        Mutex::Autolock lock(sf->mStateLock);
++        for (const auto& [_, device] : sf->mDisplays) {
++            if (device->isVirtual()) continue;
++            const auto physical = device->getPhysicalId();
++            if (!sf->mPhysicalDisplays.get(physical)
++                         .transform(&android::display::PhysicalDisplay::isInternal).value_or(false)) continue;
++            const auto hwc = sf->getHwComposer().fromPhysicalDisplayId(physical);
++            if (!hwc || !device->isPoweredOn()) continue;
++            const auto mode = ftl::to_underlying(device->refreshRateSelector()
++                                                       .getActiveMode().modePtr->getId());
++            const int32_t power = static_cast<int32_t>(device->getPowerMode());
++            auto previous = mDisplays.find(*hwc);
++            if (previous != mDisplays.end() && previous->second.device.promote() == device
++                    && previous->second.mode == mode && previous->second.power == power) {
++                current.emplace(*hwc, previous->second);
++            } else {
++                current.emplace(*hwc, Display{physical, device, ++mGeneration, mode, power});
++            }
++        }
++    }
++    // No state/selector lock is held over policy application.
++    for (const auto& [hwc, old] : mDisplays) {
++        auto fresh = current.find(hwc);
++        if (fresh == current.end() || fresh->second.generation != old.generation) {
++            if (old.lease) {
++                if (auto device = old.device.promote()) {
++                    sf->releaseMtkRetriggerPolicy(device, old.lease);
++                }
++            }
++            mTiming.removeDisplay(hwc);
++        }
++    }
++    mDisplays.swap(current);
++    for (const auto& [hwc, display] : mDisplays) mTiming.addDisplay(hwc, display.generation);
++    mTiming.setActiveDisplay(sf->getHwComposer().fromPhysicalDisplayId(
++            sf->mScheduler->getPacesetterDisplayId()));
++    const auto state = mTiming.snapshot();
++    const bool decoupled = state && state->decoupled;
++    if (mReady.load() && decoupled != mLastDecoupled) {
++        mLastDecoupled = decoupled;
++        sf->mScheduler->setMtkDurationState(mDynamicDuration, decoupled);
++    }
++    // Power-off can stop real frames entirely. Publish suspension without
++    // manufacturing an endFrame or waiting for another composition.
++    if (mReady.load()) {
++        const auto facts = frameFacts(*sf);
++        if (!facts) { close(); return; }
++        if (!mCpuPowerSuspended || *mCpuPowerSuspended != facts->powerSuspended) {
++            if (!mCpu->configure(*facts)) { close(); return; }
++            mCpuPowerSuspended = facts->powerSuspended;
++        }
++    }
++}
++bool ComposerExtOwner::enqueueEnable(const CallbackTicket& ticket, const EnableRequest& request) {
++    if (mClosed.load() || !ticket.isAdmissible() || request.enable > 2) return false;
++    post([ticket, request](ComposerExtOwner& owner, SurfaceFlinger&) {
++        owner.applyEnable(ticket, request);
++    });
++    return true; // Queue admission only; application rechecks current generation.
++}
++bool ComposerExtOwner::enqueueOnce(const CallbackTicket& ticket, uint64_t display) {
++    return enqueueEnable(ticket, EnableRequest{display, 0, 2});
++}
++void ComposerExtOwner::applyEnable(const CallbackTicket& ticket, EnableRequest request) {
++    ftl::FakeGuard mainGuard(kMainThreadContext);
++    if (!mReady.load() || !ticket.isCurrent()) return;
++    refreshDisplays();
++    auto sf = mFlinger.promote();
++    auto it = mDisplays.find(request.display);
++    if (!sf || it == mDisplays.end() || !mRetriggerEnabled) return;
++    diagnosticOnce(1u << 3, "first current enable callback observed");
++    auto& display = it->second;
++    if (request.enable == 2 && display.type != 0) return; // Stock once deduplicates any entry.
++    auto device = display.device.promote();
++    if (!device) return;
++    if (request.enable == 0) {
++        if (display.lease) sf->releaseMtkRetriggerPolicy(device, display.lease);
++        display.lease = 0; display.type = 0;
++        return;
++    }
++    if (request.enable == 1) {
++        if (sf->updateMtkRetriggerPolicy(device, request.fps, &display.lease) != NO_ERROR) return;
++    }
++    display.type = request.enable;
++    display.ticket = ticket;
++    sf->mScheduler->scheduleRetriggerFrame();
++}
++void ComposerExtOwner::applyComposition(const CallbackTicket& ticket, CompositionRequest request) {
++    ftl::FakeGuard mainGuard(kMainThreadContext);
++    if (!mReady.load() || !ticket.isCurrent()) return;
++    refreshDisplays();
++    if (mTiming.setComposition(request.display, request.mode > 0)) {
++        diagnosticOnce(1u << 4, "first current composition callback applied");
++        if (auto sf = mFlinger.promote()) sf->mScheduler->scheduleFrame();
++    }
++}
++bool ComposerExtOwner::unknownSync(const CallbackTicket& ticket, int64_t opcode,
++        const Bytes& bytes, const Fds& fds, const Handles& handles, Reply* reply) {
++    if (mClosed.load() || !ticket.isAdmissible() || (fds && !fds->empty())
++            || (handles && !handles->empty())) return false;
++    if (opcode == kExtraVsync) {
++        const auto request = decodeExtraVsync(bytes);
++        if (!request) return false;
++        const auto accepted = mTiming.setExtraVsync(request->display, request->count);
++        if (!accepted || !ticket.isAdmissible()) return false;
++        diagnosticOnce(1u << 5, "first admissible extra-VSYNC callback accepted");
++        reply->result = 0;
++        reply->outputParams = *encodeInt32(static_cast<int32_t>(*accepted));
++        return true;
++    }
++    if (opcode == kTest && bytes && !bytes->empty()) {
++        reply->result = 0;
++        reply->outputParams = {uint8_t((*bytes)[0] & 1)};
++        return true;
++    }
++    return false;
++}
++void ComposerExtOwner::unknownAsync(const CallbackTicket& ticket, int64_t opcode,
++        const Bytes& bytes, const Fds&, const Handles&) {
++    if (mClosed.load() || !ticket.isAdmissible()) return;
++    if (opcode == kHwcTid) {
++        if (const auto tid = decodeInt32(bytes); tid && *tid > 0) {
++            post([ticket, tid = *tid](ComposerExtOwner& owner, SurfaceFlinger&) {
++                if (owner.mReady.load() && ticket.isCurrent()) {
++                    owner.mCpu->notifyHwcTid(tid);
++                    owner.diagnosticOnce(1u << 6, "first current HWC-TID callback forwarded");
++                }
++            });
++        }
++    } else if (opcode == kComposition) {
++        if (const auto request = decodeComposition(bytes)) {
++            post([ticket, request = *request](ComposerExtOwner& owner, SurfaceFlinger&) {
++                owner.applyComposition(ticket, request);
++            });
++        }
++    }
++    // Stock15/16/40 and async test are explicit no-ops; borrowed handles remain RAII-owned.
++}
++uint32_t ComposerExtOwner::extraVsync(PhysicalDisplayId id) const {
++    if (!mReady.load() || mClosed.load()) return 0;
++    for (const auto& [hwc, display] : mDisplays) {
++        if (display.physical == id) {
++            const auto state = mTiming.snapshotFor(hwc);
++            return state ? state->extraVsync : 0;
++        }
++    }
++    return 0;
++}
++int ComposerExtOwner::extraBuffers() const {
++    return mReady.load() && !mClosed.load() && mExtraSupported.load() ? mExtraBuffers : 0;
++}
++void ComposerExtOwner::committed(PhysicalDisplayId active, int64_t expectedPresentNs,
++        bool pureRetrigger, bool mustComposite, const std::function<bool()>& normalWorkPending) {
++    ftl::FakeGuard mainGuard(kMainThreadContext);
++    if (!mReady.load() || mClosed.load()) return;
++    refreshDisplays();
++    auto sf = mFlinger.promote();
++    if (!sf) return;
++    bool continuous = false;
++    // Binder may enqueue display/mode work. Never retain a map iterator/reference
++    // across the subsequent refresh of authoritative display identities.
++    const std::vector<std::pair<uint64_t, Display>> pending(mDisplays.begin(), mDisplays.end());
++    for (const auto& [hwc, display] : pending) {
++        if (display.type == 0) continue;
++        if (display.lease) {
++            const auto lease = sf->mMtkRetriggerPolicyLeases.find(display.physical);
++            if (lease == sf->mMtkRetriggerPolicyLeases.end()
++                    || lease->second.token != display.lease) {
++                auto current = mDisplays.find(hwc);
++                if (current != mDisplays.end()
++                        && current->second.generation == display.generation) {
++                    current->second.lease = 0;
++                    current->second.type = 0;
++                }
++                continue; // An accepted external policy revoked this exact lease.
++            }
++        }
++        const bool once = display.type == 2;
++        continuous |= !once;
++        if (once) {
++            auto current = mDisplays.find(hwc);
++            if (current != mDisplays.end() && current->second.generation == display.generation) {
++                current->second.type = 0; // Never retry an unknown once RPC.
++            }
++        }
++        if (!pureRetrigger || mustComposite || normalWorkPending() || !display.ticket.isCurrent()) {
++            continue;
++        }
++        const uint64_t generation = display.generation;
++        auto result = mClient->retrigger(hwc, expectedPresentNs);
++        if (!result.status.isOk() || result.result != 0) {
++            close(); sf->mScheduler->scheduleFrame(); return;
++        }
++        if (!result.canApplyFence() || normalWorkPending()) continue;
++        refreshDisplays();
++        auto current = mDisplays.find(hwc);
++        if (current == mDisplays.end() || current->second.generation != generation
++                || !result.canApplyFence()) continue;
++        if (!once && current->second.physical == active) {
++            const auto fence = sp<Fence>::make(result.fence.release());
++            sf->mScheduler->addPresentFence(active, std::make_shared<FenceTime>(fence));
++        }
++    }
++    if (continuous && !mClosed.load()) sf->mScheduler->scheduleRetriggerFrame();
++}
++} // namespace android::surfaceflinger::ldy_an00
+diff --git a/services/surfaceflinger/ldy_an00_composerext/ComposerExtTiming.cpp b/services/surfaceflinger/ldy_an00_composerext/ComposerExtTiming.cpp
+new file mode 100644
+index 0000000..7ad4d19
+--- /dev/null
++++ b/services/surfaceflinger/ldy_an00_composerext/ComposerExtTiming.cpp
+@@ -0,0 +1,77 @@
++// Copyright (C) 2026 The LineageOS Project; SPDX-License-Identifier: Apache-2.0
++#include <ldy_an00/ComposerExtTiming.h>
++namespace android::surfaceflinger::ldy_an00 {
++void ComposerExtTiming::setExtraSupported(bool supported) {
++    std::lock_guard guard(mMutex);
++    mExtraSupported = supported;
++}
++void ComposerExtTiming::addDisplay(uint64_t display, uint64_t generation) {
++    std::lock_guard guard(mMutex);
++    auto it = mDisplays.find(display);
++    if (it == mDisplays.end() || it->second.generation != generation) {
++        mDisplays.insert_or_assign(display, Display{generation});
++    }
++}
++void ComposerExtTiming::removeDisplay(uint64_t display) {
++    std::lock_guard guard(mMutex);
++    mDisplays.erase(display);
++    if (mActive == display) mActive.reset();
++}
++void ComposerExtTiming::setActiveDisplay(std::optional<uint64_t> display) {
++    std::lock_guard guard(mMutex);
++    mActive = display && mDisplays.count(*display) ? display : std::nullopt;
++}
++bool ComposerExtTiming::setComposition(uint64_t display, bool decoupled) {
++    std::lock_guard guard(mMutex);
++    auto it = mDisplays.find(display);
++    if (it == mDisplays.end()) return false;
++    auto& state = it->second;
++    if (state.latest != decoupled && state.cooldown == 0) {
++        state.cooldown = 5;
++        state.firstTransition = decoupled;
++    }
++    state.latest = decoupled;
++    return true;
++}
++std::optional<uint32_t> ComposerExtTiming::setExtraVsync(uint64_t display, uint32_t count) {
++    std::lock_guard guard(mMutex);
++    auto it = mDisplays.find(display);
++    if (it == mDisplays.end()) return std::nullopt;
++    it->second.extra = count;
++    return count;
++}
++std::optional<ComposerExtTiming::Snapshot> ComposerExtTiming::snapshotLocked() const {
++    if (!mActive) return std::nullopt;
++    return snapshotForLocked(*mActive);
++}
++std::optional<ComposerExtTiming::Snapshot> ComposerExtTiming::snapshotForLocked(uint64_t display) const {
++    auto it = mDisplays.find(display);
++    if (it == mDisplays.end()) return std::nullopt;
++    const auto& state = it->second;
++    const bool decoupled = mDynamicDuration && !mExtraSupported
++            && (state.cooldown ? state.firstTransition : state.latest);
++    return Snapshot{display, state.generation, decoupled,
++                    mExtraSupported ? (state.extra ? state.extra : mDefaultExtra) : 0};
++}
++std::optional<ComposerExtTiming::Snapshot> ComposerExtTiming::onDisplayRefresh() {
++    std::lock_guard guard(mMutex);
++    for (auto& [id, state] : mDisplays) {
++        (void)id;
++        if (state.cooldown) --state.cooldown;
++    }
++    return snapshotLocked();
++}
++std::optional<ComposerExtTiming::Snapshot> ComposerExtTiming::snapshot() const {
++    std::lock_guard guard(mMutex);
++    return snapshotLocked();
++}
++std::optional<ComposerExtTiming::Snapshot> ComposerExtTiming::snapshotFor(uint64_t display) const {
++    std::lock_guard guard(mMutex);
++    return snapshotForLocked(display);
++}
++void ComposerExtTiming::clear() {
++    std::lock_guard guard(mMutex);
++    mDisplays.clear();
++    mActive.reset();
++}
++} // namespace android::surfaceflinger::ldy_an00
+diff --git a/services/surfaceflinger/ldy_an00_composerext/README.txt b/services/surfaceflinger/ldy_an00_composerext/README.txt
+new file mode 100644
+index 0000000..c65b880
+--- /dev/null
++++ b/services/surfaceflinger/ldy_an00_composerext/README.txt
+@@ -0,0 +1,78 @@
++LDY-AN00 private ComposerExt wire transport (not enabled in SurfaceFlinger)
++
++The four AIDL files reconstruct the stock113 Binder wire layout; their original
++vendor argument/field names are unknown. Version1/hash022c728d211f6b275911cb0602f6641afdd275d6
++are observed frozen endpoint metadata, not a claim these reconstructed source
++names naturally hash to the vendor's original API dump. No fake .hash or frozen
++API snapshot is supplied.
++
++The normal host aidl tool generates four CPP files and twelve headers ONLY as
++build intermediates. All five input AIDL files are declared: four local wire
++files plus a narrowly visible filegroup exporting exact common NativeHandle v2.
++The command stages imports inside genDir to avoid undeclared source paths or
++hardcoded Soong intermediates. Frozen NativeHandle retains its upstream Apache
++notice in hardware/interfaces; reconstructed wire files retain their provenance
++comments unchanged.
++
++The static library uses real libbinder_ndk/common-V2-ndk exported headers and
++BINDER_STABILITY_SUPPORT, matching the normal stable platform NDK backend.
++Per-output genrule tags select only the four CPP files; generated include headers
++are exported separately. No compiler-generated C++ is checked into this tree.
++
++There is no SurfaceFlinger dependency, PRODUCT_PACKAGES entry, runtime registration
++or feature enablement here. This module is manually buildable for review; normal
++systemimage has no consumer. The typed client below supplies callback admission, codec, FD ownership and local
++lifecycle handling only. The real feature policy/render/commit/fence engine and
++hardware qualification remain necessary before use.
++
++Stock wire provenance: composer_ext-V1-ndk.so SHA256
++37d5b2206ba28f33f0c45cfe3819035538119983afba5733c6b6facbf2138293.
++The independent native and generated-source review receipts remain under
++artifacts/autonomous-device-check-20261024/stock-warning-followup/display-port-aidl1.
++
++Typed client (host-staged, no SurfaceFlinger hook)
++
++libhonor_ldy_an00_composerext_client performs one nonblocking named lookup, verifies
++version1/hash022c728d211f6b275911cb0602f6641afdd275d6, links death notification and
++registers <pid>_SurfaceFlinger. A result0 opaque signed64 client value, including0,
++is accepted. No HIDL fallback, automatic reconnect, retry or runtime flag is added.
++CallResult.dispatched describes register/retrigger/destroy dispatch, not the earlier
++read-only metadata RPCs. Callers retain the Client throughout every method call.
++
++The exact13-byte enable and8-byte once callback payloads are decoded explicitly
++little endian. Enable's raw byte is preserved for the future native-policy engine;
++no invented canonical-byte restriction is attributed to stock. Known callbacks
++return result0 plus the Owner's genuine queue-admission bool. Unknown synchronous
++opcodes are forwarded to Owner or return-22; asynchronous opcodes remain forwarded.
++Borrowed payload/FD/handle arguments must not escape an Owner method.
++
++Connect and queued intent application share the caller's SF owner executor.
++Registering callbacks may enqueue but their Ticket cannot apply until registerClient
++returns BinderOK/result0 and commits Active. A callback never waits for SF main.
++The actual queued render work MUST check Ticket.isCurrent() at application, not
++merely at receipt. Failed registration, death and local close permanently invalidate
++that generation. This component has no render-state engine to apply such work.
++
++Retrigger sends opcode0x26 (decimal38), an engaged16-byte display/time payload and
++NULL FD/NativeHandle optionals. Only BinderOK/result0/current-ticket/nonempty FD
++results can transfer the first descriptor. All extra FDs and NativeHandle FDs close
++by real NDK RAII; absent/negative FDs never become fake signaled fences. The caller
++also checks canApplyFence() at actual sample application; close/death may race RPC.
++
++Outgoing RPCs retain the connection/callback snapshot without holding our mutex.
++An atomic nonblocking outbound-admission flag rejects concurrent calls with-16.
++Destroy closes admission first; BUSY means no destroy was sent and an explicit first
++dispatch is possible after the other call returns. A sent destroy is never resent.
++It uses opcode0 and all NULL optionals. BinderOK/result0 is NOT a remote queue-drain
++acknowledgment. A known successful registration can retain a cleanup handle after
++concurrent local close; explicit destroy can consume it once. Unknown registrations
++are never guessed or retried. Destructor/detach only close locally; they do not prove
++remote unregistration or synchronous callback drain.
++
++A death cookie contains only a weak Gate and is deleted exclusively by onUnlinked,
++including link-error paths. Scoped recipient deletion automatically unlinks; it does
++not permit freeing a cookie synchronously. No raw SurfaceFlinger pointer is stored.
++
++Direct tests exercise production codec/dispatcher/Gate/ScopedFileDescriptor behavior.
++No Binder RPC, real death/unlink delivery, remote registration/destruction, normal
++Soong client link, SurfaceFlinger integration or hardware behavior is claimed by them.
+diff --git a/services/surfaceflinger/ldy_an00_composerext/SfCpuPolicyBridge.cpp b/services/surfaceflinger/ldy_an00_composerext/SfCpuPolicyBridge.cpp
+new file mode 100644
+index 0000000..7b69af1
+--- /dev/null
++++ b/services/surfaceflinger/ldy_an00_composerext/SfCpuPolicyBridge.cpp
+@@ -0,0 +1,430 @@
++/*
++ * Copyright (C) 2026 The LineageOS Project
++ * SPDX-License-Identifier: Apache-2.0
++ */
++#include <ldy_an00/SfCpuPolicyBridge.h>
++
++#include <algorithm>
++#include <chrono>
++#include <cmath>
++#include <cstddef>
++#include <cstdlib>
++#include <dlfcn.h>
++#include <limits>
++#include <string>
++#include <sys/syscall.h>
++#include <unistd.h>
++
++#include <cutils/properties.h>
++
++namespace android::surfaceflinger::ldy_an00 {
++namespace {
++using Config = cpu_policy_abi::Config;
++static_assert(sizeof(Config) == 64 && alignof(Config) == 8);
++static_assert(offsetof(Config, increaseWindowNs) == 0);
++static_assert(offsetof(Config, increaseOffset) == 8);
++static_assert(offsetof(Config, decreaseWindowNs) == 16);
++static_assert(offsetof(Config, decreaseOffset) == 24);
++static_assert(offsetof(Config, targetTimeNs) == 32);
++static_assert(offsetof(Config, renderEngineTid) == 40);
++static_assert(offsetof(Config, suspendReason) == 44);
++static_assert(offsetof(Config, suspendMid) == 48);
++static_assert(offsetof(Config, forcePolicy) == 49);
++static_assert(offsetof(Config, foregroundPolicy) == 50);
++static_assert(offsetof(Config, multiDisplay) == 53);
++static_assert(offsetof(Config, recording) == 54);
++static_assert(offsetof(Config, validFps) == 55);
++static_assert(offsetof(Config, systemCpuMask) == 56);
++static_assert(sizeof(cpu_policy_abi::Measurements) == sizeof(void*));
++
++int64_t nowNs() {
++    return std::chrono::duration_cast<std::chrono::nanoseconds>(
++                   std::chrono::steady_clock::now().time_since_epoch()).count();
++}
++
++int32_t overrideProperty(const char* suffix, int32_t initial, bool nonnegative = false) {
++    const std::string key = std::string("vendor.debug.sf.cpupolicy.") + suffix;
++    char text[PROPERTY_VALUE_MAX];
++    property_get(key.c_str(), text, "-1");
++    // Same signed-integer/sentinel contract as the retained stock adapter.
++    const int value = std::atoi(text);
++    return value == -1 || (nonnegative && value < 0) ? initial : value;
++}
++
++SfCpuPolicyBridge::Settings readSettings() {
++    SfCpuPolicyBridge::Settings s;
++    s.hardwareMinFps = overrideProperty("hw_comp_min", s.hardwareMinFps, true);
++    s.clientMinFps = overrideProperty("gpu_comp_min", s.clientMinFps, true);
++    s.earlyHeavy = overrideProperty("early_heavy", s.earlyHeavy) != 0;
++    s.boostEarly = overrideProperty("boost_early", s.boostEarly) != 0;
++    s.boostRecording = overrideProperty("boost_sr", s.boostRecording) != 0;
++    s.hardwareSuspend = overrideProperty("hw_comp_suspend", s.hardwareSuspend, true) != 0;
++    s.hardwareHighFpsSuspend = overrideProperty("hw_hfr_suspend", 0, true) != 0;
++    s.forceSuspend = overrideProperty("force_suspend", 0, true) != 0;
++    s.increaseWindowNs = overrideProperty("power_up_time", static_cast<int32_t>(s.increaseWindowNs));
++    s.decreaseWindowNs = overrideProperty("power_down_time", static_cast<int32_t>(s.decreaseWindowNs));
++    s.earlyIncreaseOffset = overrideProperty("high_power_up_offset", s.earlyIncreaseOffset);
++    s.normalIncreaseOffset = overrideProperty("power_up_offset", s.normalIncreaseOffset);
++    s.earlyDecreaseOffset = overrideProperty("high_power_down_offset", s.earlyDecreaseOffset);
++    s.normalDecreaseOffset = overrideProperty("power_down_offset", s.normalDecreaseOffset);
++    const char* up[] = {"power_up_120", "power_up_90", "power_up_margin"};
++    const char* down[] = {"power_down_120", "power_down_90", "power_down_margin"};
++    for (size_t i = 0; i < 3; ++i) {
++        s.increaseMarginsNs[i] = overrideProperty(up[i], s.increaseMarginsNs[i]);
++        s.decreaseMarginsNs[i] = overrideProperty(down[i], s.decreaseMarginsNs[i]);
++    }
++    return s;
++}
++
++int64_t targetTime(int fps, int64_t workDuration) {
++    const int64_t target = fps >= 126 ? 6'000'000
++            : fps >= 96 ? 8'000'000
++            : fps >= 69 ? 11'000'000
++            : fps >= 36 ? (workDuration > 15'999'999 ? 16'000'000 : 12'300'000)
++                        : 25'000'000;
++    return std::min(target, workDuration);
++}
++
++bool eligible(const FrameHistorySample& f, int64_t start, int64_t end) {
++    return f.actualPresentNs > 0 && f.actualStartNs >= start && f.actualEndNs <= end
++            && f.actualStartNs >= 0 && f.actualEndNs >= f.actualStartNs;
++}
++
++float historyFps(const CpuPolicyHistory& frames) {
++    std::vector<int64_t> presents;
++    for (const auto& frame : frames) {
++        if (frame.actualPresentNs > 0) presents.push_back(frame.actualPresentNs);
++    }
++    if (presents.size() < 16) return 0;
++    int64_t previous = -1, duration = 0, count = 0;
++    for (size_t i = presents.size() - 16; i < presents.size(); ++i) {
++        const int64_t present = presents[i];
++        if (previous != -1 && present != previous) {
++            if (present < previous || duration > std::numeric_limits<int64_t>::max()
++                                                  - (present - previous)) return 0;
++            duration += present - previous;
++            ++count;
++        }
++        previous = present;
++    }
++    return duration > 0 ? static_cast<float>(count * 1'000'000'000.0 / duration) : 0;
++}
++
++struct Functions {
++    void* (*create)() = nullptr;
++    void (*destroy)(void*) = nullptr;
++    void (*setup)(void*, Config*, bool) = nullptr;
++    void (*measure)(void*, cpu_policy_abi::Measurements*) = nullptr;
++    void (*start)(void*, int64_t, int64_t, bool) = nullptr;
++    void (*speed)(void*, int32_t, int64_t) = nullptr;
++    void (*end)(void*, int64_t, int64_t, bool) = nullptr;
++    void (*clear)(void*, int64_t, bool, bool) = nullptr;
++    void (*reset)(void*, int64_t) = nullptr;
++    void (*tid)(void*, int32_t) = nullptr;
++    void (*foreground)(void*) = nullptr;
++
++    bool resolve(void* library) {
++#define RESOLVE(member, symbol) member = reinterpret_cast<decltype(member)>(dlsym(library, symbol)); if (!member) return false
++        RESOLVE(create, "createSfCpuPolicy");
++        RESOLVE(destroy, "destroySfCpuPolicy");
++        RESOLVE(setup, "setupConfig");
++        RESOLVE(measure, "setupPerfMeas");
++        RESOLVE(start, "notifyFrameStart");
++        RESOLVE(speed, "notifySpeedUpRE");
++        RESOLVE(end, "notifyFrameEnd");
++        RESOLVE(clear, "notifyClearCorrection");
++        RESOLVE(reset, "notifyResetCalculation");
++        RESOLVE(tid, "notifyHwcHwbinderTid");
++        RESOLVE(foreground, "changeToForeground");
++#undef RESOLVE
++        return true;
++    }
++};
++
++class Metrics final : public cpu_policy_abi::Measurements {
++public:
++    Metrics(SfCpuPolicyBridge::SnapshotHistory snapshot,
++            const SfCpuPolicyBridge::Settings& settings)
++          : mSnapshot(std::move(snapshot)), mSettings(settings) {}
++
++    CpuPolicyHistory snapshot() const { return mSnapshot ? mSnapshot() : CpuPolicyHistory{}; }
++    void clear() { mSnapshot = {}; } // Only after plugin destroy has joined its worker.
++
++    bool needIncreasePerf(int64_t start, int64_t end, int64_t target) override {
++        int64_t adjusted;
++        if (!threshold(start, end, target, mSettings.increaseMarginsNs, adjusted)) return false;
++        const int64_t limit = std::max(target, adjusted);
++        for (const auto& frame : snapshot()) {
++            if (!eligible(frame, start, end)) continue;
++            if (frame.actualEndNs - frame.actualStartNs > limit) return true;
++            if (frame.presentMetadata != CpuPresentMetadata::Unknown) break;
++        }
++        return false;
++    }
++    bool needReducePerf(int64_t start, int64_t end, int64_t target) override {
++        int64_t adjusted;
++        if (!threshold(start, end, target, mSettings.decreaseMarginsNs, adjusted)) return false;
++        const int64_t limit = std::min(target, adjusted);
++        bool early = false;
++        for (const auto& frame : snapshot()) {
++            if (!eligible(frame, start, end)) continue;
++            if (frame.actualEndNs - frame.actualStartNs < limit) early = true;
++            else if (frame.presentMetadata != CpuPresentMetadata::Unknown) return false;
++        }
++        return early;
++    }
++
++private:
++    static bool threshold(int64_t start, int64_t end, int64_t target,
++                          const std::array<int32_t, 3>& margins, int64_t& adjusted) {
++        if (start < 0 || end < start || target <= 0) return false;
++        const int64_t margin = margins[target < 8'000'001 ? 0 : target < 11'000'001 ? 1 : 2];
++        if (margin < 0 && target > std::numeric_limits<int64_t>::max() + margin) return false;
++        adjusted = target - margin;
++        return true;
++    }
++
++    SfCpuPolicyBridge::SnapshotHistory mSnapshot;
++    const SfCpuPolicyBridge::Settings mSettings;
++};
++} // namespace
++
++class SfCpuPolicyBridge::Impl {
++public:
++    Impl(SnapshotHistory snapshot, int32_t sfTid, Settings settings)
++          : metrics(std::move(snapshot), settings), settings(std::move(settings)), sfTid(sfTid) {}
++    ~Impl() { shutdown(); }
++
++    bool open(const char* name) {
++        if (!name || sfTid <= 0 || sfTid != syscall(SYS_gettid)
++                || settings.increaseWindowNs <= 0 || settings.decreaseWindowNs <= 0) return false;
++        library = dlopen(name, RTLD_NOW | RTLD_LOCAL);
++        if (!library || !fn.resolve(library)) return false;
++        policy = fn.create();
++        if (!policy) return false;
++        fn.measure(policy, &metrics);
++        return true;
++    }
++
++    void shutdown() {
++        std::lock_guard lock(mutex);
++        closed = true;
++        configured = false;
++        if (policy) {
++            fn.destroy(policy); // Joins before the borrowed metrics/history owner is cleared.
++            policy = nullptr;
++        }
++        metrics.clear();
++        if (library) { dlclose(library); library = nullptr; }
++    }
++
++    bool ready() const {
++        std::lock_guard lock(mutex);
++        return !closed && policy && configured;
++    }
++
++    bool active() const { return !closed && policy && syscall(SYS_gettid) == sfTid; }
++    bool suspensionActive() const { return hadEnd && suspended; }
++    void resetIfActive() { if (!suspensionActive()) fn.reset(policy, nativeVsyncId); }
++
++    bool configure(const FrameFacts& facts) {
++        std::lock_guard lock(mutex);
++        if (!active()) return false;
++        if (!std::isfinite(facts.renderFps) || facts.renderFps < 0 || facts.renderFps > 1000
++                || (!facts.powerSuspended && facts.renderFps == 0)
++                || facts.sfWorkDurationNs <= 0 || facts.renderEngineTid <= 0) {
++            configured = false;
++            return false;
++        }
++        const int fps = static_cast<int>(std::round(facts.renderFps));
++        const bool multi = facts.poweredDisplayCount > 1;
++        const bool heavy = multi || facts.userHeavyLoading || facts.usesClientComposition
++                || facts.reusedClientComposition || (facts.transactionEarly && settings.earlyHeavy);
++        const bool clientOrHeavy = facts.usesClientComposition || heavy;
++        // Stock consumes the PREVIOUS composition coverage before recalculating suspension.
++        if (!suspensionActive())
++            fn.clear(policy, nativeVsyncId, facts.previousGpuComposition, heavy);
++        const bool recordingBoost = settings.boostRecording && facts.recording && fps > 60;
++        const bool earlyBoost = settings.boostEarly && facts.transactionEarly && fps > 60;
++        Config config{};
++        config.increaseWindowNs = settings.increaseWindowNs;
++        config.increaseOffset = facts.transactionEarly ? settings.earlyIncreaseOffset
++                                                       : settings.normalIncreaseOffset;
++        config.decreaseWindowNs = settings.decreaseWindowNs;
++        config.decreaseOffset = facts.transactionEarly ? settings.earlyDecreaseOffset
++                                                       : settings.normalDecreaseOffset;
++        config.targetTimeNs = targetTime(fps, facts.sfWorkDurationNs);
++        config.renderEngineTid = facts.renderEngineTid;
++        config.multiDisplay = multi;
++        config.recording = facts.recording;
++        config.validFps = fps != 0;
++        config.forcePolicy = facts.forcePolicy || recordingBoost || earlyBoost;
++        config.foregroundPolicy = facts.foregroundPolicy || earlyBoost;
++        config.systemCpuMask = facts.systemCpuMask;
++
++        const int64_t now = nowNs();
++        int reason = fps > 65 ? (fps < 96 ? 5 : 6) : 4;
++        if (clientOrHeavy && fps >= settings.clientMinFps) reason = 2;
++        if (fps >= settings.hardwareMinFps) reason = 1;
++        bool needSuspend = clientOrHeavy && fps < settings.hardwareMinFps
++                ? fps < settings.clientMinFps : fps < settings.hardwareMinFps;
++        const int previousBand = band;
++        float actualFps = lastHistoryFps;
++        if (fps != 0 && !facts.powerSuspended) {
++            actualFps = historyFps(metrics.snapshot());
++            lastHistoryFps = actualFps;
++            if (actualFps >= 95) {
++                highFrames = clientOrHeavy ? 0 : std::min(highFrames + 1, 5);
++                band = 6;
++                if (!clientOrHeavy && highFrames > 4 && settings.hardwareHighFpsSuspend) {
++                    needSuspend = true; reason = 6;
++                }
++            } else if (actualFps >= 69) {
++                ninetyFrames = previousBand == 5 ? std::min(ninetyFrames + 1, 45) : 0;
++                band = 5;
++                if (ninetyFrames > 44) {
++                    if (!clientOrHeavy && settings.hardwareHighFpsSuspend) {
++                        needSuspend = true; reason = 5;
++                    }
++                    config.targetTimeNs = targetTime(90, facts.sfWorkDurationNs);
++                }
++            } else {
++                sixtyFrames = previousBand < 5 ? std::min(sixtyFrames + 1, 20) : 0;
++                band = 4;
++                if (sixtyFrames > 19) {
++                    if (!clientOrHeavy && settings.hardwareSuspend) {
++                        needSuspend = true; reason = 4;
++                    }
++                    config.targetTimeNs = targetTime(60, facts.sfWorkDurationNs);
++                }
++                if (actualFps <= 35) {
++                    thirtyFrames = previousBand < 4 ? std::min(thirtyFrames + 1, 20) : 0;
++                    band = 3;
++                    if (thirtyFrames > 19) {
++                        if (!clientOrHeavy && settings.hardwareSuspend) {
++                            needSuspend = true; reason = 3;
++                        }
++                        config.targetTimeNs = targetTime(60, facts.sfWorkDurationNs);
++                    }
++                }
++            }
++        }
++
++        if (!facts.powerSuspended) {
++            const int64_t idle = lastConfigureNs == 0 ? 0 : now - lastConfigureNs;
++            if (!clientOrHeavy && lastConfigureNs != 0 && idle > 99'999'999) resetIfActive();
++            if ((!clientOrHeavy && slowFrameFps > 0
++                 && (slowFrameFps <= 10 || actualFps <= 10))
++                    || (slowFrameFps > 0 && slowFrameFps <= 5)) {
++                config.targetTimeNs = targetTime(10, facts.sfWorkDurationNs);
++                needSuspend = true;
++                resetIfActive();
++            }
++            if (actualFps < 1 && lastConfigureNs != 0 && idle > 999'999'999) {
++                config.targetTimeNs = targetTime(10, facts.sfWorkDurationNs);
++                needSuspend = true;
++                reason = 0;
++            }
++            lastConfigureNs = now;
++            needSuspend = needSuspend || settings.forceSuspend;
++        }
++        const bool wasSuspended = suspended;
++        suspended = facts.powerSuspended || needSuspend;
++        config.suspendReason = facts.powerSuspended ? 0 : reason;
++        if (suspended && !wasSuspended) resetIfActive();
++
++        fn.setup(policy, &config, suspensionActive());
++        configured = true;
++        return true;
++    }
++
++    bool start(int64_t vsyncId, int64_t begin) {
++        std::lock_guard lock(mutex);
++        if (!active() || !configured || begin <= 0) return false;
++        const int64_t now = nowNs();
++        if (slowBaseNs == 0 || lastEndNs == 0 || now - lastEndNs < 40'000'000) {
++            slowFrameFps = 0; slowCount = 0; slowBaseNs = lastEndNs;
++        } else if (now > slowBaseNs) {
++            ++slowCount;
++            if (now - slowBaseNs >= 300'000'000)
++                slowFrameFps = static_cast<float>(slowCount * 1'000'000'000.0
++                                                  / (now - slowBaseNs));
++        }
++        if (!hadEnd) {
++            // Stock's bookkeeping closure, never a real present or history sample.
++            fn.end(policy, 0, nativeVsyncId, false);
++            hadEnd = true;
++        }
++        fn.start(policy, begin, vsyncId, suspended);
++        pendingVsyncId = vsyncId;
++        framePending = true;
++        if (!suspended) { nativeVsyncId = vsyncId; hadEnd = false; }
++        return true;
++    }
++
++    bool finish(int64_t vsyncId, int64_t end) {
++        std::lock_guard lock(mutex);
++        if (!active() || !configured || !framePending || vsyncId != pendingVsyncId || end <= 0) return false;
++        lastEndNs = nowNs();
++        fn.end(policy, end, nativeVsyncId, suspensionActive());
++        hadEnd = true;
++        framePending = false;
++        return true;
++    }
++
++    mutable std::mutex mutex;
++    Metrics metrics;
++    Settings settings;
++    const int32_t sfTid;
++    Functions fn;
++    void* library = nullptr;
++    void* policy = nullptr;
++    bool closed = false, configured = false, suspended = false, hadEnd = true;
++    bool framePending = false;
++    int64_t nativeVsyncId = 0, pendingVsyncId = 0, lastEndNs = 0, lastConfigureNs = 0;
++    int64_t slowBaseNs = 0, slowCount = 0;
++    float slowFrameFps = 0, lastHistoryFps = 0;
++    int band = 6, highFrames = 0, ninetyFrames = 0, sixtyFrames = 0, thirtyFrames = 0;
++};
++
++std::unique_ptr<SfCpuPolicyBridge> SfCpuPolicyBridge::create(
++        SnapshotHistory snapshot, int32_t sfTid) {
++    return createForTesting(std::move(snapshot), sfTid, readSettings(), "/system_ext/lib64/libsf_cpupolicy.so");
++}
++std::unique_ptr<SfCpuPolicyBridge> SfCpuPolicyBridge::createForTesting(
++        SnapshotHistory snapshot, int32_t sfTid, const Settings& settings, const char* name) {
++    if (!snapshot) return nullptr;
++    auto impl = std::make_unique<Impl>(std::move(snapshot), sfTid, settings);
++    if (!impl->open(name)) return nullptr;
++    return std::unique_ptr<SfCpuPolicyBridge>(new SfCpuPolicyBridge(std::move(impl)));
++}
++SfCpuPolicyBridge::SfCpuPolicyBridge(std::unique_ptr<Impl> impl) : mImpl(std::move(impl)) {}
++SfCpuPolicyBridge::~SfCpuPolicyBridge() { shutdown(); }
++bool SfCpuPolicyBridge::ready() const { return mImpl->ready(); }
++bool SfCpuPolicyBridge::configure(const FrameFacts& facts) { return mImpl->configure(facts); }
++bool SfCpuPolicyBridge::startFrame(int64_t id, int64_t begin) { return mImpl->start(id, begin); }
++bool SfCpuPolicyBridge::finishFrame(int64_t id, int64_t end) { return mImpl->finish(id, end); }
++void SfCpuPolicyBridge::notifyHwcTid(int32_t tid) {
++    std::lock_guard lock(mImpl->mutex);
++    if (mImpl->active() && tid > 0) mImpl->fn.tid(mImpl->policy, tid);
++}
++void SfCpuPolicyBridge::speedUpRenderEngine(int32_t hint) {
++    std::lock_guard lock(mImpl->mutex);
++    if (mImpl->active()) mImpl->fn.speed(mImpl->policy, hint, mImpl->nativeVsyncId);
++}
++void SfCpuPolicyBridge::clearCorrection(bool increase, bool decrease) {
++    std::lock_guard lock(mImpl->mutex);
++    if (mImpl->active() && !mImpl->suspensionActive())
++        mImpl->fn.clear(mImpl->policy, mImpl->nativeVsyncId, increase, decrease);
++}
++void SfCpuPolicyBridge::resetCalculation() {
++    std::lock_guard lock(mImpl->mutex);
++    if (mImpl->active()) mImpl->resetIfActive();
++}
++void SfCpuPolicyBridge::changeToForeground() {
++    std::lock_guard lock(mImpl->mutex);
++    if (mImpl->active()) mImpl->fn.foreground(mImpl->policy);
++}
++void SfCpuPolicyBridge::shutdown() { if (mImpl) mImpl->shutdown(); }
++
++} // namespace android::surfaceflinger::ldy_an00
+diff --git a/services/surfaceflinger/ldy_an00_composerext/aidl/vendor/mediatek/hardware/composer_ext/IComposerExt.aidl b/services/surfaceflinger/ldy_an00_composerext/aidl/vendor/mediatek/hardware/composer_ext/IComposerExt.aidl
+new file mode 100644
+index 0000000..1607a2e
+--- /dev/null
++++ b/services/surfaceflinger/ldy_an00_composerext/aidl/vendor/mediatek/hardware/composer_ext/IComposerExt.aidl
+@@ -0,0 +1,14 @@
++// Reconstructed wire contract from stock113 ELF; original field/argument names unknown.
++package vendor.mediatek.hardware.composer_ext;
++import android.hardware.common.NativeHandle;
++import vendor.mediatek.hardware.composer_ext.IComposerExtCallback;
++import vendor.mediatek.hardware.composer_ext.parcelable_perform;
++import vendor.mediatek.hardware.composer_ext.parcelable_registerClient;
++@VintfStability
++interface IComposerExt {
++    oneway void asyncPerform(long client, long opcode, in @nullable byte[] params,
++        in @nullable ParcelFileDescriptor[] fds, in @nullable NativeHandle[] handles);
++    parcelable_perform syncPerform(long client, long opcode, in @nullable byte[] params,
++        in @nullable ParcelFileDescriptor[] fds, in @nullable NativeHandle[] handles);
++    parcelable_registerClient registerClient(String name, IComposerExtCallback callback);
++}
+diff --git a/services/surfaceflinger/ldy_an00_composerext/aidl/vendor/mediatek/hardware/composer_ext/IComposerExtCallback.aidl b/services/surfaceflinger/ldy_an00_composerext/aidl/vendor/mediatek/hardware/composer_ext/IComposerExtCallback.aidl
+new file mode 100644
+index 0000000..2d123e9
+--- /dev/null
++++ b/services/surfaceflinger/ldy_an00_composerext/aidl/vendor/mediatek/hardware/composer_ext/IComposerExtCallback.aidl
+@@ -0,0 +1,11 @@
++// Reconstructed wire contract from stock113 ELF; original field/argument names unknown.
++package vendor.mediatek.hardware.composer_ext;
++import android.hardware.common.NativeHandle;
++import vendor.mediatek.hardware.composer_ext.parcelable_perform;
++@VintfStability
++interface IComposerExtCallback {
++    oneway void asyncPerform(long opcode, in @nullable byte[] params,
++        in @nullable ParcelFileDescriptor[] fds, in @nullable NativeHandle[] handles);
++    parcelable_perform syncPerform(long opcode, in @nullable byte[] params,
++        in @nullable ParcelFileDescriptor[] fds, in @nullable NativeHandle[] handles);
++}
+diff --git a/services/surfaceflinger/ldy_an00_composerext/aidl/vendor/mediatek/hardware/composer_ext/parcelable_perform.aidl b/services/surfaceflinger/ldy_an00_composerext/aidl/vendor/mediatek/hardware/composer_ext/parcelable_perform.aidl
+new file mode 100644
+index 0000000..cb32ee0
+--- /dev/null
++++ b/services/surfaceflinger/ldy_an00_composerext/aidl/vendor/mediatek/hardware/composer_ext/parcelable_perform.aidl
+@@ -0,0 +1,10 @@
++// Reconstructed wire contract from stock113 ELF; original field/argument names unknown.
++package vendor.mediatek.hardware.composer_ext;
++import android.hardware.common.NativeHandle;
++@VintfStability
++parcelable parcelable_perform {
++    int result;
++    byte[] outputParams;
++    ParcelFileDescriptor[] outputFds;
++    NativeHandle[] outputHandles;
++}
+diff --git a/services/surfaceflinger/ldy_an00_composerext/aidl/vendor/mediatek/hardware/composer_ext/parcelable_registerClient.aidl b/services/surfaceflinger/ldy_an00_composerext/aidl/vendor/mediatek/hardware/composer_ext/parcelable_registerClient.aidl
+new file mode 100644
+index 0000000..b41b176
+--- /dev/null
++++ b/services/surfaceflinger/ldy_an00_composerext/aidl/vendor/mediatek/hardware/composer_ext/parcelable_registerClient.aidl
+@@ -0,0 +1,7 @@
++// Reconstructed wire contract from stock113 ELF; original field/argument names unknown.
++package vendor.mediatek.hardware.composer_ext;
++@VintfStability
++parcelable parcelable_registerClient {
++    int result;
++    long client;
++}
+diff --git a/services/surfaceflinger/ldy_an00_composerext/include/ldy_an00/ComposerExtClient.h b/services/surfaceflinger/ldy_an00_composerext/include/ldy_an00/ComposerExtClient.h
+new file mode 100644
+index 0000000..17a94cf
+--- /dev/null
++++ b/services/surfaceflinger/ldy_an00_composerext/include/ldy_an00/ComposerExtClient.h
+@@ -0,0 +1,67 @@
++// Copyright (C) 2026 The LineageOS Project; SPDX-License-Identifier: Apache-2.0
++#pragma once
++#include <ldy_an00/ComposerExtCodec.h>
++#include <ldy_an00/ComposerExtGate.h>
++#include <aidl/vendor/mediatek/hardware/composer_ext/parcelable_perform.h>
++#include <android/binder_auto_utils.h>
++#include <memory>
++
++namespace android::surfaceflinger::ldy_an00 {
++using Reply = aidl::vendor::mediatek::hardware::composer_ext::parcelable_perform;
++using Fds = std::optional<std::vector<ndk::ScopedFileDescriptor>>;
++using Handles = std::optional<std::vector<std::optional<::aidl::android::hardware::common::NativeHandle>>>;
++class CallbackOwner {
++public:
++    virtual ~CallbackOwner() = default;
++    // Queue only; never wait for SurfaceFlinger main thread. The queued work MUST
++    // recheck ticket.isCurrent() before changing render state. Borrowed args must not escape.
++    // Called after admission is closed. Queue cleanup only; never wait for SF.
++    virtual void onConnectionClosed() {}
++    virtual bool enqueueEnable(const CallbackTicket&, const EnableRequest&) = 0;
++    virtual bool enqueueOnce(const CallbackTicket&, uint64_t display) = 0;
++    virtual bool unknownSync(const CallbackTicket&, int64_t, const Bytes&, const Fds&,
++                             const Handles&, Reply*) { return false; }
++    virtual void unknownAsync(const CallbackTicket&, int64_t, const Bytes&, const Fds&,
++                              const Handles&) {}
++};
++// Actual callback dispatcher, separated from Binder entry for direct host tests.
++void dispatchSync(const std::weak_ptr<CallbackOwner>& owner, const CallbackTicket& ticket,
++                  int64_t opcode, const Bytes&, const Fds&, const Handles&, Reply*);
++void dispatchAsync(const std::weak_ptr<CallbackOwner>& owner, const CallbackTicket& ticket,
++                   int64_t opcode, const Bytes&, const Fds&, const Handles&);
++ndk::ScopedFileDescriptor takeRetriggerFence(const CallbackTicket& ticket, int32_t result,
++                                            std::vector<ndk::ScopedFileDescriptor>& fds);
++struct CallResult {
++    ndk::ScopedAStatus status = ndk::ScopedAStatus::ok();
++    int32_t result = -1;
++    ndk::ScopedFileDescriptor fence;
++    bool dispatched = false;
++    CallbackTicket ticket;
++    bool canApplyFence() const {
++        return status.isOk() && result == 0 && fence.get() >= 0 && ticket.isCurrent();
++    }
++};
++class ComposerExtClient {
++public:
++    explicit ComposerExtClient(std::weak_ptr<CallbackOwner> owner);
++    ~ComposerExtClient();
++    ComposerExtClient(const ComposerExtClient&) = delete;
++    ComposerExtClient& operator=(const ComposerExtClient&) = delete;
++    // Connect and queued callback application share the caller's SF owner executor. Registering
++    // callbacks only enqueue: their tickets cannot apply until connect commits and returns.
++    // Lookup is nonblocking; Binder RPCs are synchronous and must run without SF/owner locks.
++    // One connect attempt, no automatic reconnect/retry. Concurrent outbound calls return-16.
++    CallResult connect();
++    CallResult retrigger(uint64_t display, int64_t time);
++    // Exact stock opcode7/feature request; unknown/malformed replies are not false.
++    std::optional<int32_t> queryFeature(int32_t feature);
++    // Inert locally BEFORE RPC. Busy means no destroy sent; caller may dispatch once after
++    // its other worker call returns. A sent destroy is never resent and is NOT a drain ack.
++    CallResult destroy();
++    // No outgoing Binder RPC and no synchronous callback drain, including in destructor.
++    void detach();
++private:
++    struct Impl;
++    std::shared_ptr<Impl> mImpl;
++};
++}  // namespace android::surfaceflinger::ldy_an00
+diff --git a/services/surfaceflinger/ldy_an00_composerext/include/ldy_an00/ComposerExtCodec.h b/services/surfaceflinger/ldy_an00_composerext/include/ldy_an00/ComposerExtCodec.h
+new file mode 100644
+index 0000000..7d568c9
+--- /dev/null
++++ b/services/surfaceflinger/ldy_an00_composerext/include/ldy_an00/ComposerExtCodec.h
+@@ -0,0 +1,23 @@
++// Copyright (C) 2026 The LineageOS Project; SPDX-License-Identifier: Apache-2.0
++#pragma once
++#include <cstdint>
++#include <optional>
++#include <vector>
++
++namespace android::surfaceflinger::ldy_an00 {
++using Bytes = std::optional<std::vector<uint8_t>>;
++inline constexpr int64_t kEnable = 0x24, kOnce = 0x25, kRetrigger = 0x26, kDestroy = 0;
++inline constexpr int64_t kHwcTid = 5, kComposition = 12, kExtraVsync = 18,
++        kQueryFeature = 7, kTest = 0x7ffffffe;
++struct CompositionRequest { uint64_t display; int32_t mode; uint32_t opaque; };
++struct ExtraVsyncRequest { uint64_t display; std::vector<uint64_t> layers; uint32_t count; };
++std::optional<int32_t> decodeInt32(const Bytes&);
++std::optional<CompositionRequest> decodeComposition(const Bytes&);
++std::optional<ExtraVsyncRequest> decodeExtraVsync(const Bytes&);
++Bytes encodeInt32(int32_t);
++struct EnableRequest { uint64_t display; uint32_t fps; uint8_t enable; };
++// Preserve the raw enable byte: the observed decoder does not reject values above1.
++std::optional<EnableRequest> decodeEnable(const Bytes& bytes);
++std::optional<uint64_t> decodeOnce(const Bytes& bytes);
++Bytes encodeRetrigger(uint64_t display, int64_t time);
++}  // namespace android::surfaceflinger::ldy_an00
+diff --git a/services/surfaceflinger/ldy_an00_composerext/include/ldy_an00/ComposerExtGate.h b/services/surfaceflinger/ldy_an00_composerext/include/ldy_an00/ComposerExtGate.h
+new file mode 100644
+index 0000000..542896f
+--- /dev/null
++++ b/services/surfaceflinger/ldy_an00_composerext/include/ldy_an00/ComposerExtGate.h
+@@ -0,0 +1,67 @@
++// Copyright (C) 2026 The LineageOS Project; SPDX-License-Identifier: Apache-2.0
++#pragma once
++#include <cstdint>
++#include <memory>
++#include <mutex>
++
++namespace android::surfaceflinger::ldy_an00 {
++class CallbackGate;
++class CallbackTicket {
++public:
++    bool isCurrent() const;
++    bool isAdmissible() const;
++private:
++    friend class CallbackGate;
++    std::weak_ptr<CallbackGate> gate;
++    uint64_t generation = 0;
++};
++// One connection only. Closing never reopens or claims callbacks have drained.
++class CallbackGate : public std::enable_shared_from_this<CallbackGate> {
++public:
++    bool beginRegistration() {
++        std::lock_guard guard(mMutex);
++        if (mState != State::Pending) return false;
++        mState = State::Registering;
++        return true;
++    }
++    bool commitRegistration() {
++        std::lock_guard guard(mMutex);
++        if (mState != State::Registering) return false;
++        mState = State::Active;
++        return true;
++    }
++    CallbackTicket ticket() {
++        std::lock_guard guard(mMutex);
++        CallbackTicket result;
++        result.gate = weak_from_this();
++        if (mState == State::Registering || mState == State::Active) result.generation = mGeneration;
++        return result;
++    }
++    bool close() {
++        std::lock_guard guard(mMutex);
++        if (mState == State::Closed) return false;
++        mState = State::Closed;
++        ++mGeneration;
++        return true;
++    }
++private:
++    friend class CallbackTicket;
++    bool current(uint64_t generation, bool admission) const {
++        std::lock_guard guard(mMutex);
++        return generation == mGeneration && (mState == State::Active
++                || (admission && mState == State::Registering));
++    }
++    enum class State { Pending, Registering, Active, Closed };
++    mutable std::mutex mMutex;
++    State mState = State::Pending;
++    uint64_t mGeneration = 1;
++};
++inline bool CallbackTicket::isCurrent() const {
++    auto owner = gate.lock();
++    return owner && owner->current(generation, false);
++}
++inline bool CallbackTicket::isAdmissible() const {
++    auto owner = gate.lock();
++    return owner && owner->current(generation, true);
++}
++}  // namespace android::surfaceflinger::ldy_an00
+diff --git a/services/surfaceflinger/ldy_an00_composerext/include/ldy_an00/ComposerExtOwner.h b/services/surfaceflinger/ldy_an00_composerext/include/ldy_an00/ComposerExtOwner.h
+new file mode 100644
+index 0000000..2d02872
+--- /dev/null
++++ b/services/surfaceflinger/ldy_an00_composerext/include/ldy_an00/ComposerExtOwner.h
+@@ -0,0 +1,78 @@
++// Copyright (C) 2026 The LineageOS Project; SPDX-License-Identifier: Apache-2.0
++#pragma once
++#include <ldy_an00/ComposerExtClient.h>
++#include <ldy_an00/ComposerExtTiming.h>
++#include <ldy_an00/SfCpuPolicyBridge.h>
++#include <ui/DisplayId.h>
++#include <utils/RefBase.h>
++#include <atomic>
++#include <functional>
++#include <map>
++
++namespace android {
++class SurfaceFlinger;
++class DisplayDevice;
++namespace surfaceflinger::ldy_an00 {
++class SfCpuPolicyBridge;
++// Exactly one SF-owned connection. All render mutations execute on SF's executor;
++// synchronous extra-VSYNC publication uses only the separately locked timing map.
++class ComposerExtOwner final : public CallbackOwner,
++                               public std::enable_shared_from_this<ComposerExtOwner> {
++public:
++    static std::shared_ptr<ComposerExtOwner> create(const sp<SurfaceFlinger>&,
++                                                   std::unique_ptr<SfCpuPolicyBridge>);
++    ~ComposerExtOwner() override;
++    void start();
++    void refreshDisplays();
++    void frameStarted(int64_t vsyncId, int64_t frameBeginNs);
++    void frameFinished(int64_t vsyncId, int64_t frameEndNs, bool previousGpu);
++    void close();
++    void shutdown();
++    uint32_t extraVsync(PhysicalDisplayId) const;
++    int extraBuffers() const;
++    // Called after ordinary commit bookkeeping; never replaces real composite work.
++    void committed(PhysicalDisplayId, int64_t expectedPresentNs, bool pureRetrigger,
++                   bool mustComposite, const std::function<bool()>& normalWorkPending);
++    bool enqueueEnable(const CallbackTicket&, const EnableRequest&) override;
++    bool enqueueOnce(const CallbackTicket&, uint64_t display) override;
++    bool unknownSync(const CallbackTicket&, int64_t, const Bytes&, const Fds&,
++                     const Handles&, Reply*) override;
++    void unknownAsync(const CallbackTicket&, int64_t, const Bytes&, const Fds&,
++                      const Handles&) override;
++    void onConnectionClosed() override;
++private:
++    ComposerExtOwner(const sp<SurfaceFlinger>&, std::unique_ptr<SfCpuPolicyBridge>);
++    void post(std::function<void(ComposerExtOwner&, SurfaceFlinger&)>);
++    void applyEnable(const CallbackTicket&, EnableRequest);
++    void applyComposition(const CallbackTicket&, CompositionRequest);
++    void cleanup(SurfaceFlinger&);
++    void diagnosticOnce(uint32_t bit, const char* message);
++    std::optional<SfCpuPolicyBridge::FrameFacts> frameFacts(SurfaceFlinger&) const;
++    struct Display {
++        PhysicalDisplayId physical;
++        wp<DisplayDevice> device;
++        uint64_t generation;
++        int32_t mode;
++        int32_t power;
++        uint64_t lease = 0;
++        uint8_t type = 0;
++        CallbackTicket ticket;
++    };
++    const wp<SurfaceFlinger> mFlinger;
++    std::unique_ptr<SfCpuPolicyBridge> mCpu;
++    std::unique_ptr<ComposerExtClient> mClient;
++    ComposerExtTiming mTiming;
++    std::map<uint64_t, Display> mDisplays; // SF main thread only.
++    std::atomic<bool> mClosed{false}, mReady{false};
++    bool mAttempted = false, mDynamicDuration = false, mRetriggerEnabled = false;
++    bool mLastDecoupled = false;
++    std::optional<bool> mCpuPowerSuspended;
++    bool mPreviousGpuComposition = false;
++    std::atomic<bool> mExtraSupported{false};
++    uint64_t mGeneration = 0;
++    const int mExtraBuffers;
++    const bool mDebugDiagnostics;
++    std::atomic<uint32_t> mDiagnosticsSeen{0};
++};
++} // namespace surfaceflinger::ldy_an00
++} // namespace android
+diff --git a/services/surfaceflinger/ldy_an00_composerext/include/ldy_an00/ComposerExtTiming.h b/services/surfaceflinger/ldy_an00_composerext/include/ldy_an00/ComposerExtTiming.h
+new file mode 100644
+index 0000000..2e2da35
+--- /dev/null
++++ b/services/surfaceflinger/ldy_an00_composerext/include/ldy_an00/ComposerExtTiming.h
+@@ -0,0 +1,43 @@
++// Copyright (C) 2026 The LineageOS Project; SPDX-License-Identifier: Apache-2.0
++#pragma once
++#include <cstdint>
++#include <map>
++#include <mutex>
++#include <optional>
++
++namespace android::surfaceflinger::ldy_an00 {
++// One connection's duration state. Display identities are enrolled only by SF's main
++// thread; the synchronous callback publishes under this lock without waiting for SF.
++class ComposerExtTiming {
++public:
++    struct Snapshot { uint64_t display, generation; bool decoupled; uint32_t extraVsync; };
++    ComposerExtTiming(bool dynamicDuration, bool extraSupported, uint32_t defaultExtra)
++          : mDynamicDuration(dynamicDuration), mExtraSupported(extraSupported),
++            mDefaultExtra(defaultExtra) {}
++    void addDisplay(uint64_t display, uint64_t generation);
++    void setExtraSupported(bool supported);
++    void removeDisplay(uint64_t display);
++    void setActiveDisplay(std::optional<uint64_t> display);
++    bool setComposition(uint64_t display, bool decoupled);
++    std::optional<uint32_t> setExtraVsync(uint64_t display, uint32_t count);
++    // Stock decrements all cooldowns before selecting this refresh's effective mode.
++    std::optional<Snapshot> onDisplayRefresh();
++    std::optional<Snapshot> snapshot() const;
++    std::optional<Snapshot> snapshotFor(uint64_t display) const;
++    void clear();
++private:
++    struct Display {
++        uint64_t generation;
++        bool latest = false, firstTransition = false;
++        uint32_t cooldown = 0, extra = 0;
++    };
++    std::optional<Snapshot> snapshotLocked() const;
++    std::optional<Snapshot> snapshotForLocked(uint64_t display) const;
++    const bool mDynamicDuration;
++    bool mExtraSupported;
++    const uint32_t mDefaultExtra;
++    mutable std::mutex mMutex;
++    std::map<uint64_t, Display> mDisplays;
++    std::optional<uint64_t> mActive;
++};
++} // namespace android::surfaceflinger::ldy_an00
+diff --git a/services/surfaceflinger/ldy_an00_composerext/include/ldy_an00/SfCpuPolicyBridge.h b/services/surfaceflinger/ldy_an00_composerext/include/ldy_an00/SfCpuPolicyBridge.h
+new file mode 100644
+index 0000000..9719e0f
+--- /dev/null
++++ b/services/surfaceflinger/ldy_an00_composerext/include/ldy_an00/SfCpuPolicyBridge.h
+@@ -0,0 +1,124 @@
++/*
++ * Copyright (C) 2026 The LineageOS Project
++ * SPDX-License-Identifier: Apache-2.0
++ */
++#pragma once
++
++#include <array>
++#include <cstdint>
++#include <functional>
++#include <memory>
++
++#include <ldy_an00/SfCpuPolicyHistory.h>
++
++namespace android::surfaceflinger::ldy_an00 {
++
++namespace cpu_policy_abi {
++// Reconstructed stock C-call payload. No private FrameTimeline object crosses this ABI.
++struct alignas(8) Config {
++    int64_t increaseWindowNs;
++    int32_t increaseOffset;
++    int32_t reserved12;
++    int64_t decreaseWindowNs;
++    int32_t decreaseOffset;
++    int32_t reserved28;
++    int64_t targetTimeNs;
++    int32_t renderEngineTid;
++    int32_t suspendReason;
++    uint8_t suspendMid;
++    uint8_t forcePolicy;
++    uint8_t foregroundPolicy;
++    uint8_t reserved51;
++    uint8_t reserved52;
++    uint8_t multiDisplay;
++    uint8_t recording;
++    uint8_t validFps;
++    int32_t systemCpuMask;
++    int32_t reserved60;
++};
++
++class Measurements {
++public:
++    virtual ~Measurements() = default;
++    virtual bool needIncreasePerf(int64_t startNs, int64_t endNs, int64_t targetNs) = 0;
++    virtual bool needReducePerf(int64_t startNs, int64_t endNs, int64_t targetNs) = 0;
++};
++} // namespace cpu_policy_abi
++
++class SfCpuPolicyBridge final {
++public:
++    using SnapshotHistory = std::function<CpuPolicyHistory()>;
++
++    struct FrameFacts {
++        float renderFps = 0;
++        int64_t sfWorkDurationNs = 0;
++        int32_t renderEngineTid = 0;
++        uint32_t poweredDisplayCount = 0;
++        // Exact CPU early-transaction predicate, not broad EarlyGpu/refresh-rate state.
++        bool transactionEarly = false;
++        // Previous completed composite coverage, captured before SF clears its display map.
++        bool previousGpuComposition = false;
++        bool usesClientComposition = false;
++        bool reusedClientComposition = false;
++        // Stock's case-sensitive active layer-name "Record" test, supplied by SF.
++        bool recording = false;
++        bool powerSuspended = false;
++        // Explicit stock debug overrides. No override is the real normal state.
++        bool userHeavyLoading = false;
++        bool forcePolicy = false;
++        bool foregroundPolicy = false;
++        int32_t systemCpuMask = 0;
++    };
++
++    struct Settings {
++        int32_t hardwareMinFps = 60;
++        int32_t clientMinFps = 30;
++        bool earlyHeavy = true;
++        bool boostEarly = true;
++        bool boostRecording = false;
++        bool hardwareSuspend = true;
++        bool hardwareHighFpsSuspend = false;
++        bool forceSuspend = false;
++        int64_t increaseWindowNs = 25'000'000;
++        int64_t decreaseWindowNs = 125'000'000;
++        int32_t earlyIncreaseOffset = 30;
++        int32_t normalIncreaseOffset = 10;
++        int32_t earlyDecreaseOffset = 5;
++        int32_t normalDecreaseOffset = 5;
++        // Target bands <=8ms, <=11ms, >11ms, instruction-proven stock defaults.
++        std::array<int32_t, 3> increaseMarginsNs{500'000, 500'000, 500'000};
++        std::array<int32_t, 3> decreaseMarginsNs{2'000'000, 2'000'000, 2'000'000};
++    };
++
++    // Resolves the complete stock symbol set before create. Null means unavailable.
++    // The snapshot callback may run on the plugin worker and must only acquire
++    // FrameTimeline's own lock; never wait for SF/main or acquire SF state locks.
++    static std::unique_ptr<SfCpuPolicyBridge> create(SnapshotHistory, int32_t sfTid);
++    // Isolated ABI tests can select a fake plugin/settings without any real policy/syscalls.
++    static std::unique_ptr<SfCpuPolicyBridge> createForTesting(
++            SnapshotHistory, int32_t sfTid, const Settings&, const char* libraryName);
++
++    ~SfCpuPolicyBridge();
++    bool ready() const;
++    bool configure(const FrameFacts&);
++    bool startFrame(int64_t vsyncId, int64_t frameBeginNs);
++    bool finishFrame(int64_t vsyncId, int64_t actualFrameEndNs);
++    void notifyHwcTid(int32_t tid);
++    void speedUpRenderEngine(int32_t hint);
++    void clearCorrection(bool clearIncrease, bool clearDecrease);
++    void resetCalculation();
++    void changeToForeground();
++    // Explicitly before FrameTimeline destruction. Destroy/join precedes clearing
++    // its borrowed measurement owner and dlclose; safe to call repeatedly.
++    void shutdown();
++
++    SfCpuPolicyBridge(const SfCpuPolicyBridge&) = delete;
++    SfCpuPolicyBridge& operator=(const SfCpuPolicyBridge&) = delete;
++
++private:
++    class Impl;
++    explicit SfCpuPolicyBridge(std::unique_ptr<Impl>);
++    std::unique_ptr<Impl> mImpl;
++};
++
++} // namespace android::surfaceflinger::ldy_an00
+diff --git a/services/surfaceflinger/ldy_an00_composerext/include/ldy_an00/SfCpuPolicyHistory.h b/services/surfaceflinger/ldy_an00_composerext/include/ldy_an00/SfCpuPolicyHistory.h
+new file mode 100644
+index 0000000..c8e44f0
+--- /dev/null
++++ b/services/surfaceflinger/ldy_an00_composerext/include/ldy_an00/SfCpuPolicyHistory.h
+@@ -0,0 +1,27 @@
++/*
++ * Copyright (C) 2026 The LineageOS Project
++ * SPDX-License-Identifier: Apache-2.0
++ */
++#pragma once
++
++#include <cstdint>
++#include <vector>
++
++namespace android::surfaceflinger::ldy_an00 {
++
++// Semantic snapshot, never the private stock FrameTimeline C++ ABI.
++enum class CpuPresentMetadata : uint8_t { OnTime, Late, Early, Unknown };
++
++struct FrameHistorySample {
++    int64_t actualStartNs = 0;
++    int64_t actualEndNs = 0;
++    int64_t actualPresentNs = 0;
++    CpuPresentMetadata presentMetadata = CpuPresentMetadata::Unknown;
++};
++
++// Preserve the FrameTimeline deque's chronological order. Include all completed
++// positive-present samples, including Unknown metadata: stock's scan continues
++// past an Unknown nonmatching sample but stops on a known nonmatching sample.
++using CpuPolicyHistory = std::vector<FrameHistorySample>;
++
++} // namespace android::surfaceflinger::ldy_an00
+diff --git a/services/surfaceflinger/ldy_an00_composerext/tests/ComposerExtClientTest.cpp b/services/surfaceflinger/ldy_an00_composerext/tests/ComposerExtClientTest.cpp
+new file mode 100644
+index 0000000..fda200b
+--- /dev/null
++++ b/services/surfaceflinger/ldy_an00_composerext/tests/ComposerExtClientTest.cpp
+@@ -0,0 +1,135 @@
++// Copyright (C) 2026 The LineageOS Project; SPDX-License-Identifier: Apache-2.0
++#include <ldy_an00/ComposerExtClient.h>
++#include <cassert>
++#include <cerrno>
++#include <fcntl.h>
++#include <iostream>
++#include <limits>
++#include <unistd.h>
++using namespace android::surfaceflinger::ldy_an00;
++namespace {
++int checks = 0;
++void check(bool value) { ++checks; assert(value); }
++bool closed(int fd) { errno = 0; return fcntl(fd, F_GETFD) == -1 && errno == EBADF; }
++struct Owner : CallbackOwner {
++    bool accepted = true, expireDuringCall = false;
++    int enableCalls = 0, onceCalls = 0, unknownCalls = 0;
++    uint8_t rawEnable = 0;
++    CallbackTicket queued;
++    std::shared_ptr<CallbackGate> gate;
++    bool enqueueEnable(const CallbackTicket& ticket, const EnableRequest& request) override {
++        ++enableCalls; queued = ticket; rawEnable = request.enable;
++        if (expireDuringCall) gate->close();
++        return accepted;
++    }
++    bool enqueueOnce(const CallbackTicket& ticket, uint64_t) override {
++        ++onceCalls; queued = ticket; return accepted;
++    }
++    bool unknownSync(const CallbackTicket&, int64_t opcode, const Bytes&, const Fds&,
++                     const Handles&, Reply* reply) override {
++        ++unknownCalls;
++        if (opcode != 99) return false;
++        reply->result = -7; reply->outputParams = {9}; return true;
++    }
++};
++}
++int main() {
++    check(!decodeEnable(std::nullopt)); check(!decodeOnce(std::nullopt));
++    for (size_t n : {0u, 7u, 8u, 12u, 14u, 16u}) check(!decodeEnable(std::vector<uint8_t>(n)));
++    for (size_t n : {0u, 7u, 9u, 13u, 16u}) check(!decodeOnce(std::vector<uint8_t>(n)));
++    auto bytes = encodeRetrigger(0xfedcba9876543210ULL, -2);
++    check(bytes && bytes->size() == 16); check((*bytes)[0] == 0x10 && (*bytes)[7] == 0xfe);
++    check((*bytes)[8] == 0xfe && (*bytes)[15] == 0xff);
++    auto minimum = encodeRetrigger(0, std::numeric_limits<int64_t>::min());
++    check((*minimum)[8] == 0 && (*minimum)[15] == 0x80);
++    Bytes once = std::vector<uint8_t>(bytes->begin(), bytes->begin() + 8);
++    check(decodeOnce(once) == 0xfedcba9876543210ULL);
++    Bytes enable = std::vector<uint8_t>(13, 0); (*enable)[8] = 0x78; (*enable)[9] = 0x56;
++    (*enable)[10] = 0x34; (*enable)[11] = 0x12; (*enable)[12] = 0xfe;
++    check(decodeEnable(enable)->fps == 0x12345678 && decodeEnable(enable)->enable == 0xfe);
++    auto gate = std::make_shared<CallbackGate>();
++    check(!gate->ticket().isAdmissible()); check(!gate->ticket().isCurrent());
++    check(gate->beginRegistration()); check(!gate->beginRegistration());
++    auto ticket = gate->ticket(); check(ticket.isAdmissible()); check(!ticket.isCurrent());
++    auto owner = std::make_shared<Owner>(); owner->gate = gate;
++    Reply reply;
++    dispatchSync(owner, ticket, kEnable, enable, std::nullopt, std::nullopt, &reply);
++    check(reply.result == 0 && reply.outputParams == std::vector<uint8_t>{1});
++    check(owner->rawEnable == 0xfe && !owner->queued.isCurrent());
++    check(gate->commitRegistration()); check(owner->queued.isCurrent());
++    owner->accepted = false;
++    dispatchSync(owner, ticket, kOnce, once, std::nullopt, std::nullopt, &reply);
++    check(reply.result == 0 && reply.outputParams == std::vector<uint8_t>{0});
++    dispatchSync(owner, ticket, kEnable, std::vector<uint8_t>(14), std::nullopt, std::nullopt, &reply);
++    check(reply.result == -22 && reply.outputParams.empty() && owner->enableCalls == 1);
++    dispatchSync(owner, ticket, 99, std::nullopt, std::nullopt, std::nullopt, &reply);
++    check(reply.result == -7 && reply.outputParams == std::vector<uint8_t>{9});
++    dispatchSync(owner, ticket, 100, std::nullopt, std::nullopt, std::nullopt, &reply);
++    check(reply.result == -22 && reply.outputParams.empty());
++    owner->expireDuringCall = true;
++    dispatchSync(owner, ticket, kEnable, enable, std::nullopt, std::nullopt, &reply);
++    check(reply.result == -22 && reply.outputParams.empty());
++    check(!ticket.isCurrent() && !ticket.isAdmissible()); check(!gate->commitRegistration());
++    check(!gate->beginRegistration());
++    auto next = std::make_shared<CallbackGate>(); check(next->beginRegistration());
++    check(next->commitRegistration()); check(next->ticket().isCurrent()); check(!ticket.isCurrent());
++    auto failedRegistration = std::make_shared<CallbackGate>(); check(failedRegistration->beginRegistration());
++    auto pending = failedRegistration->ticket(); failedRegistration->close();
++    check(!pending.isCurrent() && !failedRegistration->commitRegistration());
++    std::weak_ptr<CallbackOwner> expired;
++    dispatchSync(expired, next->ticket(), kOnce, once, std::nullopt, std::nullopt, &reply);
++    check(reply.result == -22);
++    int first, extra;
++    ndk::ScopedFileDescriptor kept;
++    {
++        std::vector<ndk::ScopedFileDescriptor> fds;
++        first = open("/dev/null", O_RDONLY); extra = open("/dev/null", O_RDONLY);
++        check(first >= 0 && extra >= 0); fds.emplace_back(first); fds.emplace_back(extra);
++        kept = takeRetriggerFence(next->ticket(), 0, fds);
++        check(kept.get() == first && fds.front().get() == -1); check(!closed(extra));
++    }
++    check(!closed(first) && closed(extra)); kept.set(-1); check(closed(first));
++    {
++        int fd = open("/dev/null", O_RDONLY);
++        { std::vector<ndk::ScopedFileDescriptor> fds; fds.emplace_back(fd);
++          check(takeRetriggerFence(next->ticket(), -7, fds).get() == -1 && fds.front().get() == fd); }
++        check(closed(fd));
++    }
++    { std::vector<ndk::ScopedFileDescriptor> fds; check(takeRetriggerFence(next->ticket(), 0, fds).get() == -1); }
++    {
++        std::vector<ndk::ScopedFileDescriptor> fds; fds.emplace_back(-1);
++        extra = open("/dev/null", O_RDONLY); fds.emplace_back(extra);
++        check(takeRetriggerFence(next->ticket(), 0, fds).get() == -1);
++    }
++    check(closed(extra));
++    // Late response after local close cannot transfer its first descriptor.
++    {
++        auto late = std::make_shared<CallbackGate>(); check(late->beginRegistration());
++        check(late->commitRegistration()); auto stale = late->ticket(); late->close();
++        first = open("/dev/null", O_RDONLY);
++        { std::vector<ndk::ScopedFileDescriptor> fds; fds.emplace_back(first);
++          check(takeRetriggerFence(stale, 0, fds).get() == -1 && fds.front().get() == first); }
++        check(closed(first));
++    }
++    // Nonempty params/NativeHandles do not impose an invented exact-one-FD restriction.
++    {
++        int handleFd = open("/dev/null", O_RDONLY);
++        {
++            Reply response; response.result = 0; response.outputParams = {7, 8};
++            response.outputHandles.emplace_back();
++            response.outputHandles.front().fds.emplace_back(handleFd);
++            first = open("/dev/null", O_RDONLY); response.outputFds.emplace_back(first);
++            kept = takeRetriggerFence(next->ticket(), response.result, response.outputFds);
++            check(kept.get() == first);
++        }
++        check(closed(handleFd) && !closed(first)); kept.set(-1); check(closed(first));
++    }
++    // A real descriptor0 is not an invalid opaque handle or a fake signaled fence.
++    int savedStdin = dup(STDIN_FILENO); close(STDIN_FILENO);
++    { std::vector<ndk::ScopedFileDescriptor> fds; int zero = open("/dev/null", O_RDONLY);
++      check(zero == 0); fds.emplace_back(zero); auto fd = takeRetriggerFence(next->ticket(), 0, fds); check(fd.get() == 0); }
++    check(closed(0)); if (savedStdin >= 0) { dup2(savedStdin, 0); close(savedStdin); }
++    next->close(); check(!next->ticket().isCurrent());
++    std::cout << "COMPOSEREXT_CODEC_DISPATCH_FD_GATE_PASS checks=" << checks
++              << "; no Binder RPC, remote drain or SurfaceFlinger integration claim\n";
++}
+diff --git a/services/surfaceflinger/ldy_an00_composerext/tests/ComposerExtTimingHostTest.cpp b/services/surfaceflinger/ldy_an00_composerext/tests/ComposerExtTimingHostTest.cpp
+new file mode 100644
+index 0000000..b25d33e
+--- /dev/null
++++ b/services/surfaceflinger/ldy_an00_composerext/tests/ComposerExtTimingHostTest.cpp
+@@ -0,0 +1,54 @@
++// Copyright (C) 2026 The LineageOS Project; SPDX-License-Identifier: Apache-2.0
++#include <ldy_an00/ComposerExtTiming.h>
++#include <ldy_an00/ComposerExtCodec.h>
++#include <cassert>
++#include <cstdio>
++#include <limits>
++using namespace android::surfaceflinger::ldy_an00;
++int main() {
++    unsigned checks = 0;
++    auto check = [&](bool value) { assert(value); ++checks; };
++    ComposerExtTiming legacy(true, false, 1);
++    check(!legacy.snapshot());
++    legacy.addDisplay(8, 1); legacy.setActiveDisplay(8);
++    check(!legacy.snapshot()->decoupled);
++    check(!legacy.setComposition(9, true));
++    check(legacy.setComposition(8, true));
++    check(legacy.onDisplayRefresh()->decoupled);
++    check(legacy.setComposition(8, false));
++    for (int i = 0; i < 3; ++i) check(legacy.onDisplayRefresh()->decoupled);
++    check(!legacy.onDisplayRefresh()->decoupled);
++    check(legacy.setComposition(8, true));
++    check(legacy.onDisplayRefresh()->decoupled);
++    legacy.addDisplay(8, 2);
++    check(legacy.snapshot()->generation == 2 && !legacy.snapshot()->decoupled);
++    legacy.removeDisplay(8); check(!legacy.snapshot());
++    ComposerExtTiming extra(true, true, 1);
++    extra.addDisplay(8, 7); extra.setActiveDisplay(8);
++    check(extra.snapshot()->extraVsync == 1);
++    check(extra.setComposition(8, true) && !extra.onDisplayRefresh()->decoupled);
++    check(extra.setExtraVsync(8, 3) == 3 && extra.snapshot()->extraVsync == 3);
++    check(extra.setExtraVsync(8, 0) == 0 && extra.snapshot()->extraVsync == 1);
++    check(!extra.setExtraVsync(9, 2));
++    extra.clear(); check(!extra.snapshot() && !extra.setExtraVsync(8, 1));
++    for (int32_t value : {0, 1, -1, std::numeric_limits<int32_t>::min(),
++                          std::numeric_limits<int32_t>::max()}) {
++        check(decodeInt32(encodeInt32(value)) == value);
++    }
++    check(!decodeInt32(std::nullopt));
++    check(!decodeInt32(std::vector<uint8_t>(3)));
++    check(!decodeComposition(std::vector<uint8_t>(15)));
++    auto comp = std::vector<uint8_t>(16); comp[0] = 8; comp[8] = 1;
++    check(decodeComposition(comp)->display == 8 && decodeComposition(comp)->mode == 1);
++    check(!decodeExtraVsync(std::nullopt));
++    check(!decodeExtraVsync(std::vector<uint8_t>(19)));
++    auto request = std::vector<uint8_t>(20); request[0] = 8; request[16] = 3;
++    check(decodeExtraVsync(request)->display == 8 && decodeExtraVsync(request)->count == 3);
++    request[8] = 1; check(!decodeExtraVsync(request));
++    request.resize(28); request[16] = 99; request[24] = 4;
++    auto decoded = decodeExtraVsync(request);
++    check(decoded && decoded->layers == std::vector<uint64_t>{99} && decoded->count == 4);
++    for (int i = 8; i < 16; ++i) request[i] = 255;
++    check(!decodeExtraVsync(request));
++    std::printf("COMPOSER_TIMING_CODEC_HOST_OK checks=%u\n", checks);
++}
+diff --git a/services/surfaceflinger/ldy_an00_composerext/tests/SfCpuPolicyBridgeFake.cpp b/services/surfaceflinger/ldy_an00_composerext/tests/SfCpuPolicyBridgeFake.cpp
+new file mode 100644
+index 0000000..1c5e866
+--- /dev/null
++++ b/services/surfaceflinger/ldy_an00_composerext/tests/SfCpuPolicyBridgeFake.cpp
+@@ -0,0 +1,91 @@
++/* Copyright (C) 2026 The LineageOS Project. SPDX-License-Identifier: Apache-2.0 */
++#include <ldy_an00/SfCpuPolicyBridge.h>
++#include <condition_variable>
++#include <mutex>
++#include <thread>
++#include <array>
++#include <limits>
++using namespace android::surfaceflinger::ldy_an00;
++namespace {
++std::mutex stateMutex;
++std::array<int64_t, 22> stats{};
++cpu_policy_abi::Config lastConfig{};
++struct Policy {
++    std::mutex mutex;
++    std::condition_variable cv;
++    bool stopping = false;
++    unsigned jobs = 0;
++    cpu_policy_abi::Measurements* measurements = nullptr;
++    std::thread worker{[this] {
++        std::unique_lock lock(mutex);
++        for (;;) {
++            cv.wait(lock, [this] { return stopping || jobs; });
++            if (stopping) return;
++            --jobs;
++            auto* callback = measurements;
++            lock.unlock();
++            if (callback) {
++                const bool up = callback->needIncreasePerf(0, 1'000'000'000, 10'000'000);
++                const bool down = callback->needReducePerf(0, 1'000'000'000, 10'000'000);
++                std::lock_guard state(stateMutex);
++                ++stats[7]; stats[8] = up; stats[9] = down;
++            }
++            lock.lock();
++        }
++    }};
++};
++Policy* active = nullptr;
++void count(size_t index) { std::lock_guard lock(stateMutex); ++stats[index]; }
++}
++extern "C" {
++void* createSfCpuPolicy() {
++    count(0);
++    active = new Policy;
++    return active;
++}
++void destroySfCpuPolicy(void* handle) {
++    auto* p = static_cast<Policy*>(handle);
++    { std::lock_guard lock(p->mutex); p->stopping = true; p->cv.notify_all(); }
++    p->worker.join();
++    delete p; active = nullptr; count(1);
++}
++void setupPerfMeas(void* handle, cpu_policy_abi::Measurements* callback) {
++    auto* p = static_cast<Policy*>(handle);
++    std::lock_guard lock(p->mutex); p->measurements = callback;
++}
++void setupConfig(void*, cpu_policy_abi::Config* config, bool synchronous) {
++    std::lock_guard lock(stateMutex);
++    ++stats[2]; stats[12] = synchronous; lastConfig = *config;
++    stats[19] = stats[14]; // Clear must have happened before this setup.
++}
++void notifyFrameStart(void*, int64_t, int64_t id, bool) {
++    std::lock_guard lock(stateMutex); ++stats[3]; stats[20] = id;
++}
++#ifndef OMIT_FRAME_END
++void notifyFrameEnd(void* handle, int64_t end, int64_t id, bool suspended) {
++    { std::lock_guard lock(stateMutex); ++stats[4]; if (!end) ++stats[5]; stats[11] = suspended; stats[21] = id; }
++    if (end) {
++        auto* p = static_cast<Policy*>(handle);
++        std::lock_guard lock(p->mutex); ++p->jobs; p->cv.notify_one();
++    }
++}
++#endif
++void notifySpeedUpRE(void*, int32_t, int64_t) { count(16); }
++void notifyClearCorrection(void*, int64_t, bool up, bool down) {
++    std::lock_guard lock(stateMutex); ++stats[14]; stats[17] = up; stats[18] = down;
++}
++void notifyResetCalculation(void*, int64_t) { count(13); }
++void notifyHwcHwbinderTid(void*, int32_t tid) {
++    std::lock_guard lock(stateMutex); stats[6] = tid;
++}
++void changeToForeground(void*) { count(15); }
++int64_t fakeGet(unsigned index) { std::lock_guard lock(stateMutex); return stats.at(index); }
++void fakeConfig(cpu_policy_abi::Config* out) { std::lock_guard lock(stateMutex); *out = lastConfig; }
++bool fakeEvaluate(bool increase, int64_t start, int64_t end, int64_t target) {
++    auto* p = active;
++    if (!p) return false;
++    auto* callback = p->measurements;
++    return increase ? callback->needIncreasePerf(start, end, target)
++                    : callback->needReducePerf(start, end, target);
++}
++}
+diff --git a/services/surfaceflinger/ldy_an00_composerext/tests/SfCpuPolicyBridgeHostTest.cpp b/services/surfaceflinger/ldy_an00_composerext/tests/SfCpuPolicyBridgeHostTest.cpp
+new file mode 100644
+index 0000000..80f710b
+--- /dev/null
++++ b/services/surfaceflinger/ldy_an00_composerext/tests/SfCpuPolicyBridgeHostTest.cpp
+@@ -0,0 +1,159 @@
++/* Copyright (C) 2026 The LineageOS Project. SPDX-License-Identifier: Apache-2.0 */
++#include <ldy_an00/SfCpuPolicyBridge.h>
++#include <atomic>
++#include <chrono>
++#include <condition_variable>
++#include <cstdlib>
++#include <cstring>
++#include <dlfcn.h>
++#include <iostream>
++#include <mutex>
++#include <sys/syscall.h>
++#include <thread>
++#include <unistd.h>
++using namespace android::surfaceflinger::ldy_an00;
++// Host fixture supplies property lookup only. No Android device/properties are contacted.
++extern "C" int property_get(const char*, char* value, const char* fallback) {
++    std::strcpy(value, fallback); return std::strlen(fallback);
++}
++namespace {
++int checks = 0;
++void check(bool value) { if (!value) std::abort(); ++checks; }
++struct History {
++    std::mutex mutex;
++    std::condition_variable cv;
++    CpuPolicyHistory frames;
++    bool block = false, entered = false, release = false;
++    CpuPolicyHistory snapshot() {
++        std::unique_lock lock(mutex);
++        if (block) { entered = true; cv.notify_all(); cv.wait(lock, [&] { return release; }); }
++        return frames;
++    }
++};
++FrameHistorySample sample(int64_t start, int64_t end, CpuPresentMetadata metadata) {
++    return {start, end, end + 1, metadata};
++}
++}
++int main(int argc, char** argv) {
++    check(argc == 3);
++    void* library = dlopen(argv[1], RTLD_NOW);
++    check(library != nullptr);
++    auto get = reinterpret_cast<int64_t (*)(unsigned)>(dlsym(library, "fakeGet"));
++    auto config = reinterpret_cast<void (*)(cpu_policy_abi::Config*)>(dlsym(library, "fakeConfig"));
++    auto evaluate = reinterpret_cast<bool (*)(bool,int64_t,int64_t,int64_t)>(
++            dlsym(library, "fakeEvaluate"));
++    check(get && config && evaluate);
++    auto history = std::make_shared<History>();
++    SfCpuPolicyBridge::Settings settings;
++    const int32_t tid = syscall(SYS_gettid);
++    check(!SfCpuPolicyBridge::createForTesting([history] { return history->snapshot(); },
++                                             tid, settings, argv[2]));
++    check(get(0) == 0); // Complete symbol-set resolution must precede creation.
++    check(!SfCpuPolicyBridge::createForTesting({}, tid, settings, argv[1]));
++    check(!SfCpuPolicyBridge::createForTesting([history] { return history->snapshot(); },
++                                             tid + 100000, settings, argv[1]));
++    auto bridge = SfCpuPolicyBridge::createForTesting(
++            [history] { return history->snapshot(); }, tid, settings, argv[1]);
++    check(bridge && !bridge->ready() && get(0) == 1);
++    SfCpuPolicyBridge::FrameFacts facts;
++    facts.renderFps = 120; facts.sfWorkDurationNs = 9'000'000;
++    facts.renderEngineTid = tid; facts.poweredDisplayCount = 1;
++    check(bridge->configure(facts) && bridge->ready());
++    cpu_policy_abi::Config c{};
++    config(&c);
++    check(c.targetTimeNs == 8'000'000 && c.renderEngineTid == tid);
++    check(c.increaseWindowNs == 25'000'000 && c.increaseOffset == 10);
++    check(c.decreaseWindowNs == 125'000'000 && c.decreaseOffset == 5);
++    check(!c.suspendMid && !c.multiDisplay && !c.recording && c.validFps);
++    check(get(17) == 0 && get(18) == 0 && get(19) == get(14));
++    facts.previousGpuComposition = true;
++    for (const auto& [fps, budget, expected] :
++         std::array<std::array<int64_t, 3>, 7>{{{144, 30'000'000, 6'000'000},
++          {100, 30'000'000, 8'000'000}, {90, 30'000'000, 11'000'000},
++          {60, 30'000'000, 16'000'000}, {60, 15'000'000, 12'300'000},
++          {30, 30'000'000, 25'000'000}, {144, 4'000'000, 4'000'000}}}) {
++        facts.renderFps = fps; facts.sfWorkDurationNs = budget;
++        check(bridge->configure(facts)); config(&c); check(c.targetTimeNs == expected);
++    }
++    facts.renderFps = 120; facts.sfWorkDurationNs = 9'000'000;
++    bool wrongThreadAccepted = true;
++    std::thread wrongThread([&] { wrongThreadAccepted = bridge->configure(facts); });
++    wrongThread.join(); check(!wrongThreadAccepted);
++    facts.transactionEarly = true; facts.recording = true; facts.poweredDisplayCount = 2;
++    check(bridge->configure(facts));
++    config(&c);
++    check(c.increaseOffset == 30 && c.multiDisplay && c.recording);
++    check(get(17) == 1 && get(18) == 1 && get(19) == get(14));
++    check(c.forcePolicy && c.foregroundPolicy && c.systemCpuMask == 0);
++    facts.forcePolicy = true; facts.foregroundPolicy = false; facts.transactionEarly = false;
++    facts.systemCpuMask = 0x55;
++    check(bridge->configure(facts)); config(&c);
++    check(c.forcePolicy && !c.foregroundPolicy && c.systemCpuMask == 0x55);
++    auto setFrames = [&](CpuPolicyHistory frames) {
++        std::lock_guard lock(history->mutex); history->frames = std::move(frames);
++    };
++    constexpr auto Known = CpuPresentMetadata::OnTime;
++    constexpr auto Unknown = CpuPresentMetadata::Unknown;
++    setFrames({sample(1, 5'000'001, Known), sample(20'000'000, 40'000'000, Known)});
++    check(!evaluate(true, 0, 100'000'000, 10'000'000)); // Known first non-late stops.
++    setFrames({sample(1, 5'000'001, Unknown), sample(20'000'000, 40'000'000, Known)});
++    check(evaluate(true, 0, 100'000'000, 10'000'000));
++    setFrames({sample(1, 5'000'001, Known), sample(20'000'000, 40'000'000, Known)});
++    check(!evaluate(false, 0, 100'000'000, 10'000'000)); // Known non-early vetoes.
++    setFrames({sample(1, 5'000'001, Known), sample(20'000'000, 40'000'000, Unknown)});
++    check(evaluate(false, 0, 100'000'000, 10'000'000));
++    setFrames({sample(1, 8'000'001, Known)});
++    check(!evaluate(false, 0, 100'000'000, 10'000'000)); // Strict 8ms bound.
++    check(!evaluate(true, 100'000'000, 1, 10'000'000));
++    check(!evaluate(false, 0, 100'000'000, 0));
++    setFrames({});
++    check(!evaluate(true, 0, 100'000'000, 10'000'000));
++    check(!evaluate(false, 0, 100'000'000, 10'000'000));
++    bridge->notifyHwcTid(321); check(get(6) == 321);
++    bridge->notifyHwcTid(-1); check(get(6) == 321);
++    check(bridge->startFrame(1, 1'000'000));
++    check(bridge->startFrame(2, 2'000'000)); // Prior uncomposited start only zero-closes.
++    check(get(5) == 1);
++    check(!bridge->finishFrame(1, 3'000'000));
++    check(bridge->finishFrame(2, 3'000'000));
++    check(!bridge->finishFrame(2, 3'000'000));
++    // Genuine immediate frames preserve the original default VsyncId(-1); zero is also not a sentinel.
++    check(bridge->startFrame(-1, 3'000'001)); check(get(20) == -1);
++    check(bridge->finishFrame(-1, 3'000'002)); check(get(21) == -1);
++    check(!bridge->finishFrame(-1, 3'000'003));
++    check(bridge->startFrame(0, 3'000'004)); check(get(20) == 0);
++    check(bridge->finishFrame(0, 3'000'005)); check(get(21) == 0);
++    check(!bridge->finishFrame(0, 3'000'006));
++    facts.sfWorkDurationNs = 0;
++    check(!bridge->configure(facts) && !bridge->ready());
++    check(!bridge->startFrame(3, 3'000'000));
++    facts.sfWorkDurationNs = 9'000'000;
++    check(bridge->configure(facts));
++    // Drain a real fake-plugin worker callback before destroying its borrowed owner.
++    {
++        std::unique_lock lock(history->mutex);
++        history->block = true;
++        history->entered = false;
++    }
++    check(bridge->startFrame(4, 4'000'000));
++    check(bridge->finishFrame(4, 5'000'000));
++    {
++        std::unique_lock lock(history->mutex);
++        check(history->cv.wait_for(lock, std::chrono::seconds(2), [&] { return history->entered; }));
++    }
++    std::weak_ptr<History> weak = history;
++    auto* release = history.get();
++    history.reset();
++    std::atomic<bool> done = false;
++    std::thread stopper([&] { bridge->shutdown(); done = true; });
++    std::this_thread::sleep_for(std::chrono::milliseconds(20));
++    check(!done && !weak.expired());
++    { std::lock_guard lock(release->mutex); release->release = true; release->cv.notify_all(); }
++    stopper.join();
++    check(done && weak.expired() && get(1) == 1);
++    check(!bridge->ready() && !bridge->startFrame(5, 5'000'000));
++    bridge->shutdown(); bridge.reset(); check(get(1) == 1);
++    dlclose(library);
++    std::cout << "SF_CPU_POLICY_BRIDGE_HOST_PASS checks=" << checks
++              << " fakePluginOnly noDevicePolicyCalls\n";
++}
+diff --git a/services/surfaceflinger/tests/unittests/Android.bp b/services/surfaceflinger/tests/unittests/Android.bp
+index da3590b..f9a1067 100644
+--- a/services/surfaceflinger/tests/unittests/Android.bp
++++ b/services/surfaceflinger/tests/unittests/Android.bp
+@@ -119,6 +119,7 @@ cc_defaults {
+         "libcompositionengine_mocks",
+         "libgmock",
+         "libgui_mocks",
++        "libhonor_ldy_an00_composerext_client",
+         "libperfetto_client_experimental",
+         "librenderengine",
+         "librenderengine_mocks",
+diff --git a/services/surfaceflinger/tests/unittests/FrameTimelineTest.cpp b/services/surfaceflinger/tests/unittests/FrameTimelineTest.cpp
+index 0d8f0be..7e22824 100644
+--- a/services/surfaceflinger/tests/unittests/FrameTimelineTest.cpp
++++ b/services/surfaceflinger/tests/unittests/FrameTimelineTest.cpp
+@@ -275,6 +275,39 @@ public:
+                                                                   kStartThreshold};
+ };
+ 
++TEST_F(FrameTimelineTest, MtkCpuHistoryCopiesOnlyCompletedRealFrames) {
++    auto fence = fenceFactory.createFenceTimeForTest(Fence::NO_FENCE);
++    const auto token = mTokenManager->generateTokenForPredictions({22, 26, 30});
++    mFrameTimeline->setSfWakeUp(token, 22, RR_11, RR_11);
++    mFrameTimeline->setSfPresent(26, fence);
++    EXPECT_TRUE(mFrameTimeline->snapshotCpuPolicyHistory().empty());
++    fence->signalForTest(32);
++    addEmptyDisplayFrame();
++    const auto snapshot = mFrameTimeline->snapshotCpuPolicyHistory();
++    ASSERT_EQ(snapshot.size(), 1u);
++    EXPECT_EQ(snapshot[0].actualStartNs, 22);
++    EXPECT_EQ(snapshot[0].actualEndNs, 26);
++    EXPECT_EQ(snapshot[0].actualPresentNs, 32);
++    // A returned snapshot owns its data independently of later timeline mutation.
++    addEmptyDisplayFrame();
++    EXPECT_EQ(snapshot[0].actualPresentNs, 32);
++}
++
++TEST_F(FrameTimelineTest, MtkCpuHistoryPreservesUnknownPresentSamples) {
++    auto fence = fenceFactory.createFenceTimeForTest(Fence::NO_FENCE);
++    const auto expiredToken = mTokenManager->generateTokenForPredictions({22, 26, 30});
++    flushTokens();
++    mFrameTimeline->setSfWakeUp(expiredToken, 22, RR_11, RR_11);
++    mFrameTimeline->setSfPresent(26, fence);
++    fence->signalForTest(32);
++    addEmptyDisplayFrame();
++    const auto snapshot = mFrameTimeline->snapshotCpuPolicyHistory();
++    ASSERT_EQ(snapshot.size(), 1u);
++    EXPECT_EQ(snapshot[0].presentMetadata,
++              surfaceflinger::ldy_an00::CpuPresentMetadata::Unknown);
++    EXPECT_EQ(snapshot[0].actualPresentNs, 32);
++}
++
+ TEST_F(FrameTimelineTest, tokenManagerRemovesStalePredictions) {
+     int64_t token1 = mTokenManager->generateTokenForPredictions({0, 0, 0});
+     EXPECT_EQ(getPredictions().size(), 1u);
+diff --git a/services/surfaceflinger/tests/unittests/MessageQueueTest.cpp b/services/surfaceflinger/tests/unittests/MessageQueueTest.cpp
+index 5710e63..3534c51 100644
+--- a/services/surfaceflinger/tests/unittests/MessageQueueTest.cpp
++++ b/services/surfaceflinger/tests/unittests/MessageQueueTest.cpp
+@@ -110,6 +110,71 @@ TEST_F(MessageQueueTest, commit) {
+     EXPECT_EQ(1234, scheduledFrameResult->vsyncTime.ns());
+ }
+ 
++TEST_F(MessageQueueTest, retriggerOnlyRequestsAreConsumed) {
++    EXPECT_FALSE(mEventQueue.consumeOnlyRetriggerFrameRequests());
++    EXPECT_CALL(*mVSyncDispatch, schedule(mCallbackToken, _))
++            .Times(2)
++            .WillRepeatedly(Return(std::nullopt));
++
++    mEventQueue.scheduleRetriggerFrame();
++    mEventQueue.scheduleRetriggerFrame();
++
++    EXPECT_TRUE(mEventQueue.consumeOnlyRetriggerFrameRequests());
++    EXPECT_FALSE(mEventQueue.consumeOnlyRetriggerFrameRequests());
++}
++
++TEST_F(MessageQueueTest, ordinaryRequestAfterRetriggerPreventsFastPath) {
++    EXPECT_CALL(*mVSyncDispatch, schedule(mCallbackToken, _))
++            .Times(2)
++            .WillRepeatedly(Return(std::nullopt));
++
++    mEventQueue.scheduleRetriggerFrame();
++    mEventQueue.scheduleFrame();
++
++    EXPECT_FALSE(mEventQueue.consumeOnlyRetriggerFrameRequests());
++}
++
++TEST_F(MessageQueueTest, retriggerDoesNotHideEarlierOrdinaryRequest) {
++    EXPECT_CALL(*mVSyncDispatch, schedule(mCallbackToken, _))
++            .Times(3)
++            .WillRepeatedly(Return(std::nullopt));
++
++    mEventQueue.scheduleFrame();
++    mEventQueue.scheduleRetriggerFrame();
++
++    EXPECT_FALSE(mEventQueue.consumeOnlyRetriggerFrameRequests());
++
++    mEventQueue.scheduleRetriggerFrame();
++    EXPECT_TRUE(mEventQueue.consumeOnlyRetriggerFrameRequests());
++}
++
++TEST_F(MessageQueueTest, immediateFramePreventsRetriggerOnlyFastPath) {
++    EXPECT_CALL(*mVSyncDispatch, schedule(mCallbackToken, _)).WillOnce(Return(std::nullopt));
++    EXPECT_CALL(*mEventQueue.mHandler, dispatchFrame(_, _));
++
++    mEventQueue.scheduleRetriggerFrame();
++    mEventQueue.scheduleImmediateFrame();
++
++    EXPECT_FALSE(mEventQueue.consumeOnlyRetriggerFrameRequests());
++}
++
++TEST_F(MessageQueueTest, inFlightImmediateDispatchRetainsOrdinaryWork) {
++    EXPECT_CALL(*mVSyncDispatch, schedule(mCallbackToken, _))
++            .Times(2)
++            .WillRepeatedly(Return(std::nullopt));
++    EXPECT_CALL(*mEventQueue.mHandler, dispatchFrame(_, _)).WillOnce(Invoke([&](VsyncId, TimePoint) {
++        EXPECT_FALSE(mEventQueue.consumeOnlyRetriggerFrameRequests());
++        mEventQueue.scheduleRetriggerFrame();
++    }));
++
++    mEventQueue.scheduleImmediateFrame();
++
++    EXPECT_FALSE(mEventQueue.consumeOnlyRetriggerFrameRequests());
++
++    mEventQueue.scheduleRetriggerFrame();
++    EXPECT_TRUE(mEventQueue.consumeOnlyRetriggerFrameRequests());
++}
++
+ TEST_F(MessageQueueTest, commitTwice) {
+     InSequence s;
+     const auto timing = scheduler::VSyncDispatch::ScheduleTiming{.workDuration = kDuration.ns(),
+diff --git a/services/surfaceflinger/tests/unittests/SurfaceFlinger_DisplayModeSwitching.cpp b/services/surfaceflinger/tests/unittests/SurfaceFlinger_DisplayModeSwitching.cpp
+index 0e4c3e0..abe2502 100644
+--- a/services/surfaceflinger/tests/unittests/SurfaceFlinger_DisplayModeSwitching.cpp
++++ b/services/surfaceflinger/tests/unittests/SurfaceFlinger_DisplayModeSwitching.cpp
+@@ -661,6 +661,144 @@ TEST_P(DisplayModeSwitchingTest, updateWorkDuration) {
+               std::chrono::nanoseconds(workDuration.maxSfDurationNanos));
+ }
+ 
++TEST(MtkRetriggerFpsTest, StockClampsAndRoundsUpToDivisor) {
++    EXPECT_EQ(60u, TestableSurfaceFlinger::calculateMtkRetriggerFps(50, 120_Hz, 30_Hz, 30));
++    EXPECT_EQ(120u, TestableSurfaceFlinger::calculateMtkRetriggerFps(200, 120_Hz, 60_Hz, 60));
++    EXPECT_EQ(40u, TestableSurfaceFlinger::calculateMtkRetriggerFps(40, 120_Hz, 30_Hz, 30));
++}
++
++TEST(MtkRetriggerFpsTest, FirstRequestHasActiveFloorButRepeatDoesNot) {
++    EXPECT_EQ(90u, TestableSurfaceFlinger::calculateMtkRetriggerFps(50, 120_Hz, 90_Hz, 0));
++    EXPECT_EQ(60u, TestableSurfaceFlinger::calculateMtkRetriggerFps(50, 120_Hz, 90_Hz, 60));
++    EXPECT_EQ(90u, TestableSurfaceFlinger::calculateMtkRetriggerFps(0, 120_Hz, 90_Hz, 0));
++    EXPECT_EQ(0u, TestableSurfaceFlinger::calculateMtkRetriggerFps(0, 120_Hz, 90_Hz, 60));
++}
++
++TEST_P(DisplayModeSwitchingTest, MtkRetriggerDoesNotAcquireExistingIdenticalOverride) {
++    using Selector = scheduler::RefreshRateSelector;
++    Selector::OverridePolicy policy;
++    static_cast<Selector::Policy&>(policy) = mDisplay->refreshRateSelector().getCurrentPolicy();
++    ASSERT_EQ(NO_ERROR, mFlinger.setDisplayPolicy(mDisplay, policy));
++    ASSERT_TRUE(mDisplay->refreshRateSelector().hasOverridePolicy());
++    uint64_t lease = 0;
++    EXPECT_EQ(INVALID_OPERATION, mFlinger.updateMtkRetriggerPolicy(mDisplay, 120, &lease));
++    EXPECT_EQ(0u, lease);
++    EXPECT_TRUE(mDisplay->refreshRateSelector().hasOverridePolicy());
++}
++
++TEST_P(DisplayModeSwitchingTest, MtkRetriggerExternalIdenticalOverrideRevokesLease) {
++    using Selector = scheduler::RefreshRateSelector;
++    auto& selector = mDisplay->refreshRateSelector();
++    selector.setActiveMode(kModeId120, 60_Hz);
++    const auto baseline = selector.getCurrentPolicy();
++    uint64_t lease = 0;
++    ASSERT_EQ(NO_ERROR, mFlinger.updateMtkRetriggerPolicy(mDisplay, 90, &lease));
++    ASSERT_NE(0u, lease);
++    const auto owned = selector.getCurrentPolicy();
++    EXPECT_EQ(kModeId120, owned.defaultMode);
++    EXPECT_TRUE(fps_approx_ops::operator==(FpsRange{120_Hz, 120_Hz},
++                                          owned.primaryRanges.physical));
++    EXPECT_TRUE(fps_approx_ops::operator==(FpsRange{10_Hz, 120_Hz},
++                                          owned.primaryRanges.render));
++    EXPECT_TRUE(fps_approx_ops::operator==(owned.primaryRanges, owned.appRequestRanges));
++    EXPECT_EQ(baseline.allowGroupSwitching, owned.allowGroupSwitching);
++    EXPECT_EQ(baseline.idleScreenConfigOpt, owned.idleScreenConfigOpt);
++    Selector::OverridePolicy identical;
++    static_cast<Selector::Policy&>(identical) = selector.getCurrentPolicy();
++    ASSERT_EQ(NO_ERROR, mFlinger.setDisplayPolicy(mDisplay, identical));
++    EXPECT_EQ(DEAD_OBJECT, mFlinger.releaseMtkRetriggerPolicy(mDisplay, lease));
++    EXPECT_TRUE(selector.hasOverridePolicy());
++    EXPECT_EQ(identical, selector.getCurrentPolicy());
++}
++
++TEST_P(DisplayModeSwitchingTest, MtkRetriggerExternalClearRevokesAndOldTokenCannotClearNewLease) {
++    using Selector = scheduler::RefreshRateSelector;
++    auto& selector = mDisplay->refreshRateSelector();
++    selector.setActiveMode(kModeId120, 60_Hz);
++    uint64_t first = 0;
++    ASSERT_EQ(NO_ERROR, mFlinger.updateMtkRetriggerPolicy(mDisplay, 90, &first));
++    ASSERT_EQ(NO_ERROR, mFlinger.setDisplayPolicy(mDisplay, Selector::NoOverridePolicy{}));
++    EXPECT_FALSE(selector.hasOverridePolicy());
++    uint64_t second = 0;
++    // A fresh acquisition floors requests at the active render rate. Restore the initial
++    // render rate so this request installs an override rather than a no-override reservation.
++    selector.setActiveMode(kModeId120, 60_Hz);
++    ASSERT_EQ(NO_ERROR, mFlinger.updateMtkRetriggerPolicy(mDisplay, 90, &second));
++    ASSERT_TRUE(selector.hasOverridePolicy());
++    ASSERT_GT(second, first);
++    EXPECT_EQ(DEAD_OBJECT, mFlinger.releaseMtkRetriggerPolicy(mDisplay, first));
++    EXPECT_TRUE(selector.hasOverridePolicy());
++    EXPECT_EQ(NO_ERROR, mFlinger.releaseMtkRetriggerPolicy(mDisplay, second));
++}
++
++TEST_P(DisplayModeSwitchingTest, MtkRetriggerAcceptedHiddenDmWinsAndRevokesLease) {
++    using Selector = scheduler::RefreshRateSelector;
++    auto& selector = mDisplay->refreshRateSelector();
++    selector.setActiveMode(kModeId120, 60_Hz);
++    uint64_t lease = 0;
++    ASSERT_EQ(NO_ERROR, mFlinger.updateMtkRetriggerPolicy(mDisplay, 90, &lease));
++    Selector::DisplayManagerPolicy dm(kModeId60, FpsRange{60_Hz, 60_Hz});
++    ASSERT_EQ(NO_ERROR, mFlinger.setDisplayPolicy(mDisplay, dm));
++    EXPECT_FALSE(selector.hasOverridePolicy());
++    EXPECT_EQ(dm, selector.getCurrentPolicy());
++    EXPECT_EQ(DEAD_OBJECT, mFlinger.releaseMtkRetriggerPolicy(mDisplay, lease));
++}
++
++TEST_P(DisplayModeSwitchingTest, MtkRetriggerInvalidDmRetainsOwnedOverride) {
++    using Selector = scheduler::RefreshRateSelector;
++    auto& selector = mDisplay->refreshRateSelector();
++    selector.setActiveMode(kModeId120, 60_Hz);
++    const auto original = selector.getDisplayManagerPolicy();
++    uint64_t lease = 0;
++    ASSERT_EQ(NO_ERROR, mFlinger.updateMtkRetriggerPolicy(mDisplay, 90, &lease));
++    Selector::DisplayManagerPolicy invalid(DisplayModeId{999}, FpsRange{60_Hz, 60_Hz});
++    EXPECT_EQ(BAD_VALUE, mFlinger.setDisplayPolicy(mDisplay, invalid));
++    EXPECT_TRUE(selector.hasOverridePolicy());
++    EXPECT_EQ(NO_ERROR, mFlinger.releaseMtkRetriggerPolicy(mDisplay, lease));
++    EXPECT_FALSE(selector.hasOverridePolicy());
++    EXPECT_EQ(original, selector.getCurrentPolicy());
++}
++
++TEST_P(DisplayModeSwitchingTest, MtkRetriggerReplacementDisplayCannotUseOldLease) {
++    auto& selector = mDisplay->refreshRateSelector();
++    selector.setActiveMode(kModeId120, 60_Hz);
++    uint64_t lease = 0;
++    ASSERT_EQ(NO_ERROR, mFlinger.updateMtkRetriggerPolicy(mDisplay, 90, &lease));
++    auto replacement = PrimaryDisplayVariant::makeFakeExistingDisplayInjector(this).inject();
++    EXPECT_EQ(DEAD_OBJECT, mFlinger.updateMtkRetriggerPolicy(replacement, 120, &lease));
++    EXPECT_EQ(DEAD_OBJECT, mFlinger.releaseMtkRetriggerPolicy(replacement, lease));
++    EXPECT_FALSE(replacement->refreshRateSelector().hasOverridePolicy());
++    EXPECT_TRUE(selector.hasOverridePolicy());
++}
++
++TEST_P(DisplayModeSwitchingTest, MtkRetriggerModeChangeRejectsUpdateAndAllowsOwnedRelease) {
++    auto& selector = mDisplay->refreshRateSelector();
++    selector.setActiveMode(kModeId120, 60_Hz);
++    uint64_t lease = 0;
++    ASSERT_EQ(NO_ERROR, mFlinger.updateMtkRetriggerPolicy(mDisplay, 90, &lease));
++    selector.setActiveMode(kModeId90, 90_Hz);
++    EXPECT_EQ(DEAD_OBJECT, mFlinger.updateMtkRetriggerPolicy(mDisplay, 120, &lease));
++    EXPECT_EQ(NO_ERROR, mFlinger.releaseMtkRetriggerPolicy(mDisplay, lease));
++    EXPECT_FALSE(selector.hasOverridePolicy());
++    EXPECT_EQ(DEAD_OBJECT, mFlinger.releaseMtkRetriggerPolicy(mDisplay, lease));
++}
++
++TEST_P(DisplayModeSwitchingTest, MtkRetriggerNoopReservationDoesNotOwnOverride) {
++    using Selector = scheduler::RefreshRateSelector;
++    auto& selector = mDisplay->refreshRateSelector();
++    uint64_t lease = 0;
++    ASSERT_EQ(NO_ERROR, mFlinger.updateMtkRetriggerPolicy(mDisplay, 0, &lease));
++    EXPECT_EQ(0u, lease);
++    ASSERT_EQ(NO_ERROR, mFlinger.updateMtkRetriggerPolicy(mDisplay, 120, &lease));
++    ASSERT_NE(0u, lease);
++    EXPECT_FALSE(selector.hasOverridePolicy());
++    Selector::DisplayManagerPolicy dm;
++    static_cast<Selector::Policy&>(dm) = selector.getDisplayManagerPolicy();
++    ASSERT_EQ(NO_ERROR, mFlinger.setDisplayPolicy(mDisplay, dm));
++    EXPECT_EQ(DEAD_OBJECT, mFlinger.releaseMtkRetriggerPolicy(mDisplay, lease));
++    EXPECT_FALSE(selector.hasOverridePolicy());
++}
++
+ INSTANTIATE_TEST_SUITE_P(WithModesetFSM, DisplayModeSwitchingTest, testing::Bool());
+ 
+ } // namespace
+diff --git a/services/surfaceflinger/tests/unittests/TestableSurfaceFlinger.h b/services/surfaceflinger/tests/unittests/TestableSurfaceFlinger.h
+index d842716..1d5b0b0 100644
+--- a/services/surfaceflinger/tests/unittests/TestableSurfaceFlinger.h
++++ b/services/surfaceflinger/tests/unittests/TestableSurfaceFlinger.h
+@@ -387,7 +387,7 @@ public:
+                                const std::string& uniqueId,
+                                compositionengine::DisplayCreationArgsBuilder& builder) {
+         ftl::FakeGuard guard(mFlinger->mStateLock);
+-        return mFlinger->acquireVirtualDisplay(resolution, format, uniqueId, builder);
++        return mFlinger->acquireVirtualDisplay(resolution, format, uniqueId, builder, true);
+     }
+ 
+     auto destroyVirtualDisplay(const sp<IBinder>& displayToken) {
+@@ -528,6 +528,27 @@ public:
+         return SurfaceFlinger::calculateMaxAcquiredBufferCount(refreshRate, presentLatency);
+     }
+ 
++    auto updateMtkRetriggerPolicy(const sp<DisplayDevice>& display, uint32_t fps, uint64_t* lease) {
++        return FTL_FAKE_GUARD(kMainThreadContext,
++                              mFlinger->updateMtkRetriggerPolicy(display, fps, lease));
++    }
++
++    auto releaseMtkRetriggerPolicy(const sp<DisplayDevice>& display, uint64_t lease) {
++        return FTL_FAKE_GUARD(kMainThreadContext,
++                              mFlinger->releaseMtkRetriggerPolicy(display, lease));
++    }
++
++    auto setDisplayPolicy(const sp<DisplayDevice>& display,
++                          const scheduler::RefreshRateSelector::PolicyVariant& policy) {
++        return FTL_FAKE_GUARD(kMainThreadContext,
++                              mFlinger->setDesiredDisplayModeSpecsInternal(display, policy));
++    }
++
++    static auto calculateMtkRetriggerFps(uint32_t requested, Fps ceiling, Fps active,
++                                        uint32_t original) {
++        return SurfaceFlinger::calculateMtkRetriggerFps(requested, ceiling, active, original);
++    }
++
+     auto setDesiredDisplayModeSpecs(const gui::DisplayModeSpecs& specs) {
+         sp<IBinder> applyToken = sp<BBinder>::make();
+         return mFlinger->setDesiredDisplayModeSpecs(applyToken, {specs});
+diff --git a/services/surfaceflinger/tests/unittests/VsyncModulatorTest.cpp b/services/surfaceflinger/tests/unittests/VsyncModulatorTest.cpp
+index 4b66d25..576fda5 100644
+--- a/services/surfaceflinger/tests/unittests/VsyncModulatorTest.cpp
++++ b/services/surfaceflinger/tests/unittests/VsyncModulatorTest.cpp
+@@ -87,6 +87,27 @@ protected:
+         EXPECT_EQ(configs, mVsyncModulator->getVsyncConfig());       \
+     }
+ 
++TEST_F(VsyncModulatorTest, MtkCpuEarlyExcludesRefreshOnly) {
++    EXPECT_FALSE(mVsyncModulator->isEarlyTransactionConfig());
++    static_cast<void>(mVsyncModulator->onRefreshRateChangeInitiated());
++    EXPECT_TRUE(mVsyncModulator->isVsyncConfigEarly());
++    EXPECT_FALSE(mVsyncModulator->isEarlyTransactionConfig());
++}
++TEST_F(VsyncModulatorTest, MtkCpuEarlyExcludesGpuOnly) {
++    static_cast<void>(mVsyncModulator->onDisplayRefresh(true));
++    EXPECT_TRUE(mVsyncModulator->isVsyncConfigEarly());
++    EXPECT_FALSE(mVsyncModulator->isEarlyTransactionConfig());
++}
++TEST_F(VsyncModulatorTest, MtkCpuEarlyIncludesExplicitTransactionEnd) {
++    static_cast<void>(mVsyncModulator->setTransactionSchedule(Schedule::EarlyEnd));
++    EXPECT_TRUE(mVsyncModulator->isEarlyTransactionConfig());
++}
++TEST_F(VsyncModulatorTest, MtkCpuEarlyIncludesOwnedWakeupRequest) {
++    static_cast<void>(mVsyncModulator->setTransactionSchedule(
++            Schedule::EarlyStart, {createTestEarlyWakeupInfo()}));
++    EXPECT_TRUE(mVsyncModulator->isEarlyTransactionConfig());
++}
++
+ TEST_F(VsyncModulatorTest, Late) {
+     EXPECT_FALSE(mVsyncModulator->setTransactionSchedule(Schedule::Late));
+ 

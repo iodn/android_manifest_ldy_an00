@@ -1,0 +1,61 @@
+diff --git a/services/camera/libcameraservice/aidl/AidlCameraService.cpp b/services/camera/libcameraservice/aidl/AidlCameraService.cpp
+index 8e5bbde..a9afc9c 100644
+--- a/services/camera/libcameraservice/aidl/AidlCameraService.cpp
++++ b/services/camera/libcameraservice/aidl/AidlCameraService.cpp
+@@ -17,6 +17,7 @@
+ #define LOG_TAG "AidlCameraService"
+ 
+ #include "AidlCameraService.h"
++#include "HonorFaceCameraId.h"
+ #include <aidl/AidlCameraDeviceCallbacks.h>
+ #include <aidl/AidlCameraDeviceUser.h>
+ #include <aidl/AidlCameraServiceListener.h>
+@@ -173,9 +174,15 @@ ndk::ScopedAStatus AidlCameraService::connectDeviceImpl(
+                     kDefaultDeviceId);
+     clientAttribution.packageName = "";
+     clientAttribution.attributionTag = std::nullopt;
++    // Honor's vendor NDK passes cameraId_caller; this is an ID alias, not attribution.
++    const std::string cameraId = resolveHonorFaceCameraId(
++            in_cameraId, AIBinder_getCallingUid(),
++            base::GetProperty("ro.product.product.model", ""),
++            base::GetProperty("ro.product.product.device", ""),
++            base::GetProperty("ro.hardware", ""));
+     binder::Status serviceRet = mCameraService->connectDeviceVendor(
+             callbacks,
+-            in_cameraId,
++            cameraId,
+             /* scoreOffset= */ 0,
+             /* targetSdkVersion= */ __ANDROID_API_FUTURE__,
+             CameraCompatibilityInfo(),
+diff --git a/services/camera/libcameraservice/aidl/HonorFaceCameraId.h b/services/camera/libcameraservice/aidl/HonorFaceCameraId.h
+new file mode 100644
+index 0000000..d0fd95d
+--- /dev/null
++++ b/services/camera/libcameraservice/aidl/HonorFaceCameraId.h
+@@ -0,0 +1,26 @@
++// Copyright (C) 2026 The LineageOS Project
++// SPDX-License-Identifier: Apache-2.0
++#pragma once
++
++#include <private/android_filesystem_config.h>
++#include <string>
++#include <string_view>
++#include <sys/types.h>
++
++namespace android::frameworks::cameraservice::service::implementation {
++
++// The caller suffix never supplies a package name or bypasses CameraService authorization.
++inline std::string resolveHonorFaceCameraId(const std::string& original, uid_t callerUid,
++        std::string_view model, std::string_view device, std::string_view hardware) {
++    constexpr std::string_view suffix = "_vendor.honor.hardware.biometrics.hwfacerecognize";
++    if (callerUid != AID_SYSTEM || model != "LDY-AN00" || device != "ldy_an00"
++            || hardware != "mt6993" || original.size() <= suffix.size()
++            || original.compare(original.size() - suffix.size(), suffix.size(), suffix) != 0) {
++        return original;
++    }
++    const std::string cameraId = original.substr(0, original.size() - suffix.size());
++    return cameraId.find('_') == std::string::npos && cameraId.find(char{0}) == std::string::npos
++            ? cameraId : original;
++}
++
++} // namespace android::frameworks::cameraservice::service::implementation

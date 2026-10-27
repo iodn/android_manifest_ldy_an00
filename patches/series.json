@@ -1,0 +1,105 @@
+{
+  "release": "LDYAN00-NATIVE-RC3",
+  "projects": [
+    {
+      "path": "frameworks/av",
+      "revision": "8ce856906299e0cf1ea14a7edcd45547be7d4c04",
+      "tree": "6892f2ed8deb149d1ad19e43db30b35effd615a1",
+      "base_revision": "937eb9047ec2f88620f1f6a4d9e407f6c869d91a",
+      "patch": "frameworks_av.patch",
+      "patch_sha256": "2d06b2f1382554982bd17fc2499a0ac27087117de5fac405d5a30a325770eafe",
+      "patch_tree_verified": true,
+      "remote_url": "https://github.com/LineageOS/android_frameworks_av"
+    },
+    {
+      "path": "frameworks/base",
+      "revision": "beb490aaa33cff4dd249ec29c2883d883ef60d2e",
+      "tree": "3005c1229637200153b0b8b68a757a53adcef993",
+      "base_revision": "d89e00a103772f803f760979aabf8145e7731e1b",
+      "patch": "frameworks_base.patch",
+      "patch_sha256": "3b52c929fedcb87bffa65360fcd54b009a5a61c357eacdddaddc4105858256de",
+      "patch_tree_verified": true,
+      "remote_url": "https://github.com/LineageOS/android_frameworks_base"
+    },
+    {
+      "path": "frameworks/native",
+      "revision": "fa30b1c04f7a434bcb44f7756ad0041c2be25110",
+      "tree": "1e9435998a7d6dcd50dbc97113dfd01c7607ca7a",
+      "base_revision": "46018f54b42489de960c62c3db9de131abce43ea",
+      "patch": "frameworks_native.patch",
+      "patch_sha256": "313c3219fc0c2f415e519121c55530142e8aa34fab1669f46adf27cd810c3398",
+      "patch_tree_verified": true,
+      "remote_url": "https://github.com/LineageOS/android_frameworks_native"
+    },
+    {
+      "path": "frameworks/opt/telephony",
+      "revision": "b9cf08ef89f39f6bb6a93fdc7b17144f035bcf2a",
+      "tree": "03a980ee214a52a33e94350dafaa2742e106616a",
+      "base_revision": "bcbc6a3347cf9ac639ef633c2ad4a9cebd160df1",
+      "patch": "frameworks_opt_telephony.patch",
+      "patch_sha256": "c84b55f0c9c51bc886833d321e412411eea92fcc748d4420dd70f4f6e2ec614b",
+      "patch_tree_verified": true,
+      "remote_url": "https://github.com/LineageOS/android_frameworks_opt_telephony"
+    },
+    {
+      "path": "hardware/interfaces",
+      "revision": "1e4ed5c8d9bc96934ab915f2ec1f112846a48f67",
+      "tree": "f17f373513a195a5c4f410030cb1da0db47c8bdf",
+      "base_revision": "13fc23dae0dcd24fc2411d74f54a407999eaf555",
+      "patch": "hardware_interfaces.patch",
+      "patch_sha256": "b81bb0177ae84c4a17541082bd74e542c62dd0f15b61e2c1a969ae07228a87fb",
+      "patch_tree_verified": true,
+      "remote_url": "https://github.com/LineageOS/android_hardware_interfaces"
+    },
+    {
+      "path": "packages/apps/DeviceDiagnostics",
+      "revision": "df85b579cd33f5117cd1adcebbfa39e17e8b4a23",
+      "tree": "4a65fd0397762b17b409115914ccef8b30be880b",
+      "base_revision": "08a7fc7b7d5366b8fabf5e6a11d769d7f5c3ae4c",
+      "patch": "packages_apps_DeviceDiagnostics.patch",
+      "patch_sha256": "e9c72e887be1acb59dc85520584dfb3458f60803197a1a20275816647ef555e2",
+      "patch_tree_verified": true,
+      "remote_url": "https://android.googlesource.com/platform/packages/apps/DeviceDiagnostics"
+    },
+    {
+      "path": "packages/apps/OpenEUICC",
+      "revision": "67da2311fe45e9f0f3591430549cffc64e5c358c",
+      "tree": "c6a5e6b5cea696455aa3aedcad74ddc16ab041a9",
+      "base_revision": "89d677e07d0ebbd2d157ede2cb31f76aec737e3a",
+      "patch": "packages_apps_OpenEUICC.patch",
+      "patch_sha256": "d718559feaf1b914a5289637e6948735b5101ab62ced7badaae07b0dd0a93435",
+      "patch_tree_verified": true,
+      "remote_url": "https://github.com/estkme-group/openeuicc.git"
+    },
+    {
+      "path": "packages/apps/Settings",
+      "revision": "8397134ae4ee640f1a26eb9f12d9eddb91650b89",
+      "tree": "5f22ecf62a013dbae9b9d336782b93681ddf3489",
+      "base_revision": "0b97deb37dcba757a3130899273fb4c298702f00",
+      "patch": "packages_apps_Settings.patch",
+      "patch_sha256": "7db5b539d827a6d799744fc86490244d66a7e9e8805d1eab376b2fc6a751e275",
+      "patch_tree_verified": true,
+      "remote_url": "https://github.com/LineageOS/android_packages_apps_Settings"
+    },
+    {
+      "path": "packages/services/Telephony",
+      "revision": "870b24e910a1f4dc3838483183482824a6c0840d",
+      "tree": "1e5d1444bb0b97b84024c566478bc3965d85c985",
+      "base_revision": "2d0e6fb0059b8c1cab748f6f04453c9955a14fe3",
+      "patch": "packages_services_Telephony.patch",
+      "patch_sha256": "7ecfa3f5d65bcfc7206fbe15e3a5634acc924a62911bd92dacba25f40b23f1b2",
+      "patch_tree_verified": true,
+      "remote_url": "https://github.com/LineageOS/android_packages_services_Telephony"
+    },
+    {
+      "path": "system/fs/fs_mgr",
+      "revision": "05c03af18bcb0c4fcb7ad96a6a0f179852d9fd3e",
+      "tree": "4b50d41314c8db0e68a2e9df33d6e45dfc962936",
+      "base_revision": "f58ab8cf7115da90ba4db660cfdbf027de8fc872",
+      "patch": "system_fs_fs_mgr.patch",
+      "patch_sha256": "a6bed8f972fb63f9ef70e031062e95897a52e2049f3c0498f3784da05eeed927",
+      "patch_tree_verified": true,
+      "remote_url": "https://github.com/LineageOS/android_system_fs_fs_mgr"
+    }
+  ]
+}
