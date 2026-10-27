@@ -1,0 +1,97 @@
+{
+  "format_version": 1,
+  "release": "RC3",
+  "build_id": "LDYAN00-NATIVE-RC3",
+  "release_tag": "ldy_an00-24.0-rc3",
+  "lineage_version": "24.0",
+  "android_version": 17,
+  "sdk": 37,
+  "release_type": "UNOFFICIAL",
+  "build_timestamp": 1793098709,
+  "device": "ldy_an00",
+  "model": "LDY-AN00",
+  "stock_device": "HNLDY-M",
+  "required_firmware": "10.0.0.113(C00E100R101P1)",
+  "required_geometry": {
+    "super_bytes": 17574133760,
+    "userdata_bytes": 489917775872,
+    "metadata_bytes": 67108864,
+    "logical_sector_bytes": 4096
+  },
+  "system_security_patch": "2026-10-01",
+  "vendor_security_patch": "2025-12-01",
+  "retained_kernel": "6.12.38-android16-5-g4b3671e1f5b7-abogki460618149-4k",
+  "ota_partitions": [
+    "system",
+    "vbmeta_system"
+  ],
+  "status": {
+    "native_ota": "HARDWARE_TESTED_BOOT_ACTIVATION_MERGE",
+    "first_install_packet": "HOST_VERIFIED_HARDWARE_QUALIFICATION_PENDING",
+    "public_source_layout": "CLEAN_BUILD_QUALIFICATION_PENDING",
+    "public_update_feed": "NOT_PUBLISHED"
+  },
+  "public_ota_certificate_der_sha256": "46fc26697072341a414473390b5a313b1385d09d058562985d8d1acbc8a3d06c",
+  "assets": [
+    {
+      "file": "RC3-first-install-files.zip",
+      "bytes": 1021535527,
+      "sha256": "245204c163e798e274bd5c9c08ce00ea26ab79d0d76041f493ceef4692e5b0ce",
+      "purpose": "Complete host-prepared first-install byte packet"
+    },
+    {
+      "file": "fastboot-linux-x86_64.zip",
+      "bytes": 5418292,
+      "sha256": "23fb1fc667dcc17bdb2f684433a3ebe395fa92578ad3c9855b58a8acc19d69ee",
+      "purpose": "Qualified Linux x86_64 fastboot binary with license notices"
+    },
+    {
+      "file": "lineage-24.0-20261027-UNOFFICIAL-ldy_an00.zip",
+      "bytes": 787823285,
+      "sha256": "302d2f5183ed4200f910d9468686acb036931095af94eafac0ed4de388e18cd0",
+      "purpose": "Signed two-partition Virtual A/B OTA"
+    },
+    {
+      "file": "metadata.original.sparse",
+      "bytes": 90352,
+      "sha256": "2f8f105f8b830bfac31c7e91404f827b95a4d80024110df8f731b3856ad989f0",
+      "purpose": "Empty first-install metadata fixture"
+    },
+    {
+      "file": "ota.x509.pem",
+      "bytes": 1253,
+      "sha256": "69f6ba684418bd2535341888e8543d0a5aba3c68396751f5c93b9cf2fa210ee2",
+      "purpose": "Public OTA certificate"
+    },
+    {
+      "file": "stock113-system-tail.bin",
+      "bytes": 4096,
+      "sha256": "7083963accb4b408f2665a6c0f446bbe45b0dc2acd08137f32126d8559bfe758",
+      "purpose": "Stock software tail block; host builder input"
+    },
+    {
+      "file": "system.img",
+      "bytes": 1991360512,
+      "sha256": "32a0183ea9b7381da70585e0d7596183b1d80e39b0be18dc27233114cd465c84",
+      "purpose": "Signed raw system image; maintainer input"
+    },
+    {
+      "file": "userdata.original.sparse",
+      "bytes": 91784,
+      "sha256": "c56829494610a5b534a815fb01323a772af4a08bd3f86f66268530e680de217d",
+      "purpose": "Empty first-install userdata fixture; exact 512 GB geometry only"
+    },
+    {
+      "file": "vbmeta-owner.flags0.img",
+      "bytes": 1048576,
+      "sha256": "f880dc6de759168d537cb596c18ae3ec001a231d97712bbc4a94ec52debbc9d0",
+      "purpose": "Full parent metadata for the qualified initial install"
+    },
+    {
+      "file": "vbmeta_system.img",
+      "bytes": 4096,
+      "sha256": "5091739fedb2111f1e7308ba5bfa570e7c5ef841191bc1e1c200535640774f58",
+      "purpose": "Signed child vbmeta; maintainer input"
+    }
+  ]
+}

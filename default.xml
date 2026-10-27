@@ -1276,11 +1276,11 @@
   <project name="trusty/vendor/google/aosp" remote="aosp" revision="93e3ca36bc59e5d357b226e4e5254f8e478213f2" upstream="refs/tags/android-17.0.0_r1" dest-branch="refs/tags/android-17.0.0_r1" groups="pdk,trusty">
     <copyfile src="lk_inc.mk" dest="lk_inc.mk" />
   </project>
-  <project path="device/honor/ldy_an00" name="android_device_honor_ldy_an00" remote="iodn" revision="17cf54bfc74e3765b9c196c9c4f5851c456eb313" upstream="lineage-24.0" />
+  <project path="device/honor/ldy_an00" name="android_device_honor_ldy_an00" remote="iodn" revision="cc9b11840408ad47a424663d5ddfbeda219cce0f" upstream="lineage-24.0" />
   <project path="packages/apps/OpenEUICC" name="openeuicc" remote="upstream_4" revision="89d677e07d0ebbd2d157ede2cb31f76aec737e3a" sync-s="false" />
   <project path="packages/apps/OpenEUICC/libs/lpac-jni/src/main/jni/cjson/cjson" name="cJSON" remote="upstream_5" revision="6d9f2443ab071f86e5d9b43025a40929ec41c46c" />
   <project path="packages/apps/OpenEUICC/libs/lpac-jni/src/main/jni/lpac" name="lpac" remote="upstream_6" revision="50cdf15ab40942b00f8819a1c2ca19997f1a6d34" />
   <project path="prebuilts/openeuicc-deps" name="android_prebuilts_openeuicc-deps" remote="upstream_7" revision="540216793010cabc49782bd01844cd8dd28a4c7c" />
   <project path="vendor/honor/ldy_an00" name="android_vendor_honor_ldy_an00" remote="iodn" revision="4bc7f8f23046b2c5b0edc8adcd294e0d59edd3b1" upstream="lineage-24.0" />
-  <contactinfo bugurl="https://github.com/iodn/lineageos_releases_ldy_an00/issues" />
+  <contactinfo bugurl="https://github.com/iodn/android_manifest_ldy_an00/issues" />
 </manifest>

@@ -1,0 +1,18 @@
+[
+  {
+    "datetime": 1793098709,
+    "files": [
+      {
+        "filename": "lineage-24.0-20261027-UNOFFICIAL-ldy_an00.zip",
+        "os_patch_level": "2026-10-01",
+        "os_sdk_level": 37,
+        "ota_property_files": "payload_metadata.bin:3194:54516,payload.bin:3194:787816978,payload_properties.txt:787820230:154,apex_info.pb:1604:1357,care_map.pb:3008:139,metadata:69:703,metadata.pb:840:716                       ",
+        "sha256": "302d2f5183ed4200f910d9468686acb036931095af94eafac0ed4de388e18cd0",
+        "size": 787823285,
+        "url": "https://github.com/iodn/android_manifest_ldy_an00/releases/download/ldy_an00-24.0-rc3/lineage-24.0-20261027-UNOFFICIAL-ldy_an00.zip"
+      }
+    ],
+    "type": "UNOFFICIAL",
+    "version": "24.0"
+  }
+]

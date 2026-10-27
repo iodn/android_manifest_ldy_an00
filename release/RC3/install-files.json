@@ -1,0 +1,253 @@
+{
+  "status": "HOST_PREPARED_FRESH_STOCK_RC3_TRIAL_PENDING",
+  "supported_model": "LDY-AN00",
+  "stock_version": "10.0.0.113(C00E100R101P1)",
+  "userdata_bytes": 489917775872,
+  "metadata_bytes": 67108864,
+  "logical_sector_bytes": 4096,
+  "super_bytes": 17574133760,
+  "system_a_start": 1048576,
+  "system_a_bytes": 4345298944,
+  "required_stock_super_sha256": "0e169c2af2efa2aa24e26218ab7c2514ec4620140feb70b8e2e5db7b11cb668f",
+  "expected_post_install_super_sha256": "f60bbab98932c49cab21cd9fed159653ec041e1242bc2197f6b34f69e4026be4",
+  "untouched_ranges_preserved": true,
+  "writes_lp_metadata": false,
+  "system_sha256": "32a0183ea9b7381da70585e0d7596183b1d80e39b0be18dc27233114cd465c84",
+  "child_full_sha256": "0e2f5a79d1dcbbfbf280808a625becac58d409b7a90969f69c5f8d61e024028b",
+  "footer_block_sha256": "b95263bc4125550f34618b2e6c39f238f0c3f0644df7e5c90619e9ef716560da",
+  "pieces": [
+    {
+      "file": "system-000.sparse",
+      "bytes": 62914624,
+      "sha256": "c1a854d325846302e1a7278ec56fa28605a4e47fab810dc809fb1e34e573e70d",
+      "write_start": 1048576,
+      "write_bytes": 62914560
+    },
+    {
+      "file": "system-001.sparse",
+      "bytes": 62914624,
+      "sha256": "2ccc92b0d1863c674975dc7b7e4d670ac5457eccefa10bfc50be8d7130d00b75",
+      "write_start": 63963136,
+      "write_bytes": 62914560
+    },
+    {
+      "file": "system-002.sparse",
+      "bytes": 62914624,
+      "sha256": "fc1c350d5511bd16e53bf69e9d73117d1e2c5c1bbde716ea7dec2f5a817238d8",
+      "write_start": 126877696,
+      "write_bytes": 62914560
+    },
+    {
+      "file": "system-003.sparse",
+      "bytes": 62914624,
+      "sha256": "161e3bf1681c148127697c5c3684f1faf6805b0517041c9a446cccdb478526fa",
+      "write_start": 189792256,
+      "write_bytes": 62914560
+    },
+    {
+      "file": "system-004.sparse",
+      "bytes": 62914624,
+      "sha256": "bf857d1bdc0656f959f795cb1509fa720184825aa7074397d02571780d7e5aaf",
+      "write_start": 252706816,
+      "write_bytes": 62914560
+    },
+    {
+      "file": "system-005.sparse",
+      "bytes": 62914624,
+      "sha256": "f2361fb7bb1b76fccf4ea5b4cb61e825b862058eadfb1654d0276cf90ffe69d9",
+      "write_start": 315621376,
+      "write_bytes": 62914560
+    },
+    {
+      "file": "system-006.sparse",
+      "bytes": 62914624,
+      "sha256": "0cc0aa849cbff2e5e5718828dc51232eac6c82a62f7757dcb816fe61ec2b94b6",
+      "write_start": 378535936,
+      "write_bytes": 62914560
+    },
+    {
+      "file": "system-007.sparse",
+      "bytes": 62914624,
+      "sha256": "f49ea2b32d30431a786440cd34aad2f100aee429a7f6c93e483eb1ffe2b3c7a4",
+      "write_start": 441450496,
+      "write_bytes": 62914560
+    },
+    {
+      "file": "system-008.sparse",
+      "bytes": 62914624,
+      "sha256": "4fbd04b914e7146b5fe384a767b672c7f394bd1e971e394594025dbd7e45f2d4",
+      "write_start": 504365056,
+      "write_bytes": 62914560
+    },
+    {
+      "file": "system-009.sparse",
+      "bytes": 62914624,
+      "sha256": "4fd3f20664cefcec9a4fe88d3a3ea36447e1d61005a4d3358df2d03ef288e1bc",
+      "write_start": 567279616,
+      "write_bytes": 62914560
+    },
+    {
+      "file": "system-010.sparse",
+      "bytes": 62914624,
+      "sha256": "320548311efe5233af3d30c73b3dcff0f8ada0e080c3c4ad812405d6a9155e85",
+      "write_start": 630194176,
+      "write_bytes": 62914560
+    },
+    {
+      "file": "system-011.sparse",
+      "bytes": 62914624,
+      "sha256": "fab6a37b457743e2b19cfc309ae0a5e407b368a862b2059d40f6a631822143be",
+      "write_start": 693108736,
+      "write_bytes": 62914560
+    },
+    {
+      "file": "system-012.sparse",
+      "bytes": 62914624,
+      "sha256": "a831e23eba84a037d022130369a120673948c156ac4ba9ada3d7a2a7351f78c6",
+      "write_start": 756023296,
+      "write_bytes": 62914560
+    },
+    {
+      "file": "system-013.sparse",
+      "bytes": 62914624,
+      "sha256": "159db729d5e107c04481ef07f969e83321167827dbfc6d2ab1d79b60cf0415b6",
+      "write_start": 818937856,
+      "write_bytes": 62914560
+    },
+    {
+      "file": "system-014.sparse",
+      "bytes": 62914624,
+      "sha256": "ce444637b709f88ebcc4b041b8afacb3c43f99932ab93d751f2d33d590d5e84c",
+      "write_start": 881852416,
+      "write_bytes": 62914560
+    },
+    {
+      "file": "system-015.sparse",
+      "bytes": 62914624,
+      "sha256": "436e84d1136ace876743b13adc09a5f233531c7d2a6275d237dfb92edc6f73ec",
+      "write_start": 944766976,
+      "write_bytes": 62914560
+    },
+    {
+      "file": "system-016.sparse",
+      "bytes": 62914624,
+      "sha256": "94bb94556d412cf01cb3219750b861d748aa115acaf38b108c86f5ba6bc6e310",
+      "write_start": 1007681536,
+      "write_bytes": 62914560
+    },
+    {
+      "file": "system-017.sparse",
+      "bytes": 62914624,
+      "sha256": "57a1416191e0ee04c1f81d81383669c36db4cfa3da609d322ea323795c3339d5",
+      "write_start": 1070596096,
+      "write_bytes": 62914560
+    },
+    {
+      "file": "system-018.sparse",
+      "bytes": 62914624,
+      "sha256": "949f674516f3cd5403ebab72968fe8bfe0dee6c7f8a6f1e6f590a5c1d5d6d2aa",
+      "write_start": 1133510656,
+      "write_bytes": 62914560
+    },
+    {
+      "file": "system-019.sparse",
+      "bytes": 62914624,
+      "sha256": "efc7f91f8e0c1c61d33744a33fcfd38f4536b8f589672e52374613ec986bb330",
+      "write_start": 1196425216,
+      "write_bytes": 62914560
+    },
+    {
+      "file": "system-020.sparse",
+      "bytes": 62914624,
+      "sha256": "dd8e3b7ec646eeef24fc15a128e080b2d1c3f6fd4270acbc5010f1030f7adba9",
+      "write_start": 1259339776,
+      "write_bytes": 62914560
+    },
+    {
+      "file": "system-021.sparse",
+      "bytes": 62914624,
+      "sha256": "7d89c5613a56b683862eb72c9f7620f787eea3907621aae3c83a437b59da929f",
+      "write_start": 1322254336,
+      "write_bytes": 62914560
+    },
+    {
+      "file": "system-022.sparse",
+      "bytes": 62914624,
+      "sha256": "a9222be105d1239f46ca0e2050d20195fce914c1c18d4730b0a647b7e0a6789c",
+      "write_start": 1385168896,
+      "write_bytes": 62914560
+    },
+    {
+      "file": "system-023.sparse",
+      "bytes": 62914624,
+      "sha256": "75ab31a1bd37903d5cfd5c592209c3abc4d9b9b900fbb35ff1a380b79d7590c7",
+      "write_start": 1448083456,
+      "write_bytes": 62914560
+    },
+    {
+      "file": "system-024.sparse",
+      "bytes": 62914624,
+      "sha256": "5a05bb6e3c4efb9e7d7fddefeb0a3d007ed2a7d8acfa0353b8e7f64fc1616157",
+      "write_start": 1510998016,
+      "write_bytes": 62914560
+    },
+    {
+      "file": "system-025.sparse",
+      "bytes": 62914624,
+      "sha256": "665fbd819efec6b0abdb15e6bf7abdae17f67100b064e51e2b76abd87a801f54",
+      "write_start": 1573912576,
+      "write_bytes": 62914560
+    },
+    {
+      "file": "system-026.sparse",
+      "bytes": 62914624,
+      "sha256": "88bf1d9f32f666e63f76f401f53460eb763980aeab1f23718df6eccabf72bdca",
+      "write_start": 1636827136,
+      "write_bytes": 62914560
+    },
+    {
+      "file": "system-027.sparse",
+      "bytes": 62914624,
+      "sha256": "f12e1948aa818dd48e3c2114965d35a5062d196b272a80e53561359b45c31695",
+      "write_start": 1699741696,
+      "write_bytes": 62914560
+    },
+    {
+      "file": "system-028.sparse",
+      "bytes": 62914624,
+      "sha256": "3377d9addd526b7747f675556ec8b813fc4b10cbd6a9915f5b42acdcdba88b6b",
+      "write_start": 1762656256,
+      "write_bytes": 62914560
+    },
+    {
+      "file": "system-029.sparse",
+      "bytes": 62914624,
+      "sha256": "b54773fb4cce567f595366425d84fad7a26a7ed74b2d3f23a76211486c33b0f8",
+      "write_start": 1825570816,
+      "write_bytes": 62914560
+    },
+    {
+      "file": "system-030.sparse",
+      "bytes": 62914624,
+      "sha256": "c326ad150683c55a43d2fc2258a6f156cbf89d9909947de90ddfa5f454b24fa8",
+      "write_start": 1888485376,
+      "write_bytes": 62914560
+    },
+    {
+      "file": "system-031.sparse",
+      "bytes": 41009216,
+      "sha256": "bf21634b8aa36cceb03ecf6f9b66d4e5b5f2679ad0f967e65338aa87f65024a3",
+      "write_start": 1951399936,
+      "write_bytes": 41009152
+    },
+    {
+      "file": "system-footer.sparse",
+      "bytes": 4160,
+      "sha256": "187a0f4db3a66fc8d96c3f82457a346e3962fb4f028d6707b9bec01c0a18653d",
+      "write_start": 4346343424,
+      "write_bytes": 4096
+    }
+  ],
+  "reboot_performed": false,
+  "phone_access": false
+}

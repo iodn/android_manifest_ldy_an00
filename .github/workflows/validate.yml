@@ -1,0 +1,11 @@
+name: Validate release tooling
+on: [push, pull_request, workflow_dispatch]
+permissions:
+  contents: read
+jobs:
+  host-checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 -m unittest discover -s tools -p 'test_*.py' -v
+      - run: python3 -m json.tool release/RC3/release.json > /dev/null

@@ -9,3 +9,13 @@ __pycache__/
 *.pfx
 *.jks
 *.keystore
+release/**
+!release/*/
+!release/*/SHA256SUMS
+!release/*/release.json
+!release/*/ota-entry.json
+!release/*/install-files.json
+backups/
+reports/
+*.partial
+!release/*/ota.x509.pem

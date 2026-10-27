@@ -1,0 +1,78 @@
+{
+  "boot_a": {
+    "bytes": 67108864,
+    "sha256": "06e2c95bbce04724c7ca3b4e5b7953a2ed3169ddceb8346de9078b2c31312702"
+  },
+  "boot_b": {
+    "bytes": 67108864,
+    "sha256": "06e2c95bbce04724c7ca3b4e5b7953a2ed3169ddceb8346de9078b2c31312702"
+  },
+  "init_boot_a": {
+    "bytes": 8388608,
+    "sha256": "448204021b7aae3b3fb2ad8fbb8bee3e1f91854859f7671f74fcb3861782c91e"
+  },
+  "init_boot_b": {
+    "bytes": 8388608,
+    "sha256": "448204021b7aae3b3fb2ad8fbb8bee3e1f91854859f7671f74fcb3861782c91e"
+  },
+  "vendor_boot_a": {
+    "bytes": 100663296,
+    "sha256": "b583f59c0161cc178adde6fe3af66efb2e74406406f0255aaf4154a8485099c2"
+  },
+  "vendor_boot_b": {
+    "bytes": 100663296,
+    "sha256": "b583f59c0161cc178adde6fe3af66efb2e74406406f0255aaf4154a8485099c2"
+  },
+  "dtbo_a": {
+    "bytes": 25165824,
+    "sha256": "89fdd0ec577183c391a8b8bbfb7ff8a61717cf865abb7f0aa49296ffe15e6bbd"
+  },
+  "dtbo_b": {
+    "bytes": 25165824,
+    "sha256": "89fdd0ec577183c391a8b8bbfb7ff8a61717cf865abb7f0aa49296ffe15e6bbd"
+  },
+  "recovery_ramdisk_a": {
+    "bytes": 67108864,
+    "sha256": "55d89e26f472463580ae370d4f99dc5d8951e97b81c92d9e4b67b58681b1d47a"
+  },
+  "recovery_ramdisk_b": {
+    "bytes": 67108864,
+    "sha256": "55d89e26f472463580ae370d4f99dc5d8951e97b81c92d9e4b67b58681b1d47a"
+  },
+  "recovery_vbmeta_a": {
+    "bytes": 1048576,
+    "sha256": "a3f7a1e2ce86bca8ef18f4d6a2d1625151bdcf91ce1e1300821d4511ed53ff15"
+  },
+  "recovery_vbmeta_b": {
+    "bytes": 1048576,
+    "sha256": "a3f7a1e2ce86bca8ef18f4d6a2d1625151bdcf91ce1e1300821d4511ed53ff15"
+  },
+  "vbmeta_a": {
+    "bytes": 1048576,
+    "sha256": "3fad1a01e9ff4bdf1ad356b51f8c1a780a05a668b3e38449782fa768275ba221"
+  },
+  "vbmeta_b": {
+    "bytes": 1048576,
+    "sha256": "3fad1a01e9ff4bdf1ad356b51f8c1a780a05a668b3e38449782fa768275ba221"
+  },
+  "lk_a": {
+    "bytes": 16777216,
+    "sha256": "a6a1ab4b6c55053887a0a18a52723bb48514a42bc45a507087ded09917385d81"
+  },
+  "lk_b": {
+    "bytes": 16777216,
+    "sha256": "a6a1ab4b6c55053887a0a18a52723bb48514a42bc45a507087ded09917385d81"
+  },
+  "super": {
+    "bytes": 17574133760,
+    "sha256": "0e169c2af2efa2aa24e26218ab7c2514ec4620140feb70b8e2e5db7b11cb668f"
+  },
+  "vbmeta_system_a": {
+    "bytes": 1048576,
+    "sha256": "415af0ce769ed0e3df5b12bdf1f730495bd105efc366c2c024e3728f70fdb261"
+  },
+  "vbmeta_system_b": {
+    "bytes": 1048576,
+    "sha256": "415af0ce769ed0e3df5b12bdf1f730495bd105efc366c2c024e3728f70fdb261"
+  }
+}
