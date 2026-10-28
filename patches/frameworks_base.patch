@@ -7724,3 +7724,83 @@ index 8c2471ccb..24a053f12 100644
      /**
       * The current capability status that this MmTelFeature has defined is available. This
       * configuration will be used by the platform to figure out which capabilities are CURRENTLY
+diff --git a/services/core/java/com/android/server/display/brightness/clamper/BrightnessPluginModifier.java b/services/core/java/com/android/server/display/brightness/clamper/BrightnessPluginModifier.java
+index 32ab3427e..c6b678c06 100644
+--- a/services/core/java/com/android/server/display/brightness/clamper/BrightnessPluginModifier.java
++++ b/services/core/java/com/android/server/display/brightness/clamper/BrightnessPluginModifier.java
+@@ -142,16 +142,19 @@ public class BrightnessPluginModifier implements BrightnessStateModifier,
+ 
+     private void onMaxBrightnessCapOverrideChanged(@Nullable MaxBrightnessCapOverride
+             maxBrightnessCapOverride) {
+-        if (maxBrightnessCapOverride != null) {
+-            float newMaxBrightnessCap = maxBrightnessCapOverride.maxBrightnessCap();
+-            @BrightnessReason.Modifier
+-            int reasonModifier = maxBrightnessCapOverride.reasonModifier();
+-            if (mMaxBrightnessCap != newMaxBrightnessCap || reasonModifier != mReasonModifier) {
+-                mMaxBrightnessCap = newMaxBrightnessCap;
+-                mReasonModifier = reasonModifier;
+-                mTransitionRate = maxBrightnessCapOverride.customTransitionRate();
+-                mClamperChangeListener.onChanged();
+-            }
++        float newMaxBrightnessCap = maxBrightnessCapOverride != null
++                ? maxBrightnessCapOverride.maxBrightnessCap() : PowerManager.BRIGHTNESS_MAX;
++        @BrightnessReason.Modifier
++        int reasonModifier = maxBrightnessCapOverride != null
++                ? maxBrightnessCapOverride.reasonModifier() : BrightnessReason.MODIFIER_NONE;
++        float transitionRate = maxBrightnessCapOverride != null
++                ? maxBrightnessCapOverride.customTransitionRate() : CUSTOM_ANIMATION_RATE_NOT_SET;
++        if (mMaxBrightnessCap != newMaxBrightnessCap || reasonModifier != mReasonModifier
++                || mTransitionRate != transitionRate) {
++            mMaxBrightnessCap = newMaxBrightnessCap;
++            mReasonModifier = reasonModifier;
++            mTransitionRate = transitionRate;
++            mClamperChangeListener.onChanged();
+         }
+     }
+ 
+diff --git a/services/tests/displayservicetests/src/com/android/server/display/brightness/clamper/BrightnessPluginModifierTest.java b/services/tests/displayservicetests/src/com/android/server/display/brightness/clamper/BrightnessPluginModifierTest.java
+index d6f79138b..0d0622d03 100644
+--- a/services/tests/displayservicetests/src/com/android/server/display/brightness/clamper/BrightnessPluginModifierTest.java
++++ b/services/tests/displayservicetests/src/com/android/server/display/brightness/clamper/BrightnessPluginModifierTest.java
+@@ -127,6 +127,41 @@ public class BrightnessPluginModifierTest {
+         assertModifierState(PowerManager.BRIGHTNESS_MAX, CUSTOM_ANIMATION_RATE_NOT_SET, false);
+     }
+ 
++    @Test
++    public void testNullUpdateReleasesCap() {
++        mInjector.notifyPluginChanged(new MaxBrightnessCapOverride(BRIGHTNESS_CAP, 1.0f));
++        mTestHandler.flush();
++        clearInvocations(mMockClamperChangeListener);
++
++        mInjector.notifyPluginChanged(null);
++        mTestHandler.flush();
++
++        verify(mMockClamperChangeListener).onChanged();
++        assertModifierState(PowerManager.BRIGHTNESS_MAX, CUSTOM_ANIMATION_RATE_NOT_SET, false);
++    }
++
++    @Test
++    public void testRepeatedNullUpdateDoesNotNotify() {
++        mInjector.notifyPluginChanged(null);
++        mTestHandler.flush();
++
++        verify(mMockClamperChangeListener, never()).onChanged();
++        assertModifierState(PowerManager.BRIGHTNESS_MAX, CUSTOM_ANIMATION_RATE_NOT_SET, false);
++    }
++
++    @Test
++    public void testTransitionRateOnlyUpdateNotifies() {
++        mInjector.notifyPluginChanged(new MaxBrightnessCapOverride(BRIGHTNESS_CAP, 1.0f));
++        mTestHandler.flush();
++        clearInvocations(mMockClamperChangeListener);
++
++        mInjector.notifyPluginChanged(new MaxBrightnessCapOverride(BRIGHTNESS_CAP, 2.0f));
++        mTestHandler.flush();
++
++        verify(mMockClamperChangeListener).onChanged();
++        assertModifierState(BRIGHTNESS_CAP, 2.0f, true);
++    }
++
+     @Test
+     public void testNoOpUpdateDoesNotNotify() {
+         // Set an initial cap
