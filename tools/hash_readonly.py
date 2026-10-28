@@ -13,7 +13,7 @@ PARTITIONS = {'vbmeta_system_a': 1048576, 'vbmeta_system_b': 1048576, 'super': 1
 START = b'INFOread data begin, please wait......DUMPSTART'
 TRAILER = b'DUMPENDOKAY'
 CHUNK = 65536
-DEADLINE_SECONDS = 1800
+DEADLINE_SECONDS = 7200
 
 
 class WireError(ValueError):
@@ -90,6 +90,9 @@ def read_once(partition, expected, result, serial, backup=None):
         raise RuntimeError('expected exactly one exact-serial USB device')
     dev = devices[0]
     claimed = False
+    started = time.monotonic()
+    read_calls = empty_reads = received = 0
+    min_read, max_read = CHUNK, 0
     try:
         interfaces = [i for i in dev.get_active_configuration()
                       if (i.bInterfaceClass, i.bInterfaceSubClass,
@@ -118,14 +121,23 @@ def read_once(partition, expected, result, serial, backup=None):
             raise RuntimeError('short command transfer; completion unknown')
         deadline = time.monotonic() + DEADLINE_SECONDS
         progress = 0
+        buffer = usb.util.create_buffer(CHUNK)
         while not parser.complete:
             remaining = deadline - time.monotonic()
             if remaining <= 0:
                 raise TimeoutError('total read deadline; completion unknown')
-            data = incoming[0].read(CHUNK, timeout=max(1, min(5000, int(remaining * 1000))))
-            # A USB ZLP ends a transfer, not necessarily the command's data stream.
-            # Empty input is a parser no-op; the same total deadline still applies.
-            parser.feed(data)
+            count = incoming[0].read(buffer, timeout=max(1, min(5000, int(remaining * 1000))))
+            if not 0 <= count <= len(buffer):
+                raise WireError('invalid USB read length')
+            read_calls += 1
+            received += count
+            if count:
+                min_read, max_read = min(min_read, count), max(max_read, count)
+            else:
+                empty_reads += 1
+            # Reuse PyUSB's caller-owned buffer. Short reads must not hash stale
+            # bytes from its previous contents; a ZLP contributes no payload.
+            parser.feed(memoryview(buffer)[:count])
             payload_bytes = min(parser.size, max(0, parser.count - len(START)))
             if payload_bytes // 1073741824 > progress:
                 progress = payload_bytes // 1073741824
@@ -144,6 +156,9 @@ def read_once(partition, expected, result, serial, backup=None):
         result['wire_sha256'] = parser.wire_hash.hexdigest()
         result.update(parser.finish())
     finally:
+        result['transfer_stats'] = {'read_calls': read_calls, 'empty_reads': empty_reads,
+                                    'wire_bytes_received': received, 'min_read_bytes': min_read if read_calls > empty_reads else 0,
+                                    'max_read_bytes': max_read, 'elapsed_seconds': round(time.monotonic() - started, 3)}
         # Never reset, set configuration/alternate, detach, retry or send another command.
         try:
             if claimed:

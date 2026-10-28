@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 """Host-only protocol tests. No USB imports, device discovery or CLI execution."""
 import hashlib
+import array
 import io
 import sys
 import tracemalloc
@@ -144,6 +145,7 @@ class MockTransportTests(unittest.TestCase):
             pass
 
         writes, lifecycle = [], []
+        buffers = set()
 
         class Endpoint:
             bmAttributes = 2
@@ -152,11 +154,17 @@ class MockTransportTests(unittest.TestCase):
                 self.bEndpointAddress = address
 
             def read(self, size, timeout):
-                self_outer.assertEqual(size, CHUNK)
+                capacity = len(size) if isinstance(size, array.array) else size
+                self_outer.assertEqual(capacity, CHUNK)
                 value = packets.pop(0)
                 if value is None:
                     raise FakeTimeout('synthetic quiet input')
-                self_outer.assertLessEqual(len(value), size)
+                self_outer.assertLessEqual(len(value), capacity)
+                if isinstance(size, array.array):
+                    buffers.add(id(size))
+                    self_outer.assertEqual(len(buffers), 1, 'One caller-owned buffer must be reused')
+                    size[:len(value)] = array.array('B', value)
+                    return len(value)
                 return value
 
             def write(self, data, timeout):
@@ -182,6 +190,7 @@ class MockTransportTests(unittest.TestCase):
         core.USBTimeoutError = FakeTimeout
         core.find = lambda **kwargs: [Device()]
         util.ENDPOINT_IN, util.ENDPOINT_OUT = 0x80, 0
+        util.create_buffer = lambda size: array.array('B', b'X') * size
         util.endpoint_type = lambda attributes: attributes & 3
         util.endpoint_direction = lambda address: address & 0x80
         util.claim_interface = lambda device, interface: lifecycle.append('claim')
@@ -204,11 +213,27 @@ class MockTransportTests(unittest.TestCase):
         self.assertEqual(result['sha256'], hashlib.sha256(payload).hexdigest())
         self.assertEqual(result['wire_bytes'], len(wire))
 
+    def test_short_transfers_and_zlps_never_hash_stale_buffer_bytes(self):
+        payload = b'V' * PARTITIONS['vbmeta_system_a']
+        wire = framed(payload)
+        pieces = [wire[:19], b'', wire[19:31]] + [wire[i:i + 4096] for i in range(31, len(wire), 4096)]
+        packets = [None] + pieces + [None]
+        modules, writes, lifecycle = self.transport(packets)
+        result = {}
+        with patch.dict(sys.modules, modules):
+            read_once('vbmeta_system_a', hashlib.sha256(payload).hexdigest(), result, SERIAL)
+        self.assertEqual(result['sha256'], hashlib.sha256(payload).hexdigest())
+        self.assertEqual(result['transfer_stats']['wire_bytes_received'], len(wire))
+        self.assertEqual(result['transfer_stats']['empty_reads'], 1)
+        self.assertEqual(result['transfer_stats']['max_read_bytes'], 4096)
+        self.assertEqual(len(writes), 1)
+        self.assertEqual(lifecycle, ['claim', 'release', 'dispose'])
+
     def test_zlp_does_not_extend_total_deadline_or_resend_command(self):
         modules, writes, lifecycle = self.transport([None, b''])
         result = {'command_may_have_been_sent': False}
         with patch.dict(sys.modules, modules), \
-                patch('hash_readonly.time.monotonic', side_effect=[0, 0, 1801]):
+                patch('hash_readonly.time.monotonic', side_effect=[0, 0, 1, 7201, 7202]):
             with self.assertRaises(TimeoutError):
                 read_once('vbmeta_system_a', '0' * 64, result, SERIAL)
         self.assertEqual(writes, [b'oem dump-storage vbmeta_system_a\0'])

@@ -315,7 +315,7 @@ class Installer:
             if backup and name in MUTABLE:
                 argv += ['--backup', str(reports / (name + '.img'))]
             with (reports / (name + '.log')).open('x') as log:
-                subprocess.run(argv, check=True, timeout=1900, stdout=log, stderr=subprocess.STDOUT)
+                subprocess.run(argv, check=True, timeout=7300, stdout=log, stderr=subprocess.STDOUT)
             result = json.loads(receipt.read_text())
             if not (result['terminal'] and result['returncode'] == 0 and result['bytes'] == row['bytes'] and result['sha256'] == row['sha256']):
                 raise ValueError('Incomplete or wrong partition readback: ' + name)
