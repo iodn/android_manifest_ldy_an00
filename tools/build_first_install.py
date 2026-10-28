@@ -147,15 +147,32 @@ bash flash.sh
 4. Wait for `INSTALL_VERIFIED` and the automatic reboot. Complete Android setup.
 
 The installer checks the package signature, image hashes, device state and full
-stock partitions. It backs up the recovery inputs before writing and verifies
+stock partitions. It saves only the five OS partitions that it changes and verifies
 written OS partitions before formatting user data. It preserves LK, kernel,
 vendor firmware and calibration/security partitions.
+
+## Reuse an existing stock backup
+
+Keep one verified stock recovery set. If it already has a `RECOVERY.json`
+verification receipt, reuse it instead of capturing the same partitions again:
+
+```bash
+bash flash.sh --stock-backup /path/to/stock-backup
+```
+
+This explicitly trusts the earlier backup verification. The installer checks the
+saved receipt and file sizes/timestamps; it does not rehash those backup files.
+The phone's complete partition hashes are still read and checked before writing.
+A backup recorded by a completed installation is reused automatically. Otherwise,
+the five OS partitions being replaced are saved once for recovery; unchanged
+boot-chain partitions are checked without creating copies. Missing or changed
+files cause a stop instead of an automatic replacement backup.
 
 ## If installation stops
 
 Keep the phone connected in its current mode. Do not retry, reboot, switch slots
 or delete the state journal to bypass a failure. The printed journal directory
-contains the verified raw backups and operation receipts needed to inspect the
+contains the operation receipts and any newly created recovery inputs needed to inspect the
 state. Automatic rollback is deliberately not performed after an unknown result.
 
 This is a firmware-specific procedure. An interruption can leave the OS

@@ -99,3 +99,7 @@ Provide the build identifier and reproduction steps. Remove phone numbers,
 subscriber identifiers, eSIM activation codes, credentials and personal data from
 logs before sharing them. This is an unofficial project, independent of HONOR
 and the LineageOS project.
+
+The first-install tool keeps one stock recovery set per device. Completed runs
+record it for reuse; unchanged boot-chain partitions are verified without backup
+copies. An existing verified set can be selected with `--stock-backup`.

@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
 import hashlib
+import json
 from pathlib import Path
 import subprocess
 import tempfile
@@ -33,6 +34,7 @@ class FakeInstaller(install.Installer):
     def __init__(self, fail=None):
         self.events = []
         self.fail = fail
+        self.stock_backup = None
         self.m = {'build_number': 'TEST', 'system_pieces': ['piece-0', 'piece-1'], 'footer_piece': 'footer',
                   'images': {n: n + '.img' for n in ('vbmeta_a', 'vbmeta_b', 'vbmeta_system_a', 'vbmeta_system_b', 'userdata', 'metadata')}}
 
@@ -144,6 +146,40 @@ class PackageTests(unittest.TestCase):
                 obj.command(['flash', 'super', 'piece'])
 
 
+class BackupReuseTests(unittest.TestCase):
+    def make_backup(self, root):
+        profile = {n: {'bytes': 5, 'sha256': 'a' * 64} for n in install.MUTABLE}
+        rows = {}
+        for n in install.MUTABLE:
+            p = root / (n + '.img.gz')
+            p.write_bytes(b'saved')
+            rows[n] = {'file': p.name, 'stored_bytes': 5,
+                       'mtime_seconds': int(p.stat().st_mtime), 'identity': profile[n]}
+        (root / 'RECOVERY.json').write_text(json.dumps({'format_version': 1, 'model': 'LDY-AN00', 'partitions': rows}))
+        return profile
+
+    def test_unchanged_verified_set_is_accepted(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            profile = self.make_backup(root)
+            self.assertEqual(set(install.check_stock_backup(root, profile)['partitions']), install.MUTABLE)
+
+    def test_missing_changed_wrong_or_unsafe_backup_is_rejected(self):
+        for mutation in ('missing', 'changed', 'wrong_hash', 'unsafe', 'missing_partition'):
+            with self.subTest(mutation=mutation), tempfile.TemporaryDirectory() as d:
+                root = Path(d)
+                profile = self.make_backup(root)
+                p = root / 'super.img.gz'
+                receipt = json.loads((root / 'RECOVERY.json').read_text())
+                if mutation == 'missing': p.unlink()
+                elif mutation == 'changed': p.write_bytes(b'changed')
+                elif mutation == 'wrong_hash': receipt['partitions']['super']['identity']['sha256'] = 'b' * 64
+                elif mutation == 'unsafe': receipt['partitions']['super']['file'] = '../super.img.gz'
+                else: del receipt['partitions']['super']
+                (root / 'RECOVERY.json').write_text(json.dumps(receipt))
+                with self.assertRaises(ValueError): install.check_stock_backup(root, profile)
+
+
 class TransactionTests(unittest.TestCase):
     def run_failure(self, failure):
         obj = FakeInstaller(fail=failure)
@@ -152,6 +188,23 @@ class TransactionTests(unittest.TestCase):
         self.assertNotIn(('reboot',), obj.events)
         self.assertNotIn(('state', 'COMPLETE'), obj.events)
         return obj.events
+
+    def test_existing_backup_is_reused_with_full_device_hash_checks(self):
+        obj = FakeInstaller()
+        obj.stock_backup = Path('/existing-stock')
+        with patch.object(install, 'check_stock_backup') as check:
+            obj.install({'super': {}}, {'super': {}, 'lk_a': {}})
+        check.assert_called_once_with(obj.stock_backup, {'super': {}})
+        self.assertIn(('readback', 'before', False), obj.events)
+        self.assertNotIn(('readback', 'before', True), obj.events)
+
+    def test_changed_existing_backup_prevents_all_writes(self):
+        obj = FakeInstaller()
+        obj.stock_backup = Path('/existing-stock')
+        with patch.object(install, 'check_stock_backup', side_effect=ValueError('changed')):
+            with self.assertRaisesRegex(ValueError, 'changed'):
+                obj.install({'super': {}}, {'super': {}})
+        self.assertFalse(any(e[0] in ('flash', 'erase') for e in obj.events))
 
     def test_inspection_failure_prevents_all_writes(self):
         self.assertEqual(self.run_failure(('inspect',)), [('inspect',)])

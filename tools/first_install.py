@@ -24,6 +24,7 @@ PARENT_SHA = 'f880dc6de759168d537cb596c18ae3ec001a231d97712bbc4a94ec52debbc9d0'
 SUPER = 17574133760
 START_SYSTEM = 1048576
 SYSTEM_WINDOW = 4345298944
+MUTABLE = {'super', 'vbmeta_a', 'vbmeta_b', 'vbmeta_system_a', 'vbmeta_system_b'}
 HERE = Path(__file__).resolve().parent
 
 
@@ -134,6 +135,31 @@ def validate_packet(root, manifest):
     return baseline, after
 
 
+
+def check_stock_backup(directory, profile):
+    """Reuse a recovery set verified earlier; reject changed saved-file metadata.
+
+    This checks a cached verification receipt, not a fresh hash of backup data.
+    Device partition hashes are always read independently before installation.
+    """
+    receipt = json.loads((directory / 'RECOVERY.json').read_text())
+    if receipt.get('format_version') != 1 or receipt.get('model') != 'LDY-AN00':
+        raise ValueError('Unsupported stock recovery receipt')
+    if set(receipt['partitions']) != MUTABLE:
+        raise ValueError('Incomplete stock recovery receipt')
+    for name, row in receipt['partitions'].items():
+        relative = PurePosixPath(row['file'])
+        if (relative.is_absolute() or '..' in relative.parts or len(relative.parts) != 1
+                or row['identity'] != profile[name]):
+            raise ValueError('Wrong stock recovery identity: ' + name)
+        path = directory / row['file']
+        if (path.is_symlink() or not path.is_file()
+                or path.stat().st_size != row['stored_bytes']
+                or int(path.stat().st_mtime) != row['mtime_seconds']):
+            raise ValueError('Stock recovery file changed; verify it again: ' + name)
+    return receipt
+
+
 def check_misc(payload, slot="a"):
     if slot not in ('a', 'b'):
         raise ValueError('Unknown selected boot slot')
@@ -221,9 +247,11 @@ class Installer:
         self.root, self.m, self.serial, self.directory, self.state_file = root, manifest, serial, directory, state_file
         self.fastboot = [str(root / manifest['fastboot']), '-s', serial]
         self.sequence = 0
+        self.stock_backup = None
 
     def state(self, phase, **values):
-        atomic_json(self.state_file, dict(phase=phase, directory=str(self.directory), **values))
+        atomic_json(self.state_file, dict(phase=phase, directory=str(self.directory),
+                    stock_backup=str(self.stock_backup) if self.stock_backup else None, **values))
 
     def command(self, args):
         self.sequence += 1
@@ -268,12 +296,12 @@ class Installer:
         reports = self.directory / phase
         reports.mkdir()
         for index, (name, row) in enumerate(profile.items(), 1):
-            print(('Backing up' if backup else 'Verifying') + ' %d/%d: %s (%d bytes)' % (index, len(profile), name, row['bytes']), flush=True)
+            print(('Backing up' if backup and name in MUTABLE else 'Verifying') + ' %d/%d: %s (%d bytes)' % (index, len(profile), name, row['bytes']), flush=True)
             self.state('READBACK_PENDING', partition=name, read_phase=phase)
             receipt = reports / (name + '.json')
             argv = [sys.executable, '-B', str(HERE / 'hash_readonly.py'), '--serial', self.serial,
                     '--partition', name, '--sha256', row['sha256'], '--receipt', str(receipt), '--execute-read-only']
-            if backup:
+            if backup and name in MUTABLE:
                 argv += ['--backup', str(reports / (name + '.img'))]
             with (reports / (name + '.log')).open('x') as log:
                 subprocess.run(argv, check=True, timeout=1900, stdout=log, stderr=subprocess.STDOUT)
@@ -282,6 +310,18 @@ class Installer:
                 raise ValueError('Incomplete or wrong partition readback: ' + name)
             self.state('READBACK_COMPLETE', partition=name, read_phase=phase)
 
+
+        if backup:
+            rows = {}
+            for name in MUTABLE:
+                path = reports / (name + '.img')
+                rows[name] = {'file': path.name, 'identity': profile[name],
+                              'stored_bytes': path.stat().st_size,
+                              'mtime_seconds': int(path.stat().st_mtime)}
+            atomic_json(reports / 'RECOVERY.json',
+                        {'format_version': 1, 'model': 'LDY-AN00', 'partitions': rows})
+            self.stock_backup = reports
+
     def flash(self, partition, name):
         print('Writing %s: %s' % (partition, Path(name).name), flush=True)
         path = checked_file(self.root, name, self.m['files'][name])
@@ -289,7 +329,9 @@ class Installer:
 
     def install(self, before, after):
         self.inspect()
-        self.readback('before', before, backup=True)
+        if self.stock_backup is not None:
+            check_stock_backup(self.stock_backup, before)
+        self.readback('before', before, backup=self.stock_backup is None)
         for name in [*self.m['system_pieces'], self.m['footer_piece']]:
             self.flash('super', name)
         for partition in ('vbmeta_system_a', 'vbmeta_system_b', 'vbmeta_a', 'vbmeta_b'):
@@ -309,6 +351,8 @@ def main():
     parser.add_argument('--package', type=Path, default=HERE.parent)
     parser.add_argument('--serial')
     parser.add_argument('--backup-dir', type=Path)
+    parser.add_argument('--stock-backup', type=Path,
+                        help='Reuse an existing recovery set with a verified RECOVERY.json receipt')
     parser.add_argument('--yes-erase-userdata', action='store_true')
     parser.add_argument('--reboot', action='store_true')
     args = parser.parse_args()
@@ -333,11 +377,18 @@ def main():
     lock = (state_dir / (serial + '.lock')).open('a')
     fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
     state_file = state_dir / (serial + '.json')
-    if state_file.exists() and json.loads(state_file.read_text())['phase'] != 'COMPLETE':
-        raise ValueError('Previous installation is incomplete; inspect its journal before another operation')
+    if state_file.exists():
+        previous = json.loads(state_file.read_text())
+        if previous['phase'] != 'COMPLETE':
+            raise ValueError('Previous installation is incomplete; inspect its journal before another operation')
+        if not args.stock_backup and previous.get('stock_backup'):
+            args.stock_backup = Path(previous['stock_backup'])
     directory = args.backup_dir or state_dir / (serial + '-' + time.strftime('%Y%m%dT%H%M%S'))
     directory.parent.mkdir(parents=True, exist_ok=True)
-    if shutil.disk_usage(directory.parent).free < sum(x['bytes'] for x in before.values()) + 1073741824:
+    if args.stock_backup:
+        check_stock_backup(args.stock_backup, before)
+    required = 1073741824 + (0 if args.stock_backup else sum(before[n]['bytes'] for n in MUTABLE))
+    if shutil.disk_usage(directory.parent).free < required:
         raise ValueError('Insufficient space for verified recovery backups; allow at least 22 GB')
     if not args.yes_erase_userdata:
         answer = input('This installs LineageOS and ERASES ALL USER DATA. Type INSTALL to continue: ')
@@ -345,6 +396,7 @@ def main():
             raise ValueError('Installation cancelled before any partition operation')
     directory.mkdir(mode=0o700)
     installer = Installer(root, manifest, serial, directory, state_file)
+    installer.stock_backup = args.stock_backup
     installer.state('STARTED', build=manifest['build_number'])
     try:
         installer.install(before, after)
