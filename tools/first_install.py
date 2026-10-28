@@ -134,16 +134,21 @@ def validate_packet(root, manifest):
     return baseline, after
 
 
-def check_misc(payload):
+def check_misc(payload, slot="a"):
+    if slot not in ('a', 'b'):
+        raise ValueError('Unknown selected boot slot')
     if len(payload) != 2097152:
         raise ValueError('Wrong misc partition size')
     record = payload[2048:2080]
+    # Honor can retain an _a suffix here while B is selected. Use main-LK
+    # current-slot for selection and validate this field only as a known suffix.
     if (record[4:8] != b'BCAB' or record[8:12] != b'\x01\x02\0\0'
-            or record[:4] != b'_a\0\0'
+            or record[:4] not in (b'_a\0\0', b'_b\0\0')
             or zlib.crc32(record[:28]) & 0xffffffff != int.from_bytes(record[28:32], 'little')):
         raise ValueError('Unsupported boot-control record, pending merge or invalid CRC')
-    if not record[12] & 0x80 or not record[12] & 0x0f:
-        raise ValueError('Running A slot is not successful and bootable')
+    selected = record[12 if slot == 'a' else 14]
+    if not selected & 0x80 or not selected & 0x0f:
+        raise ValueError('Selected boot slot is not successful and bootable')
     virtual = payload[32768:32832]
     if virtual not in (bytes(64), b'\xff' * 64):
         if (virtual[0] not in (1, 2) or int.from_bytes(virtual[1:5], 'little') != 0x56740ab0
@@ -152,7 +157,7 @@ def check_misc(payload):
     command = payload[:32].split(b'\0', 1)[0]
     if command not in (b'', b'bootonce-bootloader'):
         raise ValueError('Pending recovery/update boot command')
-    return {'crc_valid': True, 'successful_slot_a': True, 'merge_status': 0}
+    return {'crc_valid': True, 'selected_slot': slot, 'selected_slot_successful': True, 'merge_status': 0}
 
 
 def capture_misc(serial):
@@ -238,9 +243,12 @@ class Installer:
     def inspect(self):
         print('Checking supported device, storage geometry and update state...', flush=True)
         for name, expected in [('serialno', self.serial), ('product', 'k6993v1_64'),
-                               ('is-userspace', 'no'), ('current-slot', 'a'), ('secure', 'yes')]:
+                               ('is-userspace', 'no'), ('secure', 'yes')]:
             if getvar(self.command(['getvar', name]), name) != expected:
                 raise ValueError('Unsupported fastboot state: ' + name)
+        self.slot = getvar(self.command(['getvar', 'current-slot']), 'current-slot')
+        if self.slot not in ('a', 'b'):
+            raise ValueError('Unsupported selected boot slot')
         if 'FB LockState: UNLOCKED' not in self.command(['oem', 'lock-state', 'info']):
             raise ValueError('Patched LK fastboot gate is not open')
         for name, size in self.m['geometry'].items():
@@ -251,7 +259,7 @@ class Installer:
             raise ValueError('Fastboot download limit too small')
         self.state('MISC_READ_PENDING')
         misc = capture_misc(self.serial)
-        result = check_misc(misc)
+        result = check_misc(misc, self.slot)
         (self.directory / 'misc-before.img').write_bytes(misc)
         atomic_json(self.directory / 'boot-control.json', result)
         self.state('MISC_VERIFIED')

@@ -85,9 +85,25 @@ class BootControlTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'successful'):
             install.check_misc(misc(lambda r: r.__setitem__(12, r[12] & 0x7f)))
 
-    def test_slot_b_is_not_the_initial_install_profile(self):
+    def test_unknown_slot_suffix_is_rejected(self):
         with self.assertRaisesRegex(ValueError, 'boot-control'):
-            install.check_misc(misc(lambda r: r.__setitem__(1, ord('b'))))
+            install.check_misc(misc(lambda r: r.__setitem__(1, ord('x'))))
+
+    def test_successful_b_is_supported_without_requiring_successful_a(self):
+        def change(record):
+            record[12] = 7
+            record[14] = 0x9f
+        result = install.check_misc(misc(change, virtual=virtual()), 'b')
+        self.assertEqual(result['selected_slot'], 'b')
+        self.assertTrue(result['selected_slot_successful'])
+
+    def test_unsuccessful_selected_b_is_rejected(self):
+        with self.assertRaisesRegex(ValueError, 'successful'):
+            install.check_misc(misc(), 'b')
+
+    def test_unknown_selected_slot_is_rejected(self):
+        with self.assertRaisesRegex(ValueError, 'Unknown selected'):
+            install.check_misc(misc(), 'c')
 
     def test_pending_recovery_command_stops(self):
         with self.assertRaisesRegex(ValueError, 'recovery/update'):
