@@ -1,8 +1,8 @@
 diff --git a/media/libaudiohal/impl/Android.bp b/media/libaudiohal/impl/Android.bp
-index 00f3929..327f6aa 100644
+index 00f3929..87a995a 100644
 --- a/media/libaudiohal/impl/Android.bp
 +++ b/media/libaudiohal/impl/Android.bp
-@@ -285,3 +285,23 @@ filegroup {
+@@ -285,3 +285,24 @@ filegroup {
      name: "audio_effectproxy_src_files",
      srcs: ["EffectProxy.cpp"],
  }
@@ -16,6 +16,7 @@ index 00f3929..327f6aa 100644
 +    ],
 +    srcs: [
 +        "HonorLegacyVendorParameters_test.cpp",
++        "AidlUtils.cpp",
 +        "ConversionHelperAidl.cpp",
 +        "DeviceHalAidl.cpp",
 +        "Hal2AidlMapper.cpp",
