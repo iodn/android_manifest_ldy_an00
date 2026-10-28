@@ -1,3 +1,219 @@
+diff --git a/media/libaudiohal/impl/Android.bp b/media/libaudiohal/impl/Android.bp
+index 00f3929..327f6aa 100644
+--- a/media/libaudiohal/impl/Android.bp
++++ b/media/libaudiohal/impl/Android.bp
+@@ -285,3 +285,23 @@ filegroup {
+     name: "audio_effectproxy_src_files",
+     srcs: ["EffectProxy.cpp"],
+ }
++
++// The test includes DevicesFactoryHalAidl.cpp to reach its internal wrapper.
++cc_test {
++    name: "HonorLegacyVendorParametersTest",
++    defaults: [
++        "libaudiohal_aidl_default",
++        "libaudiohal_default",
++    ],
++    srcs: [
++        "HonorLegacyVendorParameters_test.cpp",
++        "ConversionHelperAidl.cpp",
++        "DeviceHalAidl.cpp",
++        "Hal2AidlMapper.cpp",
++        "StreamHalAidl.cpp",
++    ],
++    shared_libs: ["libaudiohal"],
++    header_libs: ["libaudiohalimpl_headers"],
++    static_libs: ["libflagtest"],
++    test_suites: ["device-tests"],
++}
+diff --git a/media/libaudiohal/impl/ConversionHelperAidl.cpp b/media/libaudiohal/impl/ConversionHelperAidl.cpp
+index 84e0e28..6c8adb2 100644
+--- a/media/libaudiohal/impl/ConversionHelperAidl.cpp
++++ b/media/libaudiohal/impl/ConversionHelperAidl.cpp
+@@ -18,6 +18,8 @@
+ 
+ #include <memory>
+ 
++#include <cutils/properties.h>
++
+ #include <media/AidlConversionUtil.h>
+ #include <utils/Log.h>
+ 
+@@ -63,6 +65,13 @@ status_t fillKeyValuePairsFromVendorParameters(
+     std::string keyValuePairs;
+     RETURN_STATUS_IF_ERROR(statusTFromBinderStatus(
+             vendorExt->processVendorParameters(scope, vendorParameters, &keyValuePairs)));
++    constexpr std::string_view kHonorIgnoreKey = "HONORIGNOREKEY=";
++    if (property_get_bool("ro.audio.honor_legacy_parameters", false) &&
++            vendorParameters.size() == 1 && keyValuePairs.starts_with(kHonorIgnoreKey)) {
++        if (values->length() > 0) values->append(";");
++        values->append(keyValuePairs.substr(kHonorIgnoreKey.size()).c_str());
++        return OK;
++    }
+     RETURN_STATUS_IF_ERROR(reparseVendorParameters(keyValuePairs, values));
+     return OK;
+ }
+diff --git a/media/libaudiohal/impl/DevicesFactoryHalAidl.cpp b/media/libaudiohal/impl/DevicesFactoryHalAidl.cpp
+index a14a1fc..892150d 100644
+--- a/media/libaudiohal/impl/DevicesFactoryHalAidl.cpp
++++ b/media/libaudiohal/impl/DevicesFactoryHalAidl.cpp
+@@ -69,6 +69,11 @@ ndk2cpp_SurroundSoundConfig(const SurroundSoundConfig& ndk) {
+ 
+ class HalAdapterVendorExtensionWrapper :
+             public ::aidl::android::media::audio::BnHalAdapterVendorExtension {
++  public:
++    explicit HalAdapterVendorExtensionWrapper(bool honorLegacyParameters =
++            property_get_bool("ro.audio.honor_legacy_parameters", false))
++        : mHonorLegacyParameters(honorLegacyParameters) {}
++
+   private:
+     template<typename F>
+     ndk::ScopedAStatus callWithRetryOnCrash(F method) {
+@@ -83,6 +88,10 @@ class HalAdapterVendorExtensionWrapper :
+     ndk::ScopedAStatus parseVendorParameterIds(const ParameterScope& in_scope,
+                                                const std::string& in_rawKeys,
+                                                std::vector<std::string>* _aidl_return) override {
++        if (mHonorLegacyParameters) {
++            *_aidl_return = {in_rawKeys};
++            return ndk::ScopedAStatus::ok();
++        }
+         return callWithRetryOnCrash([&](auto service) {
+             return service->parseVendorParameterIds(in_scope, in_rawKeys, _aidl_return);
+         });
+@@ -92,6 +101,12 @@ class HalAdapterVendorExtensionWrapper :
+             const ParameterScope& in_scope, const std::string& in_rawKeysAndValues,
+             std::vector<VendorParameter>* out_syncParameters,
+             std::vector<VendorParameter>* out_asyncParameters) override {
++        if (mHonorLegacyParameters) {
++            VendorParameter parameter;
++            parameter.id = in_rawKeysAndValues;
++            out_syncParameters->push_back(std::move(parameter));
++            return ndk::ScopedAStatus::ok();
++        }
+         return callWithRetryOnCrash([&](auto service) {
+             return service->parseVendorParameters(in_scope, in_rawKeysAndValues,
+                     out_syncParameters, out_asyncParameters);
+@@ -115,6 +130,13 @@ class HalAdapterVendorExtensionWrapper :
+     ndk::ScopedAStatus processVendorParameters(const ParameterScope& in_scope,
+                                                const std::vector<VendorParameter>& in_parameters,
+                                                std::string* _aidl_return) override {
++        if (mHonorLegacyParameters) {
++            if (in_parameters.empty()) {
++                return ndk::ScopedAStatus::fromExceptionCode(EX_ILLEGAL_ARGUMENT);
++            }
++            *_aidl_return = in_parameters.front().id;
++            return ndk::ScopedAStatus::ok();
++        }
+         return callWithRetryOnCrash([&](auto service) {
+             return service->processVendorParameters(in_scope, in_parameters, _aidl_return);
+         });
+@@ -135,6 +157,7 @@ class HalAdapterVendorExtensionWrapper :
+         return mVendorExt.value();
+     }
+ 
++    const bool mHonorLegacyParameters;
+     std::mutex mLock;
+     std::optional<std::shared_ptr<::aidl::android::media::audio::IHalAdapterVendorExtension>>
+             mVendorExt GUARDED_BY(mLock);
+diff --git a/media/libaudiohal/impl/HonorLegacyVendorParameters_test.cpp b/media/libaudiohal/impl/HonorLegacyVendorParameters_test.cpp
+new file mode 100644
+index 0000000..cdbd701
+--- /dev/null
++++ b/media/libaudiohal/impl/HonorLegacyVendorParameters_test.cpp
+@@ -0,0 +1,93 @@
++// SPDX-License-Identifier: Apache-2.0
++// Include the internal implementation once to test it with generated AIDL types.
++#include <gtest/gtest.h>
++#include <android/binder_parcel.h>
++#include "ConversionHelperAidl.h"
++#include "DevicesFactoryHalAidl.cpp"
++
++namespace android {
++namespace {
++using Extension = aidl::android::media::audio::IHalAdapterVendorExtension;
++using Parameter = aidl::android::hardware::audio::core::VendorParameter;
++
++std::shared_ptr<Extension> localExtension() {
++    return ndk::SharedRefBase::make<HalAdapterVendorExtensionWrapper>(true);
++}
++
++TEST(HonorLegacyVendorParameters, RawKeysRemainOneId) {
++    auto ext = localExtension();
++    for (const auto& raw : {"audio_capability#sws_ui_type", "a;b", "", "x=a=b"}) {
++        std::vector<std::string> ids{"previous", "must be replaced"};
++        ASSERT_TRUE(ext->parseVendorParameterIds({}, raw, &ids).isOk());
++        ASSERT_EQ(1u, ids.size());
++        EXPECT_EQ(raw, ids.front());
++    }
++}
++
++TEST(HonorLegacyVendorParameters, RawValuesUseSyncOnly) {
++    auto ext = localExtension();
++    for (const auto& raw : {"HP_MODE=2", "x=1;x=2", "SWS_TYPEC_RESTORE=;", ""}) {
++        std::vector<Parameter> sync, async;
++        ASSERT_TRUE(ext->parseVendorParameters({}, raw, &sync, &async).isOk());
++        ASSERT_EQ(1u, sync.size());
++        EXPECT_EQ(raw, sync.front().id);
++        EXPECT_TRUE(async.empty());
++    }
++}
++
++TEST(HonorLegacyVendorParameters, NativeParcelableRoundTrip) {
++    auto ext = localExtension();
++    std::vector<Parameter> sync, async;
++    ASSERT_TRUE(ext->parseVendorParameters({}, "HP_MODE=2", &sync, &async).isOk());
++    auto parcel = ndk::ScopedAParcel(AParcel_create());
++    ASSERT_NE(nullptr, parcel.get());
++    ASSERT_EQ(STATUS_OK, sync.front().writeToParcel(parcel.get()));
++    ASSERT_EQ(STATUS_OK, AParcel_setDataPosition(parcel.get(), 0));
++    Parameter restored;
++    ASSERT_EQ(STATUS_OK, restored.readFromParcel(parcel.get()));
++    EXPECT_EQ("HP_MODE=2", restored.id);
++    // The holder is default-constructed by the real generated VendorParameter.
++    // No private Parcelable descriptor or handwritten wire layout is introduced.
++}
++
++TEST(HonorLegacyVendorParameters, FirstResponseIdIsUsed) {
++    auto ext = localExtension();
++    Parameter first, second;
++    first.id = "HONORIGNOREKEY=1";
++    second.id = "ignored=2";
++    std::string result = "previous";
++    ASSERT_TRUE(ext->processVendorParameters({}, {first, second}, &result).isOk());
++    EXPECT_EQ(first.id, result);
++}
++
++TEST(HonorLegacyVendorParameters, EmptyResponseRefused) {
++    std::string result = "unchanged";
++    EXPECT_FALSE(localExtension()->processVendorParameters({}, {}, &result).isOk());
++    EXPECT_EQ("unchanged", result);
++}
++}  // namespace
++}  // namespace android
++
++namespace android {
++namespace {
++TEST(HonorLegacyVendorParameters, ReturnedMarkerFollowsDeviceOptIn) {
++    Parameter value;
++    value.id = "HONORIGNOREKEY=1";
++    String8 result("standard=ok");
++    ASSERT_EQ(OK, fillKeyValuePairsFromVendorParameters(
++            localExtension(), {}, {value}, &result));
++    EXPECT_STREQ(property_get_bool("ro.audio.honor_legacy_parameters", false)
++            ? "standard=ok;1" : "standard=ok;HONORIGNOREKEY=1", result.c_str());
++}
++
++TEST(HonorLegacyVendorParameters, MultipleResponsesDoNotUnwrap) {
++    Parameter first, second;
++    first.id = "HONORIGNOREKEY=1";
++    second.id = "ignored=2";
++    String8 result;
++    ASSERT_EQ(OK, fillKeyValuePairsFromVendorParameters(
++            localExtension(), {}, {first, second}, &result));
++    EXPECT_STREQ("HONORIGNOREKEY=1", result.c_str());
++}
++}  // namespace
++}  // namespace android
 diff --git a/services/camera/libcameraservice/aidl/AidlCameraService.cpp b/services/camera/libcameraservice/aidl/AidlCameraService.cpp
 index 8e5bbde..a9afc9c 100644
 --- a/services/camera/libcameraservice/aidl/AidlCameraService.cpp

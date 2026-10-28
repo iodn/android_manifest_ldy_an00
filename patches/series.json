@@ -23,11 +23,11 @@
     },
     {
       "path": "frameworks/av",
-      "revision": "8ce856906299e0cf1ea14a7edcd45547be7d4c04",
-      "tree": "6892f2ed8deb149d1ad19e43db30b35effd615a1",
+      "revision": "37919cc5b89c752e35b077b3fb018725469ee090",
+      "tree": "d3c31e89a933af614578e0801313b85b897ce62c",
       "base_revision": "937eb9047ec2f88620f1f6a4d9e407f6c869d91a",
       "patch": "frameworks_av.patch",
-      "patch_sha256": "2d06b2f1382554982bd17fc2499a0ac27087117de5fac405d5a30a325770eafe",
+      "patch_sha256": "e070144e7773593a68636e7568b95ea1c12a829f1dfc771862638c83ae9a8a65",
       "patch_tree_verified": true,
       "remote_url": "https://github.com/LineageOS/android_frameworks_av"
     },
