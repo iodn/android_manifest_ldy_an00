@@ -1,0 +1,32 @@
+diff --git a/tests/tests/media/codec/src/android/media/codec/cts/EncodeDecodeTest.java b/tests/tests/media/codec/src/android/media/codec/cts/EncodeDecodeTest.java
+--- a/tests/tests/media/codec/src/android/media/codec/cts/EncodeDecodeTest.java
++++ b/tests/tests/media/codec/src/android/media/codec/cts/EncodeDecodeTest.java
+@@ -42,6 +42,7 @@
+ import android.util.Log;
+ 
+ import androidx.test.filters.SmallTest;
++import androidx.test.platform.app.InstrumentationRegistry;
+ 
+ import com.android.compatibility.common.util.ApiLevelUtil;
+ import com.android.compatibility.common.util.ApiTest;
+@@ -82,6 +83,9 @@
+     private static final String TAG = "EncodeDecodeTest";
+     private static final boolean VERBOSE = false;           // lots of logging
+     private static final boolean DEBUG_SAVE_FILE = false;   // save copy of encoded movie
++    private static final boolean REQUIRE_FRAME_CONTENT_VALIDATION = Boolean.parseBoolean(
++            InstrumentationRegistry.getArguments().getString(
++                    "require-frame-content-validation", "false"));
+     private static final String DEBUG_FILE_NAME_BASE = "/sdcard/test.";
+     private static final boolean IS_AFTER_T = ApiLevelUtil.isAfter(Build.VERSION_CODES.TIRAMISU);
+ 
+@@ -1063,6 +1067,10 @@
+         // e.g. Nexus 4 0x7FA30C03 OMX_QCOM_COLOR_FormatYUV420PackedSemiPlanar64x32Tile2m8ka
+         int colorFormat = format.getInteger(MediaFormat.KEY_COLOR_FORMAT);
+         if (!isRecognizedFormat(colorFormat)) {
++            if (REQUIRE_FRAME_CONTENT_VALIDATION) {
++                fail("Cannot validate decoded frame contents for colorFormat="
++                        + Integer.toHexString(colorFormat));
++            }
+             Log.d(TAG, "unable to check frame contents for colorFormat=" +
+                     Integer.toHexString(colorFormat));
+             return true;
