@@ -62,6 +62,16 @@
       "remote_url": "https://github.com/LineageOS/android_hardware_interfaces"
     },
     {
+      "path": "lineage-sdk",
+      "revision": "54f19de8a43d2271e500336e0098be2ea5331384",
+      "tree": "79f93d1b2baee5c141d5e4916cb12a3eecf66161",
+      "base_revision": "87e98fe90bb3c8449438f599783288b769aa5bef",
+      "patch": "lineage_sdk.patch",
+      "patch_sha256": "7e94c35633f25cd713ce26ebb4d70f454d324eea75aed35cac74042862c54dbc",
+      "patch_tree_verified": true,
+      "remote_url": "https://github.com/LineageOS/android_lineage-sdk"
+    },
+    {
       "path": "packages/apps/DeviceDiagnostics",
       "revision": "df85b579cd33f5117cd1adcebbfa39e17e8b4a23",
       "tree": "4a65fd0397762b17b409115914ccef8b30be880b",

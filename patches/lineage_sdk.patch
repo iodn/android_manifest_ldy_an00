@@ -1,0 +1,135 @@
+diff --git a/lineage/lib/main/java/org/lineageos/platform/internal/health/ccprovider/Limit.java b/lineage/lib/main/java/org/lineageos/platform/internal/health/ccprovider/Limit.java
+index fdc98a4..ce784ab 100644
+--- a/lineage/lib/main/java/org/lineageos/platform/internal/health/ccprovider/Limit.java
++++ b/lineage/lib/main/java/org/lineageos/platform/internal/health/ccprovider/Limit.java
+@@ -12,28 +12,14 @@ import static lineageos.health.HealthInterface.MODE_MANUAL;
+ import android.content.Context;
+ import android.util.Log;
+ 
+-import org.lineageos.platform.internal.R;
+-
+ import vendor.lineage.health.ChargingControlSupportedMode;
+ import vendor.lineage.health.ChargingLimitInfo;
+ import vendor.lineage.health.IChargingControl;
+ 
+-import java.io.PrintWriter;
+-
+-public class Limit extends ChargingControlProvider {
+-    protected final int mChargingLimitMargin;
++public class Limit extends Toggle {
+ 
+     public Limit(IChargingControl chargingControl, Context context) {
+-        super(context, chargingControl);
+-
+-        boolean isBypassSupported = isHALModeSupported(ChargingControlSupportedMode.BYPASS);
+-        if (!isBypassSupported) {
+-            mChargingLimitMargin = mContext.getResources().getInteger(
+-                    R.integer.config_chargingControlBatteryRechargeMargin);
+-        } else {
+-            mChargingLimitMargin = 1;
+-        }
+-        Log.i(TAG, "isBypassSupported: " + isBypassSupported);
++        super(chargingControl, context);
+     }
+ 
+     @Override
+@@ -43,18 +29,15 @@ public class Limit extends ChargingControlProvider {
+     }
+ 
+     @Override
+-    protected void onEnabled() {
+-        onReset();
++    protected boolean setChargingEnabled(boolean enabled) {
++        return setChargingLimit(enabled ? 100 : CHARGE_CTRL_MIN_LEVEL);
+     }
+ 
+     @Override
+-    protected void onDisable() {
+-        onReset();
+-    }
+-
+-    @Override
+-    protected void onReset() {
+-        setChargingLimit(100);
++    protected void resetChargingControl() {
++        if (!setChargingLimit(100)) {
++            throw new IllegalStateException("Failed to reset charging limit");
++        }
+     }
+ 
+     private boolean setChargingLimit(int targetPct) {
+@@ -90,9 +73,4 @@ public class Limit extends ChargingControlProvider {
+     public boolean isChargingControlModeSupported(int mode) {
+         return mode == MODE_AUTO || mode == MODE_MANUAL || mode == MODE_LIMIT;
+     }
+-
+-    @Override
+-    public void dump(PrintWriter pw) {
+-        pw.println("Provider: " + getClass().getName());
+-    }
+ }
+diff --git a/lineage/lib/main/java/org/lineageos/platform/internal/health/ccprovider/Toggle.java b/lineage/lib/main/java/org/lineageos/platform/internal/health/ccprovider/Toggle.java
+index b424e32..9ff8a77 100644
+--- a/lineage/lib/main/java/org/lineageos/platform/internal/health/ccprovider/Toggle.java
++++ b/lineage/lib/main/java/org/lineageos/platform/internal/health/ccprovider/Toggle.java
+@@ -18,6 +18,7 @@ import android.content.IntentFilter;
+ import android.os.BatteryManager;
+ import android.os.BatteryStatsManager;
+ import android.os.BatteryUsageStats;
++import android.os.RemoteException;
+ import android.util.Log;
+ 
+ import org.lineageos.platform.internal.R;
+@@ -62,14 +63,14 @@ public class Toggle extends ChargingControlProvider {
+     }
+ 
+     // Only when the battery level is above this limit will the charging control be activated.
+-    private final static int CHARGE_CTRL_MIN_LEVEL = 80;
++    protected final static int CHARGE_CTRL_MIN_LEVEL = 80;
+ 
+     public Toggle(IChargingControl chargingControl,
+             Context context) {
+         super(context, chargingControl);
+ 
+         boolean isBypassSupported = isHALModeSupported(
+-                ChargingControlSupportedMode.BYPASS | ChargingControlSupportedMode.TOGGLE);
++                ChargingControlSupportedMode.BYPASS);
+         if (!isBypassSupported) {
+             mChargingLimitMargin = mContext.getResources().getInteger(
+                     R.integer.config_chargingControlBatteryRechargeMargin);
+@@ -141,7 +142,9 @@ public class Toggle extends ChargingControlProvider {
+                 mContext.getSystemService(
+                         BatteryStatsManager.class)).getBatteryUsageStats();
+         long remaining = batteryUsageStats.getChargeTimeRemainingMs();
+-        remaining += mChargingTimeMargin;
++        if (remaining != -1) {
++            remaining += mChargingTimeMargin;
++        }
+         Log.i(TAG, "Current estimated time to full: " + msToHMSString(remaining));
+ 
+         long deltaTime = targetTime - currentTime;
+@@ -196,7 +199,7 @@ public class Toggle extends ChargingControlProvider {
+         return onStage(mStage);
+     }
+ 
+-    private boolean setChargingEnabled(boolean enabled) {
++    protected boolean setChargingEnabled(boolean enabled) {
+         try {
+             if (mToggleSetAlways) {
+                 mChargingControl.setChargingEnabled(enabled);
+@@ -220,10 +223,14 @@ public class Toggle extends ChargingControlProvider {
+         onReset();
+     }
+ 
++    protected void resetChargingControl() throws RemoteException {
++        mChargingControl.setChargingEnabled(true);
++    }
++
+     @Override
+     protected void onReset() {
+         try {
+-            mChargingControl.setChargingEnabled(true);
++            resetChargingControl();
+             mIsLimitSet = false;
+             mSavedTargetTime = 0;
+             mEstimatedFullTime = 0;
