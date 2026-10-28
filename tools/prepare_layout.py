@@ -15,7 +15,7 @@ import zlib
 GEOMETRY = {'super': 17574133760, 'userdata': 489917775872,
             'metadata': 67108864, 'misc': 2097152}
 BEGIN, END = 'LDY_LAYOUT_BEGIN_V1', 'LDY_LAYOUT_END_V1'
-SCRIPT = """printf '%s\n' LDY_LAYOUT_BEGIN_V1
+SCRIPT = """printf '\n%s\n' LDY_LAYOUT_BEGIN_V1
 id -u
 getprop ro.product.model
 getprop ro.boot.slot_suffix
@@ -119,7 +119,9 @@ def main():
     if args.root_broker:
         if not re.fullmatch(r'/[A-Za-z0-9_./-]+', args.root_broker):
             raise ValueError('Invalid existing root-broker path')
-        command = shlex.join([args.root_broker, '-c', SCRIPT])
+        # GhostLock brokers an interactive shell. Run the capture in one
+        # noninteractive child so parent prompts cannot split the data frame.
+        command = shlex.join([args.root_broker, '-c', shlex.join(['sh', '-c', SCRIPT])])
     else:
         command = shlex.join(['sh', '-c', SCRIPT])
     data = subprocess.check_output(['adb', '-s', serial, 'exec-out', command], timeout=45)

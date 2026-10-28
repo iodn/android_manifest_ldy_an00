@@ -2,6 +2,11 @@
 import base64
 import json
 import struct
+import shlex
+import subprocess
+import os
+import tempfile
+from pathlib import Path
 import unittest
 import zlib
 from unittest.mock import patch
@@ -48,6 +53,23 @@ class LayoutTests(unittest.TestCase):
 
     def test_existing_broker_prompts_outside_the_unique_frame_are_ignored(self):
         self.assertEqual(layout.parse_capture(b'HNLDY-M:/ #\n' + capture() + b'HNLDY-M:/ #')['slot'], 'b')
+
+    def test_interactive_broker_prompt_is_isolated_before_the_frame(self):
+        script = "printf '%s' " + shlex.quote('\n' + capture().decode())
+        result = subprocess.run(['sh', '-i'], input=shlex.join(['sh', '-c', script]) + '\n',
+                                text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                                env={**os.environ, 'PS1': 'HNLDY-M:/ # ', 'PS2': 'more> '}, check=True)
+        self.assertEqual(layout.parse_capture(result.stdout.encode())['geometry'], layout.GEOMETRY)
+        self.assertTrue(layout.SCRIPT.startswith("printf '\n%s\n'"))
+
+    def test_broker_receives_one_noninteractive_capture_command(self):
+        with tempfile.TemporaryDirectory() as d:
+            args = ['prepare_layout.py', '--root-broker', '/data/local/tmp/su', '--output', str(Path(d) / 'layout.json')]
+            with patch('sys.argv', args), patch.object(layout.subprocess, 'check_output', side_effect=['List of devices attached\nTEST\tdevice\n', capture()]) as run:
+                layout.main()
+            command = shlex.split(run.call_args.args[0][-1])
+            self.assertEqual(command[:2], ['/data/local/tmp/su', '-c'])
+            self.assertEqual(shlex.split(command[2]), ['sh', '-c', layout.SCRIPT])
 
     def test_wrong_serial_expired_future_and_geometry_refused(self):
         for serial, now, geo in [('OTHER', 10001, layout.GEOMETRY), ('TEST', 13601, layout.GEOMETRY),
