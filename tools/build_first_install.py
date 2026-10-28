@@ -153,6 +153,10 @@ bash flash.sh
 4. Read the confirmation and type `INSTALL` to accept data erasure.
 5. Wait for `INSTALL_VERIFIED` and the automatic reboot. Complete Android setup.
 
+The full `super` readbacks are deliberately thorough and can take about 30 minutes
+each on this bootloader. A long pause at `Verifying ... super` is expected. Keep
+the phone connected and wait for verification to finish.
+
 The layout step reads 28 KiB of GPT data and partition sizes; it never writes to
 the phone or creates a firmware backup. Do not publish the generated `layout.json`
 or device journals: they contain device identifiers.
