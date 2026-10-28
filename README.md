@@ -103,3 +103,8 @@ and the LineageOS project.
 The first-install tool keeps one stock recovery set per device. Completed runs
 record it for reuse; unchanged boot-chain partitions are verified without backup
 copies. An existing verified set can be selected with `--stock-backup`.
+
+First installation requires a fresh layout receipt from `tools/prepare_layout.py`
+while Android root is available, before entering bootloader fastboot. The tool
+validates the GPT and exact partition sizes without another firmware backup.
+The install ZIP includes the complete instructions.

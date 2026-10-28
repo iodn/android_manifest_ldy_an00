@@ -117,6 +117,7 @@ def read_once(partition, expected, result, serial, backup=None):
         if outgoing[0].write(command, timeout=5000) != len(command):
             raise RuntimeError('short command transfer; completion unknown')
         deadline = time.monotonic() + DEADLINE_SECONDS
+        progress = 0
         while not parser.complete:
             remaining = deadline - time.monotonic()
             if remaining <= 0:
@@ -125,6 +126,11 @@ def read_once(partition, expected, result, serial, backup=None):
             # A USB ZLP ends a transfer, not necessarily the command's data stream.
             # Empty input is a parser no-op; the same total deadline still applies.
             parser.feed(data)
+            payload_bytes = min(parser.size, max(0, parser.count - len(START)))
+            if payload_bytes // 1073741824 > progress:
+                progress = payload_bytes // 1073741824
+                print('Read %d / %d bytes (hash only unless backup requested)' %
+                      (payload_bytes, parser.size), flush=True)
         # The expected OKAY is inside the frame. Probe once for queued excess.
         try:
             tail = incoming[0].read(CHUNK, timeout=500)

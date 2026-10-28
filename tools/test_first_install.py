@@ -146,6 +146,27 @@ class PackageTests(unittest.TestCase):
                 obj.command(['flash', 'super', 'piece'])
 
 
+class LayoutAdmissionTests(unittest.TestCase):
+    def test_valid_layout_replaces_unpublished_size_getvars(self):
+        from test_prepare_layout import receipt
+        import prepare_layout
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            obj = install.Installer(root, {'fastboot': 'fastboot', 'geometry': prepare_layout.GEOMETRY}, 'TEST', root, root / 'state.json')
+            obj.layout = receipt()
+            queries = []
+            def command(args):
+                queries.append(args)
+                values = {'serialno': 'TEST', 'product': 'k6993v1_64', 'is-userspace': 'no',
+                          'secure': 'yes', 'current-slot': 'b', 'max-download-size': '0x8000000'}
+                return (args[1] + ': ' + values[args[1]] + '\n') if args[0] == 'getvar' else 'FB LockState: UNLOCKED'
+            obj.command = command
+            def change(r): r[14] = 0x9f
+            with patch('prepare_layout.time.time', return_value=10001), patch.object(install, 'capture_misc', return_value=misc(change)):
+                obj.inspect()
+            self.assertFalse(any('partition-size:' in str(q) for q in queries))
+            self.assertTrue((root / 'layout-verified.json').exists())
+
 class BackupReuseTests(unittest.TestCase):
     def make_backup(self, root):
         profile = {n: {'bytes': 5, 'sha256': 'a' * 64} for n in install.MUTABLE}

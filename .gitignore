@@ -19,3 +19,6 @@ backups/
 reports/
 *.partial
 !release/*/ota.x509.pem
+
+# Per-device installation admission evidence
+layout.json

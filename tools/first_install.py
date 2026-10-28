@@ -18,6 +18,7 @@ import zlib
 from check_partitions import FASTBOOT_SHA, getvar
 from hash_readonly import START, TRAILER
 from verify_install import decode
+from prepare_layout import check_receipt
 
 CERT_SHA = '46fc26697072341a414473390b5a313b1385d09d058562985d8d1acbc8a3d06c'
 PARENT_SHA = 'f880dc6de759168d537cb596c18ae3ec001a231d97712bbc4a94ec52debbc9d0'
@@ -255,6 +256,7 @@ class Installer:
         self.fastboot = [str(root / manifest['fastboot']), '-s', serial]
         self.sequence = 0
         self.stock_backup = None
+        self.layout = None
 
     def state(self, phase, **values):
         atomic_json(self.state_file, dict(phase=phase, directory=str(self.directory),
@@ -286,21 +288,14 @@ class Installer:
             raise ValueError('Unsupported selected boot slot')
         if 'FB LockState: UNLOCKED' not in self.command(['oem', 'lock-state', 'info']):
             raise ValueError('Patched LK fastboot gate is not open')
-        # Main-LK advertises super/userdata sizes, but returns empty values for
-        # metadata/misc. Validate those exact sizes from framed storage reads.
-        for name in ('super', 'userdata'):
-            size = self.m['geometry'][name]
-            observed = getvar(self.command(['getvar', 'partition-size:' + name]), 'partition-size:' + name)
-            if int(observed, 16) != size:
-                raise ValueError('Unsupported partition size: ' + name)
+        if self.layout is None:
+            raise ValueError('Prepare the Android root layout receipt before fastboot')
+        layout = check_receipt(self.layout, self.serial, self.m['geometry'])
+        if layout['slot'] != self.slot:
+            raise ValueError('Selected slot changed since the Android layout check')
+        atomic_json(self.directory / 'layout-verified.json', layout)
         if int(getvar(self.command(['getvar', 'max-download-size']), 'max-download-size'), 16) < 8 * 1024 * 1024 + 64:
             raise ValueError('Fastboot download limit too small')
-        self.state('METADATA_SIZE_READ_PENDING')
-        metadata = capture_control_partition(self.serial, 'metadata')
-        atomic_json(self.directory / 'metadata-size.json',
-                    {'bytes': len(metadata), 'sha256': hashlib.sha256(metadata).hexdigest(),
-                     'payload_saved': False, 'framing_verified': True})
-        del metadata
         self.state('MISC_READ_PENDING')
         misc = capture_misc(self.serial)
         result = check_misc(misc, self.slot)
@@ -366,6 +361,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--package', type=Path, default=HERE.parent)
     parser.add_argument('--serial')
+    parser.add_argument('--layout', type=Path, help='Fresh prepare_layout.py receipt; defaults to layout.json in the package')
     parser.add_argument('--backup-dir', type=Path)
     parser.add_argument('--stock-backup', type=Path,
                         help='Reuse an existing recovery set with a verified RECOVERY.json receipt')
@@ -386,6 +382,8 @@ def main():
     if len(serials) != 1 or (args.serial and args.serial != serials[0]):
         raise ValueError('Connect exactly one intended phone in bootloader fastboot')
     serial = serials[0]
+    layout = json.loads((args.layout or root / 'layout.json').read_text())
+    check_receipt(layout, serial, manifest['geometry'])
     if not re.fullmatch('[A-Za-z0-9._-]{1,80}', serial):
         raise ValueError('Invalid USB serial')
     state_dir = Path(os.environ.get('XDG_STATE_HOME', str(Path.home() / '.local/state'))) / 'lineageos-ldy_an00'
@@ -413,6 +411,7 @@ def main():
     directory.mkdir(mode=0o700)
     installer = Installer(root, manifest, serial, directory, state_file)
     installer.stock_backup = args.stock_backup
+    installer.layout = layout
     installer.state('STARTED', build=manifest['build_number'])
     try:
         installer.install(before, after)

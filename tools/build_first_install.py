@@ -91,7 +91,7 @@ def build(inputs, baseline_gzip, output, build_number):
         shutil.copyfile(inputs / (n + '.original.sparse'), output / name)
         images[n] = name
     shutil.copyfile(inputs / 'ota.x509.pem', output / 'ota.x509.pem')
-    for name in ('first_install.py', 'check_partitions.py', 'hash_readonly.py', 'verify_install.py', 'stock113-partitions.json'):
+    for name in ('first_install.py', 'prepare_layout.py', 'check_partitions.py', 'hash_readonly.py', 'verify_install.py', 'stock113-partitions.json'):
         shutil.copyfile(HERE / name, output / 'tools' / name)
     shutil.copyfile(HERE.parent / 'flash.sh', output / 'flash.sh')
     (output / 'flash.sh').chmod(0o755)
@@ -124,6 +124,8 @@ Build: `{build_number}`. Unofficial LineageOS 24.0 / Android 17.
 
 - HONOR LDY-AN00, supported 512 GB layout, stock firmware 10.0.0.113(C00E100R101P1).
 - The qualified LK patch installed and boot-tested on both slots.
+- Existing root on stock Android for the small read-only GPT/layout check.
+- ADB installed, USB debugging authorized, and the trusted root broker available.
 - The supported stock partition baseline and a selected boot slot marked successful.
 - The installer preserves the selected slot; A or B is supported.
 - Linux x86_64, Python 3.11 or newer, OpenSSL and PyUSB (`python3-usb` on Debian/Ubuntu).
@@ -139,12 +141,21 @@ supported baseline; this first-install package is not an OTA update.
 2. Connect the intended phone, with USB debugging authorized, then run:
 
 ```bash
+python3 tools/prepare_layout.py --root-broker /data/local/tmp/su
 adb reboot bootloader
 bash flash.sh
 ```
 
-3. Read the confirmation and type `INSTALL` to accept data erasure.
-4. Wait for `INSTALL_VERIFIED` and the automatic reboot. Complete Android setup.
+3. Confirm `LAYOUT_VERIFIED` before entering fastboot. The root broker above is
+   the one from the documented unlock procedure; use its actual path if different.
+   If ADB itself is already root, omit `--root-broker /data/local/tmp/su`.
+   The receipt expires after one hour and is specific to the selected device/slot.
+4. Read the confirmation and type `INSTALL` to accept data erasure.
+5. Wait for `INSTALL_VERIFIED` and the automatic reboot. Complete Android setup.
+
+The layout step reads 28 KiB of GPT data and partition sizes; it never writes to
+the phone or creates a firmware backup. Do not publish the generated `layout.json`
+or device journals: they contain device identifiers.
 
 The installer checks the package signature, image hashes, device state and full
 stock partitions. It saves only the five OS partitions that it changes and verifies
