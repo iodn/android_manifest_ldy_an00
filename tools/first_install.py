@@ -186,7 +186,10 @@ def check_misc(payload, slot="a"):
     return {'crc_valid': True, 'selected_slot': slot, 'selected_slot_successful': True, 'merge_status': 0}
 
 
-def capture_misc(serial):
+def capture_control_partition(serial, partition):
+    if partition not in ('misc', 'metadata'):
+        raise ValueError('Unsupported control partition')
+    payload_size = {'misc': 2097152, 'metadata': 67108864}[partition]
     import usb.core
     import usb.util
     devices = [d for d in usb.core.find(find_all=True, idVendor=0x18d1, idProduct=0xd00d)
@@ -215,10 +218,10 @@ def capture_misc(serial):
             pending = b''
         if len(pending):
             raise ValueError('Pending USB data; no misc read sent')
-        cmd = b'oem dump-storage misc\0'
+        cmd = ('oem dump-storage ' + partition).encode('ascii') + b'\0'
         if outgoing[0].write(cmd, timeout=5000) != len(cmd):
             raise ValueError('Misc command completion unknown')
-        size = len(START) + 2097152 + len(TRAILER)
+        size = len(START) + payload_size + len(TRAILER)
         wire = bytearray()
         deadline = time.monotonic() + 120
         while len(wire) < size:
@@ -240,6 +243,10 @@ def capture_misc(serial):
                 usb.util.release_interface(dev, intf.bInterfaceNumber)
         finally:
             usb.util.dispose_resources(dev)
+
+
+def capture_misc(serial):
+    return capture_control_partition(serial, 'misc')
 
 
 class Installer:
@@ -279,12 +286,21 @@ class Installer:
             raise ValueError('Unsupported selected boot slot')
         if 'FB LockState: UNLOCKED' not in self.command(['oem', 'lock-state', 'info']):
             raise ValueError('Patched LK fastboot gate is not open')
-        for name, size in self.m['geometry'].items():
+        # Main-LK advertises super/userdata sizes, but returns empty values for
+        # metadata/misc. Validate those exact sizes from framed storage reads.
+        for name in ('super', 'userdata'):
+            size = self.m['geometry'][name]
             observed = getvar(self.command(['getvar', 'partition-size:' + name]), 'partition-size:' + name)
             if int(observed, 16) != size:
                 raise ValueError('Unsupported partition size: ' + name)
         if int(getvar(self.command(['getvar', 'max-download-size']), 'max-download-size'), 16) < 8 * 1024 * 1024 + 64:
             raise ValueError('Fastboot download limit too small')
+        self.state('METADATA_SIZE_READ_PENDING')
+        metadata = capture_control_partition(self.serial, 'metadata')
+        atomic_json(self.directory / 'metadata-size.json',
+                    {'bytes': len(metadata), 'sha256': hashlib.sha256(metadata).hexdigest(),
+                     'payload_saved': False, 'framing_verified': True})
+        del metadata
         self.state('MISC_READ_PENDING')
         misc = capture_misc(self.serial)
         result = check_misc(misc, self.slot)

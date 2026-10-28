@@ -294,6 +294,18 @@ class MiscWireTests(unittest.TestCase):
         self.assertEqual(state['writes'], [b'oem dump-storage misc\0'])
         self.assertEqual(state['released'], 1)
 
+    def test_metadata_size_uses_one_exact_framed_read_without_saving_payload(self):
+        payload = bytes(67108864)
+        modules, state = self.capture([install.START + payload + install.TRAILER])
+        with patch.dict(sys.modules, modules):
+            self.assertEqual(len(install.capture_control_partition('TEST', 'metadata')), len(payload))
+        self.assertEqual(state['writes'], [b'oem dump-storage metadata\0'])
+        self.assertEqual(state['released'], 1)
+
+    def test_unknown_control_partition_is_rejected_before_usb_access(self):
+        with self.assertRaisesRegex(ValueError, 'Unsupported control'):
+            install.capture_control_partition('TEST', 'unknown')
+
     def test_stale_usb_input_prevents_command(self):
         modules, state = self.capture([b''], stale=b'previous response')
         with patch.dict(sys.modules, modules), self.assertRaisesRegex(ValueError, 'Pending USB'):
