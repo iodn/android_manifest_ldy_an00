@@ -1276,7 +1276,7 @@
   <project name="trusty/vendor/google/aosp" remote="aosp" revision="93e3ca36bc59e5d357b226e4e5254f8e478213f2" upstream="refs/tags/android-17.0.0_r1" dest-branch="refs/tags/android-17.0.0_r1" groups="pdk,trusty">
     <copyfile src="lk_inc.mk" dest="lk_inc.mk" />
   </project>
-  <project path="device/honor/ldy_an00" name="android_device_honor_ldy_an00" remote="iodn" revision="f232ca73a3b721ac5d98e542271765337ee0d5a4" upstream="lineage-24.0" />
+  <project path="device/honor/ldy_an00" name="android_device_honor_ldy_an00" remote="iodn" revision="1f0280c9e13b4190c2929600c95ca4b0714f3b92" upstream="lineage-24.0" />
   <project path="packages/apps/OpenEUICC" name="openeuicc" remote="upstream_4" revision="89d677e07d0ebbd2d157ede2cb31f76aec737e3a" sync-s="false" />
   <project path="packages/apps/OpenEUICC/libs/lpac-jni/src/main/jni/cjson/cjson" name="cJSON" remote="upstream_5" revision="6d9f2443ab071f86e5d9b43025a40929ec41c46c" />
   <project path="packages/apps/OpenEUICC/libs/lpac-jni/src/main/jni/lpac" name="lpac" remote="upstream_6" revision="50cdf15ab40942b00f8819a1c2ca19997f1a6d34" />
