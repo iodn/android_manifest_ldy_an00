@@ -2,12 +2,12 @@
 
 Unofficial **LineageOS 24.0 / Android 17** for **HONOR LDY-AN00**.
 This repository hosts the installation tools, build manifest and update feed.
-Firmware downloads will be published under [Releases](https://github.com/iodn/android_manifest_ldy_an00/releases).
+Versioned firmware downloads are published under [Releases](https://github.com/iodn/android_manifest_ldy_an00/releases).
 
-> **Preview — installation package not released yet.** Native RC3 boot and signed
-> OTA merge have passed. The automated first-install package is under validation and still
-> requires end-to-end hardware qualification. Do not use the
-> current image files as a ready-to-run installation package.
+> **Initial tested release:** `lineage-24.0-20261028-UNOFFICIAL-ldy_an00`
+> (`LDYAN00-NATIVE-RC4`). Fresh native installation and boot have been tested
+> with partition readbacks verified and SELinux enforcing.
+> This is an unofficial release; testing does not guarantee every use case.
 
 ## Requirements
 
@@ -24,26 +24,44 @@ bootloader or install an Honor OTA over this installation.
 
 ## First installation
 
-The intended release will contain one installer ZIP with the required images,
-tools and a guided `flash.sh`. Once that package is qualified and published:
+Download the complete installer ZIP and `SHA256SUMS` from the matching
+[GitHub release](https://github.com/iodn/android_manifest_ldy_an00/releases).
+A source checkout does not contain installation images.
 
-1. Back up personal files. Installation erases the phone's user data.
-2. Download the installer ZIP from the matching release and verify its checksum.
-3. Extract it and run `bash flash.sh` from the extracted folder.
-4. Follow its checks and confirmations; reboot only after verification succeeds.
+1. Save personal files; installation erases user data.
+2. Verify the downloaded ZIP with `sha256sum -c SHA256SUMS`.
+3. Extract the ZIP and open a terminal in its folder. Connect the phone while
+   stock Android is running with USB debugging authorized and root available.
+4. Run the layout check, then enter bootloader fastboot and install:
 
-**That qualified package is not available yet.** `flash.sh` and
-`tools/first_install.py` are under validation. Run the installer only from the
-complete signed release package; a source checkout has no installation assets.
-The installer must check the device, firmware and partition layout, preserve
-recovery backups, stop on errors and verify written data before offering a reboot.
+```sh
+python3 tools/prepare_layout.py --root-broker /data/local/tmp/su
+# Continue only after LAYOUT_VERIFIED.
+adb reboot bootloader
+bash flash.sh
+```
+
+Use the actual root-broker path from the unlock procedure. If ADB itself is
+already root, omit `--root-broker /data/local/tmp/su`. The read-only layout
+receipt expires after one hour and is bound to the device and selected slot.
+
+Read the confirmation and type `INSTALL` to accept data erasure. Wait for
+`INSTALL_VERIFIED` and automatic reboot, then complete Android setup.
+Full partition readbacks can take about 30 minutes each; keep USB connected.
+If installation stops, preserve the journal and follow the packaged README;
+do not blindly retry, reboot or switch slots.
+
+The installer verifies the signed package, exact stock baseline and written
+partitions. It keeps one stock recovery set and preserves LK, the kernel,
+vendor firmware and calibration/security partitions.
 
 ## Updates
 
 After a compatible native installation, updates will use
 **Settings > System > Updater**. A reboot is required to run the new version;
 Virtual A/B merge completes afterward. Do not switch slots manually after merge.
-The update feed remains empty until qualified signed releases are available.
+The initial installer is not an OTA ZIP. The feed remains empty until a
+compatible signed OTA package has passed testing.
 
 ## Source
 
@@ -68,12 +86,12 @@ python3 .repo/manifests/patches/apply.py --source . --apply
 The patch runner checks pinned upstream bases, patch hashes and resulting Git
 source trees. It does not commit or push. Preserve applied changes before syncing.
 Supply the excluded, matching proprietary inputs before building. The pinned
-repository layout has passed a cached integration rebuild. Signed first-install
-hardware qualification is required before publication.
+repository layout has passed a cached integration rebuild. Every new release requires signature checks and hardware qualification before publication.
 
 Use `lineage_ldy_an00_native` as the native product, `ldy_an00` as the source
 codename and `LDY-AN00` as the displayed model. Keep the existing signing
-identities for compatible updates. Tag immutable source revisions and publish
+identities for compatible updates. Give every release a unique build date and
+increasing timestamp; never replace published images under an existing version. Tag immutable source revisions and publish
 verified assets through GitHub Releases; keep images and private keys out of Git.
 
 The installed update endpoint stays at
