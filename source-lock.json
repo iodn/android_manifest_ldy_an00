@@ -9,6 +9,16 @@
       "remote_url": "https://github.com/LineageOS/android_build"
     },
     {
+      "path": "build/soong",
+      "revision": "a528a88bd553d2a449ad9338a3e944b89a164971",
+      "tree": "e1b105fcad1a8a915092415223f983b48bd6b324",
+      "base_revision": "a528a88bd553d2a449ad9338a3e944b89a164971",
+      "patch": "patches/build_soong.patch",
+      "patch_sha256": "d0b57320bc3479ddba445f4a8f9441d64198e393efadcdc51a771f25ac3009a4",
+      "patch_tree_verified": true,
+      "remote_url": "https://github.com/LineageOS/android_build_soong"
+    },
+    {
       "path": "device/honor/ldy_an00",
       "revision": "136af1c298cff8b994aaae2a4f99f92ebebbeb0f",
       "tree": "ac7c6cc8482d2e18e5c7dbe4eb030a0475f395b9",

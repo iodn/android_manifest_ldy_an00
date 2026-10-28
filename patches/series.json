@@ -2,6 +2,16 @@
   "release": "LDYAN00-NATIVE-RC3",
   "projects": [
     {
+      "path": "build/soong",
+      "revision": "a528a88bd553d2a449ad9338a3e944b89a164971",
+      "tree": "e1b105fcad1a8a915092415223f983b48bd6b324",
+      "base_revision": "a528a88bd553d2a449ad9338a3e944b89a164971",
+      "patch": "build_soong.patch",
+      "patch_sha256": "d0b57320bc3479ddba445f4a8f9441d64198e393efadcdc51a771f25ac3009a4",
+      "patch_tree_verified": true,
+      "remote_url": "https://github.com/LineageOS/android_build_soong"
+    },
+    {
       "path": "frameworks/av",
       "revision": "8ce856906299e0cf1ea14a7edcd45547be7d4c04",
       "tree": "6892f2ed8deb149d1ad19e43db30b35effd615a1",
