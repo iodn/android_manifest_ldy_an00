@@ -304,6 +304,11 @@ def main():
     parser.add_argument('--yes-erase-userdata', action='store_true')
     parser.add_argument('--reboot', action='store_true')
     args = parser.parse_args()
+    try:
+        __import__('usb.core')
+        __import__('usb.util')
+    except ImportError:
+        raise SystemExit('PyUSB is required; install python3-usb before starting.') from None
     root = args.package.resolve()
     manifest = authenticate(root)
     before, after = validate_packet(root, manifest)

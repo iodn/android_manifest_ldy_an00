@@ -125,7 +125,7 @@ Build: `{build_number}`. Unofficial LineageOS 24.0 / Android 17.
 - HONOR LDY-AN00, supported 512 GB layout, stock firmware 10.0.0.113(C00E100R101P1).
 - The qualified LK patch installed and boot-tested on both slots.
 - Stock Android booted successfully on slot A before entering bootloader fastboot.
-- Linux x86_64, Python 3, OpenSSL and PyUSB (`python3-usb` on Debian/Ubuntu).
+- Linux x86_64, Python 3.11 or newer, OpenSSL and PyUSB (`python3-usb` on Debian/Ubuntu).
 - At least 22 GB of free host storage for verified recovery backups.
 
 Installation erases user data. Save personal files first. Keep the phone powered

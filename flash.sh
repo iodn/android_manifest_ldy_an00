@@ -8,4 +8,5 @@ if [[ ! -f installer.json ]]; then
 fi
 command -v python3 >/dev/null
 command -v openssl >/dev/null
+python3 -c 'import sys; sys.exit(0 if sys.version_info >= (3, 11) else "Python 3.11 or newer is required.")'
 exec python3 -B tools/first_install.py --reboot "$@"

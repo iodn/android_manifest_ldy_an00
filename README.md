@@ -15,7 +15,8 @@ Firmware downloads will be published under [Releases](https://github.com/iodn/an
 - Stock firmware **10.0.0.113(C00E100R101P1)**.
 - The exact supported **512 GB** partition layout.
 - The qualified LK patch installed in **both boot slots**.
-- A Linux x86_64 computer with USB access and space for recovery backups.
+- A Linux x86_64 computer with USB access and at least 22 GB free for backups.
+- Python 3.11 or newer, OpenSSL, PyUSB and an authorized ADB connection.
 
 The firmware retains Honor's kernel and vendor components. Its system security
 patch is 2026-10-01; the retained vendor patch is 2025-12-01. Do not relock the
