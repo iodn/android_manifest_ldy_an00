@@ -4,23 +4,46 @@ Unofficial **LineageOS 24.0 / Android 17** for **HONOR LDY-AN00**.
 This repository hosts the installation tools, build manifest and update feed.
 Versioned firmware downloads are published under [Releases](https://github.com/iodn/android_manifest_ldy_an00/releases).
 
-> **Initial tested release:** `lineage-24.0-20261028-UNOFFICIAL-ldy_an00`
-> (`LDYAN00-NATIVE-RC4`). Fresh native installation and boot have been tested
-> with partition readbacks verified and SELinux enforcing.
-> This is an unofficial release; testing does not guarantee every use case.
+**Current release:** [LineageOS 24.0 - 2026-10-28](https://github.com/iodn/android_manifest_ldy_an00/releases/tag/lineage-24.0-20261028-UNOFFICIAL-ldy_an00).
 
-## Requirements
+This unofficial release has passed a fresh installation and boot test, signing
+checks and partition readback verification. SELinux is enforcing.
 
-- HONOR **LDY-AN00**; stock codename **HNLDY-M**.
-- Stock firmware **10.0.0.113(C00E100R101P1)**.
-- The exact supported **512 GB** partition layout.
-- The qualified LK patch installed in **both boot slots**.
-- A Linux x86_64 computer with USB access and at least 22 GB free for backups.
-- Python 3.11 or newer, OpenSSL, PyUSB and an authorized ADB connection.
+## Compatibility
 
-The firmware retains Honor's kernel and vendor components. Its system security
-patch is 2026-10-01; the retained vendor patch is 2025-12-01. Do not relock the
-bootloader or install an Honor OTA over this installation.
+This release supports the following installation baseline:
+
+| Item | Supported configuration |
+| --- | --- |
+| Device | HONOR LDY-AN00 (stock codename HNLDY-M) |
+| Storage layout | Verified 512 GB variant |
+| Installed stock firmware | 10.0.0.113(C00E100R101P1) |
+| Bootloader | Qualified LK unlock patch installed and boot-tested on both slots |
+
+The storage requirement refers to the partition layout checked by this installer,
+not an Android storage-capacity limit. Other capacities and stock firmware versions
+have not been validated and are not currently supported by this package. The
+installer stops if their layout or partition hashes differ; do not bypass those
+checks or downgrade firmware solely to satisfy them.
+
+An unlocked bootloader is necessary, but does not by itself establish
+compatibility. This package installs the Android system while retaining Honor's
+kernel, vendor firmware and other device-specific components. The stock version
+therefore matters. Broader support requires validating those components and the
+installation layout for each additional configuration.
+
+The Android system security patch is **2026-10-01**; the retained vendor patch is
+**2025-12-01**. The system patch level does not upgrade retained kernel/vendor
+security fixes. Do not relock the bootloader or install an Honor OTA over this
+installation.
+
+## Installation requirements
+
+- Linux x86_64 with USB access and at least 22 GB free for the stock recovery set.
+- Python 3.11 or newer, OpenSSL, PyUSB and ADB.
+- Authorized USB debugging and existing Android root for the read-only layout check.
+
+Installation erases user data. Back up personal files before starting.
 
 ## First installation
 
@@ -86,13 +109,14 @@ python3 .repo/manifests/patches/apply.py --source . --apply
 The patch runner checks pinned upstream bases, patch hashes and resulting Git
 source trees. It does not commit or push. Preserve applied changes before syncing.
 Supply the excluded, matching proprietary inputs before building. The pinned
-repository layout has passed a cached integration rebuild. Every new release requires signature checks and hardware qualification before publication.
+repository layout has passed a cached integration rebuild. Every new release
+requires signature checks and hardware qualification before publication.
 
 Use `lineage_ldy_an00_native` as the native product, `ldy_an00` as the source
 codename and `LDY-AN00` as the displayed model. Keep the existing signing
 identities for compatible updates. Give every release a unique build date and
-increasing timestamp; never replace published images under an existing version. Tag immutable source revisions and publish
-verified assets through GitHub Releases; keep images and private keys out of Git.
+increasing timestamp; never replace published images under an existing version.
+Tag immutable source revisions and publish verified assets through GitHub Releases; keep images and private keys out of Git.
 
 The installed update endpoint stays at
 `https://raw.githubusercontent.com/iodn/android_manifest_ldy_an00/main/ota/ldy_an00.json`.

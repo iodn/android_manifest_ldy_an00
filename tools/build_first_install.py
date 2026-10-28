@@ -118,11 +118,12 @@ def build(inputs, baseline_gzip, output, build_number):
         after[n]['sha256'] = sha(output / child_name)
     readme = f'''# LineageOS first installation for HONOR LDY-AN00
 
-Build: `{build_number}`. Unofficial LineageOS 24.0 / Android 17.
+Unofficial LineageOS 24.0 / Android 17 for HONOR LDY-AN00.
 
 ## Requirements
 
-- HONOR LDY-AN00, supported 512 GB layout, stock firmware 10.0.0.113(C00E100R101P1).
+- HONOR LDY-AN00 with the verified 512 GB partition layout.
+- Installed stock firmware 10.0.0.113(C00E100R101P1).
 - The qualified LK patch installed and boot-tested on both slots.
 - Existing root on stock Android for the small read-only GPT/layout check.
 - ADB installed, USB debugging authorized, and the trusted root broker available.
@@ -130,6 +131,12 @@ Build: `{build_number}`. Unofficial LineageOS 24.0 / Android 17.
 - The installer preserves the selected slot; A or B is supported.
 - Linux x86_64, Python 3.11 or newer, OpenSSL and PyUSB (`python3-usb` on Debian/Ubuntu).
 - At least 22 GB of free host storage for verified recovery backups.
+
+Other storage capacities and stock firmware versions have not been validated
+and are not supported by this package. The storage requirement describes the
+verified partition layout, not an Android capacity limit. This package retains
+Honor's kernel and vendor firmware; an unlocked bootloader alone does not establish
+compatibility. Do not bypass layout/hash checks or downgrade solely to match them.
 
 Installation erases user data. Save personal files first. Keep the phone powered
 and connected until the installer completes. A stock system must match the exact
