@@ -5,8 +5,8 @@ This repository hosts the installation tools, build manifest and update feed.
 Firmware downloads will be published under [Releases](https://github.com/iodn/android_manifest_ldy_an00/releases).
 
 > **Preview — installation package not released yet.** Native RC3 boot and signed
-> OTA merge have passed. The complete automated first-install procedure still
-> needs implementation and end-to-end hardware qualification. Do not use the
+> OTA merge have passed. The automated first-install package is under validation and still
+> requires end-to-end hardware qualification. Do not use the
 > current image files as a ready-to-run installation package.
 
 ## Requirements
@@ -31,8 +31,9 @@ tools and a guided `flash.sh`. Once that package is qualified and published:
 3. Extract it and run `bash flash.sh` from the extracted folder.
 4. Follow its checks and confirmations; reboot only after verification succeeds.
 
-**That automated package is not available yet.** The current `tools/` directory
-contains preparation and readback helpers, not the finished automatic installer.
+**That qualified package is not available yet.** `flash.sh` and
+`tools/first_install.py` are under validation. Run the installer only from the
+complete signed release package; a source checkout has no installation assets.
 The installer must check the device, firmware and partition layout, preserve
 recovery backups, stop on errors and verify written data before offering a reboot.
 
@@ -65,8 +66,9 @@ python3 .repo/manifests/patches/apply.py --source . --apply
 
 The patch runner checks pinned upstream bases, patch hashes and resulting Git
 source trees. It does not commit or push. Preserve applied changes before syncing.
-Supply the excluded, matching proprietary inputs before building. The reorganized
-source layout still requires a clean-build qualification.
+Supply the excluded, matching proprietary inputs before building. The pinned
+repository layout has passed a cached integration rebuild. Signed first-install
+hardware qualification is required before publication.
 
 Use `lineage_ldy_an00_native` as the native product, `ldy_an00` as the source
 codename and `LDY-AN00` as the displayed model. Keep the existing signing
