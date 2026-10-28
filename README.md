@@ -39,7 +39,7 @@ recovery backups, stop on errors and verify written data before offering a reboo
 ## Updates
 
 After a compatible native installation, updates will use
-**Settings → System → Updater**. A reboot is required to run the new version;
+**Settings > System > Updater**. A reboot is required to run the new version;
 Virtual A/B merge completes afterward. Do not switch slots manually after merge.
 The update feed remains empty until qualified signed releases are available.
 
