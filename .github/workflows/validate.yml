@@ -8,4 +8,4 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: python3 -m unittest discover -s tools -p 'test_*.py' -v
-      - run: python3 -m json.tool release/RC3/release.json > /dev/null
+      - run: python3 -m json.tool ota/ldy_an00.json > /dev/null
