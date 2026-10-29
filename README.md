@@ -112,6 +112,11 @@ Supply the excluded, matching proprietary inputs before building. The pinned
 repository layout has passed a cached integration rebuild. Every new release
 requires signature checks and hardware qualification before publication.
 
+Read-only container builds can use `tools/prepare_repo_config_cache.py` to redirect
+`repo` JSON caches into the build output. Mount the generated adapter over
+`.repo/repo/git_config.py` and this repository's `default.xml` as the active
+manifest. Keep Android sources read-only and the output cache writable.
+
 Use `lineage_ldy_an00_native` as the native product, `ldy_an00` as the source
 codename and `LDY-AN00` as the displayed model. Keep the existing signing
 identities for compatible updates. Give every release a unique build date and
