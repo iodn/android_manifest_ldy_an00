@@ -1,5 +1,5 @@
 {
-  "release": "LDYAN00-NATIVE-RC3",
+  "release": "unreleased",
   "projects": [
     {
       "path": "build/soong",
@@ -33,23 +33,35 @@
     },
     {
       "path": "frameworks/base",
-      "revision": "193c50e5fb7e8278190f57048af9fab5a7098fb4",
-      "tree": "5c28bc283ee9569918f5eba680041eedc509e857",
+      "revision": "f959707b8d812f07f15465f872b853e0d35f2815",
+      "tree": "0e05dc1743eed3c06dcc026cebc5e7ec1ae87b1e",
       "base_revision": "d89e00a103772f803f760979aabf8145e7731e1b",
       "patch": "frameworks_base.patch",
-      "patch_sha256": "231af5d7ad7cea8674bc766914e81b9e256c04821216ab38fe220e44e17234bf",
+      "patch_sha256": "6867ddfebc2485fee49f370fa7f6a1e6e545762df2916f2f1421441433466e80",
       "patch_tree_verified": true,
-      "remote_url": "https://github.com/LineageOS/android_frameworks_base"
+      "remote_url": "https://github.com/LineageOS/android_frameworks_base",
+      "target_snapshot_revision": "f959707b8d812f07f15465f872b853e0d35f2815",
+      "target_snapshot_tree": "0e05dc1743eed3c06dcc026cebc5e7ec1ae87b1e",
+      "historical_public_snapshot": {
+        "revision": "193c50e5fb7e8278190f57048af9fab5a7098fb4",
+        "tree": "5c28bc283ee9569918f5eba680041eedc509e857"
+      }
     },
     {
       "path": "frameworks/native",
-      "revision": "fa30b1c04f7a434bcb44f7756ad0041c2be25110",
-      "tree": "1e9435998a7d6dcd50dbc97113dfd01c7607ca7a",
+      "revision": "734a4419945e75840cdbcbf669aba8453120e40f",
+      "tree": "d219c38978fc06fee2b8276cd657efbf98297c41",
       "base_revision": "46018f54b42489de960c62c3db9de131abce43ea",
       "patch": "frameworks_native.patch",
-      "patch_sha256": "313c3219fc0c2f415e519121c55530142e8aa34fab1669f46adf27cd810c3398",
+      "patch_sha256": "75615c41f9e11217e4a48bb747368cc28e754f0beec6e5a20660d59fe0939d1e",
       "patch_tree_verified": true,
-      "remote_url": "https://github.com/LineageOS/android_frameworks_native"
+      "remote_url": "https://github.com/LineageOS/android_frameworks_native",
+      "target_snapshot_revision": "734a4419945e75840cdbcbf669aba8453120e40f",
+      "target_snapshot_tree": "d219c38978fc06fee2b8276cd657efbf98297c41",
+      "historical_public_snapshot": {
+        "revision": "fa30b1c04f7a434bcb44f7756ad0041c2be25110",
+        "tree": "1e9435998a7d6dcd50dbc97113dfd01c7607ca7a"
+      }
     },
     {
       "path": "frameworks/opt/telephony",
@@ -103,13 +115,19 @@
     },
     {
       "path": "packages/apps/Settings",
-      "revision": "8397134ae4ee640f1a26eb9f12d9eddb91650b89",
-      "tree": "5f22ecf62a013dbae9b9d336782b93681ddf3489",
+      "revision": "90c824730ca68e405c5e1babc504ca8c5787b0ee",
+      "tree": "12ac19c8016cc58aae1d4012340f73a40febe38d",
       "base_revision": "0b97deb37dcba757a3130899273fb4c298702f00",
       "patch": "packages_apps_Settings.patch",
-      "patch_sha256": "7db5b539d827a6d799744fc86490244d66a7e9e8805d1eab376b2fc6a751e275",
+      "patch_sha256": "b2bf42a8fe7bb72318c5531caf856736902dc0d987e8574b616ea3592fe4a6e6",
       "patch_tree_verified": true,
-      "remote_url": "https://github.com/LineageOS/android_packages_apps_Settings"
+      "remote_url": "https://github.com/LineageOS/android_packages_apps_Settings",
+      "target_snapshot_revision": "90c824730ca68e405c5e1babc504ca8c5787b0ee",
+      "target_snapshot_tree": "12ac19c8016cc58aae1d4012340f73a40febe38d",
+      "historical_public_snapshot": {
+        "revision": "8397134ae4ee640f1a26eb9f12d9eddb91650b89",
+        "tree": "5f22ecf62a013dbae9b9d336782b93681ddf3489"
+      }
     },
     {
       "path": "packages/services/Telephony",

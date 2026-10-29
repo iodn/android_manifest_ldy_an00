@@ -1,0 +1,2 @@
+# Preserve digest-pinned unified patches as exact bytes.
+patches/*.patch -text -whitespace

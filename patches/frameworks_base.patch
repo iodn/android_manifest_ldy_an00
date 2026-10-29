@@ -2995,6 +2995,198 @@ index 733da596426ab686181893340d3602403e629d45..3fcf40b3e431ebfcd9e850179c2d0fc4
      /**
       * Returns true if the given attribution tag is found within this instance under any package.
       * Only returns true if the attribution tag literal is found, not if any package contains the
+diff --git a/core/java/android/view/SurfaceControl.java b/core/java/android/view/SurfaceControl.java
+index c94e6998867525f7b4d910f46cfbf1fe9fa3e0d3..786411bd4fa25f445af2a1698c5a87569221fcc0 100644
+--- a/core/java/android/view/SurfaceControl.java
++++ b/core/java/android/view/SurfaceControl.java
+@@ -350,6 +350,8 @@ public final class SurfaceControl implements Parcelable {
+     private static native void nativeClearTrustedPresentationCallback(long transactionObj,
+             long nativeObject);
+     private static native StalledTransactionInfo nativeGetStalledTransactionInfo(int pid);
++    private static native VisibleSurfaceViewGeometry nativeGetVisibleSurfaceViewGeometry(
++            IBinder displayToken, int expectedOwnerUid, String packageName);
+     private static native void nativeSetDesiredPresentTimeNanos(long transactionObj,
+                                                                 long desiredPresentTimeNanos);
+     private static native void nativeNotifyShutdown();
+@@ -5990,6 +5992,74 @@ public final class SurfaceControl implements Parcelable {
+         return nativeGetStalledTransactionInfo(pid);
+     }
+ 
++    /** Copied visible composition row. The rectangle is in this output's display-frame domain.
++     * @hide
++     */
++    public static final class SurfaceViewGeometryRow {
++        public final String name;
++        public final int ownerUid;
++        public final int layerId;
++        public final int snapshotId;
++        public final Rect displayFrame;
++        private SurfaceViewGeometryRow(String name, int ownerUid, int layerId, int snapshotId,
++                int left, int top, int right, int bottom) {
++            this.name = name;
++            this.ownerUid = ownerUid;
++            this.layerId = layerId;
++            this.snapshotId = snapshotId;
++            displayFrame = new Rect(left, top, right, bottom);
++        }
++    }
++
++    /** Latest prepared physical-output composition metadata, not panel measurement.
++     * A complete empty row list differs from an unavailable/null result.
++     * @hide
++     */
++    public static final class VisibleSurfaceViewGeometry {
++        public final boolean complete;
++        public final long physicalDisplayId;
++        public final IBinder displayToken;
++        public final int physicalWidth;
++        public final int physicalHeight;
++        public final int outputWidth;
++        public final int outputHeight;
++        public final int rotation;
++        public final Rect layerStackSpaceRect;
++        public final SurfaceViewGeometryRow[] rows;
++        private VisibleSurfaceViewGeometry(boolean complete, long physicalDisplayId,
++                IBinder displayToken, int physicalWidth, int physicalHeight,
++                int outputWidth, int outputHeight, int rotation,
++                int left, int top, int right, int bottom, SurfaceViewGeometryRow[] rows) {
++            this.complete = complete;
++            this.physicalDisplayId = physicalDisplayId;
++            this.displayToken = displayToken;
++            this.physicalWidth = physicalWidth;
++            this.physicalHeight = physicalHeight;
++            this.outputWidth = outputWidth;
++            this.outputHeight = outputHeight;
++            this.rotation = rotation;
++            layerStackSpaceRect = new Rect(left, top, right, bottom);
++            this.rows = rows;
++        }
++    }
++
++    /** System-only composition metadata query. This may block on Binder/SF main work.
++     * Call from an isolated query worker, never an animation or thermal-policy owner.
++     * Null means unavailable; callers must fence display/focus changes and late completion.
++     * @hide
++     */
++    @Nullable
++    public static VisibleSurfaceViewGeometry getVisibleSurfaceViewGeometry(
++            @NonNull IBinder displayToken, int expectedOwnerUid, @NonNull String packageName) {
++        Objects.requireNonNull(displayToken);
++        Objects.requireNonNull(packageName);
++        if (expectedOwnerUid < 0 || packageName.isEmpty()) {
++            throw new IllegalArgumentException("Expected UID and package are required");
++        }
++        return nativeGetVisibleSurfaceViewGeometry(displayToken, expectedOwnerUid, packageName);
++    }
++
++
+     /**
+      * Notify the SurfaceFlinger to capture transaction traces when shutdown.
+      * @hide
+diff --git a/core/jni/android_view_SurfaceControl.cpp b/core/jni/android_view_SurfaceControl.cpp
+index cf3c012bb1bffa1ac2360361476084de45b2e571..ae7c09d1b0658a0d494f3103e9f433f4d29300e0 100644
+--- a/core/jni/android_view_SurfaceControl.cpp
++++ b/core/jni/android_view_SurfaceControl.cpp
+@@ -25,6 +25,7 @@
+ #include <android/gui/EdgeExtensionParameters.h>
+ #include <android/gui/JankData.h>
+ #include <android/gui/TransactionBarrier.h>
++#include <android/gui/VisibleSurfaceViewGeometry.h>
+ #include <android/hardware/display/IDeviceProductInfoConstants.h>
+ #include <android/os/IInputConstants.h>
+ #include <android_runtime/AndroidRuntime.h>
+@@ -321,6 +322,13 @@ static struct {
+     jmethodID ctor;
+ } gFrameRateCategoryRateClassInfo;
+ 
++static struct {
++    jclass rowClass;
++    jmethodID rowCtor;
++    jclass snapshotClass;
++    jmethodID snapshotCtor;
++} gSurfaceViewGeometryClassInfo;
++
+ static struct {
+     jclass clazz;
+     jmethodID asList;
+@@ -2708,6 +2716,47 @@ static jobject nativeGetStalledTransactionInfo(JNIEnv* env, jclass clazz, jint p
+     return jStalledTransactionInfo;
+ }
+ 
++static jobject nativeGetVisibleSurfaceViewGeometry(JNIEnv* env, jclass,
++        jobject displayToken, jint expectedOwnerUid, jstring packageName) {
++    sp<IBinder> token = ibinderForJavaObject(env, displayToken);
++    ScopedUtfChars packageChars(env, packageName);
++    if (token == nullptr || packageChars.c_str() == nullptr) return nullptr;
++    gui::VisibleSurfaceViewGeometry snapshot;
++    status_t status = SurfaceComposerClient::getVisibleSurfaceViewGeometry(
++            token, expectedOwnerUid, std::string(packageChars.c_str()), &snapshot);
++    if (status != OK) return nullptr;
++
++    jobjectArray rows = env->NewObjectArray(static_cast<jsize>(snapshot.rows.size()),
++            gSurfaceViewGeometryClassInfo.rowClass, nullptr);
++    if (rows == nullptr) return nullptr;
++    for (size_t i = 0; i < snapshot.rows.size(); ++i) {
++        const auto& row = snapshot.rows[i];
++        String16 name(row.name.c_str(), row.name.size());
++        jstring javaName = env->NewString(
++                reinterpret_cast<const jchar*>(name.string()), name.size());
++        if (javaName == nullptr) return nullptr;
++        jobject javaRow = env->NewObject(gSurfaceViewGeometryClassInfo.rowClass,
++                gSurfaceViewGeometryClassInfo.rowCtor, javaName,
++                row.ownerUid, row.layerId, row.snapshotId,
++                row.displayFrame.left, row.displayFrame.top,
++                row.displayFrame.right, row.displayFrame.bottom);
++        env->DeleteLocalRef(javaName);
++        if (javaRow == nullptr) return nullptr;
++        env->SetObjectArrayElement(rows, static_cast<jsize>(i), javaRow);
++        env->DeleteLocalRef(javaRow);
++        if (env->ExceptionCheck()) return nullptr;
++    }
++    jobject javaToken = javaObjectForIBinder(env, snapshot.displayToken);
++    if (snapshot.displayToken != nullptr && javaToken == nullptr) return nullptr;
++    const auto& bounds = snapshot.layerStackSpaceRect;
++    return env->NewObject(gSurfaceViewGeometryClassInfo.snapshotClass,
++            gSurfaceViewGeometryClassInfo.snapshotCtor, snapshot.complete,
++            static_cast<jlong>(snapshot.physicalDisplayId), javaToken,
++            snapshot.physicalWidth, snapshot.physicalHeight,
++            snapshot.outputWidth, snapshot.outputHeight, snapshot.rotation,
++            bounds.left, bounds.top, bounds.right, bounds.bottom, rows);
++}
++
+ static void nativeNotifyShutdown() {
+     SurfaceComposerClient::notifyShutdown();
+ }
+@@ -3071,6 +3120,10 @@ static const JNINativeMethod sSurfaceControlMethods[] = {
+     {"getNativeTrustedPresentationCallbackFinalizer", "()J", (void*)getNativeTrustedPresentationCallbackFinalizer },
+     {"nativeGetStalledTransactionInfo", "(I)Landroid/gui/StalledTransactionInfo;",
+             (void*) nativeGetStalledTransactionInfo },
++    {"nativeGetVisibleSurfaceViewGeometry",
++            "(Landroid/os/IBinder;ILjava/lang/String;)"
++            "Landroid/view/SurfaceControl$VisibleSurfaceViewGeometry;",
++            (void*)nativeGetVisibleSurfaceViewGeometry },
+     {"nativeSetDesiredPresentTimeNanos", "(JJ)V",
+             (void*) nativeSetDesiredPresentTimeNanos },
+     {"nativeNotifyShutdown", "()V",
+@@ -3408,6 +3461,18 @@ int register_android_view_SurfaceControl(JNIEnv* env)
+     gStalledTransactionInfoClassInfo.frameNumber =
+             GetFieldIDOrDie(env, stalledTransactionInfoClazz, "frameNumber", "J");
+ 
++    jclass geometryRow = FindClassOrDie(env,
++            "android/view/SurfaceControl$SurfaceViewGeometryRow");
++    gSurfaceViewGeometryClassInfo.rowClass = MakeGlobalRefOrDie(env, geometryRow);
++    gSurfaceViewGeometryClassInfo.rowCtor = GetMethodIDOrDie(env, geometryRow, "<init>",
++            "(Ljava/lang/String;IIIIIII)V");
++    jclass geometrySnapshot = FindClassOrDie(env,
++            "android/view/SurfaceControl$VisibleSurfaceViewGeometry");
++    gSurfaceViewGeometryClassInfo.snapshotClass = MakeGlobalRefOrDie(env, geometrySnapshot);
++    gSurfaceViewGeometryClassInfo.snapshotCtor = GetMethodIDOrDie(env, geometrySnapshot, "<init>",
++            "(ZJLandroid/os/IBinder;IIIIIIIII"
++            "[Landroid/view/SurfaceControl$SurfaceViewGeometryRow;)V");
++
+     jclass utilArrays = FindClassOrDie(env, "java/util/Arrays");
+     gUtilArrays.clazz = MakeGlobalRefOrDie(env, utilArrays);
+     gUtilArrays.asList = GetStaticMethodIDOrDie(env, utilArrays, "asList",
 diff --git a/core/res/res/values/config.xml b/core/res/res/values/config.xml
 index a19202ff1683b2a5a3db8935ef41f9c003be0c36..7ae8c7696f04588805febe594ebedd1793d13a53 100644
 --- a/core/res/res/values/config.xml
@@ -6235,6 +6427,176 @@ index 35659018cd67b058368cd9d8c379f772df88eb58..60803fd051c044c7dc64f8d73486f8bb
      /**
       * Returns lockout mode of this sensor.
       */
+diff --git a/services/core/java/com/android/server/display/AutomaticBrightnessController.java b/services/core/java/com/android/server/display/AutomaticBrightnessController.java
+index 858299ba2cd0a764a7db965c9cb5d433a252da3f..974f7429b2aeedc8b7b76142ba4a97385d3db1b4 100644
+--- a/services/core/java/com/android/server/display/AutomaticBrightnessController.java
++++ b/services/core/java/com/android/server/display/AutomaticBrightnessController.java
+@@ -448,6 +448,30 @@ public class AutomaticBrightnessController {
+         return mRawScreenAutoBrightness;
+     }
+ 
++    /**
++     * Latest actual ALS observation from this enabled sensor session, without ambient filtering.
++     * Unavailable while disabled or before the first observation; never reuses a previous session.
++     */
++    public float getLastObservedAmbientLux() {
++        return mLightSensorEnabled && mRecentLightSamples > 0
++                && Float.isFinite(mLastObservedLux) && mLastObservedLux >= 0
++                ? mLastObservedLux : INVALID_LUX;
++    }
++
++    /**
++     * Current mapper baseline without user adjustment, already in normalized framework units.
++     * Unlike the raw learned output, this is not offset by a user point or application correction.
++     */
++    public float getUnadjustedAutomaticScreenBrightness() {
++        if (!mAmbientLuxValid || mCurrentBrightnessMapper == null
++                || !Float.isFinite(mAmbientLux) || mAmbientLux < 0) {
++            return PowerManager.BRIGHTNESS_INVALID_FLOAT;
++        }
++        float brightness = mCurrentBrightnessMapper.getUnadjustedBrightness(mAmbientLux);
++        return brightness >= PowerManager.BRIGHTNESS_MIN && brightness <= PowerManager.BRIGHTNESS_MAX
++                ? brightness : PowerManager.BRIGHTNESS_INVALID_FLOAT;
++    }
++
+     public boolean hasValidAmbientLux() {
+         return mAmbientLuxValid;
+     }
+@@ -478,6 +502,9 @@ public class AutomaticBrightnessController {
+         final boolean userInitiatedChange =
+                 userChangedBrightness || userChangedAutoBrightnessAdjustment;
+         if (userInitiatedChange && enable) {
++            mCallbacks.onBrightnessThermalPolicyEvent(
++                    com.android.server.display.plugin.types.BrightnessThermalPolicy.EventKind
++                            .ADJUSTMENT_COMMITTED);
+             prepareBrightnessAdjustmentSample();
+         }
+         changed |= setLightSensorEnabled(enable);
+@@ -1198,6 +1225,11 @@ public class AutomaticBrightnessController {
+             Slog.d(TAG, "Updating foreground app: packageName=" + mPendingForegroundAppPackageName
+                     + ", category=" + mPendingForegroundAppCategory);
+         }
++        if (!java.util.Objects.equals(mForegroundAppPackageName,mPendingForegroundAppPackageName)) {
++            mCallbacks.onBrightnessThermalPolicyEvent(
++                    com.android.server.display.plugin.types.BrightnessThermalPolicy.EventKind
++                            .PACKAGE_CHANGED);
++        }
+         mForegroundAppPackageName = mPendingForegroundAppPackageName;
+         mPendingForegroundAppPackageName = null;
+         mForegroundAppCategory = mPendingForegroundAppCategory;
+@@ -1483,6 +1515,8 @@ public class AutomaticBrightnessController {
+     /** Callbacks to request updates to the display's power state. */
+     interface Callbacks {
+         void updateBrightness();
++        default void onBrightnessThermalPolicyEvent(
++                com.android.server.display.plugin.types.BrightnessThermalPolicy.EventKind kind) {}
+     }
+ 
+     /** Functional interface for providing time. */
+diff --git a/services/core/java/com/android/server/display/BrightnessMappingStrategy.java b/services/core/java/com/android/server/display/BrightnessMappingStrategy.java
+index 19195d8bbf2db65608b296dc63eff4440881c808..3034449ee7693d2ea7842c537718baa3c6eb5bf1 100644
+--- a/services/core/java/com/android/server/display/BrightnessMappingStrategy.java
++++ b/services/core/java/com/android/server/display/BrightnessMappingStrategy.java
+@@ -289,6 +289,12 @@ public abstract class BrightnessMappingStrategy {
+         return getBrightness(lux, null /* packageName */, ApplicationInfo.CATEGORY_UNDEFINED);
+     }
+ 
++    /**
++     * Returns the active configuration's normalized brightness before user adjustment and
++     * application corrections. Physical strategies retain the current adjusted nits conversion.
++     */
++    public abstract float getUnadjustedBrightness(float lux);
++
+     /**
+      * Returns the current auto-brightness adjustment.
+      *
+@@ -619,6 +625,7 @@ public abstract class BrightnessMappingStrategy {
+         private final int mPreset;
+ 
+         private Spline mSpline;
++        private Spline mUnadjustedSpline;
+         private float mMaxGamma;
+         private float mAutoBrightnessAdjustment;
+         private float mUserLux;
+@@ -721,7 +728,7 @@ public abstract class BrightnessMappingStrategy {
+ 
+         @Override
+         public void addUserDataPoint(float lux, float brightness) {
+-            float unadjustedBrightness = getUnadjustedBrightness(lux);
++            float unadjustedBrightness = getUnadjustedBrightnessForAdjustment(lux);
+             if (mLoggingEnabled) {
+                 Slog.d(TAG, "addUserDataPoint: (" + lux + "," + brightness + ")");
+                 PLOG.start("add user data point")
+@@ -808,12 +815,20 @@ public abstract class BrightnessMappingStrategy {
+         }
+ 
+         private void computeSpline() {
++            Spline unadjustedSpline = Spline.createSpline(mLux, mBrightness);
+             Pair<float[], float[]> curve = getAdjustedCurve(mLux, mBrightness, mUserLux,
+                     mUserBrightness, mAutoBrightnessAdjustment, mMaxGamma);
+-            mSpline = Spline.createSpline(curve.first, curve.second);
++            Spline spline = Spline.createSpline(curve.first, curve.second);
++            mSpline = spline;
++            mUnadjustedSpline = unadjustedSpline;
++        }
++
++        @Override
++        public float getUnadjustedBrightness(float lux) {
++            return mUnadjustedSpline.interpolate(lux);
+         }
+ 
+-        private float getUnadjustedBrightness(float lux) {
++        private float getUnadjustedBrightnessForAdjustment(float lux) {
+             Spline spline = Spline.createSpline(mLux, mBrightness);
+             return spline.interpolate(lux);
+         }
+@@ -833,6 +848,7 @@ public abstract class BrightnessMappingStrategy {
+         // A spline mapping from the current ambient light in lux to the desired display brightness
+         // in nits.
+         private Spline mBrightnessSpline;
++        private Spline mUnadjustedLuxToNitsSpline;
+ 
+         // A spline mapping from nits to the corresponding brightness value, normalized to the range
+         // [0, 1.0].
+@@ -1009,7 +1025,7 @@ public abstract class BrightnessMappingStrategy {
+ 
+         @Override
+         public void addUserDataPoint(float lux, float brightness) {
+-            float unadjustedBrightness = getUnadjustedBrightness(lux);
++            float unadjustedBrightness = getUnadjustedBrightnessForAdjustment(lux);
+             if (mLoggingEnabled) {
+                 Slog.d(TAG, "addUserDataPoint: (" + lux + "," + brightness + ")");
+                 PLOG.start("add user data point")
+@@ -1250,6 +1266,8 @@ public abstract class BrightnessMappingStrategy {
+             Pair<float[], float[]> defaultCurve = mConfig.getCurve();
+             float[] defaultLux = defaultCurve.first;
+             float[] defaultNits = defaultCurve.second;
++            // getCurve owns these clones. Keep the active base independent of future caller aliases.
++            Spline unadjustedLuxToNitsSpline = Spline.createSpline(defaultLux, defaultNits);
+             float[] defaultBrightness = new float[defaultNits.length];
+             for (int i = 0; i < defaultBrightness.length; i++) {
+                 defaultBrightness[i] = mAdjustedNitsToBrightnessSpline.interpolate(defaultNits[i]);
+@@ -1262,10 +1280,18 @@ public abstract class BrightnessMappingStrategy {
+             for (int i = 0; i < nits.length; i++) {
+                 nits[i] = mBrightnessToAdjustedNitsSpline.interpolate(brightness[i]);
+             }
+-            mBrightnessSpline = Spline.createSpline(lux, nits);
++            Spline brightnessSpline = Spline.createSpline(lux, nits);
++            mBrightnessSpline = brightnessSpline;
++            mUnadjustedLuxToNitsSpline = unadjustedLuxToNitsSpline;
++        }
++
++        @Override
++        public float getUnadjustedBrightness(float lux) {
++            return mAdjustedNitsToBrightnessSpline.interpolate(
++                    mUnadjustedLuxToNitsSpline.interpolate(lux));
+         }
+ 
+-        private float getUnadjustedBrightness(float lux) {
++        private float getUnadjustedBrightnessForAdjustment(float lux) {
+             Pair<float[], float[]> curve = mConfig.getCurve();
+             Spline spline = Spline.createSpline(curve.first, curve.second);
+             return mAdjustedNitsToBrightnessSpline.interpolate(spline.interpolate(lux));
 diff --git a/services/core/java/com/android/server/display/BrightnessRangeController.java b/services/core/java/com/android/server/display/BrightnessRangeController.java
 index e504b7b2008ba851bb8dff50a4ae9a1b0016511b..57c33c7ad944b570b6dee64df0d15199a814c621 100644
 --- a/services/core/java/com/android/server/display/BrightnessRangeController.java
@@ -6272,45 +6634,368 @@ index e504b7b2008ba851bb8dff50a4ae9a1b0016511b..57c33c7ad944b570b6dee64df0d15199
      float getTransitionPoint() {
          return mHbmController.getTransitionPoint();
      }
+diff --git a/services/core/java/com/android/server/display/BrightnessThermalCompositionSource.java b/services/core/java/com/android/server/display/BrightnessThermalCompositionSource.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..79feecea744b861c65d8e593e4b81235b4e45a1e
+--- /dev/null
++++ b/services/core/java/com/android/server/display/BrightnessThermalCompositionSource.java
+@@ -0,0 +1,31 @@
++// SPDX-License-Identifier: Apache-2.0
++package com.android.server.display;
++import android.os.IBinder;
++import android.view.SurfaceControl;
++import com.android.server.display.plugin.types.BrightnessThermalPolicy.*;
++import java.util.ArrayList;
++import java.util.concurrent.atomic.AtomicBoolean;
++
++/** Immutable token plus atomic lifetime; all blocking work belongs to the isolated query worker. */
++final class BrightnessThermalCompositionSource implements CompositionSource {
++    private final IBinder mToken;
++    private final AtomicBoolean mCurrent=new AtomicBoolean(true);
++    BrightnessThermalCompositionSource(IBinder token) { mToken=token; }
++    void close() { mCurrent.set(false); }
++    public boolean isCurrent() { return mToken!=null && mCurrent.get(); }
++    public CompositionGeometry query(int ownerUid,String packageName) {
++        if(!isCurrent())return null;
++        var raw=SurfaceControl.getVisibleSurfaceViewGeometry(mToken,ownerUid,packageName);
++        if(!isCurrent() || raw==null || raw.displayToken!=mToken)return null;
++        var rows=new ArrayList<CompositionRow>(raw.rows.length);
++        for(var row:raw.rows) {
++            var b=row.displayFrame;
++            rows.add(new CompositionRow(row.name,row.ownerUid,row.layerId,row.snapshotId,
++                    new CompositionRect(b.left,b.top,b.right,b.bottom)));
++        }
++        var b=raw.layerStackSpaceRect;
++        return new CompositionGeometry(raw.complete,raw.physicalDisplayId,
++                raw.physicalWidth,raw.physicalHeight,raw.outputWidth,raw.outputHeight,raw.rotation,
++                new CompositionRect(b.left,b.top,b.right,b.bottom),rows);
++    }
++}
+diff --git a/services/core/java/com/android/server/display/BrightnessThermalPolicyBinding.java b/services/core/java/com/android/server/display/BrightnessThermalPolicyBinding.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..5db96f8ce2b5b9999f478e60990f8bec17a57a49
+--- /dev/null
++++ b/services/core/java/com/android/server/display/BrightnessThermalPolicyBinding.java
+@@ -0,0 +1,138 @@
++// SPDX-License-Identifier: Apache-2.0
++package com.android.server.display;
++
++import com.android.server.display.plugin.types.BrightnessThermalPolicy;
++import com.android.server.display.plugin.types.BrightnessThermalPolicy.*;
++
++/** No device class dependency. Caller connects one instance to the existing DPC handler. */
++public final class BrightnessThermalPolicyBinding {
++    private final Owner mOwner;
++    private Session mSession;
++    private long mGeneration;
++
++    public BrightnessThermalPolicyBinding(Owner owner) { mOwner = owner; }
++    private void requireOwner() {
++        if (!mOwner.isCurrentThread()) throw new IllegalStateException("Wrong display owner");
++    }
++    private java.util.concurrent.atomic.AtomicBoolean mSourceAlive;
++    public void replace(String displayId, BrightnessThermalPolicy factory) {
++        requireOwner();
++        ++mGeneration; // Invalidate old frames before closing a device implementation.
++        if(mSourceAlive!=null)mSourceAlive.set(false);
++        mSourceAlive=null;
++        if (mSession != null) mSession.close();
++        mSession = null;
++        if (factory != null) {
++            long generation = mGeneration;
++            var source=mOwner.compositionSource();
++            var alive=new java.util.concurrent.atomic.AtomicBoolean(true);
++            mSourceAlive=alive;
++            CompositionSource scopedSource=source==null?null:new CompositionSource() {
++                public boolean isCurrent(){return alive.get() && source.isCurrent();}
++                public CompositionGeometry query(int uid,String pkg) {
++                    if(!isCurrent())return null;
++                    var result=source.query(uid,pkg);
++                    return isCurrent()?result:null;
++                }
++            };
++            Owner scoped = new Owner() {
++                public CompositionSource compositionSource(){return scopedSource;}
++                public void post(Runnable command) {
++                    mOwner.post(() -> {
++                        requireOwner();
++                        if (generation == mGeneration) command.run();
++                    });
++                }
++                public void postDelayed(Runnable command, long delayMillis) {
++                    mOwner.postDelayed(() -> {
++                        requireOwner();
++                        if (generation == mGeneration) command.run();
++                    },delayMillis);
++                }
++                public boolean isCurrentThread() { return mOwner.isCurrentThread(); }
++                public void invalidate() {
++                    requireOwner();
++                    if (generation == mGeneration) mOwner.invalidate();
++                }
++            };
++            mSession = factory.bind(displayId, scoped);
++            if(mSession==null)alive.set(false);
++        }
++        mOwner.invalidate();
++    }
++    public boolean hasSession() {
++        requireOwner();return mSession!=null;
++    }
++    public void onEvent(Event event) {
++        requireOwner();
++        if (mSession != null) mSession.onEvent(event);
++    }
++    public Boolean firstScreen() {
++        requireOwner();
++        return mSession == null ? null : mSession.firstScreen();
++    }
++    public Boolean onAnimation(float currentSdr, float currentMain, float targetMain, float rate) {
++        requireOwner();
++        return mSession == null ? null
++                : mSession.onAnimation(currentSdr,currentMain,targetMain,rate);
++    }
++    public Frame beginFrame(Context context) {
++        requireOwner();
++        if (mSession == null || context == null) return null;
++        // The owner observes OFF/app-override lifecycle too; output eligibility remains authoritative.
++        Frame frame = mSession.beginFrame(context);
++        if (!context.ordinaryEligible() || frame == null) return null;
++        long generation = mGeneration;
++        return new Frame() {
++            private boolean active() {
++                requireOwner();
++                return generation == mGeneration && mSession != null;
++            }
++            public long publicationRevision() { return frame.publicationRevision(); }
++            public long commandRevision() { return frame.commandRevision(); }
++            public long contextRevision() { return frame.contextRevision(); }
++            public float outputMaximum(float original) {
++                if (!active() || !valid(original)) return original;
++                float proposed = frame.outputMaximum(original);
++                return valid(proposed) ? Math.min(original, proposed) : original;
++            }
++            public float beforeHdr(float original) {
++                if (!active() || !valid(original)) return original;
++                float limited = frame.beforeHdr(original);
++                return valid(limited) ? Math.min(original, limited) : original;
++            }
++            public Output transformSdr(float sdr,float main,SdrRequest request) {
++                if (!active() || !valid(sdr) || !valid(main) || request == null
++                        || !valid(request.maximum())) return null;
++                Output proposed = frame.transformSdr(sdr,main,request);
++                if (proposed == null || !valid(proposed.sdr()) || !valid(proposed.main())) return null;
++                float maximum=Math.min(request.maximum(),outputMaximum(request.maximum()));
++                float acceptedMain = Math.min(proposed.main(),maximum);
++                float acceptedSdr = Math.min(Math.min(proposed.sdr(),maximum),acceptedMain);
++                return new Output(acceptedSdr,acceptedMain);
++            }
++            public Output transformHdr(float sdr, float main, HdrRequest request) {
++                if (!active() || !valid(sdr) || !valid(main) || request == null) return null;
++                Output proposed = frame.transformHdr(sdr, main, request);
++                if (proposed == null || !valid(proposed.sdr()) || !valid(proposed.main())) return null;
++                HdrBrightnessTransform.Output accepted = HdrBrightnessTransform.constrain(
++                        Math.min(sdr, proposed.sdr()), main, proposed.main(), request.metadata(),
++                        request.independentMaximum(), request.mapper());
++                return accepted == null ? null : new Output(accepted.sdr(), accepted.main());
++            }
++            public Output finish(float sdr, float main, HdrOutputs outputs) {
++                if (!active() || !valid(sdr) || !valid(main)) return new Output(sdr, main);
++                Output proposed = frame.finish(sdr, main, outputs);
++                if (proposed == null || !valid(proposed.sdr()) || !valid(proposed.main())) {
++                    return new Output(sdr, main);
++                }
++                float limitedMain = Math.min(main, proposed.main());
++                return new Output(Math.min(Math.min(sdr, proposed.sdr()), limitedMain), limitedMain);
++            }
++        };
++    }
++    public void close() { replace("", null); }
++    private static boolean valid(float value) {
++        return Float.isFinite(value) && value >= 0f && value <= 1f;
++    }
++}
+diff --git a/services/core/java/com/android/server/display/BrightnessThermalPolicyController.java b/services/core/java/com/android/server/display/BrightnessThermalPolicyController.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..cd74f02dda459a00e13ace25627a9af72ed336ad
+--- /dev/null
++++ b/services/core/java/com/android/server/display/BrightnessThermalPolicyController.java
+@@ -0,0 +1,105 @@
++// SPDX-License-Identifier: Apache-2.0
++package com.android.server.display;
++
++import android.annotation.SuppressLint;
++import android.os.Handler;
++import android.os.Looper;
++import android.os.IBinder;
++import com.android.server.display.plugin.PluginManager;
++import com.android.server.display.plugin.PluginType;
++import com.android.server.display.plugin.types.BrightnessThermalPolicy;
++import com.android.server.display.plugin.types.BrightnessThermalPolicy.*;
++import java.util.Objects;
++
++/** One DPC-owner binding; plugin publications invalidate storage and never carry stale revisions. */
++final class BrightnessThermalPolicyController {
++    private final Handler mHandler;
++    private final PluginManager mPlugins;
++    private final Runnable mChanged;
++    private final boolean mEnabled;
++    private final BrightnessThermalPolicyBinding mBinding;
++    private PluginManager.PluginChangeListener<BrightnessThermalPolicy> mListener;
++    private BrightnessThermalPolicy mFactory;
++    private String mDisplayId;
++    private long mGeneration;
++    private boolean mStopped;
++    private BrightnessThermalCompositionSource mCompositionSource;
++
++    BrightnessThermalPolicyController(Handler handler, PluginManager plugins, Runnable changed,
++            boolean enabled, String displayId) {
++        this(handler,plugins,changed,enabled,displayId,null);
++    }
++
++    BrightnessThermalPolicyController(Handler handler, PluginManager plugins, Runnable changed,
++            boolean enabled,String displayId,IBinder displayToken) {
++        mHandler = new Handler(handler.getLooper());
++        mPlugins = plugins;
++        mChanged = changed;
++        mEnabled = enabled;
++        mBinding = new BrightnessThermalPolicyBinding(new Owner() {
++            public CompositionSource compositionSource(){return mCompositionSource;}
++            public void post(Runnable work) { mHandler.post(work); }
++            public void postDelayed(Runnable work, long delay) { mHandler.postDelayed(work,delay); }
++            public boolean isCurrentThread() {
++                return Looper.myLooper() == mHandler.getLooper();
++            }
++            public void invalidate() { if (!mStopped) mChanged.run(); }
++        });
++        mHandler.post(() -> {
++            if (mGeneration == 0 && !mStopped) onDisplayChanged(displayId,displayToken);
++        });
++    }
++
++    @SuppressLint("MissingPermission")
++    void onDisplayChanged(String displayId) { onDisplayChanged(displayId,null); }
++
++    @SuppressLint("MissingPermission")
++    void onDisplayChanged(String displayId,IBinder displayToken) {
++        if (mStopped) return;
++        if(mCompositionSource!=null)mCompositionSource.close();
++        mCompositionSource=mEnabled && displayToken!=null
++                ?new BrightnessThermalCompositionSource(displayToken):null;
++        long generation = ++mGeneration;
++        if (mListener != null) mPlugins.unsubscribe(
++                PluginType.BRIGHTNESS_THERMAL_POLICY,mDisplayId,mListener);
++        mListener = null;
++        mFactory = null;
++        mDisplayId = displayId;
++        mBinding.replace(displayId,null);
++        if (!mEnabled || displayId == null) return;
++        mListener = ignored -> mHandler.post(() -> {
++            if (mStopped || generation != mGeneration
++                    || !Objects.equals(displayId,mDisplayId)) return;
++            BrightnessThermalPolicy current = mPlugins.getCurrentValue(
++                    PluginType.BRIGHTNESS_THERMAL_POLICY,displayId);
++            if (current != mFactory) {
++                mFactory = current;
++                mBinding.replace(displayId,current);
++            }
++        });
++        mPlugins.subscribe(PluginType.BRIGHTNESS_THERMAL_POLICY,displayId,mListener);
++    }
++
++    boolean hasSession() { return mBinding.hasSession(); }
++
++    Frame beginFrame(Context context) { return mBinding.beginFrame(context); }
++    void onEvent(Event event) { mBinding.onEvent(event); }
++    Boolean firstScreen() { return mBinding.firstScreen(); }
++    Boolean onAnimation(float currentSdr,float currentMain,float target,float rate) {
++        return mBinding.onAnimation(currentSdr,currentMain,target,rate);
++    }
++
++    @SuppressLint("MissingPermission")
++    void stop() {
++        mStopped = true;
++        if(mCompositionSource!=null)mCompositionSource.close();
++        mCompositionSource=null;
++        ++mGeneration;
++        if (mListener != null) mPlugins.unsubscribe(
++                PluginType.BRIGHTNESS_THERMAL_POLICY,mDisplayId,mListener);
++        mListener = null;
++        mFactory = null;
++        mBinding.close();
++        mHandler.removeCallbacksAndMessages(null);
++    }
++}
 diff --git a/services/core/java/com/android/server/display/DisplayPowerController.java b/services/core/java/com/android/server/display/DisplayPowerController.java
-index f839a319dbc7f9c4ef1ee3bd9907f46a7936b7ab..f8c0e8cd505048070e86def861d6ee3ddd2ee319 100644
+index f839a319dbc7f9c4ef1ee3bd9907f46a7936b7ab..7c929a307f972a978fc95cabc86ab39e861b4112 100644
 --- a/services/core/java/com/android/server/display/DisplayPowerController.java
 +++ b/services/core/java/com/android/server/display/DisplayPowerController.java
-@@ -391,6 +391,7 @@ final class DisplayPowerController implements AutomaticBrightnessController.Call
+@@ -106,6 +106,8 @@ import com.android.server.display.feature.DisplayManagerFlags;
+ import com.android.server.display.feature.flags.Flags;
+ import com.android.server.display.layout.Layout;
+ import com.android.server.display.plugin.PluginManager;
++import com.android.server.display.plugin.types.BrightnessThermalPolicy;
++import com.android.server.display.plugin.types.HdrBrightnessMetadata;
+ import com.android.server.display.state.DisplayStateController;
+ import com.android.server.display.state.DisplayStateController.DisplayState;
+ import com.android.server.display.utils.DebugUtils;
+@@ -391,6 +393,8 @@ final class DisplayPowerController implements AutomaticBrightnessController.Call
      private float[] mNitsRange;
  
      private final BrightnessRangeController mBrightnessRangeController;
 +    private final SdrHdrBrightnessCapController mSdrHdrBrightnessCaps;
++    private final BrightnessThermalPolicyController mStockThermalPolicy;
  
      private final BrightnessClamperController mBrightnessClamperController;
  
-@@ -593,6 +594,9 @@ final class DisplayPowerController implements AutomaticBrightnessController.Call
+@@ -593,6 +597,13 @@ final class DisplayPowerController implements AutomaticBrightnessController.Call
                          mDisplayDeviceConfig, displayDeviceInfo.width, displayDeviceInfo.height,
                          displayToken, mDisplayId), mContext, flags, mSensorManager, pluginManager,
                          mDisplayBrightnessController.getCurrentBrightness());
 +        mSdrHdrBrightnessCaps = new SdrHdrBrightnessCapController(
 +                mHandler, pluginManager, this::sendUpdatePowerState,
 +                SystemProperties.getBoolean("ro.display.sdr_hdr_caps", false), mUniqueDisplayId);
++        mStockThermalPolicy = new BrightnessThermalPolicyController(
++                mHandler, pluginManager, this::sendUpdatePowerState,
++                SystemProperties.getBoolean("ro.display.stock_thermal_policy", false),
++                mUniqueDisplayId,displayToken);
          // Seed the cached brightness
          saveBrightnessInfo(getScreenBrightnessSetting());
          mAutomaticBrightnessStrategy =
-@@ -898,6 +902,7 @@ final class DisplayPowerController implements AutomaticBrightnessController.Call
+@@ -898,6 +909,8 @@ final class DisplayPowerController implements AutomaticBrightnessController.Call
                  changed = true;
                  mDisplayDevice = device;
                  mUniqueDisplayId = uniqueId;
 +                mSdrHdrBrightnessCaps.onDisplayChanged(uniqueId);
++                mStockThermalPolicy.onDisplayChanged(uniqueId,token);
                  mPhysicalDisplayName = displayName;
                  mDisplayStatsId = mUniqueDisplayId.hashCode();
                  mDisplayDeviceConfig = config;
-@@ -1285,6 +1290,7 @@ final class DisplayPowerController implements AutomaticBrightnessController.Call
+@@ -1170,6 +1183,14 @@ final class DisplayPowerController implements AutomaticBrightnessController.Call
+         } else {
+             mUseSoftwareAutoBrightnessConfig = false;
+         }
++            if (mAutomaticBrightnessController != null && mScreenBrightnessRampAnimator != null) {
++            HdrBrightnessMetadata metadata = mBrightnessClamperController.getHdrBrightnessMetadata();
++            mStockThermalPolicy.onEvent(new BrightnessThermalPolicy.Event(
++                    BrightnessThermalPolicy.EventKind.AUTO_BRIGHTNESS_SETUP,
++                    SystemClock.elapsedRealtime(),0,0,null,
++                    metadata != null && metadata.active()
++                            && (metadata.layerFlags() & 0x1c00) != 0));
++        }
+     }
+ 
+     private void loadBrightnessRampRates() {
+@@ -1285,6 +1306,8 @@ final class DisplayPowerController implements AutomaticBrightnessController.Call
          mDisplayPowerProximityStateController.cleanup();
          mBrightnessRangeController.stop();
          mBrightnessClamperController.stop();
 +        mSdrHdrBrightnessCaps.stop();
++        mStockThermalPolicy.stop();
          mDisplayBrightnessReporter.stop();
          mHandler.removeCallbacksAndMessages(null);
  
-@@ -1396,7 +1402,11 @@ final class DisplayPowerController implements AutomaticBrightnessController.Call
+@@ -1396,7 +1419,52 @@ final class DisplayPowerController implements AutomaticBrightnessController.Call
                          mDisplayOffloadSession,
                          mIsWearBedtimeModeEnabled,
                          shouldUseChargingMode);
@@ -6319,11 +7004,52 @@ index f839a319dbc7f9c4ef1ee3bd9907f46a7936b7ab..f8c0e8cd505048070e86def861d6ee3d
 +                mUniqueDisplayId, displayBrightnessState.getBrightnessReason().getReason(),
 +                state, mPowerRequest);
 +        final float strategyBrightness = displayBrightnessState.getBrightness();
-+        float brightnessState = capFrame.beforeHdr(strategyBrightness);
++        final HdrBrightnessMetadata stockHdrMetadata =
++                mBrightnessClamperController.getHdrBrightnessMetadata();
++        final boolean stockHdrPresent = stockHdrMetadata != null && stockHdrMetadata.active()
++                || mBrightnessRangeController.getHighBrightnessMode()
++                        == BrightnessInfo.HIGH_BRIGHTNESS_MODE_HDR;
++        final boolean stockOrdinary = state == Display.STATE_ON
++                && mPowerRequest.policy == DisplayPowerRequest.POLICY_BRIGHT
++                && !mPowerRequest.lowPowerMode && !mPowerRequest.boostScreenBrightness;
++        final int stockReason = displayBrightnessState.getBrightnessReason().getReason();
++        final BrightnessThermalPolicy.Mode stockMode =
++                stockReason == BrightnessReason.REASON_AUTOMATIC
++                        ? BrightnessThermalPolicy.Mode.AUTOMATIC
++                        : stockReason == BrightnessReason.REASON_MANUAL
++                                ? BrightnessThermalPolicy.Mode.MANUAL : null;
++        mStockThermalPolicy.onEvent(new BrightnessThermalPolicy.Event(
++                BrightnessThermalPolicy.EventKind.POWER, SystemClock.elapsedRealtime(), state,
++                mPowerRequest.policy, null));
++        final boolean stockSessionBound=mStockThermalPolicy.hasSession();
++        final BrightnessThermalPolicy.Frame stockFrame = mStockThermalPolicy.beginFrame(
++                new BrightnessThermalPolicy.Context(stockMode,
++                        mAutomaticBrightnessController != null
++                                && mAutomaticBrightnessController.hasValidAmbientLux()
++                                ? mAutomaticBrightnessController.getAmbientLux() : null,
++                        stockHdrPresent, strategyBrightness, stockOrdinary,
++                        stockHdrMetadata != null && stockHdrMetadata.active()
++                                && (stockHdrMetadata.layerFlags() & 0x1c00) != 0,
++                        stockHdrMetadata,
++                        stockSessionBound && mAutomaticBrightnessController != null
++                                && mAutomaticBrightnessController.getLastObservedAmbientLux() >= 0f
++                                ? mAutomaticBrightnessController.getLastObservedAmbientLux() : null,
++                        stockSessionBound && mAutomaticBrightnessController != null
++                                && BrightnessUtils.isValidBrightnessValue(mAutomaticBrightnessController
++                                        .getUnadjustedAutomaticScreenBrightness())
++                                ? mAutomaticBrightnessController
++                                        .getUnadjustedAutomaticScreenBrightness() : null,
++                        (!mAutomaticBrightnessStrategy.shouldUseAutoBrightness()
++                                || BrightnessUtils.isValidBrightnessValue(
++                                        mPowerRequest.screenBrightnessOverride))
++                                && state==Display.STATE_ON));
++        final boolean stockPolicyActive = stockFrame != null;
++        float brightnessState = capFrame.beforeHdr(stockPolicyActive
++                ? stockFrame.beforeHdr(strategyBrightness) : strategyBrightness);
          float rawBrightnessState = displayBrightnessState.getBrightness();
          mBrightnessReasonTemp.set(displayBrightnessState.getBrightnessReason());
          boolean slowChange = displayBrightnessState.isSlowChange();
-@@ -1454,6 +1464,7 @@ final class DisplayPowerController implements AutomaticBrightnessController.Call
+@@ -1454,6 +1522,7 @@ final class DisplayPowerController implements AutomaticBrightnessController.Call
                  displayBrightnessState, mPowerRequest,
                  brightnessState, slowChange, /* displayState= */ state);
          brightnessState = clampedState.getBrightness();
@@ -6331,13 +7057,15 @@ index f839a319dbc7f9c4ef1ee3bd9907f46a7936b7ab..f8c0e8cd505048070e86def861d6ee3d
          slowChange = clampedState.isSlowChange();
          // faster rate wins, at this point customAnimationRate == -1, strategy does not control
          // customAnimationRate. Should be revisited if strategy start setting this value
-@@ -1466,12 +1477,15 @@ final class DisplayPowerController implements AutomaticBrightnessController.Call
+@@ -1466,12 +1535,17 @@ final class DisplayPowerController implements AutomaticBrightnessController.Call
              // only considering maxBrightness (ignoring brightness modifiers like low power or dim)
              // so that the slider accurately represents the full possible range,
              // even if they range changes what it means in absolute terms.
 +            final float outputMaximum = Math.min(
 +                    mBrightnessRangeController.getCurrentBrightnessMax(),
-+                    capFrame.sdrMaximum(clampedState.getMaxBrightness()));
++                    capFrame.sdrMaximum(stockPolicyActive
++                            ? stockFrame.outputMaximum(clampedState.getMaxBrightness())
++                            : clampedState.getMaxBrightness()));
              mDisplayBrightnessController.updateScreenBrightnessSetting(
                      unthrottledBrightnessState,
 -                    Math.max(mBrightnessRangeController.getCurrentBrightnessMin(),
@@ -6351,20 +7079,20 @@ index f839a319dbc7f9c4ef1ee3bd9907f46a7936b7ab..f8c0e8cd505048070e86def861d6ee3d
          }
  
          // The current brightness to use has been calculated at this point, and HbmController should
-@@ -1479,8 +1493,10 @@ final class DisplayPowerController implements AutomaticBrightnessController.Call
+@@ -1479,8 +1553,10 @@ final class DisplayPowerController implements AutomaticBrightnessController.Call
          // here instead of having HbmController listen to the brightness setting because certain
          // brightness sources (such as an app override) are not saved to the setting, but should be
          // reflected in HBM calculations.
 -        mBrightnessRangeController.onBrightnessChanged(brightnessState, unthrottledBrightnessState,
 -                clampedState);
-+        if (!capFrame.active()) {
++        if (!capFrame.active() && !stockPolicyActive) {
 +            mBrightnessRangeController.onBrightnessChanged(
 +                    brightnessState, unthrottledBrightnessState, clampedState);
 +        }
  
          // Initial HDR value to be replaced with calculated HDR value if one exists.
          float hdrBrightness = brightnessState;
-@@ -1538,25 +1554,56 @@ final class DisplayPowerController implements AutomaticBrightnessController.Call
+@@ -1538,25 +1614,51 @@ final class DisplayPowerController implements AutomaticBrightnessController.Call
              // use instead. We still preserve the calculated brightness for Standard Dynamic Range
              // (SDR) layers, but the main brightness value will be the one for HDR.
              float sdrAnimateValue = animateValue;
@@ -6379,7 +7107,7 @@ index f839a319dbc7f9c4ef1ee3bd9907f46a7936b7ab..f8c0e8cd505048070e86def861d6ee3d
                  hdrBrightness = animateValue;
 -            } else if (mBrightnessRangeController.getHighBrightnessMode()
 -                    == BrightnessInfo.HIGH_BRIGHTNESS_MODE_HDR
-+            } else if ((capFrame.active()
++            } else if (((capFrame.active() || stockPolicyActive)
 +                    ? mBrightnessRangeController.isHdrBrightnessMode(clampedState)
 +                    : mBrightnessRangeController.getHighBrightnessMode()
 +                            == BrightnessInfo.HIGH_BRIGHTNESS_MODE_HDR)
@@ -6389,7 +7117,7 @@ index f839a319dbc7f9c4ef1ee3bd9907f46a7936b7ab..f8c0e8cd505048070e86def861d6ee3d
                  // We want to scale HDR brightness level with the SDR level, we also need to restore
                  // SDR brightness immediately when entering dim or low power mode.
 -                animateValue = mBrightnessRangeController.getHdrBrightnessValue();
-+                animateValue = capFrame.active()
++                animateValue = (capFrame.active() || stockPolicyActive)
 +                        ? mBrightnessRangeController.getHdrBrightnessValue(hdrMappingInput)
 +                        : mBrightnessRangeController.getHdrBrightnessValue();
 +                hdrSelected = true;
@@ -6415,21 +7143,171 @@ index f839a319dbc7f9c4ef1ee3bd9907f46a7936b7ab..f8c0e8cd505048070e86def861d6ee3d
 +                    customAnimationRate = Math.max(
 +                            customAnimationRate, capFrame.transitionRate(limited));
 +                }
-+                // Rejected animation targets are not newly reported output targets.
-+                mBrightnessRangeController.onBrightnessChanged(
-+                        validOutput ? brightnessState : mPowerState.getSdrScreenBrightness(),
-+                        unthrottledBrightnessState, clampedState,
-+                        validOutput ? animateValue : mPowerState.getScreenBrightness(), validOutput);
 +            }
 +
              // if doze or suspend state is requested, we want to finish brightnes animation fast
              // to allow state animation to start
              if (mPowerRequest.policy == POLICY_DOZE
-@@ -1620,6 +1667,12 @@ final class DisplayPowerController implements AutomaticBrightnessController.Call
+@@ -1570,46 +1672,119 @@ final class DisplayPowerController implements AutomaticBrightnessController.Call
+             final float currentBrightness = mPowerState.getScreenBrightness();
+             final float currentSdrBrightness = mPowerState.getSdrScreenBrightness();
+ 
+-            if (BrightnessUtils.isValidBrightnessValue(animateValue)
++            boolean skipAnimation = initialRampSkip || hasBrightnessBuckets
++                    || !isDisplayContentVisible || brightnessIsTemporary;
++            final boolean isHdrOnlyChange = BrightnessSynchronizer.floatEquals(
++                    sdrAnimateValue, currentSdrBrightness);
++            boolean selectedSlowChange = slowChange;
++            if (mFlags.isFastHdrTransitionsEnabled() && !skipAnimation && isHdrOnlyChange) {
++                selectedSlowChange = false;
++            }
++            float selectedRate;
++            boolean ignoreAnimationLimits = false;
++            if (skipAnimation) {
++                selectedRate = SCREEN_ANIMATION_RATE_MINIMUM;
++            } else if (customAnimationRate > 0) {
++                selectedRate = customAnimationRate;
++                ignoreAnimationLimits = true;
++            } else {
++                boolean isIncreasing = animateValue > currentBrightness;
++                final boolean idle = mAutomaticBrightnessController != null
++                        && mAutomaticBrightnessController.isInIdleMode();
++                if (isIncreasing && selectedSlowChange) {
++                    selectedRate = idle ? mBrightnessRampRateSlowIncreaseIdle
++                            : mBrightnessRampRateSlowIncrease;
++                } else if (isIncreasing) {
++                    selectedRate = mBrightnessRampRateFastIncrease;
++                } else if (selectedSlowChange) {
++                    selectedRate = idle ? mBrightnessRampRateSlowDecreaseIdle
++                            : mBrightnessRampRateSlowDecrease;
++                } else {
++                    selectedRate = mBrightnessRampRateFastDecrease;
++                }
++            }
++
++            final Boolean firstScreen = BrightnessUtils.isValidBrightnessValue(animateValue)
+                     && (animateValue != currentBrightness
+-                    || sdrAnimateValue != currentSdrBrightness)) {
+-                boolean skipAnimation = initialRampSkip || hasBrightnessBuckets
+-                        || !isDisplayContentVisible || brightnessIsTemporary;
+-                final boolean isHdrOnlyChange = BrightnessSynchronizer.floatEquals(
+-                        sdrAnimateValue, currentSdrBrightness);
+-                if (mFlags.isFastHdrTransitionsEnabled() && !skipAnimation && isHdrOnlyChange) {
+-                    // SDR brightness is unchanged, so animate quickly as this is only impacting
+-                    // a likely minority amount of display content
+-                    // ie, the highlights of an HDR video or UltraHDR image
+-                    // Ideally we'd do this as fast as possible (ie, skip the animation entirely),
+-                    // but this requires display support and would need an entry in the
+-                    // display configuration. For now just do the fast animation
+-                    slowChange = false;
++                    || sdrAnimateValue != currentSdrBrightness)
++                    ? mStockThermalPolicy.onAnimation(currentSdrBrightness,
++                            currentBrightness,animateValue,selectedRate)
++                    : mStockThermalPolicy.firstScreen();
++            if (stockPolicyActive) {
++                if (hdrSelected && stockHdrMetadata != null && stockHdrMetadata.active()) {
++                    if (firstScreen != null) {
++                        final DisplayDeviceConfig maps = mDisplayDeviceConfig;
++                        BrightnessThermalPolicy.Output transformed = stockFrame.transformHdr(
++                                sdrAnimateValue,animateValue,new BrightnessThermalPolicy.HdrRequest(
++                                        stockHdrMetadata,new BrightnessThermalPolicy.BacklightMapper() {
++                                            public float nitsFromBacklight(float backlight) {
++                                                return maps.getNitsFromBacklight(backlight);
++                                            }
++                                            public float backlightFromNits(float nits) {
++                                                return maps.getBacklightFromNits(nits);
++                                            }
++                                        },mBrightnessClamperController.getIndependentHdrMaximum(
++                                                maps.getBrightnessMaximum()),firstScreen));
++                        if (transformed != null) {
++                            sdrAnimateValue = transformed.sdr();
++                            animateValue = transformed.main();
++                        }
++                    }
++                    sdrAnimateValue = Math.min(sdrAnimateValue,
++                            stockFrame.outputMaximum(sdrAnimateValue));
++                } else if (!hdrSelected) {
++                    BrightnessThermalPolicy.Output capped = stockFrame.transformSdr(
++                            sdrAnimateValue,animateValue,new BrightnessThermalPolicy.SdrRequest(
++                                    Math.min(mBrightnessRangeController.getCurrentBrightnessMax(),
++                                            clampedState.getMaxBrightness())));
++                    if (capped == null) capped = stockFrame.finish(
++                            sdrAnimateValue,animateValue,null);
++                    sdrAnimateValue = capped.sdr();
++                    animateValue = capped.main();
+                 }
+-                if (skipAnimation) {
+-                    animateScreenBrightness(animateValue, sdrAnimateValue,
+-                            SCREEN_ANIMATION_RATE_MINIMUM);
+-                } else if (customAnimationRate > 0) {
+-                    animateScreenBrightness(animateValue, sdrAnimateValue,
+-                            customAnimationRate, /* ignoreAnimationLimits = */true);
+-                } else {
+-                    boolean isIncreasing = animateValue > currentBrightness;
+-                    final boolean idle = mAutomaticBrightnessController != null
+-                            && mAutomaticBrightnessController.isInIdleMode();
+-                    if (isIncreasing && slowChange) {
+-                        rampSpeed = idle ? mBrightnessRampRateSlowIncreaseIdle
+-                                : mBrightnessRampRateSlowIncrease;
+-                    } else if (isIncreasing && !slowChange) {
+-                        rampSpeed = mBrightnessRampRateFastIncrease;
+-                    } else if (!isIncreasing && slowChange) {
+-                        rampSpeed = idle ? mBrightnessRampRateSlowDecreaseIdle
+-                                : mBrightnessRampRateSlowDecrease;
+-                    } else {
+-                        rampSpeed = mBrightnessRampRateFastDecrease;
++                // Independent generic caps remain authoritative after the private transform.
++                SdrHdrBrightnessCapController.Output output = hdrSelected
++                        ? capFrame.finish(sdrAnimateValue,animateValue)
++                        : capFrame.finishSdr(sdrAnimateValue,animateValue);
++                sdrAnimateValue = output.sdr();
++                animateValue = output.main();
++                if (BrightnessUtils.isValidBrightnessValue(sdrAnimateValue)
++                        && BrightnessUtils.isValidBrightnessValue(animateValue)) {
++                    float maximum = stockFrame.outputMaximum(clampedState.getMaxBrightness());
++                    DisplayBrightnessState.Builder reported =
++                            DisplayBrightnessState.Builder.from(clampedState);
++                    reported.setBrightness(sdrAnimateValue);
++                    if (clampedState.getHdrBrightness() != DisplayBrightnessState.BRIGHTNESS_NOT_SET) {
++                        reported.setHdrBrightness(animateValue);
++                    }
++                    if (maximum < clampedState.getMaxBrightness()) {
++                        reported.setMaxBrightness(maximum);
++                        reported.setMinBrightness(Math.min(clampedState.getMinBrightness(),maximum));
++                        reported.setBrightnessMaxReason(
++                                BrightnessInfo.BRIGHTNESS_MAX_REASON_PLUGIN);
+                     }
+-                    animateScreenBrightness(animateValue, sdrAnimateValue, rampSpeed);
++                    clampedState = reported.build();
++                    brightnessState = sdrAnimateValue;
++                    hdrBrightness = animateValue;
+                 }
+             }
++            if (capFrame.active() || stockPolicyActive) {
++                boolean validOutput = BrightnessUtils.isValidBrightnessValue(sdrAnimateValue)
++                        && BrightnessUtils.isValidBrightnessValue(animateValue);
++                // HBM sees final accepted targets only, including private transform + generic caps.
++                mBrightnessRangeController.onBrightnessChanged(
++                        validOutput ? sdrAnimateValue : currentSdrBrightness,
++                        unthrottledBrightnessState,clampedState,
++                        validOutput ? animateValue : currentBrightness,validOutput);
++            }
++            if (BrightnessUtils.isValidBrightnessValue(animateValue)
++                    && (animateValue != currentBrightness
++                    || sdrAnimateValue != currentSdrBrightness)) {
++                slowChange = selectedSlowChange;
++                if (!skipAnimation && customAnimationRate <= 0) rampSpeed = selectedRate;
++                animateScreenBrightness(animateValue,sdrAnimateValue,selectedRate,
++                        ignoreAnimationLimits);
++            }
+ 
+             notifyBrightnessTrackerChanged(brightnessState, userInitiatedChange,
+                     wasShortTermModelActive, mAutomaticBrightnessStrategy.isAutoBrightnessEnabled(),
+@@ -1620,6 +1795,12 @@ final class DisplayPowerController implements AutomaticBrightnessController.Call
              brightnessAdjusted = saveBrightnessInfo(getScreenBrightnessSetting(),
                      animateValue, clampedState);
          } else {
-+            if (capFrame.active()) {
++            if (capFrame.active() || stockPolicyActive) {
 +                // No new output was selected while animation is blocked.
 +                mBrightnessRangeController.onBrightnessChanged(
 +                        mPowerState.getSdrScreenBrightness(), unthrottledBrightnessState,
@@ -6438,6 +7316,99 @@ index f839a319dbc7f9c4ef1ee3bd9907f46a7936b7ab..f8c0e8cd505048070e86def861d6ee3d
              brightnessAdjusted = saveBrightnessInfo(getScreenBrightnessSetting(), clampedState);
          }
  
+@@ -1828,6 +2009,12 @@ final class DisplayPowerController implements AutomaticBrightnessController.Call
+         }
+     }
+ 
++    @Override
++    public void onBrightnessThermalPolicyEvent(BrightnessThermalPolicy.EventKind kind) {
++        mStockThermalPolicy.onEvent(new BrightnessThermalPolicy.Event(kind,
++                SystemClock.elapsedRealtime(),0,0,null));
++    }
++
+     public void updateBrightness() {
+         sendUpdatePowerState();
+     }
+@@ -2912,6 +3099,12 @@ final class DisplayPowerController implements AutomaticBrightnessController.Call
+                     // TODO: Should we have a a timeout for the temporary brightness?
+                     mDisplayBrightnessController
+                             .setTemporaryBrightness(Float.intBitsToFloat(msg.arg1));
++                    if (mAutomaticBrightnessStrategy.isAutoBrightnessEnabled()
++                            && BrightnessUtils.isValidBrightnessValue(
++                                    Float.intBitsToFloat(msg.arg1))) {
++                        onBrightnessThermalPolicyEvent(
++                                BrightnessThermalPolicy.EventKind.INTERVENED_AUTO);
++                    }
+                     updatePowerState();
+                     break;
+ 
+diff --git a/services/core/java/com/android/server/display/HdrBrightnessTransform.java b/services/core/java/com/android/server/display/HdrBrightnessTransform.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..ae28035d25ae2e4516af7a3c5f53c8bf921bddf1
+--- /dev/null
++++ b/services/core/java/com/android/server/display/HdrBrightnessTransform.java
+@@ -0,0 +1,61 @@
++// SPDX-License-Identifier: Apache-2.0
++package com.android.server.display;
++
++import com.android.server.display.plugin.types.HdrBrightnessMetadata;
++import com.android.server.display.plugin.types.BrightnessThermalPolicy;
++
++/** Final qualified transform guard. Metadata is an existing HDR-owner vote, not an enable request. */
++final class HdrBrightnessTransform {
++    interface BacklightMapper extends BrightnessThermalPolicy.BacklightMapper {
++        float nitsFromBacklight(float backlight);
++        float backlightFromNits(float nits);
++    }
++    record Output(float sdr, float main) {}
++
++    private HdrBrightnessTransform() {}
++
++    /**
++     * Apply current user headroom/scaling to a positively qualified private candidate, then enforce
++     * independently captured hardware/thermal/power maxima. Ordinary main is never used as a cap.
++     * Invalid/unavailable metadata rejects the transform rather than manufacturing an HDR vote.
++     */
++    static Output constrain(float sdr, float ordinaryMain, float candidate,
++            HdrBrightnessMetadata metadata, float independentMaximum,
++            BrightnessThermalPolicy.BacklightMapper mapper) {
++        if (!unit(sdr) || !unit(ordinaryMain) || !unit(candidate) || !unit(independentMaximum) || metadata == null
++                || !metadata.active() || !unit(metadata.maximum()) || mapper == null
++                || Float.isNaN(metadata.desiredRatio()) || metadata.desiredRatio() < 1f
++                || !unit(metadata.userRatioScale())) return null;
++        float baselineNits = mapper.nitsFromBacklight(sdr);
++        float candidateNits = mapper.nitsFromBacklight(candidate);
++        float ordinaryNits = mapper.nitsFromBacklight(ordinaryMain);
++        if (!Float.isFinite(baselineNits) || !Float.isFinite(candidateNits)
++                || !Float.isFinite(ordinaryNits) || ordinaryNits < 0f
++                || baselineNits < 0f || candidateNits < 0f) return null;
++        // Ordinary main already includes current user scaling. Scale only the additional private
++        // delta, preserving a no-op candidate. Ordinary main is a baseline, never a ceiling.
++        float deltaNits = candidateNits - ordinaryNits;
++        // Required decreases are never weakened by a user boost preference.
++        float scaledNits = deltaNits <= 0f || metadata.userRatioScale() == 1f ? candidateNits
++                : ordinaryNits + deltaNits * metadata.userRatioScale();
++        float headroomNits = baselineNits == 0f ? 0f
++                : baselineNits * metadata.desiredRatio();
++        float acceptedNits = Math.min(scaledNits, headroomNits);
++        // Do not introduce a LUT round-trip on an unchanged baseline or unscaled candidate.
++        float mapped;
++        if (acceptedNits == ordinaryNits) {
++            mapped = ordinaryMain;
++        } else if (acceptedNits == candidateNits) {
++            mapped = candidate;
++        } else {
++            mapped = mapper.backlightFromNits(acceptedNits);
++        }
++        if (!unit(mapped)) return null;
++        float main = Math.min(mapped, Math.min(independentMaximum, metadata.maximum()));
++        return new Output(Math.min(sdr, main), main);
++    }
++
++    private static boolean unit(float value) {
++        return Float.isFinite(value) && value >= 0f && value <= 1f;
++    }
++}
 diff --git a/services/core/java/com/android/server/display/HighBrightnessModeController.java b/services/core/java/com/android/server/display/HighBrightnessModeController.java
 index c742640be09e652e64ad39f3f72e2208d5b4e471..b94d9961da901bbe7c5e4f8747c2ce8b78f0e4a2 100644
 --- a/services/core/java/com/android/server/display/HighBrightnessModeController.java
@@ -6762,6 +7733,70 @@ index 0000000000000000000000000000000000000000..4b8806138056d16c8343611bb309149a
 +        return validOutput(value) ? Math.min(value, maximum) : value;
 +    }
 +}
+diff --git a/services/core/java/com/android/server/display/brightness/clamper/BrightnessClamperController.java b/services/core/java/com/android/server/display/brightness/clamper/BrightnessClamperController.java
+index 48400a0a4a7300bcf2bb71e527ca940433897b7a..9b21af60ae33d18bee39c17b364f2859897f9857 100644
+--- a/services/core/java/com/android/server/display/brightness/clamper/BrightnessClamperController.java
++++ b/services/core/java/com/android/server/display/brightness/clamper/BrightnessClamperController.java
+@@ -51,6 +51,7 @@ import com.android.server.display.config.SensorData;
+ import com.android.server.display.feature.DeviceConfigParameterProvider;
+ import com.android.server.display.feature.DisplayManagerFlags;
+ import com.android.server.display.plugin.PluginManager;
++import com.android.server.display.plugin.types.HdrBrightnessMetadata;
+ 
+ import java.io.PrintWriter;
+ import java.util.ArrayList;
+@@ -223,6 +224,27 @@ public class BrightnessClamperController {
+         return mModifiersAggregatedState.mMaxBrightness;
+     }
+ 
++    /** Independent limits for a qualified HDR transform. SDR solar/lux limits are not HDR votes. */
++    public float getIndependentHdrMaximum(float physicalMaximum) {
++        ModifiersAggregatedState independent = new ModifiersAggregatedState();
++        for (StatefulModifier modifier : mStatefulModifiers) {
++            if (modifier instanceof HdrBrightnessModifier
++                    || modifier instanceof BrightnessMaxLuxModifier) continue;
++            modifier.applyStateChange(independent);
++        }
++        return Math.min(physicalMaximum,independent.mMaxBrightness);
++    }
++
++    /** Called only on the display controller handler. */
++    public HdrBrightnessMetadata getHdrBrightnessMetadata() {
++        for (BrightnessStateModifier modifier : mModifiers) {
++            if (modifier instanceof HdrBrightnessModifier hdr) {
++                return hdr.getHdrBrightnessMetadata();
++            }
++        }
++        return null;
++    }
++
+     public float getMinBrightness() {
+         return mModifiersAggregatedState.mMinBrightness;
+     }
+@@ -246,7 +268,11 @@ public class BrightnessClamperController {
+ 
+     private boolean needToNotifyExternalListener(ModifiersAggregatedState state1,
+             ModifiersAggregatedState state2) {
+-        return !BrightnessSynchronizer.floatEquals(state1.mMaxDesiredHdrRatio,
++        return !java.util.Objects.equals(state1.mNativeHdrPresent,state2.mNativeHdrPresent)
++                || !java.util.Objects.equals(state1.mHdrLayersPresent,state2.mHdrLayersPresent)
++                || state1.mHdrLayerFlags != state2.mHdrLayerFlags
++                || state1.mHdrRegistrationGeneration != state2.mHdrRegistrationGeneration
++                || !BrightnessSynchronizer.floatEquals(state1.mMaxDesiredHdrRatio,
+                 state2.mMaxDesiredHdrRatio)
+                 || !BrightnessSynchronizer.floatEquals(state1.mMaxHdrBrightness,
+                 state2.mMaxHdrBrightness)
+@@ -536,6 +562,10 @@ public class BrightnessClamperController {
+      * adjustment is needed
+      */
+     public static class ModifiersAggregatedState {
++        int mHdrLayerFlags;
++        long mHdrRegistrationGeneration;
++        @Nullable Boolean mNativeHdrPresent;
++        @Nullable Boolean mHdrLayersPresent;
+         float mMaxDesiredHdrRatio = HdrBrightnessModifier.DEFAULT_MAX_HDR_SDR_RATIO;
+         float mMaxHdrBrightness = PowerManager.BRIGHTNESS_MAX;
+         @Nullable
 diff --git a/services/core/java/com/android/server/display/brightness/clamper/BrightnessPluginModifier.java b/services/core/java/com/android/server/display/brightness/clamper/BrightnessPluginModifier.java
 index 32ab3427e1cb5ed4cc82c8bac61c1c0cc3c57777..c6b678c062dcf4d956642f5a91be54b55770db3f 100644
 --- a/services/core/java/com/android/server/display/brightness/clamper/BrightnessPluginModifier.java
@@ -6796,8 +7831,189 @@ index 32ab3427e1cb5ed4cc82c8bac61c1c0cc3c57777..c6b678c062dcf4d956642f5a91be54b5
          }
      }
  
+diff --git a/services/core/java/com/android/server/display/brightness/clamper/HdrBrightnessModifier.java b/services/core/java/com/android/server/display/brightness/clamper/HdrBrightnessModifier.java
+index 180abc67ad8e36a52130e1928e00e7f7445ec909..bb4243507c499254afd42a4b1aa3f6006d9d5ccd 100644
+--- a/services/core/java/com/android/server/display/brightness/clamper/HdrBrightnessModifier.java
++++ b/services/core/java/com/android/server/display/brightness/clamper/HdrBrightnessModifier.java
+@@ -43,6 +43,7 @@ import com.android.server.display.feature.DisplayManagerFlags;
+ import com.android.server.display.plugin.PluginManager;
+ import com.android.server.display.plugin.PluginType;
+ import com.android.server.display.plugin.types.HdrBoostOverride;
++import com.android.server.display.plugin.types.HdrBrightnessMetadata;
+ 
+ 
+ import java.io.PrintWriter;
+@@ -56,25 +57,41 @@ public class HdrBrightnessModifier implements BrightnessStateModifier,
+     static final float DEFAULT_MAX_HDR_SDR_RATIO = 1.0f;
+     private static final float DEFAULT_HDR_LAYER_SIZE = -1.0f;
+ 
+-    private final SurfaceControlHdrLayerInfoListener mHdrListener =
+-            new SurfaceControlHdrLayerInfoListener() {
+-                @Override
+-                public void onHdrInfoChanged(IBinder displayToken, int numberOfHdrLayers, int maxW,
+-                        int maxH, int flags, float maxDesiredHdrSdrRatio) {
+-                    boolean hdrLayerPresent = numberOfHdrLayers > 0;
+-                    mHandler.post(() -> HdrBrightnessModifier.this.onHdrInfoChanged(
+-                            hdrLayerPresent ? (float) (maxW * maxH) : DEFAULT_HDR_LAYER_SIZE,
+-                            hdrLayerPresent ? Math.max(maxDesiredHdrSdrRatio,
+-                                    DEFAULT_MAX_HDR_SDR_RATIO) : DEFAULT_MAX_HDR_SDR_RATIO));
+-                }
+-            };
+-    private final PluginManager.PluginChangeListener<HdrBoostOverride> mHdrOverrideListener =
+-            new PluginManager.PluginChangeListener<>() {
+-                @Override
+-                public void onChanged(@Nullable HdrBoostOverride value) {
+-                    mHandler.post(() -> HdrBrightnessModifier.this.onHdrBoostOverride(value));
+-                }
+-            };
++    private SurfaceControlHdrLayerInfoListener mHdrListener;
++    private long mHdrRegistrationGeneration;
++    private int mHdrLayerFlags;
++    private boolean mHdrInfoReceived,mHdrLayersPresent;
++
++    private SurfaceControlHdrLayerInfoListener createHdrListener(IBinder token, long generation) {
++        return new SurfaceControlHdrLayerInfoListener() {
++            @Override
++            public void onHdrInfoChanged(IBinder displayToken, int numberOfHdrLayers, int maxW,
++                    int maxH, int flags, float maxDesiredHdrSdrRatio) {
++                mHandler.post(() -> {
++                    if (displayToken != token || mRegisteredDisplayToken != token
++                            || generation != mHdrRegistrationGeneration) return;
++                    boolean present = numberOfHdrLayers > 0;
++                    HdrBrightnessModifier.this.onHdrInfoChanged(
++                            present ? (float) (maxW * maxH) : DEFAULT_HDR_LAYER_SIZE,
++                            present ? Math.max(maxDesiredHdrSdrRatio,
++                                    DEFAULT_MAX_HDR_SDR_RATIO) : DEFAULT_MAX_HDR_SDR_RATIO,
++                            present ? flags : 0, present);
++                });
++            }
++        };
++    }
++
++    private PluginManager.PluginChangeListener<HdrBoostOverride> mHdrOverrideListener;
++    private long mHdrOverrideGeneration;
++
++    private PluginManager.PluginChangeListener<HdrBoostOverride> createHdrOverrideListener(
++            String displayId, long generation) {
++        return value -> mHandler.post(() -> {
++            if (generation != mHdrOverrideGeneration
++                    || !Objects.equals(displayId,mRegisteredUniqueDisplayId)) return;
++            onHdrBoostOverride(value);
++        });
++    }
+ 
+     private final Handler mHandler;
+     private final BrightnessClamperController.ClamperChangeListener mClamperChangeListener;
+@@ -270,6 +287,10 @@ public class HdrBrightnessModifier implements BrightnessStateModifier,
+     @Override
+     public void applyStateChange(
+             BrightnessClamperController.ModifiersAggregatedState aggregatedState) {
++        aggregatedState.mHdrLayerFlags = mHdrLayerFlags;
++        aggregatedState.mHdrRegistrationGeneration = mHdrRegistrationGeneration;
++        aggregatedState.mNativeHdrPresent = observedNativeHdr();
++        aggregatedState.mHdrLayersPresent = observedHdrLayers();
+         if (mMode == Mode.OVERRIDE_HDR && mHdrBoostOverride != null) {
+             aggregatedState.mMaxDesiredHdrRatio = mHdrBoostOverride.sdrHdrRatio();
+             aggregatedState.mMaxHdrBrightness = mHdrBoostOverride.maxHdrBrightness();
+@@ -397,21 +418,47 @@ public class HdrBrightnessModifier implements BrightnessStateModifier,
+     }
+ 
+     // Called in DisplayControllerHandler
+-    private void onHdrInfoChanged(float hdrLayerSize, float maxDesiredHdrSdrRatio) {
++    private void onHdrInfoChanged(float hdrLayerSize, float maxDesiredHdrSdrRatio, int flags,
++            boolean present) {
+         mHdrLayerSize = hdrLayerSize;
+         Mode newMode = recalculateMode(mHdrBrightnessData, mHdrBoostOverride);
+         // mode changed, or mode was HDR  and maxDesiredHdrRatio changed
+-        boolean needToNotifyChange = mMode != newMode
++        boolean needToNotifyChange = !mHdrInfoReceived || mHdrLayerFlags != flags
++                || mHdrLayersPresent != present || mMode != newMode
+                 || (isNbmOrHbmHdr()
+-                && !BrightnessSynchronizer.floatEquals(mMaxDesiredHdrRatio, maxDesiredHdrSdrRatio));
++                && !BrightnessSynchronizer.floatEquals(
++                        mMaxDesiredHdrRatio, maxDesiredHdrSdrRatio));
+         mMode = newMode;
+         mMaxDesiredHdrRatio = maxDesiredHdrSdrRatio;
++        mHdrLayerFlags = flags;
++        mHdrInfoReceived = true;
++        mHdrLayersPresent = present;
+         if (needToNotifyChange) {
+             mTransitionRate = CUSTOM_ANIMATION_RATE_NOT_SET;
+             mClamperChangeListener.onChanged();
+         }
+     }
+ 
++    /** Same-owner-thread coherent metadata. An override is not a stock-curve qualification. */
++    public HdrBrightnessMetadata getHdrBrightnessMetadata() {
++        boolean active = isNbmOrHbmHdr() && mRegisteredDisplayToken != null;
++        return new HdrBrightnessMetadata(active, mHdrLayerFlags, mMaxDesiredHdrRatio,
++                getRatioScaleFactor(), active
++                        ? getMaxBrightness(mMode, mMaxBrightness, mHdrBrightnessData) : 0f,
++                mHdrRegistrationGeneration, observedNativeHdr(), observedHdrLayers());
++    }
++
++    private Boolean observedHdrLayers() {
++        return mRegisteredDisplayToken!=null && mHdrInfoReceived ? mHdrLayersPresent : null;
++    }
++
++    private Boolean observedNativeHdr() {
++        // Source2293f6..22943e: native scene59/action16 only PQ/HLG; ULTRA uses17.
++        // A registration with no actual callback is unknown, not an invented zero-layer frame.
++        return mRegisteredDisplayToken != null && mHdrInfoReceived
++                ? (mHdrLayerFlags & 0xc00) != 0 : null;
++    }
++
+     // Called in DisplayControllerHandler
+     private void registerHdrListener(IBinder displayToken) {
+         if (mRegisteredDisplayToken == displayToken) {
+@@ -419,6 +466,7 @@ public class HdrBrightnessModifier implements BrightnessStateModifier,
+         }
+         unregisterHdrListener();
+         if (displayToken != null) {
++            mHdrListener = createHdrListener(displayToken, mHdrRegistrationGeneration);
+             mInjector.registerHdrListener(mHdrListener, displayToken);
+             mRegisteredDisplayToken = displayToken;
+         }
+@@ -426,10 +474,15 @@ public class HdrBrightnessModifier implements BrightnessStateModifier,
+ 
+     // Called in DisplayControllerHandler
+     private void unregisterHdrListener() {
++        ++mHdrRegistrationGeneration;
++        mHdrInfoReceived = false;
+         if (mRegisteredDisplayToken != null) {
+             mInjector.unregisterHdrListener(mHdrListener, mRegisteredDisplayToken);
+             mRegisteredDisplayToken = null;
+             mHdrLayerSize = DEFAULT_HDR_LAYER_SIZE;
++            mHdrLayerFlags = 0;
++            mMaxDesiredHdrRatio = DEFAULT_MAX_HDR_SDR_RATIO;
++            mHdrListener = null;
+         }
+     }
+ 
+@@ -440,6 +493,7 @@ public class HdrBrightnessModifier implements BrightnessStateModifier,
+         }
+         unregisterHdrBoostOverrideListener();
+         if (uniqueDisplayId != null) {
++            mHdrOverrideListener = createHdrOverrideListener(uniqueDisplayId,mHdrOverrideGeneration);
+             mInjector.registerHdrBoostOverrideListener(uniqueDisplayId, mHdrOverrideListener);
+             mRegisteredUniqueDisplayId = uniqueDisplayId;
+         }
+@@ -447,11 +501,13 @@ public class HdrBrightnessModifier implements BrightnessStateModifier,
+ 
+     // Called in DisplayControllerHandler
+     private void unregisterHdrBoostOverrideListener() {
++        ++mHdrOverrideGeneration;
+         if (mRegisteredUniqueDisplayId != null) {
+             mInjector.unregisterHdrBoostOverrideListener(
+                     mRegisteredUniqueDisplayId, mHdrOverrideListener);
+             mRegisteredUniqueDisplayId = null;
+             mHdrBoostOverride = null;
++            mHdrOverrideListener = null;
+         }
+ 
+     }
 diff --git a/services/core/java/com/android/server/display/plugin/PluginManager.java b/services/core/java/com/android/server/display/plugin/PluginManager.java
-index 62260a6b1a55ca518002c649c271dbacc52d3c19..cae440ddce3fb551a9652c3567346740a9cabb94 100644
+index 62260a6b1a55ca518002c649c271dbacc52d3c19..2c86b32a0f84ea936ebef24f0b9508803dd853ed 100644
 --- a/services/core/java/com/android/server/display/plugin/PluginManager.java
 +++ b/services/core/java/com/android/server/display/plugin/PluginManager.java
 @@ -18,6 +18,7 @@ package com.android.server.display.plugin;
@@ -6821,12 +8037,15 @@ index 62260a6b1a55ca518002c649c271dbacc52d3c19..cae440ddce3fb551a9652c3567346740
      /**
       * Removes change listener
       */
-@@ -133,6 +140,9 @@ public class PluginManager {
+@@ -133,6 +140,12 @@ public class PluginManager {
              if (Flags.enableMaxBrightnessCapOverridePluginType()) {
                  enabledTypes.add(PluginType.MAX_BRIGHTNESS_CAP_OVERRIDE);
              }
 +            if (SystemProperties.getBoolean("ro.display.sdr_hdr_caps", false)) {
 +                enabledTypes.add(PluginType.SDR_HDR_BRIGHTNESS_CAPS);
++            }
++            if (SystemProperties.getBoolean("ro.display.stock_thermal_policy", false)) {
++                enabledTypes.add(PluginType.BRIGHTNESS_THERMAL_POLICY);
 +            }
              return enabledTypes;
          }
@@ -6852,18 +8071,30 @@ index d17fbe21deeb97474814fdcde07b34e53b259eee..bee09fab98ebb32fb178620a6264b60e
       * Removes listener
       */
 diff --git a/services/core/java/com/android/server/display/plugin/PluginType.java b/services/core/java/com/android/server/display/plugin/PluginType.java
-index 397dd6d21117e7f5486bf072de3a6fdd8c336107..6621363cc30d3c181933fdd30795040365897288 100644
+index 397dd6d21117e7f5486bf072de3a6fdd8c336107..525638fb7fba7a4e710255c36960eb404644d00a 100644
 --- a/services/core/java/com/android/server/display/plugin/PluginType.java
 +++ b/services/core/java/com/android/server/display/plugin/PluginType.java
-@@ -20,6 +20,7 @@ import com.android.internal.annotations.Keep;
+@@ -19,7 +19,9 @@ package com.android.server.display.plugin;
+ import com.android.internal.annotations.Keep;
  import com.android.internal.annotations.VisibleForTesting;
  import com.android.server.display.plugin.types.HdrBoostOverride;
++import com.android.server.display.plugin.types.BrightnessThermalPolicy;
  import com.android.server.display.plugin.types.MaxBrightnessCapOverride;
 +import com.android.server.display.plugin.types.SdrHdrBrightnessCaps;
  
  /**
   * Represent customisation entry point to Framework. OEM and Framework team should define
-@@ -49,6 +50,10 @@ public class PluginType<T> {
+@@ -37,6 +39,9 @@ public class PluginType<T> {
+     * Value change will trigger whole power state recalculation, so plugins should not update
+     * value for this type too often.
+     */
++    public static final PluginType<BrightnessThermalPolicy> BRIGHTNESS_THERMAL_POLICY =
++            new PluginType<>(BrightnessThermalPolicy.class, "brightness_thermal_policy");
++
+     public static final PluginType<HdrBoostOverride> HDR_BOOST_OVERRIDE = new PluginType<>(
+             HdrBoostOverride.class, "hdr_boost_override");
+ 
+@@ -49,6 +54,10 @@ public class PluginType<T> {
      public static final PluginType<MaxBrightnessCapOverride> MAX_BRIGHTNESS_CAP_OVERRIDE =
              new PluginType<>(MaxBrightnessCapOverride.class, "max_brightness_cap_override");
  
@@ -6874,6 +8105,129 @@ index 397dd6d21117e7f5486bf072de3a6fdd8c336107..6621363cc30d3c181933fdd307950403
      final Class<T> mType;
      final String mName;
  
+diff --git a/services/core/java/com/android/server/display/plugin/types/BrightnessThermalPolicy.java b/services/core/java/com/android/server/display/plugin/types/BrightnessThermalPolicy.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..54166be784619b6324de10fde547b297f5ae3b6b
+--- /dev/null
++++ b/services/core/java/com/android/server/display/plugin/types/BrightnessThermalPolicy.java
+@@ -0,0 +1,95 @@
++// SPDX-License-Identifier: Apache-2.0
++package com.android.server.display.plugin.types;
++
++/** Framework-owned ABI for one display's synchronous policy. Private prototype. */
++public interface BrightnessThermalPolicy {
++    enum Mode { AUTOMATIC, MANUAL }
++    enum EventKind { PACKAGE_CHANGED, INTERVENED_AUTO, ADJUSTMENT_COMMITTED, POWER, AUTO_BRIGHTNESS_SETUP }
++    record Event(EventKind kind, long elapsedMs, int displayState, int displayPolicy,
++            Boolean fingerprintOffUnlock, Boolean hdrSceneActive) {
++        public Event(EventKind kind, long elapsedMs, int displayState, int displayPolicy,
++                Boolean fingerprintOffUnlock) {
++            this(kind,elapsedMs,displayState,displayPolicy,fingerprintOffUnlock,null);
++        }
++    }
++    record Context(Mode mode, Float ambientLux, Boolean hdrActive, Float originalBrightness,
++            boolean ordinaryEligible, Boolean hdrMetadataAvailable,
++            HdrBrightnessMetadata hdrMetadata, Float historyLux, Float noOffsetBrightness,
++            Boolean manualSensorActive) {
++        public Context(Mode mode,Float ambientLux,Boolean hdrActive,Float originalBrightness,
++                boolean ordinaryEligible,Boolean hdrMetadataAvailable,
++                HdrBrightnessMetadata metadata,Float historyLux,Float noOffsetBrightness) {
++            this(mode,ambientLux,hdrActive,originalBrightness,ordinaryEligible,
++                    hdrMetadataAvailable,metadata,historyLux,noOffsetBrightness,null);
++        }
++        public Context(Mode mode, Float ambientLux, Boolean hdrActive, Float originalBrightness,
++                boolean ordinaryEligible, Boolean hdrMetadataAvailable,
++                HdrBrightnessMetadata metadata) {
++            this(mode,ambientLux,hdrActive,originalBrightness,ordinaryEligible,
++                    hdrMetadataAvailable,metadata,null,null,null);
++        }
++        public Context(Mode mode, Float ambientLux, Boolean hdrActive, Float originalBrightness,
++                boolean ordinaryEligible, Boolean hdrMetadataAvailable) {
++            this(mode,ambientLux,hdrActive,originalBrightness,ordinaryEligible,
++                    hdrMetadataAvailable,null,null,null,null);
++        }
++    }
++    record HdrOutputs(Float currentBeforeRecovery, Float stockNoLimitCandidate) {}
++    interface BacklightMapper {
++        float nitsFromBacklight(float backlight);
++        float backlightFromNits(float nits);
++    }
++    record HdrRequest(HdrBrightnessMetadata metadata, BacklightMapper mapper,
++            float independentMaximum, boolean firstScreen) {}
++    record Output(float sdr, float main) {}
++    record SdrRequest(float maximum) {}
++
++    /** post must enqueue, never run inline. All other methods are owner-thread only. */
++    /** Immutable worker-only physical composition transport, bound to one display/session. */
++    record CompositionRect(int left,int top,int right,int bottom) {}
++    record CompositionRow(String name,int ownerUid,int layerId,int snapshotId,
++            CompositionRect displayFrame) {}
++    record CompositionGeometry(boolean complete,long physicalDisplayId,
++            int physicalWidth,int physicalHeight,int outputWidth,int outputHeight,int rotation,
++            CompositionRect layerStackSpaceRect,java.util.List<CompositionRow> rows) {
++        public CompositionGeometry { rows=java.util.List.copyOf(rows); }
++    }
++    interface CompositionSource {
++        boolean isCurrent(); // Nonblocking atomic lifetime check.
++        CompositionGeometry query(int ownerUid,String packageName); // Isolated query worker only.
++    }
++    interface Owner {
++        void post(Runnable command);
++        void postDelayed(Runnable command, long delayMillis);
++        boolean isCurrentThread();
++        void invalidate();
++        default CompositionSource compositionSource() { return null; }
++    }
++    /** Called only on the supplied owner thread. No I/O or heavy preparation is permitted. */
++    Session bind(String displayId, Owner owner);
++    interface Session {
++        void onEvent(Event event);
++        default Boolean firstScreen() { return null; }
++        default Boolean onAnimation(float currentSdr, float currentMain, float targetMain,
++                float rate) { return null; }
++        Frame beginFrame(Context context); // null means unavailable, never guessed defaults.
++        void close();
++    }
++    /** One immutable command/context snapshot; it must become inert after session close. */
++    interface Frame {
++        long publicationRevision();
++        long commandRevision();
++        long contextRevision();
++        float beforeHdr(float original);
++        default float outputMaximum(float original) { return original; }
++        Output finish(float ordinarySdr, float ordinaryMain, HdrOutputs hdrOutputs);
++        /** Null means unavailable; this never grants HDR eligibility. */
++        /** Private SDR APL cannot exceed actual current framework SDR authority. */
++        default Output transformSdr(float ordinarySdr,float ordinaryMain,SdrRequest request) {
++            return null;
++        }
++        default Output transformHdr(float ordinarySdr, float ordinaryMain, HdrRequest request) {
++            return null;
++        }
++    }
++}
+diff --git a/services/core/java/com/android/server/display/plugin/types/HdrBrightnessMetadata.java b/services/core/java/com/android/server/display/plugin/types/HdrBrightnessMetadata.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..7493876d14479933f393a0d11feb862feacde894
+--- /dev/null
++++ b/services/core/java/com/android/server/display/plugin/types/HdrBrightnessMetadata.java
+@@ -0,0 +1,16 @@
++// SPDX-License-Identifier: Apache-2.0
++package com.android.server.display.plugin.types;
++
++/** Immutable existing-HDR-owner eligibility and independent range snapshot; no HDR enable vote. */
++public record HdrBrightnessMetadata(boolean active, int layerFlags, float desiredRatio,
++        float userRatioScale, float maximum, long registrationGeneration,
++        Boolean nativeHdrPresent,Boolean hdrLayersPresent) {
++    public HdrBrightnessMetadata(boolean active,int flags,float ratio,float scale,float maximum,
++            long generation,Boolean nativeHdr) {
++        this(active,flags,ratio,scale,maximum,generation,nativeHdr,null);
++    }
++    public HdrBrightnessMetadata(boolean active,int flags,float ratio,float scale,float maximum,
++            long generation) {
++        this(active,flags,ratio,scale,maximum,generation,null,null);
++    }
++}
 diff --git a/services/core/java/com/android/server/display/plugin/types/SdrHdrBrightnessCaps.java b/services/core/java/com/android/server/display/plugin/types/SdrHdrBrightnessCaps.java
 new file mode 100644
 index 0000000000000000000000000000000000000000..f7b711d446d227ad3933569d2396b7c33cb62ba2
@@ -7395,11 +8749,602 @@ index 0000000000000000000000000000000000000000..d3d897143747e9ac5f8f9cf4289155b9
 +        android:label="Coherent Brightness Framework Tests"
 +        android:targetPackage="com.android.frameworks.coherentbrightnesstests" />
 +</manifest>
+diff --git a/services/tests/displayservicetests/src/com/android/server/display/AutomaticBrightnessControllerTest.java b/services/tests/displayservicetests/src/com/android/server/display/AutomaticBrightnessControllerTest.java
+index d7a003e5ebeca4013f085e598ea8523d5951c4f6..bd9a7e8390558723ef090cff5e8508765142c28a 100644
+--- a/services/tests/displayservicetests/src/com/android/server/display/AutomaticBrightnessControllerTest.java
++++ b/services/tests/displayservicetests/src/com/android/server/display/AutomaticBrightnessControllerTest.java
+@@ -202,7 +202,72 @@ public class AutomaticBrightnessControllerTest {
+         mController.configure(AUTO_BRIGHTNESS_ENABLED, null /* configuration= */,
+                 0 /* brightness= */, false /* userChangedBrightness= */, 0 /* adjustment= */,
+                 false /* userChanged= */, DisplayPowerRequest.POLICY_BRIGHT, Display.STATE_ON,
+-                /* useNormalBrightnessForDoze= */ false, /* shouldResetShortTermModel= */ false);
++                /* useNormalBrightnessForDoze= */ false, /* shouldResetShortTermModel= */ false, /* autoBrightnessOneShot= */ false);
++    }
++
++    @Test
++    public void testLastObservedAmbientLuxTracksActualSamplesAndSensorSession() {
++        assertEquals(INVALID_LUX, mController.getLastObservedAmbientLux(), EPSILON);
++        ArgumentCaptor<SensorEventListener> captor = ArgumentCaptor.forClass(
++                SensorEventListener.class);
++        verify(mSensorManager).registerListener(captor.capture(), eq(mLightSensor),
++                eq(INITIAL_LIGHT_SENSOR_RATE * 1000), any(Handler.class));
++        SensorEventListener listener = captor.getValue();
++        listener.onSensorChanged(createSensorEvent(mLightSensor, 100f));
++        assertEquals(100f, mController.getLastObservedAmbientLux(), EPSILON);
++        listener.onSensorChanged(createSensorEvent(mLightSensor, 105f));
++        assertEquals(105f, mController.getLastObservedAmbientLux(), EPSILON);
++
++        mController.configure(AutomaticBrightnessController.AUTO_BRIGHTNESS_DISABLED, null,
++                0, false, 0, false, DisplayPowerRequest.POLICY_BRIGHT, Display.STATE_ON,
++                false, false, false);
++        assertEquals(INVALID_LUX, mController.getLastObservedAmbientLux(), EPSILON);
++        mController.configure(AUTO_BRIGHTNESS_ENABLED, null, 0, false, 0, false,
++                DisplayPowerRequest.POLICY_BRIGHT, Display.STATE_ON, false, false, false);
++        assertEquals(INVALID_LUX, mController.getLastObservedAmbientLux(), EPSILON);
++        listener.onSensorChanged(createSensorEvent(mLightSensor, 0f));
++        assertEquals(0f, mController.getLastObservedAmbientLux(), EPSILON);
++    }
++
++    @Test
++    public void testLastObservedAmbientLuxRejectsInvalidSample() {
++        ArgumentCaptor<SensorEventListener> captor = ArgumentCaptor.forClass(
++                SensorEventListener.class);
++        verify(mSensorManager).registerListener(captor.capture(), eq(mLightSensor),
++                eq(INITIAL_LIGHT_SENSOR_RATE * 1000), any(Handler.class));
++        for (float value : new float[] {-1f, Float.NaN, Float.POSITIVE_INFINITY}) {
++            captor.getValue().onSensorChanged(createSensorEvent(mLightSensor, value));
++            assertEquals(INVALID_LUX, mController.getLastObservedAmbientLux(), EPSILON);
++        }
++    }
++
++    @Test
++    public void testUnadjustedAutomaticBrightnessUnavailableWithoutAmbientLux() {
++        assertTrue(Float.isNaN(mController.getUnadjustedAutomaticScreenBrightness()));
++        verify(mBrightnessMappingStrategy, never()).getUnadjustedBrightness(anyFloat());
++    }
++
++    @Test
++    public void testUnadjustedAutomaticBrightnessUsesCurrentMapperNotLearnedOutput() {
++        ArgumentCaptor<SensorEventListener> captor = ArgumentCaptor.forClass(
++                SensorEventListener.class);
++        verify(mSensorManager).registerListener(captor.capture(), eq(mLightSensor),
++                eq(INITIAL_LIGHT_SENSOR_RATE * 1000), any(Handler.class));
++        when(mBrightnessMappingStrategy.getBrightness(eq(100f), eq(null), anyInt()))
++                .thenReturn(0.8f);
++        when(mBrightnessMappingStrategy.getUnadjustedBrightness(100f)).thenReturn(0.3f);
++        captor.getValue().onSensorChanged(createSensorEvent(mLightSensor, 100f));
++        assertTrue(mController.hasValidAmbientLux());
++        assertEquals(0.8f, mController.getRawAutomaticScreenBrightness(), EPSILON);
++        assertEquals(0.3f, mController.getUnadjustedAutomaticScreenBrightness(), EPSILON);
++        verify(mBrightnessMappingStrategy).getUnadjustedBrightness(100f);
++
++        when(mDozeBrightnessMappingStrategy.getUnadjustedBrightness(100f)).thenReturn(0.6f);
++        mController.switchMode(AUTO_BRIGHTNESS_MODE_DOZE, false);
++        assertEquals(0.6f, mController.getUnadjustedAutomaticScreenBrightness(), EPSILON);
++        verify(mDozeBrightnessMappingStrategy).getUnadjustedBrightness(100f);
++        when(mDozeBrightnessMappingStrategy.getUnadjustedBrightness(100f)).thenReturn(1.1f);
++        assertTrue(Float.isNaN(mController.getUnadjustedAutomaticScreenBrightness()));
+     }
+ 
+     @Test
+@@ -308,7 +373,7 @@ public class AutomaticBrightnessControllerTest {
+         mController.configure(AUTO_BRIGHTNESS_ENABLED, null /* configuration= */,
+                 0.5f /* brightness= */, true /* userChangedBrightness= */, 0 /* adjustment= */,
+                 false /* userChanged= */, DisplayPowerRequest.POLICY_BRIGHT, Display.STATE_ON,
+-                /* useNormalBrightnessForDoze= */ false, /* shouldResetShortTermModel= */ true);
++                /* useNormalBrightnessForDoze= */ false, /* shouldResetShortTermModel= */ true, /* autoBrightnessOneShot= */ false);
+ 
+         // There should be a user data point added to the mapper.
+         verify(mBrightnessMappingStrategy).addUserDataPoint(/* lux= */ 1000f,
+@@ -332,7 +397,7 @@ public class AutomaticBrightnessControllerTest {
+         mController.configure(AUTO_BRIGHTNESS_ENABLED, null /* configuration= */,
+                 0.5f /* brightness= */, true /* userChangedBrightness= */, 0 /* adjustment= */,
+                 false /* userChanged= */, DisplayPowerRequest.POLICY_BRIGHT, Display.STATE_ON,
+-                /* useNormalBrightnessForDoze= */ false, /* shouldResetShortTermModel= */ false);
++                /* useNormalBrightnessForDoze= */ false, /* shouldResetShortTermModel= */ false, /* autoBrightnessOneShot= */ false);
+ 
+         //Recalculating the spline with RBC enabled, verifying that the short term model is reset,
+         //and the interaction is learnt in short term model
+@@ -366,7 +431,7 @@ public class AutomaticBrightnessControllerTest {
+         mController.configure(AUTO_BRIGHTNESS_ENABLED, /* configuration= */ null,
+                 /* brightness= */ 0.5f, /* userChangedBrightness= */ true, /* adjustment= */ 0,
+                 /* userChanged= */ false, DisplayPowerRequest.POLICY_BRIGHT, Display.STATE_ON,
+-                /* useNormalBrightnessForDoze= */ false, /* shouldResetShortTermModel= */ true);
++                /* useNormalBrightnessForDoze= */ false, /* shouldResetShortTermModel= */ true, /* autoBrightnessOneShot= */ false);
+ 
+         when(mBrightnessMappingStrategy.getShortTermModelTimeout()).thenReturn(2000L);
+ 
+@@ -406,7 +471,7 @@ public class AutomaticBrightnessControllerTest {
+         mController.configure(AUTO_BRIGHTNESS_ENABLED, null /* configuration= */,
+                 0.51f /* brightness= */, true /* userChangedBrightness= */, 0 /* adjustment= */,
+                 false /* userChanged= */, DisplayPowerRequest.POLICY_BRIGHT, Display.STATE_ON,
+-                /* useNormalBrightnessForDoze= */ false, /* shouldResetShortTermModel= */ false);
++                /* useNormalBrightnessForDoze= */ false, /* shouldResetShortTermModel= */ false, /* autoBrightnessOneShot= */ false);
+ 
+         when(mBrightnessMappingStrategy.shouldResetShortTermModel(
+                 anyFloat(), anyFloat())).thenReturn(true);
+@@ -446,7 +511,7 @@ public class AutomaticBrightnessControllerTest {
+         mController.configure(AUTO_BRIGHTNESS_ENABLED, /* configuration= */ null,
+                 /* brightness= */ 0.5f, /* userChangedBrightness= */ true, /* adjustment= */ 0,
+                 /* userChanged= */ false, DisplayPowerRequest.POLICY_BRIGHT, Display.STATE_ON,
+-                /* useNormalBrightnessForDoze= */ false, /* shouldResetShortTermModel= */ true);
++                /* useNormalBrightnessForDoze= */ false, /* shouldResetShortTermModel= */ true, /* autoBrightnessOneShot= */ false);
+ 
+         when(mBrightnessMappingStrategy.getShortTermModelTimeout()).thenReturn(2000L);
+         when(mBrightnessMappingStrategy.getUserBrightness()).thenReturn(0.5f);
+@@ -492,7 +557,7 @@ public class AutomaticBrightnessControllerTest {
+         mController.configure(AUTO_BRIGHTNESS_ENABLED, /* configuration= */ null,
+                 /* brightness= */ 0.5f, /* userChangedBrightness= */ true, /* adjustment= */ 0,
+                 /* userChanged= */ false, DisplayPowerRequest.POLICY_BRIGHT, Display.STATE_ON,
+-                /* useNormalBrightnessForDoze= */ false, /* shouldResetShortTermModel= */ true);
++                /* useNormalBrightnessForDoze= */ false, /* shouldResetShortTermModel= */ true, /* autoBrightnessOneShot= */ false);
+ 
+         when(mBrightnessMappingStrategy.getShortTermModelTimeout()).thenReturn(2000L);
+ 
+@@ -579,7 +644,7 @@ public class AutomaticBrightnessControllerTest {
+         mController.configure(AUTO_BRIGHTNESS_ENABLED, null /* configuration= */,
+                 0.5f /* brightness= */, true /* userChangedBrightness= */, 0 /* adjustment= */,
+                 false /* userChanged= */, DisplayPowerRequest.POLICY_BRIGHT, Display.STATE_ON,
+-                /* useNormalBrightnessForDoze= */ false, /* shouldResetShortTermModel= */ false);
++                /* useNormalBrightnessForDoze= */ false, /* shouldResetShortTermModel= */ false, /* autoBrightnessOneShot= */ false);
+ 
+         // There should be a user data point added to the mapper.
+         verify(mBrightnessMappingStrategy, times(1)).addUserDataPoint(/* lux= */ 1000f,
+@@ -607,7 +672,7 @@ public class AutomaticBrightnessControllerTest {
+         mController.configure(AUTO_BRIGHTNESS_ENABLED, null /* configuration= */,
+                 0.5f /* brightness= */, true /* userChangedBrightness= */, 0 /* adjustment= */,
+                 false /* userChanged= */, DisplayPowerRequest.POLICY_BRIGHT, Display.STATE_ON,
+-                /* useNormalBrightnessForDoze= */ false, /* shouldResetShortTermModel= */ true);
++                /* useNormalBrightnessForDoze= */ false, /* shouldResetShortTermModel= */ true, /* autoBrightnessOneShot= */ false);
+ 
+         // Ensure we use the correct mapping strategy
+         verify(mIdleBrightnessMappingStrategy, times(1)).addUserDataPoint(/* lux= */ 1000f,
+@@ -784,7 +849,7 @@ public class AutomaticBrightnessControllerTest {
+                 BRIGHTNESS_MAX_FLOAT /* brightness= */, false /* userChangedBrightness= */,
+                 0 /* adjustment= */, false /* userChanged= */, DisplayPowerRequest.POLICY_BRIGHT,
+                 Display.STATE_ON, /* useNormalBrightnessForDoze= */ false,
+-                /* shouldResetShortTermModel= */ true);
++                /* shouldResetShortTermModel= */ true, /* autoBrightnessOneShot= */ false);
+         assertEquals(throttledBrightness, mController.getAutomaticScreenBrightness(), 0.0f);
+         // The raw brightness value should not have throttling applied
+         assertEquals(BRIGHTNESS_MAX_FLOAT, mController.getRawAutomaticScreenBrightness(), 0.0f);
+@@ -796,7 +861,7 @@ public class AutomaticBrightnessControllerTest {
+                 BRIGHTNESS_MAX_FLOAT /* brightness= */, false /* userChangedBrightness= */,
+                 0 /* adjustment= */, false /* userChanged= */, DisplayPowerRequest.POLICY_BRIGHT,
+                 Display.STATE_ON, /* useNormalBrightnessForDoze= */ false,
+-                /* shouldResetShortTermModel= */ true);
++                /* shouldResetShortTermModel= */ true, /* autoBrightnessOneShot= */ false);
+         assertEquals(BRIGHTNESS_MAX_FLOAT, mController.getAutomaticScreenBrightness(), 0.0f);
+         assertEquals(BRIGHTNESS_MAX_FLOAT, mController.getRawAutomaticScreenBrightness(), 0.0f);
+     }
+@@ -1008,14 +1073,14 @@ public class AutomaticBrightnessControllerTest {
+                 BRIGHTNESS_MAX_FLOAT /* brightness= */, false /* userChangedBrightness= */,
+                 0 /* adjustment= */, false /* userChanged= */, DisplayPowerRequest.POLICY_BRIGHT,
+                 Display.STATE_ON, /* useNormalBrightnessForDoze= */ false,
+-                /* shouldResetShortTermModel= */ false);
++                /* shouldResetShortTermModel= */ false, /* autoBrightnessOneShot= */ false);
+         verify(mBrightnessMappingStrategy, never()).clearUserDataPoints();
+ 
+         mController.configure(AUTO_BRIGHTNESS_ENABLED, null /* configuration= */,
+                 BRIGHTNESS_MAX_FLOAT /* brightness= */, false /* userChangedBrightness= */,
+                 0 /* adjustment= */, false /* userChanged= */, DisplayPowerRequest.POLICY_BRIGHT,
+                 Display.STATE_ON, /* useNormalBrightnessForDoze= */ false,
+-                /* shouldResetShortTermModel= */ true);
++                /* shouldResetShortTermModel= */ true, /* autoBrightnessOneShot= */ false);
+         verify(mBrightnessMappingStrategy).clearUserDataPoints();
+     }
+ 
+@@ -1216,7 +1281,7 @@ public class AutomaticBrightnessControllerTest {
+         mController.configure(AUTO_BRIGHTNESS_ENABLED, /* configuration= */ null,
+                 /* brightness= */ 0, /* userChangedBrightness= */ false, /* adjustment= */ 0,
+                 /* userChanged= */ false, DisplayPowerRequest.POLICY_DOZE, Display.STATE_DOZE,
+-                /* useNormalBrightnessForDoze= */ false, /* shouldResetShortTermModel= */ true);
++                /* useNormalBrightnessForDoze= */ false, /* shouldResetShortTermModel= */ true, /* autoBrightnessOneShot= */ false);
+ 
+         // Send a new sensor value
+         listener.onSensorChanged(createSensorEvent(mLightSensor, (int) lux));
+@@ -1253,7 +1318,7 @@ public class AutomaticBrightnessControllerTest {
+         mController.configure(AUTO_BRIGHTNESS_ENABLED, /* configuration= */ null,
+                 /* brightness= */ 0, /* userChangedBrightness= */ false, /* adjustment= */ 0,
+                 /* userChanged= */ false, DisplayPowerRequest.POLICY_DOZE, Display.STATE_ON,
+-                /* useNormalBrightnessForDoze= */ false, /* shouldResetShortTermModel= */ true);
++                /* useNormalBrightnessForDoze= */ false, /* shouldResetShortTermModel= */ true, /* autoBrightnessOneShot= */ false);
+ 
+         // Send a new sensor value
+         listener.onSensorChanged(createSensorEvent(mLightSensor, (int) lux));
+@@ -1290,7 +1355,7 @@ public class AutomaticBrightnessControllerTest {
+         mController.configure(AUTO_BRIGHTNESS_ENABLED, /* configuration= */ null,
+                 /* brightness= */ 0, /* userChangedBrightness= */ false, /* adjustment= */ 0,
+                 /* userChanged= */ false, DisplayPowerRequest.POLICY_DOZE, Display.STATE_ON,
+-                /* useNormalBrightnessForDoze= */ true, /* shouldResetShortTermModel= */ true);
++                /* useNormalBrightnessForDoze= */ true, /* shouldResetShortTermModel= */ true, /* autoBrightnessOneShot= */ false);
+ 
+         // Send a new sensor value
+         listener.onSensorChanged(createSensorEvent(mLightSensor, (int) lux));
+@@ -1325,7 +1390,7 @@ public class AutomaticBrightnessControllerTest {
+         mController.configure(AUTO_BRIGHTNESS_ENABLED, /* configuration= */ null,
+                 /* brightness= */ 0, /* userChangedBrightness= */ false, /* adjustment= */ 0,
+                 /* userChanged= */ false, DisplayPowerRequest.POLICY_DOZE, Display.STATE_DOZE,
+-                /* useNormalBrightnessForDoze= */ true, /* shouldResetShortTermModel= */ true);
++                /* useNormalBrightnessForDoze= */ true, /* shouldResetShortTermModel= */ true, /* autoBrightnessOneShot= */ false);
+ 
+         // Send a new sensor value
+         listener.onSensorChanged(createSensorEvent(mLightSensor, (int) lux));
+@@ -1360,7 +1425,7 @@ public class AutomaticBrightnessControllerTest {
+         mController.configure(AUTO_BRIGHTNESS_ENABLED, /* configuration= */ null,
+                 /* brightness= */ 0, /* userChangedBrightness= */ false, /* adjustment= */ 0,
+                 /* userChanged= */ false, DisplayPowerRequest.POLICY_DOZE, Display.STATE_DOZE,
+-                /* useNormalBrightnessForDoze= */ true, /* shouldResetShortTermModel= */ true);
++                /* useNormalBrightnessForDoze= */ true, /* shouldResetShortTermModel= */ true, /* autoBrightnessOneShot= */ false);
+ 
+         // Send a new sensor value
+         listener.onSensorChanged(createSensorEvent(mLightSensor, (int) lux));
+diff --git a/services/tests/displayservicetests/src/com/android/server/display/BrightnessMappingStrategyTest.java b/services/tests/displayservicetests/src/com/android/server/display/BrightnessMappingStrategyTest.java
+index f3cd0c960fca9830fcae39f0cc9b6fff1e35820c..e31dc4e9b6b99041d804cd9216cf36430fe3b72d 100644
+--- a/services/tests/displayservicetests/src/com/android/server/display/BrightnessMappingStrategyTest.java
++++ b/services/tests/displayservicetests/src/com/android/server/display/BrightnessMappingStrategyTest.java
+@@ -25,17 +25,21 @@ import static org.junit.Assert.assertNotEquals;
+ import static org.junit.Assert.assertNotNull;
+ import static org.junit.Assert.assertNull;
+ import static org.junit.Assert.assertTrue;
++import static org.junit.Assert.fail;
+ import static org.mockito.ArgumentMatchers.anyFloat;
+ import static org.mockito.ArgumentMatchers.anyInt;
+ import static org.mockito.Mockito.mock;
+ import static org.mockito.Mockito.when;
+ 
+ import android.content.res.TypedArray;
++import android.content.pm.ApplicationInfo;
+ import android.hardware.display.BrightnessConfiguration;
++import android.hardware.display.BrightnessCorrection;
+ import android.os.PowerManager;
+ import android.provider.Settings;
+ import android.testing.TestableContext;
+ import android.util.MathUtils;
++import android.util.Pair;
+ import android.util.Spline;
+ 
+ import androidx.test.filters.SmallTest;
+@@ -726,6 +730,129 @@ public class BrightnessMappingStrategyTest {
+         }
+     }
+ 
++    @Test
++    public void testSimpleUnadjustedBrightnessExcludesUserGammaAndPoint() {
++        setUpResources();
++        BrightnessMappingStrategy strategy = BrightnessMappingStrategy.create(mContext,
++                new DdcBuilder().setAutoBrightnessLevels(DISPLAY_LEVELS).build(),
++                AUTO_BRIGHTNESS_MODE_DEFAULT, null);
++        float base = strategy.getUnadjustedBrightness(100f);
++        assertEquals(strategy.getBrightness(100f), base, TOLERANCE);
++        strategy.setAutoBrightnessAdjustment(0.5f);
++        assertNotEquals(base, strategy.getBrightness(100f), TOLERANCE);
++        assertEquals(base, strategy.getUnadjustedBrightness(100f), TOLERANCE);
++        strategy.addUserDataPoint(100f, 0.8f);
++        assertEquals(0.8f, strategy.getBrightness(100f), TOLERANCE);
++        assertEquals(base, strategy.getUnadjustedBrightness(100f), TOLERANCE);
++    }
++
++    @Test
++    public void testSimpleUnadjustedBrightnessOwnsSourceArrays() {
++        setUpResources();
++        float[] lux = LUX_LEVELS.clone();
++        float[] brightness = DISPLAY_LEVELS.clone();
++        BrightnessMappingStrategy strategy = BrightnessMappingStrategy.create(mContext,
++                new DdcBuilder().setAutoBrightnessLevelsLux(lux)
++                        .setAutoBrightnessLevels(brightness).build(),
++                AUTO_BRIGHTNESS_MODE_DEFAULT, null);
++        float base = strategy.getUnadjustedBrightness(5f);
++        lux[1] = 999f;
++        brightness[1] = 0.9f;
++        assertEquals(base, strategy.getUnadjustedBrightness(5f), TOLERANCE);
++        assertEquals(base, strategy.getBrightness(5f), TOLERANCE);
++    }
++
++    private BrightnessMappingStrategy.PhysicalMappingStrategy unadjustedPhysical(
++            BrightnessConfiguration configuration) {
++        return new BrightnessMappingStrategy.PhysicalMappingStrategy(configuration,
++                new float[]{0f, 100f}, new float[]{0f, 1f}, MAXIMUM_GAMMA,
++                AUTO_BRIGHTNESS_MODE_DEFAULT, Settings.System.SCREEN_BRIGHTNESS_AUTOMATIC_NORMAL,
++                null);
++    }
++
++    @Test
++    public void testPhysicalUnadjustedBrightnessExcludesGammaAndUserPoint() {
++        BrightnessMappingStrategy strategy = unadjustedPhysical(
++                new BrightnessConfiguration.Builder(new float[]{0f, 10f, 100f},
++                        new float[]{0f, 50f, 100f}).build());
++        assertEquals(0.5f, strategy.getUnadjustedBrightness(10f), TOLERANCE);
++        strategy.setAutoBrightnessAdjustment(0.5f);
++        assertNotEquals(0.5f, strategy.getBrightness(10f), TOLERANCE);
++        assertEquals(0.5f, strategy.getUnadjustedBrightness(10f), TOLERANCE);
++        strategy.addUserDataPoint(10f, 0.8f);
++        assertEquals(0.8f, strategy.getBrightness(10f), TOLERANCE);
++        assertEquals(0.5f, strategy.getUnadjustedBrightness(10f), TOLERANCE);
++    }
++
++    @Test
++    public void testPhysicalUnadjustedBrightnessExcludesApplicationCorrections() {
++        BrightnessConfiguration config = new BrightnessConfiguration.Builder(
++                new float[]{0f, 10f, 100f}, new float[]{0f, 50f, 100f})
++                .addCorrectionByPackageName("test.package",
++                        BrightnessCorrection.createScaleAndTranslateLog(0.5f, 0f))
++                .addCorrectionByCategory(ApplicationInfo.CATEGORY_GAME,
++                        BrightnessCorrection.createScaleAndTranslateLog(0.5f, 0f))
++                .build();
++        BrightnessMappingStrategy strategy = unadjustedPhysical(config);
++        assertNotEquals(0.5f, strategy.getBrightness(10f, "test.package",
++                ApplicationInfo.CATEGORY_UNDEFINED), TOLERANCE);
++        assertNotEquals(0.5f, strategy.getBrightness(10f, null,
++                ApplicationInfo.CATEGORY_GAME), TOLERANCE);
++        assertEquals(0.5f, strategy.getUnadjustedBrightness(10f), TOLERANCE);
++    }
++
++    @Test
++    public void testPhysicalUnadjustedBrightnessTracksConfigurationCommits() {
++        BrightnessMappingStrategy strategy = unadjustedPhysical(
++                new BrightnessConfiguration.Builder(new float[]{0f, 10f, 100f},
++                        new float[]{0f, 50f, 100f}).build());
++        strategy.setBrightnessConfiguration(new BrightnessConfiguration.Builder(
++                new float[]{0f, 10f, 100f}, new float[]{0f, 80f, 100f}).build());
++        assertEquals(0.8f, strategy.getUnadjustedBrightness(10f), TOLERANCE);
++        strategy.setBrightnessConfiguration(null);
++        assertEquals(0.5f, strategy.getUnadjustedBrightness(10f), TOLERANCE);
++    }
++
++    @Test
++    public void testPhysicalUnadjustedBrightnessUsesCurrentRbcConversion() {
++        BrightnessMappingStrategy strategy = unadjustedPhysical(
++                new BrightnessConfiguration.Builder(new float[]{0f, 10f, 100f},
++                        new float[]{0f, 50f, 100f}).build());
++        strategy.recalculateSplines(true, new float[]{0f, 200f});
++        assertEquals(0.25f, strategy.getUnadjustedBrightness(10f), TOLERANCE);
++        strategy.recalculateSplines(false, null);
++        assertEquals(0.5f, strategy.getUnadjustedBrightness(10f), TOLERANCE);
++    }
++
++    @Test
++    public void testUnadjustedActiveCacheDoesNotAliasExportedConfigurationCurve() {
++        BrightnessConfiguration config = new BrightnessConfiguration.Builder(
++                new float[]{0f, 10f, 100f}, new float[]{0f, 50f, 100f}).build();
++        BrightnessMappingStrategy strategy = unadjustedPhysical(config);
++        var exported = config.getCurve();
++        exported.first[1] = 99f;
++        exported.second[1] = 99f;
++        assertEquals(0.5f, strategy.getUnadjustedBrightness(10f), TOLERANCE);
++        assertEquals(0.5f, strategy.getBrightness(10f), TOLERANCE);
++    }
++
++    @Test
++    public void testExistingAdjustmentFreshReadPreservedAcrossCallerConfigAlias() {
++        float[] nits = {0f, 50f, 100f};
++        BrightnessConfiguration config = new BrightnessConfiguration.Builder(
++                new float[]{0f, 10f, 100f}, nits).build();
++        BrightnessMappingStrategy strategy = unadjustedPhysical(config);
++        nits[1] = 25f; // Pre-existing Builder alias; no configuration commit occurred.
++        assertEquals(0.5f, strategy.getUnadjustedBrightness(10f), TOLERANCE);
++        assertEquals(0.5f, strategy.getBrightness(10f), TOLERANCE);
++        strategy.addUserDataPoint(10f, 0.75f);
++        // Existing adjustment math must use fresh0.25, yielding clipped1 rather than~0.8.
++        assertEquals(1f, strategy.getAutoBrightnessAdjustment(), TOLERANCE);
++        assertEquals(0.75f, strategy.getBrightness(10f), TOLERANCE);
++        // The adjustment committed a new spline from the current config; base now follows it.
++        assertEquals(0.25f, strategy.getUnadjustedBrightness(10f), TOLERANCE);
++    }
++
+     private static class DdcBuilder {
+         private DisplayDeviceConfig mDdc;
+ 
+@@ -788,4 +915,68 @@ public class BrightnessMappingStrategyTest {
+             return mDdc;
+         }
+     }
++    @Test
++    public void testUnadjustedPhysicalCacheRemainsCommittedOnAdjustmentFailure() {
++        FailingPhysicalMappingStrategy strategy = new FailingPhysicalMappingStrategy(
++                transactionConfig(50));
++        strategy.throwAdjustment = true;
++        try {
++            strategy.setBrightnessConfiguration(transactionConfig(80));
++            fail("Adjustment failure expected");
++        } catch (IllegalStateException expected) {
++            // Both splines must still describe the last successfully committed curve.
++        }
++        assertEquals(.5f, strategy.getBrightness(10), TOLERANCE);
++        assertEquals(.5f, strategy.getUnadjustedBrightness(10), TOLERANCE);
++        strategy.throwAdjustment = false;
++        strategy.setAutoBrightnessAdjustment(.1f);
++        assertEquals(.8f, strategy.getUnadjustedBrightness(10), TOLERANCE);
++        assertNotEquals(.5f, strategy.getBrightness(10), TOLERANCE);
++    }
++
++    @Test
++    public void testUnadjustedPhysicalCacheRemainsCommittedOnSplineFailure() {
++        FailingPhysicalMappingStrategy strategy = new FailingPhysicalMappingStrategy(
++                transactionConfig(50));
++        strategy.invalidLearnedCurve = true;
++        try {
++            strategy.setBrightnessConfiguration(transactionConfig(80));
++            fail("Invalid learned spline failure expected");
++        } catch (IllegalArgumentException expected) {
++            // The actual Spline factory rejects non-increasing adjusted lux.
++        }
++        assertEquals(.5f, strategy.getBrightness(10), TOLERANCE);
++        assertEquals(.5f, strategy.getUnadjustedBrightness(10), TOLERANCE);
++    }
++
++    private static BrightnessConfiguration transactionConfig(float middleNits) {
++        return new BrightnessConfiguration.Builder(new float[] {0, 10, 100},
++                new float[] {0, middleNits, 100}).build();
++    }
++
++    private static class FailingPhysicalMappingStrategy
++            extends BrightnessMappingStrategy.PhysicalMappingStrategy {
++        boolean throwAdjustment;
++        boolean invalidLearnedCurve;
++
++        FailingPhysicalMappingStrategy(BrightnessConfiguration configuration) {
++            super(configuration, new float[] {0, 100}, new float[] {0, 1}, MAXIMUM_GAMMA,
++                    AUTO_BRIGHTNESS_MODE_DEFAULT,
++                    Settings.System.SCREEN_BRIGHTNESS_AUTOMATIC_NORMAL, null);
++        }
++
++        @Override
++        protected Pair<float[], float[]> getAdjustedCurve(float[] lux, float[] brightness,
++                float userLux, float userBrightness, float adjustment, float maxGamma) {
++            if (throwAdjustment) {
++                throw new IllegalStateException("Injected adjusted-curve failure");
++            }
++            if (invalidLearnedCurve) {
++                return Pair.create(new float[] {0, 0}, new float[] {.2f, .4f});
++            }
++            return super.getAdjustedCurve(lux, brightness, userLux, userBrightness, adjustment,
++                    maxGamma);
++        }
++    }
++
+ }
+diff --git a/services/tests/displayservicetests/src/com/android/server/display/BrightnessThermalPolicyControllerTest.java b/services/tests/displayservicetests/src/com/android/server/display/BrightnessThermalPolicyControllerTest.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..f47e796f573af4d54db58e970a40fcd02bbb6be5
+--- /dev/null
++++ b/services/tests/displayservicetests/src/com/android/server/display/BrightnessThermalPolicyControllerTest.java
+@@ -0,0 +1,113 @@
++// SPDX-License-Identifier: Apache-2.0
++package com.android.server.display;
++
++import static org.junit.Assert.*;
++import static org.mockito.ArgumentMatchers.*;
++import static org.mockito.Mockito.*;
++import android.os.Handler;
++import android.os.test.TestLooper;
++import androidx.test.filters.SmallTest;
++import com.android.server.display.plugin.PluginManager;
++import com.android.server.display.plugin.PluginType;
++import com.android.server.display.plugin.types.BrightnessThermalPolicy;
++import org.junit.Test;
++
++/** Real Controller and Binding lifetime, with only plugin publication/session mocked. */
++@SmallTest
++public class BrightnessThermalPolicyControllerTest {
++    @Test
++    public void hasSessionFollowsActualBindResultReplacementAndStop() {
++        TestLooper looper = new TestLooper();
++        Handler handler = new Handler(looper.getLooper());
++        PluginManager plugins = mock(PluginManager.class);
++        BrightnessThermalPolicyController controller = new BrightnessThermalPolicyController(
++                handler, plugins, () -> {}, true, "primary");
++        looper.dispatchAll();
++        @SuppressWarnings("unchecked")
++        org.mockito.ArgumentCaptor<PluginManager.PluginChangeListener<BrightnessThermalPolicy>>
++                callback = org.mockito.ArgumentCaptor.forClass(
++                        PluginManager.PluginChangeListener.class);
++        verify(plugins).subscribe(eq(PluginType.BRIGHTNESS_THERMAL_POLICY),
++                eq("primary"), callback.capture());
++        handler.post(() -> assertFalse(controller.hasSession()));
++        looper.dispatchAll();
++
++        BrightnessThermalPolicy refused = mock(BrightnessThermalPolicy.class);
++        when(plugins.getCurrentValue(PluginType.BRIGHTNESS_THERMAL_POLICY, "primary"))
++                .thenReturn(refused);
++        callback.getValue().onChanged(refused);
++        looper.dispatchAll();
++        handler.post(() -> assertFalse(controller.hasSession()));
++        looper.dispatchAll();
++
++        BrightnessThermalPolicy factory = mock(BrightnessThermalPolicy.class);
++        BrightnessThermalPolicy.Session session = mock(BrightnessThermalPolicy.Session.class);
++        when(factory.bind(eq("primary"), any())).thenReturn(session);
++        when(plugins.getCurrentValue(PluginType.BRIGHTNESS_THERMAL_POLICY, "primary"))
++                .thenReturn(factory);
++        callback.getValue().onChanged(factory);
++        looper.dispatchAll();
++        handler.post(() -> assertTrue(controller.hasSession()));
++        looper.dispatchAll();
++
++        handler.post(() -> controller.onDisplayChanged("replacement"));
++        looper.dispatchAll();
++        verify(session).close();
++        handler.post(() -> assertFalse(controller.hasSession()));
++        looper.dispatchAll();
++        // Queued old-display publication cannot resurrect its previously closed session.
++        callback.getValue().onChanged(factory);
++        looper.dispatchAll();
++        handler.post(() -> {
++            assertFalse(controller.hasSession());
++            controller.stop();
++            assertFalse(controller.hasSession());
++        });
++        looper.dispatchAll();
++    }
++
++    @Test
++    public void hasSessionRequiresTheDpcOwnerThread() {
++        TestLooper looper = new TestLooper();
++        BrightnessThermalPolicyController controller = new BrightnessThermalPolicyController(
++                new Handler(looper.getLooper()), mock(PluginManager.class), () -> {}, false, "p");
++        assertThrows(IllegalStateException.class, controller::hasSession);
++    }
++
++    @Test
++    public void actualCompositionSourceIsRetiredOnDisplayRebindAndStop() {
++        TestLooper looper = new TestLooper();
++        Handler handler = new Handler(looper.getLooper());
++        PluginManager plugins = mock(PluginManager.class);
++        BrightnessThermalPolicyController controller = new BrightnessThermalPolicyController(
++                handler, plugins, () -> {}, true, "primary", new android.os.Binder());
++        looper.dispatchAll();
++        @SuppressWarnings("unchecked")
++        org.mockito.ArgumentCaptor<PluginManager.PluginChangeListener<BrightnessThermalPolicy>>
++                callback = org.mockito.ArgumentCaptor.forClass(
++                        PluginManager.PluginChangeListener.class);
++        verify(plugins).subscribe(eq(PluginType.BRIGHTNESS_THERMAL_POLICY),
++                eq("primary"), callback.capture());
++        BrightnessThermalPolicy factory = mock(BrightnessThermalPolicy.class);
++        BrightnessThermalPolicy.Session session = mock(BrightnessThermalPolicy.Session.class);
++        BrightnessThermalPolicy.CompositionSource[] source = {null};
++        when(factory.bind(eq("primary"), any())).thenAnswer(call -> {
++            BrightnessThermalPolicy.Owner owner = call.getArgument(1);
++            source[0] = owner.compositionSource();
++            return session;
++        });
++        when(plugins.getCurrentValue(PluginType.BRIGHTNESS_THERMAL_POLICY, "primary"))
++                .thenReturn(factory);
++        callback.getValue().onChanged(factory);
++        looper.dispatchAll();
++        handler.post(() -> assertTrue(source[0].isCurrent()));
++        looper.dispatchAll();
++        handler.post(() -> controller.onDisplayChanged("replacement", new android.os.Binder()));
++        looper.dispatchAll();
++        assertFalse(source[0].isCurrent());
++        handler.post(controller::stop);
++        looper.dispatchAll();
++        assertFalse(source[0].isCurrent());
++        verify(session).close();
++    }
++}
 diff --git a/services/tests/displayservicetests/src/com/android/server/display/DisplayPowerControllerTest.java b/services/tests/displayservicetests/src/com/android/server/display/DisplayPowerControllerTest.java
-index 9e9bfd42597475197f5f666e3d85373b0bb55b39..da018a405425a04ebd682dd5f92089b83430f0f2 100644
+index 9e9bfd42597475197f5f666e3d85373b0bb55b39..518aff2bf4d5796de00290d6af5e30de4c051ee1 100644
 --- a/services/tests/displayservicetests/src/com/android/server/display/DisplayPowerControllerTest.java
 +++ b/services/tests/displayservicetests/src/com/android/server/display/DisplayPowerControllerTest.java
-@@ -1057,7 +1057,8 @@ public final class DisplayPowerControllerTest {
+@@ -44,6 +44,7 @@ import static org.mockito.Mockito.atLeastOnce;
+ import static org.mockito.Mockito.clearInvocations;
+ import static org.mockito.Mockito.description;
+ import static org.mockito.Mockito.mock;
++import static org.mockito.Mockito.mockingDetails;
+ import static org.mockito.Mockito.never;
+ import static org.mockito.Mockito.reset;
+ import static org.mockito.Mockito.spy;
+@@ -105,6 +106,8 @@ import com.android.server.display.feature.DisplayManagerFlags;
+ import com.android.server.display.feature.flags.Flags;
+ import com.android.server.display.layout.Layout;
+ import com.android.server.display.plugin.PluginManager;
++import com.android.server.display.plugin.types.BrightnessThermalPolicy;
++import com.android.server.display.plugin.types.HdrBrightnessMetadata;
+ import com.android.server.display.whitebalance.DisplayWhiteBalanceController;
+ import com.android.server.policy.WindowManagerPolicy;
+ import com.android.server.testutils.OffsettableClock;
+@@ -1057,7 +1060,8 @@ public final class DisplayPowerControllerTest {
                  /* userChangedBrightness= */ false, /* adjustment= */ 0,
                  /* userChangedAutoBrightnessAdjustment= */ false, DisplayPowerRequest.POLICY_BRIGHT,
                  Display.STATE_ON, /* useNormalBrightnessForDoze= */ false,
@@ -7409,7 +9354,7 @@ index 9e9bfd42597475197f5f666e3d85373b0bb55b39..da018a405425a04ebd682dd5f92089b8
          );
          verify(mHolder.hbmController)
                  .setAutoBrightnessEnabled(AutomaticBrightnessController.AUTO_BRIGHTNESS_ENABLED);
-@@ -1086,7 +1087,8 @@ public final class DisplayPowerControllerTest {
+@@ -1086,7 +1090,8 @@ public final class DisplayPowerControllerTest {
                  /* userChangedBrightness= */ false, /* adjustment= */ 0,
                  /* userChangedAutoBrightnessAdjustment= */ false, DisplayPowerRequest.POLICY_DOZE,
                  Display.STATE_DOZE, /* useNormalBrightnessForDoze= */ false,
@@ -7419,7 +9364,7 @@ index 9e9bfd42597475197f5f666e3d85373b0bb55b39..da018a405425a04ebd682dd5f92089b8
          );
          verify(mHolder.hbmController)
                  .setAutoBrightnessEnabled(AutomaticBrightnessController.AUTO_BRIGHTNESS_ENABLED);
-@@ -1115,7 +1117,8 @@ public final class DisplayPowerControllerTest {
+@@ -1115,7 +1120,8 @@ public final class DisplayPowerControllerTest {
                  /* userChangedBrightness= */ false, /* adjustment= */ 0,
                  /* userChangedAutoBrightnessAdjustment= */ false, DisplayPowerRequest.POLICY_DOZE,
                  Display.STATE_DOZE, /* useNormalBrightnessForDoze= */ false,
@@ -7429,7 +9374,7 @@ index 9e9bfd42597475197f5f666e3d85373b0bb55b39..da018a405425a04ebd682dd5f92089b8
          );
          verify(mHolder.hbmController)
                  .setAutoBrightnessEnabled(AutomaticBrightnessController.AUTO_BRIGHTNESS_ENABLED);
-@@ -1139,7 +1142,8 @@ public final class DisplayPowerControllerTest {
+@@ -1139,7 +1145,8 @@ public final class DisplayPowerControllerTest {
                  /* userChangedBrightness= */ false, /* adjustment= */ 0,
                  /* userChangedAutoBrightnessAdjustment= */ false, DisplayPowerRequest.POLICY_BRIGHT,
                  Display.STATE_ON, /* useNormalBrightnessForDoze= */ false,
@@ -7439,7 +9384,7 @@ index 9e9bfd42597475197f5f666e3d85373b0bb55b39..da018a405425a04ebd682dd5f92089b8
          );
          verify(mHolder.hbmController)
                  .setAutoBrightnessEnabled(AutomaticBrightnessController.AUTO_BRIGHTNESS_DISABLED);
-@@ -1163,7 +1167,8 @@ public final class DisplayPowerControllerTest {
+@@ -1163,7 +1170,8 @@ public final class DisplayPowerControllerTest {
                  /* userChangedBrightness= */ false, /* adjustment= */ 0,
                  /* userChangedAutoBrightnessAdjustment= */ false, DisplayPowerRequest.POLICY_OFF,
                  Display.STATE_OFF, /* useNormalBrightnessForDoze */ false,
@@ -7449,7 +9394,7 @@ index 9e9bfd42597475197f5f666e3d85373b0bb55b39..da018a405425a04ebd682dd5f92089b8
          );
          verify(mHolder.hbmController).setAutoBrightnessEnabled(
                  AutomaticBrightnessController.AUTO_BRIGHTNESS_OFF_DUE_TO_DISPLAY_STATE);
-@@ -1190,7 +1195,8 @@ public final class DisplayPowerControllerTest {
+@@ -1190,7 +1198,8 @@ public final class DisplayPowerControllerTest {
                  /* userChangedBrightness= */ false, /* adjustment= */ 0,
                  /* userChangedAutoBrightnessAdjustment= */ false, DisplayPowerRequest.POLICY_DOZE,
                  Display.STATE_DOZE, /* useNormalBrightnessForDoze= */ false,
@@ -7459,7 +9404,7 @@ index 9e9bfd42597475197f5f666e3d85373b0bb55b39..da018a405425a04ebd682dd5f92089b8
          );
          verify(mHolder.hbmController).setAutoBrightnessEnabled(
                  AutomaticBrightnessController.AUTO_BRIGHTNESS_OFF_DUE_TO_DISPLAY_STATE);
-@@ -1219,7 +1225,8 @@ public final class DisplayPowerControllerTest {
+@@ -1219,7 +1228,8 @@ public final class DisplayPowerControllerTest {
                  /* userChangedBrightness= */ false, /* adjustment= */ 0,
                  /* userChangedAutoBrightnessAdjustment= */ false, DisplayPowerRequest.POLICY_DOZE,
                  Display.STATE_DOZE, /* useNormalBrightnessForDoze= */ false,
@@ -7469,7 +9414,7 @@ index 9e9bfd42597475197f5f666e3d85373b0bb55b39..da018a405425a04ebd682dd5f92089b8
          );
          verify(mHolder.hbmController).setAutoBrightnessEnabled(
                  AutomaticBrightnessController.AUTO_BRIGHTNESS_OFF_DUE_TO_DISPLAY_STATE);
-@@ -1244,7 +1251,8 @@ public final class DisplayPowerControllerTest {
+@@ -1244,7 +1254,8 @@ public final class DisplayPowerControllerTest {
                  /* userChangedBrightness= */ false, /* adjustment= */ 0,
                  /* userChangedAutoBrightnessAdjustment= */ false, DisplayPowerRequest.POLICY_BRIGHT,
                  Display.STATE_ON, /* useNormalBrightnessForDoze */ false,
@@ -7479,7 +9424,7 @@ index 9e9bfd42597475197f5f666e3d85373b0bb55b39..da018a405425a04ebd682dd5f92089b8
          );
  
          // HBM should be allowed for the follower display
-@@ -1270,7 +1278,8 @@ public final class DisplayPowerControllerTest {
+@@ -1270,7 +1281,8 @@ public final class DisplayPowerControllerTest {
                  /* userChangedBrightness= */ false, /* adjustment= */ 0,
                  /* userChangedAutoBrightnessAdjustment= */ false, DisplayPowerRequest.POLICY_BRIGHT,
                  Display.STATE_ON, /* useNormalBrightnessForDoze= */ false,
@@ -7489,7 +9434,7 @@ index 9e9bfd42597475197f5f666e3d85373b0bb55b39..da018a405425a04ebd682dd5f92089b8
          );
          clearInvocations(mHolder.automaticBrightnessController);
  
-@@ -1289,7 +1298,8 @@ public final class DisplayPowerControllerTest {
+@@ -1289,7 +1301,8 @@ public final class DisplayPowerControllerTest {
                  /* userChangedAutoBrightnessAdjustment= */ anyBoolean(),
                  /* displayPolicy= */ anyInt(), /* displayState= */ anyInt(),
                  /* useNormalBrightnessForDoze= */ anyBoolean(),
@@ -7499,7 +9444,7 @@ index 9e9bfd42597475197f5f666e3d85373b0bb55b39..da018a405425a04ebd682dd5f92089b8
          );
          clearInvocations(mHolder.automaticBrightnessController);
  
-@@ -1308,7 +1318,8 @@ public final class DisplayPowerControllerTest {
+@@ -1308,7 +1321,8 @@ public final class DisplayPowerControllerTest {
                  /* userChangedBrightness= */ false, /* adjustment= */ 0,
                  /* userChangedAutoBrightnessAdjustment= */ false, DisplayPowerRequest.POLICY_BRIGHT,
                  Display.STATE_ON, /* useNormalBrightnessForDoze= */ false,
@@ -7509,7 +9454,7 @@ index 9e9bfd42597475197f5f666e3d85373b0bb55b39..da018a405425a04ebd682dd5f92089b8
          );
          clearInvocations(mHolder.automaticBrightnessController);
      }
-@@ -2135,7 +2146,8 @@ public final class DisplayPowerControllerTest {
+@@ -2135,7 +2149,8 @@ public final class DisplayPowerControllerTest {
                  /* displayPolicy= */ anyInt(),
                  /* displayState= */ anyInt(),
                  /* useNormalBrightnessForDoze= */ anyBoolean(),
@@ -7519,7 +9464,7 @@ index 9e9bfd42597475197f5f666e3d85373b0bb55b39..da018a405425a04ebd682dd5f92089b8
          verify(mBrightnessTrackerMock, never()).notifyBrightnessChanged(
                  /* brightness= */ anyFloat(),
                  /* userInitiated= */ eq(true),
-@@ -2927,4 +2939,278 @@ public final class DisplayPowerControllerTest {
+@@ -2927,4 +2942,526 @@ public final class DisplayPowerControllerTest {
              return dpc.new ChargingStateReceiver(true);
          }
      }
@@ -7797,6 +9742,254 @@ index 9e9bfd42597475197f5f666e3d85373b0bb55b39..da018a405425a04ebd682dd5f92089b8
 +        real.stop();
 +    }
 +
++
++    /** Deterministic policy fixture: exercises the real framework path, not proprietary math. */
++    private static final class StockPolicyFixture implements BrightnessThermalPolicy {
++        int binds;
++        int closes;
++        int transforms;
++        int packageEvents;
++        int sdrTransforms;
++        Context lastContext;
++        Float sdrProposal;
++        Float sdrOutputMaximum;
++        Owner owner;
++        @Override
++        public Session bind(String displayId, Owner boundOwner) {
++            binds++;
++            owner = boundOwner;
++            return new Session() {
++                @Override public void onEvent(Event event) {
++                    if (event.kind() == EventKind.PACKAGE_CHANGED) packageEvents++;
++                }
++                @Override public Boolean firstScreen() { return false; }
++                @Override public Boolean onAnimation(float cs,float cm,float target,float rate) {
++                    return false;
++                }
++                @Override public Frame beginFrame(Context context) {
++                    lastContext=context;
++                    if (!context.ordinaryEligible()) return null;
++                    return new Frame() {
++                        public long publicationRevision() { return 1; }
++                        public long commandRevision() { return 1; }
++                        public long contextRevision() { return 1; }
++                        public float beforeHdr(float value) { return Math.min(value,.4f); }
++                        public float outputMaximum(float value) {
++                            return Math.min(value,sdrOutputMaximum==null?.4f:sdrOutputMaximum);
++                        }
++                        public Output finish(float sdr,float main,HdrOutputs hdr) {
++                            return new Output(Math.min(sdr,.4f),Math.min(main,.4f));
++                        }
++                        public Output transformSdr(float sdr,float main,SdrRequest request) {
++                            sdrTransforms++;
++                            return sdrProposal==null?null:new Output(sdrProposal,sdrProposal);
++                        }
++                        public Output transformHdr(float sdr,float main,HdrRequest request) {
++                            transforms++;
++                            return new Output(Math.min(sdr,.4f),.9f);
++                        }
++                    };
++                }
++                @Override public void close() { closes++; }
++            };
++        }
++    }
++
++    private StockPolicyFixture prepareStockPolicy(boolean enabled, boolean hdr) {
++        return prepareStockPolicy(enabled,hdr,true);
++    }
++    private StockPolicyFixture prepareStockPolicy(boolean enabled,boolean hdr,boolean automatic) {
++        doAnswer((Answer<Boolean>) invocation -> enabled).when(() ->
++                SystemProperties.getBoolean("ro.display.stock_thermal_policy", false));
++        prepareCoherentCaps(false,automatic,hdr);
++        when(mHolder.config.getBrightnessMaximum()).thenReturn(1f);
++        when(mHolder.config.getNitsFromBacklight(anyFloat()))
++                .thenAnswer(invocation -> invocation.getArgument(0));
++        when(mHolder.config.getBacklightFromNits(anyFloat()))
++                .thenAnswer(invocation -> invocation.getArgument(0));
++        when(mHolder.clamperController.getIndependentHdrMaximum(anyFloat()))
++                .thenAnswer(invocation -> invocation.getArgument(0));
++        when(mHolder.clamperController.getHdrBrightnessMetadata()).thenReturn(
++                new HdrBrightnessMetadata(hdr,0x800,10f,1f,1f,3));
++        StockPolicyFixture policy = new StockPolicyFixture();
++        mCoherentStorage.storage.updateValue(
++                com.android.server.display.plugin.PluginType.BRIGHTNESS_THERMAL_POLICY,
++                UNIQUE_ID,policy);
++        advanceTime(1);
++        clearInvocations(mHolder.animator,mHolder.hbmController,mHolder.clamperController);
++        return policy;
++    }
++
++    @Test
++    public void testStockPolicy_DefaultOffKeepsOrdinaryHdrAndDoesNotBindFactory() {
++        StockPolicyFixture policy = prepareStockPolicy(false,true);
++        mHolder.dpc.requestPowerState(new DisplayPowerRequest(),false);
++        advanceTime(1);
++        assertEquals(0,policy.binds);
++        verify(mHolder.animator,atLeastOnce()).animateTo(
++                eq((float)Math.sqrt(.8f)),eq(.8f),anyFloat(),anyBoolean(),anyFloat());
++    }
++
++    @Test
++    public void testStockPolicy_PositiveHdrAccountsAcceptedPairExactlyOncePerFrame() {
++        StockPolicyFixture policy = prepareStockPolicy(true,true);
++        mHolder.dpc.requestPowerState(new DisplayPowerRequest(),false);
++        advanceTime(1);
++        assertEquals(1,policy.binds);
++        assertTrue(policy.transforms > 0);
++        verify(mHolder.animator,atLeastOnce()).animateTo(
++                eq(.9f),eq(.4f),anyFloat(),anyBoolean(),anyFloat());
++        int frames = (int)mockingDetails(mHolder.clamperController).getInvocations().stream()
++                .filter(invocation -> invocation.getMethod().getName().equals("clamp")).count();
++        assertTrue(frames > 0);
++        verify(mHolder.hbmController,times(frames)).onBrightnessChanged(
++                eq(.4f),eq(.8f),anyInt(),eq(.9f));
++        verify(mHolder.hbmController,never()).onBrightnessChanged(
++                eq(.4f),eq(.8f),anyInt(),eq((float)Math.sqrt(.4f)));
++    }
++
++    @Test
++    public void testStockPolicy_IndependentHdrMaximumWinsBeforeAccounting() {
++        prepareStockPolicy(true,true);
++        when(mHolder.clamperController.getIndependentHdrMaximum(anyFloat())).thenReturn(.7f);
++        mHolder.dpc.requestPowerState(new DisplayPowerRequest(),false);
++        advanceTime(1);
++        verify(mHolder.animator,atLeastOnce()).animateTo(
++                eq(.7f),eq(.4f),anyFloat(),anyBoolean(),anyFloat());
++        verify(mHolder.hbmController,atLeastOnce()).onBrightnessChanged(
++                eq(.4f),eq(.8f),anyInt(),eq(.7f));
++        verify(mHolder.hbmController,never()).onBrightnessChanged(
++                eq(.4f),eq(.8f),anyInt(),eq(.9f));
++    }
++
++    @Test
++    public void testStockPolicy_AbsentHdrOwnerCannotInvokePrivateTransform() {
++        StockPolicyFixture policy = prepareStockPolicy(true,false);
++        when(mHolder.hbmController.isHdrBrightnessMode(anyBoolean())).thenReturn(false);
++        mHolder.dpc.requestPowerState(new DisplayPowerRequest(),false);
++        advanceTime(1);
++        assertEquals(0,policy.transforms);
++        verify(mHolder.animator,atLeastOnce()).animateTo(
++                eq(.4f),eq(.4f),anyFloat(),anyBoolean(),anyFloat());
++    }
++
++    @Test
++    public void testStockPolicy_LegacyMappingUsesCurrentProjectedModeAndExplicitInput() {
++        prepareStockPolicy(true,false);
++        when(mHolder.clamperController.getHdrBrightnessMetadata()).thenReturn(
++                new HdrBrightnessMetadata(true,0x800,10f,1f,1f,3));
++        when(mHolder.hbmController.getHighBrightnessMode()).thenReturn(
++                BrightnessInfo.HIGH_BRIGHTNESS_MODE_OFF);
++        when(mHolder.hbmController.isHdrBrightnessMode(anyBoolean())).thenReturn(true);
++        when(mHolder.hbmController.getHdrBrightnessValue(.4f)).thenReturn(.8f);
++        mHolder.dpc.requestPowerState(new DisplayPowerRequest(),false);
++        advanceTime(1);
++        verify(mHolder.hbmController,atLeastOnce()).isHdrBrightnessMode(false);
++        verify(mHolder.hbmController,atLeastOnce()).getHdrBrightnessValue(.4f);
++        verify(mHolder.hbmController,never()).getHdrBrightnessValue();
++        verify(mHolder.animator,atLeastOnce()).animateTo(
++                eq(.9f),eq(.4f),anyFloat(),anyBoolean(),anyFloat());
++    }
++
++    @Test
++    public void testStockPolicy_ReleaseDropsStaleOwnerWorkAndRestoresOrdinaryHdr() {
++        StockPolicyFixture policy = prepareStockPolicy(true,true);
++        mHolder.dpc.requestPowerState(new DisplayPowerRequest(),false);
++        advanceTime(1);
++        clearInvocations(mHolder.animator,mHolder.hbmController);
++        mCoherentStorage.storage.updateValue(
++                com.android.server.display.plugin.PluginType.BRIGHTNESS_THERMAL_POLICY,
++                UNIQUE_ID,null);
++        final int[] stale = {0};
++        policy.owner.post(() -> stale[0]++);
++        advanceTime(1);
++        assertEquals(1,policy.closes);
++        assertEquals(0,stale[0]);
++        verify(mHolder.animator,atLeastOnce()).animateTo(
++                eq((float)Math.sqrt(.8f)),eq(.8f),anyFloat(),anyBoolean(),anyFloat());
++    }
++
++    @Test
++    public void testStockPolicy_AnimationBlockedAccountsActualPreviousOutput() {
++        prepareStockPolicy(true,true);
++        mHolder.dpc.setDisplayOffloadSession(mDisplayOffloadSession);
++        when(mDisplayOffloadSession.blockScreenOn(any())).thenReturn(true);
++        when(mHolder.displayPowerState.getScreenState()).thenReturn(Display.STATE_OFF);
++        DisplayPowerRequest request = new DisplayPowerRequest();
++        request.policy = DisplayPowerRequest.POLICY_OFF;
++        mHolder.dpc.requestPowerState(request,false);
++        advanceTime(1);
++        request.policy = DisplayPowerRequest.POLICY_BRIGHT;
++        mHolder.dpc.requestPowerState(request,false);
++        advanceTime(1);
++        when(mHolder.displayPowerState.getScreenState()).thenReturn(Display.STATE_ON);
++        when(mHolder.displayPowerState.getSdrScreenBrightness()).thenReturn(.2f);
++        when(mHolder.displayPowerState.getScreenBrightness()).thenReturn(.3f);
++        clearInvocations(mHolder.animator,mHolder.hbmController);
++        mHolder.dpc.updateBrightness();
++        advanceTime(1);
++        verify(mHolder.animator,never()).animateTo(
++                anyFloat(),anyFloat(),anyFloat(),anyBoolean(),anyFloat());
++        verify(mHolder.hbmController,atLeastOnce()).onBrightnessChanged(
++                eq(.2f),eq(.8f),anyInt(),eq(.3f));
++    }
++
++    @Test
++    public void testStockPolicy_AbcCallbackIsImplementedOnActualDpc() {
++        StockPolicyFixture policy = prepareStockPolicy(true,true);
++        mHandler.post(() -> mHolder.dpc.onBrightnessThermalPolicyEvent(
++                BrightnessThermalPolicy.EventKind.PACKAGE_CHANGED));
++        advanceTime(1);
++        assertEquals(1,policy.packageEvents);
++    }
++
++    @Test
++    public void testStockApl_DefaultOffDoesNotEvaluateAddedLuxOrSplineInputs() {
++        prepareStockPolicy(false,false);
++        clearInvocations(mHolder.automaticBrightnessController);
++        mHolder.dpc.requestPowerState(new DisplayPowerRequest(),false);
++        advanceTime(1);
++        verify(mHolder.automaticBrightnessController,never()).getLastObservedAmbientLux();
++        verify(mHolder.automaticBrightnessController,never())
++                .getUnadjustedAutomaticScreenBrightness();
++    }
++
++    @Test
++    public void testStockApl_ManualSensorUsesActualAutoSettingOverrideAndPower() {
++        StockPolicyFixture policy=prepareStockPolicy(true,false,true);
++        DisplayPowerRequest request=new DisplayPowerRequest();
++        mHolder.dpc.requestPowerState(request,false);advanceTime(1);
++        assertEquals(Boolean.FALSE,policy.lastContext.manualSensorActive());
++        request.screenBrightnessOverride=.6f;
++        mHolder.dpc.requestPowerState(request,false);advanceTime(1);
++        assertEquals(Boolean.TRUE,policy.lastContext.manualSensorActive());
++        request.screenBrightnessOverride=Float.NaN;
++        mHolder.dpc.requestPowerState(request,false);advanceTime(1);
++        assertEquals(Boolean.FALSE,policy.lastContext.manualSensorActive());
++        policy=prepareStockPolicy(true,false,false);
++        mHolder.dpc.requestPowerState(new DisplayPowerRequest(),false);advanceTime(1);
++        assertEquals(Boolean.TRUE,policy.lastContext.manualSensorActive());
++        request=new DisplayPowerRequest();request.policy=DisplayPowerRequest.POLICY_OFF;
++        mHolder.dpc.requestPowerState(request,false);advanceTime(1);
++        assertEquals(Boolean.FALSE,policy.lastContext.manualSensorActive());
++    }
++
++    @Test
++    public void testStockApl_IndependentSdrAuthorityBoundsPositiveProposalBeforeAccounting() {
++        StockPolicyFixture policy=prepareStockPolicy(true,false);
++        policy.sdrProposal=.9f;policy.sdrOutputMaximum=1f;
++        when(mHolder.hbmController.isHdrBrightnessMode(anyBoolean())).thenReturn(false);
++        when(mHolder.hbmController.getCurrentBrightnessMax()).thenReturn(.6f);
++        mHolder.dpc.requestPowerState(new DisplayPowerRequest(),false);advanceTime(1);
++        assertTrue(policy.sdrTransforms>0);
++        verify(mHolder.animator,atLeastOnce()).animateTo(
++                eq(.6f),eq(.6f),anyFloat(),anyBoolean(),anyFloat());
++        verify(mHolder.hbmController,atLeastOnce()).onBrightnessChanged(
++                eq(.6f),eq(.8f),anyInt(),eq(.6f));
++        verify(mHolder.hbmController,never()).onBrightnessChanged(
++                anyFloat(),anyFloat(),anyInt(),eq(.9f));
++    }
++
  }
 diff --git a/services/tests/displayservicetests/src/com/android/server/display/HighBrightnessModeControllerTest.java b/services/tests/displayservicetests/src/com/android/server/display/HighBrightnessModeControllerTest.java
 index a6ea86f7023c40b4024655682a3cdc5d00c616fd..1c937e4582aad54cd47ea3beccace77a89f839cc 100644
@@ -8057,6 +10250,129 @@ index 0000000000000000000000000000000000000000..8df952db021785ce93c6f83f41a31c43
 +    }
 +
 +}
+diff --git a/services/tests/displayservicetests/src/com/android/server/display/brightness/clamper/BrightnessClamperControllerTest.java b/services/tests/displayservicetests/src/com/android/server/display/brightness/clamper/BrightnessClamperControllerTest.java
+index ec37d95be5da9c78e499c6c9856ba762da0852b1..b0cd43b776ed208f990c5b5bb8d0818e5510c3a2 100644
+--- a/services/tests/displayservicetests/src/com/android/server/display/brightness/clamper/BrightnessClamperControllerTest.java
++++ b/services/tests/displayservicetests/src/com/android/server/display/brightness/clamper/BrightnessClamperControllerTest.java
+@@ -27,6 +27,7 @@ import static org.mockito.ArgumentMatchers.eq;
+ import static org.mockito.Mockito.clearInvocations;
+ import static org.mockito.Mockito.doAnswer;
+ import static org.mockito.Mockito.never;
++import static org.mockito.Mockito.mock;
+ import static org.mockito.Mockito.reset;
+ import static org.mockito.Mockito.verify;
+ import static org.mockito.Mockito.when;
+@@ -312,6 +313,87 @@ public class BrightnessClamperControllerTest {
+         assertThat(mTestHandler.getPendingMessages()).isEmpty();
+     }
+ 
++    @Test
++    public void testIndependentHdrMaximumExcludesSdrLuxAndSeparateHdrVote() {
++        BrightnessMaxLuxModifier solar = mock(BrightnessMaxLuxModifier.class);
++        HdrBrightnessModifier hdr = mock(HdrBrightnessModifier.class);
++        doAnswer(invocation -> {
++            ((ModifiersAggregatedState) invocation.getArgument(0)).mMaxBrightness = 0.2f;
++            return null;
++        }).when(solar).applyStateChange(any());
++        doAnswer(invocation -> {
++            ((ModifiersAggregatedState) invocation.getArgument(0)).mMaxBrightness = 0.1f;
++            return null;
++        }).when(hdr).applyStateChange(any());
++        mTestInjector = new TestInjector(List.of(solar,hdr));
++        mClamperController = createBrightnessClamperController();
++        clearInvocations(solar,hdr);
++        assertEquals(0.95f,mClamperController.getIndependentHdrMaximum(0.95f),0f);
++        verify(solar,never()).applyStateChange(any());
++        verify(hdr,never()).applyStateChange(any());
++    }
++
++    @Test
++    public void testIndependentHdrMaximumRetainsThermalPowerAndMinModeVotes() {
++        BrightnessThermalModifier thermal = mock(BrightnessThermalModifier.class);
++        BrightnessPowerModifier power = mock(BrightnessPowerModifier.class);
++        BrightnessMinModeModifier minMode = mock(BrightnessMinModeModifier.class);
++        doAnswer(invocation -> {
++            ModifiersAggregatedState state = invocation.getArgument(0);
++            state.mMaxBrightness = Math.min(state.mMaxBrightness,0.7f);
++            return null;
++        }).when(thermal).applyStateChange(any());
++        doAnswer(invocation -> {
++            ModifiersAggregatedState state = invocation.getArgument(0);
++            state.mMaxBrightness = Math.min(state.mMaxBrightness,0.6f);
++            return null;
++        }).when(power).applyStateChange(any());
++        doAnswer(invocation -> {
++            ModifiersAggregatedState state = invocation.getArgument(0);
++            state.mMaxBrightness = Math.min(state.mMaxBrightness,0.4f);
++            return null;
++        }).when(minMode).applyStateChange(any());
++        mTestInjector = new TestInjector(List.of(thermal,power,minMode));
++        mClamperController = createBrightnessClamperController();
++        assertEquals(0.4f,mClamperController.getIndependentHdrMaximum(1f),0f);
++        assertEquals(0.3f,mClamperController.getIndependentHdrMaximum(0.3f),0f);
++    }
++
++    @Test
++    public void testHdrFlagOnlyChangeNotifiesExternalOwner() {
++        doAnswer(invocation -> {
++            ModifiersAggregatedState state = invocation.getArgument(0);
++            state.mHdrLayerFlags = 0x800;
++            state.mHdrRegistrationGeneration = 2;
++            return null;
++        }).when(mMockStatefulModifier).applyStateChange(any());
++        mTestInjector.mCapturedChangeListener.onChanged();
++        mTestHandler.flush();
++        clearInvocations(mMockExternalListener);
++        doAnswer(invocation -> {
++            ModifiersAggregatedState state = invocation.getArgument(0);
++            state.mHdrLayerFlags = 0x400;
++            state.mHdrRegistrationGeneration = 2;
++            return null;
++        }).when(mMockStatefulModifier).applyStateChange(any());
++        mTestInjector.mCapturedChangeListener.onChanged();
++        mTestHandler.flush();
++        verify(mMockExternalListener).onChanged();
++    }
++
++    @Test
++    public void testIndependentHdrMaximumRetainsGenericPluginMaxVote() {
++        BrightnessPluginModifier plugin = mock(BrightnessPluginModifier.class);
++        doAnswer(invocation -> {
++            ModifiersAggregatedState state = invocation.getArgument(0);
++            state.mMaxBrightness = Math.min(state.mMaxBrightness,0.35f);
++            return null;
++        }).when(plugin).applyStateChange(any());
++        mTestInjector = new TestInjector(List.of(plugin));
++        mClamperController = createBrightnessClamperController();
++        assertEquals(0.35f,mClamperController.getIndependentHdrMaximum(1f),0f);
++    }
++
+     private BrightnessClamperController createBrightnessClamperController() {
+         return new BrightnessClamperController(mTestInjector, mTestHandler, mMockExternalListener,
+                 mMockDisplayDeviceData, mMockContext, mFlags, mSensorManager, mPluginManager, 0);
+@@ -362,4 +444,22 @@ public class BrightnessClamperControllerTest {
+             return mMockLightSensorController;
+         }
+     }
++    @Test
++    public void testNativeHdrFirstObservedFalseNotifiesWithoutHdrModeOrFlagChange() {
++        doAnswer(invocation -> {
++            ModifiersAggregatedState state=invocation.getArgument(0);
++            state.mNativeHdrPresent=null;state.mHdrLayerFlags=0;state.mHdrRegistrationGeneration=2;
++            return null;
++        }).when(mMockStatefulModifier).applyStateChange(any());
++        mTestInjector.mCapturedChangeListener.onChanged();mTestHandler.flush();
++        clearInvocations(mMockExternalListener);
++        doAnswer(invocation -> {
++            ModifiersAggregatedState state=invocation.getArgument(0);
++            state.mNativeHdrPresent=false;state.mHdrLayerFlags=0;state.mHdrRegistrationGeneration=2;
++            return null;
++        }).when(mMockStatefulModifier).applyStateChange(any());
++        mTestInjector.mCapturedChangeListener.onChanged();mTestHandler.flush();
++        verify(mMockExternalListener).onChanged();
++    }
++
+ }
 diff --git a/services/tests/displayservicetests/src/com/android/server/display/brightness/clamper/BrightnessPluginModifierTest.java b/services/tests/displayservicetests/src/com/android/server/display/brightness/clamper/BrightnessPluginModifierTest.java
 index d6f79138b1d65f755ca2ce3d5c1cec1eecc03c50..0d0622d03d9c01af7db0ec339b67391b7e600924 100644
 --- a/services/tests/displayservicetests/src/com/android/server/display/brightness/clamper/BrightnessPluginModifierTest.java
@@ -8103,6 +10419,267 @@ index d6f79138b1d65f755ca2ce3d5c1cec1eecc03c50..0d0622d03d9c01af7db0ec339b67391b
      @Test
      public void testNoOpUpdateDoesNotNotify() {
          // Set an initial cap
+diff --git a/services/tests/displayservicetests/src/com/android/server/display/brightness/clamper/HdrBrightnessModifierTest.kt b/services/tests/displayservicetests/src/com/android/server/display/brightness/clamper/HdrBrightnessModifierTest.kt
+index 0c60f65c7a3e2fe527bbd21ed032a6879e81e0a3..51c979066149247d5674d178639434fba3aac3b3 100644
+--- a/services/tests/displayservicetests/src/com/android/server/display/brightness/clamper/HdrBrightnessModifierTest.kt
++++ b/services/tests/displayservicetests/src/com/android/server/display/brightness/clamper/HdrBrightnessModifierTest.kt
+@@ -614,6 +614,117 @@ class HdrBrightnessModifierTest {
+     }
+ 
+     // Helper functions
++    @Test
++    fun metadataFlagOnlyChangeNotifiesAndKeepsOwnerEligibility() {
++        initHdrModifier()
++        setupDisplay()
++        setupHdrLayer()
++        clearInvocations(mockChangeListener)
++        testInjector.registeredHdrListener!!.onHdrInfoChanged(
++            mockDisplayBinder, 1, 100, 100, 0x400, MAX_HDR_RATIO)
++        testHandler.flush()
++        val metadata = modifier.hdrBrightnessMetadata
++        assertThat(metadata.active()).isTrue()
++        assertThat(metadata.layerFlags()).isEqualTo(0x400)
++        assertThat(metadata.desiredRatio()).isEqualTo(MAX_HDR_RATIO)
++        assertThat(metadata.userRatioScale()).isEqualTo(1f)
++        verify(mockChangeListener).onChanged()
++    }
++
++    @Test
++    fun metadataOldQueuedCallbackCannotCrossSameTokenRebind() {
++        initHdrModifier()
++        setupDisplay()
++        val oldListener = testInjector.registeredHdrListener!!
++        val oldGeneration = modifier.hdrBrightnessMetadata.registrationGeneration()
++        oldListener.onHdrInfoChanged(mockDisplayBinder, 1, 100, 100, 0x400, MAX_HDR_RATIO)
++        modifier.onDisplayChanged(
++            createDisplayDeviceData(mockDisplayDeviceConfig, mockDisplayBinderOther))
++        modifier.onDisplayChanged(dummyData)
++        testHandler.flush()
++        val metadata = modifier.hdrBrightnessMetadata
++        assertThat(metadata.registrationGeneration()).isGreaterThan(oldGeneration)
++        assertThat(metadata.nativeHdrPresent()).isNull()
++        assertThat(metadata.active()).isFalse()
++        assertThat(metadata.layerFlags()).isEqualTo(0)
++        assertThat(metadata.desiredRatio()).isEqualTo(DEFAULT_MAX_HDR_SDR_RATIO)
++        assertThat(testInjector.registeredHdrListener).isNotSameInstanceAs(oldListener)
++    }
++
++    @Test
++    fun metadataWrongTokenAndAfterStopCallbacksAreInert() {
++        initHdrModifier()
++        val listener = testInjector.registeredHdrListener!!
++        listener.onHdrInfoChanged(mockDisplayBinderOther, 1, 100, 100, 0x800, MAX_HDR_RATIO)
++        testHandler.flush()
++        assertThat(modifier.hdrBrightnessMetadata.active()).isFalse()
++        modifier.stop()
++        listener.onHdrInfoChanged(mockDisplayBinder, 1, 100, 100, 0x400, MAX_HDR_RATIO)
++        testHandler.flush()
++        assertThat(modifier.hdrBrightnessMetadata.active()).isFalse()
++        assertThat(modifier.hdrBrightnessMetadata.layerFlags()).isEqualTo(0)
++    }
++
++    @Test
++    fun metadataNoLayersReleasesAllClassification() {
++        initHdrModifier()
++        setupDisplay()
++        setupHdrLayer()
++        testInjector.registeredHdrListener!!.onHdrInfoChanged(
++            mockDisplayBinder, 0, 100, 100, 0x1400, MAX_HDR_RATIO)
++        testHandler.flush()
++        val metadata = modifier.hdrBrightnessMetadata
++        assertThat(metadata.active()).isFalse()
++        assertThat(metadata.layerFlags()).isEqualTo(0)
++        assertThat(metadata.desiredRatio()).isEqualTo(DEFAULT_MAX_HDR_SDR_RATIO)
++    }
++
++    @Test
++    fun nativeHdrFirstObservedEmptyFrameIsNotUnknownAndNotifies() {
++        initHdrModifier()
++        assertThat(modifier.hdrBrightnessMetadata.nativeHdrPresent()).isNull()
++        clearInvocations(mockChangeListener)
++        testInjector.registeredHdrListener!!.onHdrInfoChanged(
++            mockDisplayBinder, 0, 100, 100, 0, DEFAULT_MAX_HDR_SDR_RATIO)
++        testHandler.flush()
++        assertThat(modifier.hdrBrightnessMetadata.nativeHdrPresent()).isEqualTo(false)
++        verify(mockChangeListener).onChanged()
++        clearInvocations(mockChangeListener)
++        testInjector.registeredHdrListener!!.onHdrInfoChanged(
++            mockDisplayBinder, 0, 100, 100, 0, DEFAULT_MAX_HDR_SDR_RATIO)
++        testHandler.flush()
++        verifyNoInteractions(mockChangeListener)
++    }
++
++    @Test
++    fun nativeHdrUsesObservedPqHlgRatherThanBrightnessBoostEligibility() {
++        initHdrModifier()
++        setupDisplay()
++        testInjector.hdrBrightnessEnabled = false
++        testInjector.registeredHdrSettingsObserver!!.onChange(false, hdrBrightnessEnabledSetting)
++        testHandler.flush()
++        clearInvocations(mockChangeListener)
++        testInjector.registeredHdrListener!!.onHdrInfoChanged(
++            mockDisplayBinder, 1, 100, 100, 0x400, MAX_HDR_RATIO)
++        testHandler.flush()
++        assertThat(modifier.hdrBrightnessMetadata.active()).isFalse()
++        assertThat(modifier.hdrBrightnessMetadata.nativeHdrPresent()).isEqualTo(true)
++        verify(mockChangeListener).onChanged()
++        clearInvocations(mockChangeListener)
++        testInjector.registeredHdrListener!!.onHdrInfoChanged(
++            mockDisplayBinder, 1, 100, 100, 0x1000, MAX_HDR_RATIO)
++        testHandler.flush()
++        assertThat(modifier.hdrBrightnessMetadata.nativeHdrPresent()).isEqualTo(false)
++        verify(mockChangeListener).onChanged()
++        clearInvocations(mockChangeListener)
++        testInjector.registeredHdrListener!!.onHdrInfoChanged(
++            mockDisplayBinder, 1, 100, 100, 0x1000, MAX_HDR_RATIO)
++        testHandler.flush()
++        verifyNoInteractions(mockChangeListener)
++        modifier.stop()
++        assertThat(modifier.hdrBrightnessMetadata.nativeHdrPresent()).isNull()
++    }
++
+     private fun setupHdrLayer(width: Int = 100, height: Int = 100,
+         maxHdrRatio: Float = MAX_HDR_RATIO
+     ) {
+diff --git a/services/tests/displayservicetests/src/com/android/server/display/brightness/strategy/AutomaticBrightnessStrategyTest.java b/services/tests/displayservicetests/src/com/android/server/display/brightness/strategy/AutomaticBrightnessStrategyTest.java
+index d630c0f8195651cebd61e4aaf9fdbb253f7114e8..c063b4523696e5eca11a321bfa17e9393aad0c90 100644
+--- a/services/tests/displayservicetests/src/com/android/server/display/brightness/strategy/AutomaticBrightnessStrategyTest.java
++++ b/services/tests/displayservicetests/src/com/android/server/display/brightness/strategy/AutomaticBrightnessStrategyTest.java
+@@ -142,7 +142,7 @@ public class AutomaticBrightnessStrategyTest {
+                         /* userChangedAutoBrightnessAdjustment= */ false, policy,
+                         targetDisplayState,
+                         DEFAULT_USE_NORMAL_BRIGHTNESS_FOR_DOZE,
+-                        /* shouldResetShortTermModel */ true);
++                        /* shouldResetShortTermModel */ true, /* autoBrightnessOneShot= */ false);
+         assertFalse(mAutomaticBrightnessStrategy.isAutoBrightnessEnabled());
+         assertFalse(mAutomaticBrightnessStrategy.isAutoBrightnessDisabledDueToDisplayOff());
+     }
+@@ -171,7 +171,7 @@ public class AutomaticBrightnessStrategyTest {
+                         /* userChangedAutoBrightnessAdjustment= */ false, policy,
+                         targetDisplayState,
+                         DEFAULT_USE_NORMAL_BRIGHTNESS_FOR_DOZE,
+-                        /* shouldResetShortTermModel */ true);
++                        /* shouldResetShortTermModel */ true, /* autoBrightnessOneShot= */ false);
+         assertFalse(mAutomaticBrightnessStrategy.isAutoBrightnessEnabled());
+         assertFalse(mAutomaticBrightnessStrategy.isAutoBrightnessDisabledDueToDisplayOff());
+     }
+@@ -200,7 +200,7 @@ public class AutomaticBrightnessStrategyTest {
+                         /* userChangedAutoBrightnessAdjustment= */ false, policy,
+                         targetDisplayState,
+                         DEFAULT_USE_NORMAL_BRIGHTNESS_FOR_DOZE,
+-                        /* shouldResetShortTermModel */ true);
++                        /* shouldResetShortTermModel */ true, /* autoBrightnessOneShot= */ false);
+         assertFalse(mAutomaticBrightnessStrategy.isAutoBrightnessEnabled());
+         assertTrue(mAutomaticBrightnessStrategy.isAutoBrightnessDisabledDueToDisplayOff());
+     }
+@@ -229,7 +229,7 @@ public class AutomaticBrightnessStrategyTest {
+                         /* userChangedAutoBrightnessAdjustment= */ false, policy,
+                         targetDisplayState,
+                         DEFAULT_USE_NORMAL_BRIGHTNESS_FOR_DOZE,
+-                        /* shouldResetShortTermModel */ true);
++                        /* shouldResetShortTermModel */ true, /* autoBrightnessOneShot= */ false);
+         assertFalse(mAutomaticBrightnessStrategy.isAutoBrightnessEnabled());
+         assertTrue(mAutomaticBrightnessStrategy.isAutoBrightnessDisabledDueToDisplayOff());
+     }
+@@ -258,7 +258,7 @@ public class AutomaticBrightnessStrategyTest {
+                         /* userChangedAutoBrightnessAdjustment= */ false, policy,
+                         targetDisplayState,
+                         DEFAULT_USE_NORMAL_BRIGHTNESS_FOR_DOZE,
+-                        /* shouldResetShortTermModel */ true);
++                        /* shouldResetShortTermModel */ true, /* autoBrightnessOneShot= */ false);
+         assertFalse(mAutomaticBrightnessStrategy.isAutoBrightnessEnabled());
+         assertTrue(mAutomaticBrightnessStrategy.isAutoBrightnessDisabledDueToDisplayOff());
+     }
+@@ -287,7 +287,7 @@ public class AutomaticBrightnessStrategyTest {
+                         /* userChangedAutoBrightnessAdjustment= */ false, policy,
+                         targetDisplayState,
+                         DEFAULT_USE_NORMAL_BRIGHTNESS_FOR_DOZE,
+-                        /* shouldResetShortTermModel */ true);
++                        /* shouldResetShortTermModel */ true, /* autoBrightnessOneShot= */ false);
+         assertFalse(mAutomaticBrightnessStrategy.isAutoBrightnessEnabled());
+         assertTrue(mAutomaticBrightnessStrategy.isAutoBrightnessDisabledDueToDisplayOff());
+     }
+@@ -316,7 +316,7 @@ public class AutomaticBrightnessStrategyTest {
+                         /* userChangedAutoBrightnessAdjustment= */ false, policy,
+                         targetDisplayState,
+                         DEFAULT_USE_NORMAL_BRIGHTNESS_FOR_DOZE,
+-                        /* shouldResetShortTermModel */ true);
++                        /* shouldResetShortTermModel */ true, /* autoBrightnessOneShot= */ false);
+         assertFalse(mAutomaticBrightnessStrategy.isAutoBrightnessEnabled());
+         assertFalse(mAutomaticBrightnessStrategy.isAutoBrightnessDisabledDueToDisplayOff());
+     }
+@@ -346,7 +346,7 @@ public class AutomaticBrightnessStrategyTest {
+                         userSetBrightnessChanged, /* adjustment */ 0.4f,
+                         /* userChangedAutoBrightnessAdjustment= */ true, policy, targetDisplayState,
+                         DEFAULT_USE_NORMAL_BRIGHTNESS_FOR_DOZE,
+-                        /* shouldResetShortTermModel */ true);
++                        /* shouldResetShortTermModel */ true, /* autoBrightnessOneShot= */ false);
+         assertTrue(mAutomaticBrightnessStrategy.isAutoBrightnessEnabled());
+         assertFalse(mAutomaticBrightnessStrategy.isAutoBrightnessDisabledDueToDisplayOff());
+     }
+@@ -376,7 +376,7 @@ public class AutomaticBrightnessStrategyTest {
+                         userSetBrightnessChanged, /* adjustment */ 0.4f,
+                         /* userChangedAutoBrightnessAdjustment= */ true, policy, targetDisplayState,
+                         DEFAULT_USE_NORMAL_BRIGHTNESS_FOR_DOZE,
+-                        /* shouldResetShortTermModel */ true);
++                        /* shouldResetShortTermModel */ true, /* autoBrightnessOneShot= */ false);
+         assertTrue(mAutomaticBrightnessStrategy.isAutoBrightnessEnabled());
+         assertFalse(mAutomaticBrightnessStrategy.isAutoBrightnessDisabledDueToDisplayOff());
+     }
+@@ -405,7 +405,7 @@ public class AutomaticBrightnessStrategyTest {
+                         /* userChangedAutoBrightnessAdjustment= */ false, policy,
+                         targetDisplayState,
+                         DEFAULT_USE_NORMAL_BRIGHTNESS_FOR_DOZE,
+-                        /* shouldResetShortTermModel */ true);
++                        /* shouldResetShortTermModel */ true, /* autoBrightnessOneShot= */ false);
+         assertTrue(mAutomaticBrightnessStrategy.isAutoBrightnessEnabled());
+         assertFalse(mAutomaticBrightnessStrategy.isAutoBrightnessDisabledDueToDisplayOff());
+     }
+@@ -435,7 +435,7 @@ public class AutomaticBrightnessStrategyTest {
+                         userSetBrightnessChanged, /* adjustment */ 0.4f,
+                         /* userChangedAutoBrightnessAdjustment= */ true, policy, targetDisplayState,
+                         DEFAULT_USE_NORMAL_BRIGHTNESS_FOR_DOZE,
+-                        /* shouldResetShortTermModel */ true);
++                        /* shouldResetShortTermModel */ true, /* autoBrightnessOneShot= */ false);
+         assertFalse(mAutomaticBrightnessStrategy.isAutoBrightnessEnabled());
+         assertTrue(mAutomaticBrightnessStrategy.isAutoBrightnessDisabledDueToDisplayOff());
+     }
+@@ -465,7 +465,7 @@ public class AutomaticBrightnessStrategyTest {
+                         userSetBrightnessChanged, /* adjustment */ 0.4f,
+                         /* userChangedAutoBrightnessAdjustment= */ true, policy, targetDisplayState,
+                         DEFAULT_USE_NORMAL_BRIGHTNESS_FOR_DOZE,
+-                        /* shouldResetShortTermModel */ true);
++                        /* shouldResetShortTermModel */ true, /* autoBrightnessOneShot= */ false);
+         assertFalse(mAutomaticBrightnessStrategy.isAutoBrightnessEnabled());
+         assertTrue(mAutomaticBrightnessStrategy.isAutoBrightnessDisabledDueToDisplayOff());
+     }
+@@ -496,7 +496,7 @@ public class AutomaticBrightnessStrategyTest {
+                         userSetBrightnessChanged, pendingBrightnessAdjustment,
+                         /* userChangedAutoBrightnessAdjustment= */ true, policy, targetDisplayState,
+                         DEFAULT_USE_NORMAL_BRIGHTNESS_FOR_DOZE,
+-                        /* shouldResetShortTermModel */ true);
++                        /* shouldResetShortTermModel */ true, /* autoBrightnessOneShot= */ false);
+         assertTrue(mAutomaticBrightnessStrategy.isAutoBrightnessEnabled());
+         assertFalse(mAutomaticBrightnessStrategy.isAutoBrightnessDisabledDueToDisplayOff());
+     }
+@@ -527,7 +527,7 @@ public class AutomaticBrightnessStrategyTest {
+                         userSetBrightnessChanged, pendingBrightnessAdjustment,
+                         /* userChangedAutoBrightnessAdjustment= */ true, policy, targetDisplayState,
+                         DEFAULT_USE_NORMAL_BRIGHTNESS_FOR_DOZE,
+-                        /* shouldResetShortTermModel */ true);
++                        /* shouldResetShortTermModel */ true, /* autoBrightnessOneShot= */ false);
+         assertFalse(mAutomaticBrightnessStrategy.isAutoBrightnessEnabled());
+         assertTrue(mAutomaticBrightnessStrategy.isAutoBrightnessDisabledDueToDisplayOff());
+     }
+@@ -724,7 +724,7 @@ public class AutomaticBrightnessStrategyTest {
+                 userSetBrightnessChanged, temporaryAutoBrightnessAdjustments,
+                 /* userChangedAutoBrightnessAdjustment= */ false, policy, targetDisplayState,
+                 DEFAULT_USE_NORMAL_BRIGHTNESS_FOR_DOZE,
+-                /* shouldResetShortTermModel= */ true);
++                /* shouldResetShortTermModel= */ true, /* autoBrightnessOneShot= */ false);
+         assertTrue(mAutomaticBrightnessStrategy.isTemporaryAutoBrightnessAdjustmentApplied());
+         assertFalse(mAutomaticBrightnessStrategy.shouldResetShortTermModel());
+         assertTrue(mAutomaticBrightnessStrategy.isShortTermModelActive());
 diff --git a/services/tests/displayservicetests/src/com/android/server/display/plugin/CapPluginStorageFixture.java b/services/tests/displayservicetests/src/com/android/server/display/plugin/CapPluginStorageFixture.java
 new file mode 100644
 index 0000000000000000000000000000000000000000..4ac14f650395f54575070170a626365bdbdbccbc

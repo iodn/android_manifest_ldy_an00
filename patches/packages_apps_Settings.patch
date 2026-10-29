@@ -1,5 +1,5 @@
 diff --git a/AndroidManifest.xml b/AndroidManifest.xml
-index 051cd2e..6a43945 100644
+index 051cd2e35bb9ac7b3c5626b3f5cb4c12ed8766e0..6a4394516476f8d62f0ae89ea6131408329ac8c7 100644
 --- a/AndroidManifest.xml
 +++ b/AndroidManifest.xml
 @@ -928,6 +928,11 @@
@@ -14,9 +14,23 @@ index 051cd2e..6a43945 100644
          <activity android:name=".network.SimOnboardingActivity"
              android:exported="true"
              android:configChanges="orientation|keyboard|keyboardHidden|screenSize|screenLayout|smallestScreenSize"
+diff --git a/res/values/cm_strings.xml b/res/values/cm_strings.xml
+index 8b8d9ffa1100e072322c8763b0d3da2999726d2b..e10272d51a8f9e5eed331fa0d1664ca58b941255 100644
+--- a/res/values/cm_strings.xml
++++ b/res/values/cm_strings.xml
+@@ -85,6 +85,9 @@
+     <!-- Max refresh rate -->
+     <string name="max_refresh_rate_title">Peak refresh rate</string>
+ 
++    <!-- Refresh rate option that leaves the rate unrestricted by this user preference. -->
++    <string name="refresh_rate_automatic">Automatic</string>
++
+     <!-- Min refresh rate -->
+     <string name="min_refresh_rate_title">Minimum refresh rate</string>
+ 
 diff --git a/res/values/honor_ldy_an00_esim.xml b/res/values/honor_ldy_an00_esim.xml
 new file mode 100644
-index 0000000..9322545
+index 0000000000000000000000000000000000000000..932254580e35e3309eca66f4327072cf63741b8d
 --- /dev/null
 +++ b/res/values/honor_ldy_an00_esim.xml
 @@ -0,0 +1,5 @@
@@ -27,7 +41,7 @@ index 0000000..9322545
 +</resources>
 diff --git a/res/values/honor_ldy_an00_esim_flow.xml b/res/values/honor_ldy_an00_esim_flow.xml
 new file mode 100644
-index 0000000..983a47a
+index 0000000000000000000000000000000000000000..983a47aa1eaa558add4cdfc09d252dd82c81f83d
 --- /dev/null
 +++ b/res/values/honor_ldy_an00_esim_flow.xml
 @@ -0,0 +1,15 @@
@@ -47,7 +61,7 @@ index 0000000..983a47a
 +    <string name="honor_esim_delete_partial">Some profiles were deleted. The remaining deletions could not be confirmed.</string>
 +</resources>
 diff --git a/res/values/lineage_config.xml b/res/values/lineage_config.xml
-index c6aaf2d..bdd3bee 100644
+index c6aaf2d2556755271a080e008d2ab98dd51bc168..bdd3bee44df86da336dc3ada6f894c79334bf802 100644
 --- a/res/values/lineage_config.xml
 +++ b/res/values/lineage_config.xml
 @@ -29,6 +29,9 @@
@@ -68,7 +82,7 @@ index c6aaf2d..bdd3bee 100644
 +    <bool name="config_show_hardware_info_details">false</bool>
  </resources>
 diff --git a/res/values/strings.xml b/res/values/strings.xml
-index a84186b..1fc11a8 100644
+index a84186b96bc4ca1e74cebec9aa1ed86e4cd819e0..1fc11a881b58b4033f66992dc0c0fba061316dea 100644
 --- a/res/values/strings.xml
 +++ b/res/values/strings.xml
 @@ -15590,4 +15590,14 @@
@@ -87,7 +101,7 @@ index a84186b..1fc11a8 100644
 +    <string name="hardware_info_cpu_limit">Maximum reported frequency: %1$s GHz</string>
  </resources>
 diff --git a/res/xml/hardware_info.xml b/res/xml/hardware_info.xml
-index e086a48..731de91 100644
+index e086a486ee0d8df918e6099316fb92f14af65d76..731de9101b0b0860b32f3ae58b9f186710c04565 100644
 --- a/res/xml/hardware_info.xml
 +++ b/res/xml/hardware_info.xml
 @@ -57,4 +57,28 @@
@@ -120,7 +134,7 @@ index e086a48..731de91 100644
 +
  </PreferenceScreen>
 diff --git a/res/xml/network_provider_sims_list.xml b/res/xml/network_provider_sims_list.xml
-index ee1f6b3..21cb48b 100644
+index ee1f6b34289086e89a173af4208a56939a24f14d..21cb48b246df3f837ecfba5bcba2beaa8959135c 100644
 --- a/res/xml/network_provider_sims_list.xml
 +++ b/res/xml/network_provider_sims_list.xml
 @@ -25,6 +25,18 @@
@@ -150,7 +164,7 @@ index ee1f6b3..21cb48b 100644
  </PreferenceScreen>
 diff --git a/src/com/android/settings/biometrics/face/FaceEnrollChallengeOwnership.java b/src/com/android/settings/biometrics/face/FaceEnrollChallengeOwnership.java
 new file mode 100644
-index 0000000..0a74c60
+index 0000000000000000000000000000000000000000..0a74c60b157322d952eeeee74ed0960158bb62b6
 --- /dev/null
 +++ b/src/com/android/settings/biometrics/face/FaceEnrollChallengeOwnership.java
 @@ -0,0 +1,90 @@
@@ -245,7 +259,7 @@ index 0000000..0a74c60
 +    }
 +}
 diff --git a/src/com/android/settings/biometrics/face/FaceEnrollIntroduction.java b/src/com/android/settings/biometrics/face/FaceEnrollIntroduction.java
-index 2143831..9e394eb 100644
+index 21438312ae3d9519ab1de4f89e313c37c75f55a3..9e394ebc7375956d0836967b3a121b7fe8a7ff96 100644
 --- a/src/com/android/settings/biometrics/face/FaceEnrollIntroduction.java
 +++ b/src/com/android/settings/biometrics/face/FaceEnrollIntroduction.java
 @@ -31,6 +31,8 @@ import android.hardware.biometrics.SensorProperties;
@@ -348,7 +362,7 @@ index 2143831..9e394eb 100644
  
      @Override
 diff --git a/src/com/android/settings/biometrics/face/FaceSettings.java b/src/com/android/settings/biometrics/face/FaceSettings.java
-index 12f54f1..80e6fe2 100644
+index 12f54f11a5dd8893f4f8338dca265fca67c75fc0..80e6fe2ed3a958729bb0533fa1ab514671ca0966 100644
 --- a/src/com/android/settings/biometrics/face/FaceSettings.java
 +++ b/src/com/android/settings/biometrics/face/FaceSettings.java
 @@ -174,6 +174,8 @@ public class FaceSettings extends DashboardFragment {
@@ -371,7 +385,7 @@ index 12f54f1..80e6fe2 100644
          }
  
 diff --git a/src/com/android/settings/deviceinfo/batteryinfo/BatteryInfoApiScreen.kt b/src/com/android/settings/deviceinfo/batteryinfo/BatteryInfoApiScreen.kt
-index 6d93b27..35bb30e 100644
+index 6d93b27a06479cc370b593ec9970897defb4601e..35bb30eb5f797da154702612803411cb5ef35f5d 100644
 --- a/src/com/android/settings/deviceinfo/batteryinfo/BatteryInfoApiScreen.kt
 +++ b/src/com/android/settings/deviceinfo/batteryinfo/BatteryInfoApiScreen.kt
 @@ -76,12 +76,12 @@ class BatteryInfoApiScreen :
@@ -400,7 +414,7 @@ index 6d93b27..35bb30e 100644
                          TimeUnit.MILLISECONDS.convert(firstUseDateInSec, TimeUnit.SECONDS)
  
 diff --git a/src/com/android/settings/deviceinfo/batteryinfo/BatteryManufactureDatePreferenceController.java b/src/com/android/settings/deviceinfo/batteryinfo/BatteryManufactureDatePreferenceController.java
-index 15d6b28..f451775 100644
+index 15d6b287b8dba05afa96a5d6d31dea2d1536d861..f451775e5d681da01051f62ab9348c8c87f3d429 100644
 --- a/src/com/android/settings/deviceinfo/batteryinfo/BatteryManufactureDatePreferenceController.java
 +++ b/src/com/android/settings/deviceinfo/batteryinfo/BatteryManufactureDatePreferenceController.java
 @@ -53,7 +53,7 @@ public class BatteryManufactureDatePreferenceController extends BasePreferenceCo
@@ -414,7 +428,7 @@ index 15d6b28..f451775 100644
  
 diff --git a/src/com/android/settings/deviceinfo/hardwareinfo/CpuInfo.java b/src/com/android/settings/deviceinfo/hardwareinfo/CpuInfo.java
 new file mode 100644
-index 0000000..27bcc89
+index 0000000000000000000000000000000000000000..27bcc89f39da8dcc20df93aa05e7bc3bcdf9813f
 --- /dev/null
 +++ b/src/com/android/settings/deviceinfo/hardwareinfo/CpuInfo.java
 @@ -0,0 +1,122 @@
@@ -542,7 +556,7 @@ index 0000000..27bcc89
 +}
 diff --git a/src/com/android/settings/deviceinfo/hardwareinfo/CpuInfoPreference.kt b/src/com/android/settings/deviceinfo/hardwareinfo/CpuInfoPreference.kt
 new file mode 100644
-index 0000000..bfab990
+index 0000000000000000000000000000000000000000..bfab9907914c2d6fba0ed85aece7ff1371064d62
 --- /dev/null
 +++ b/src/com/android/settings/deviceinfo/hardwareinfo/CpuInfoPreference.kt
 @@ -0,0 +1,63 @@
@@ -611,7 +625,7 @@ index 0000000..bfab990
 +}
 diff --git a/src/com/android/settings/deviceinfo/hardwareinfo/CpuInfoPreferenceController.java b/src/com/android/settings/deviceinfo/hardwareinfo/CpuInfoPreferenceController.java
 new file mode 100644
-index 0000000..3b73d5e
+index 0000000000000000000000000000000000000000..3b73d5e4c95241b793c0fa4e010eefb3ec54585b
 --- /dev/null
 +++ b/src/com/android/settings/deviceinfo/hardwareinfo/CpuInfoPreferenceController.java
 @@ -0,0 +1,74 @@
@@ -690,7 +704,7 @@ index 0000000..3b73d5e
 +    }
 +}
 diff --git a/src/com/android/settings/deviceinfo/hardwareinfo/HardwareInfoApiScreen.kt b/src/com/android/settings/deviceinfo/hardwareinfo/HardwareInfoApiScreen.kt
-index 204df40..df94b54 100644
+index 204df40ac7cab13c5dab62cd52a684e542286c39..df94b54244767bcff0be3698a6176e6fc6b54529 100644
 --- a/src/com/android/settings/deviceinfo/hardwareinfo/HardwareInfoApiScreen.kt
 +++ b/src/com/android/settings/deviceinfo/hardwareinfo/HardwareInfoApiScreen.kt
 @@ -28,6 +28,8 @@ import com.android.settingslib.metadata.preferencesapi.PreferencesApiScreen
@@ -772,7 +786,7 @@ index 204df40..df94b54 100644
          const val MANUFACTURED_YEAR_KEY = "manufactured_year"
      }
 diff --git a/src/com/android/settings/deviceinfo/hardwareinfo/HardwareInfoScreen.kt b/src/com/android/settings/deviceinfo/hardwareinfo/HardwareInfoScreen.kt
-index dd0c2cf..b1e58f6 100644
+index dd0c2cf32b0a103529033ae115e8ec7dc8183d18..b1e58f6537b89fab7cb90346ce8171b27db9f0a4 100644
 --- a/src/com/android/settings/deviceinfo/hardwareinfo/HardwareInfoScreen.kt
 +++ b/src/com/android/settings/deviceinfo/hardwareinfo/HardwareInfoScreen.kt
 @@ -80,6 +80,9 @@ open class HardwareInfoScreen :
@@ -787,7 +801,7 @@ index dd0c2cf..b1e58f6 100644
      companion object {
 diff --git a/src/com/android/settings/deviceinfo/hardwareinfo/SocInfoPreference.kt b/src/com/android/settings/deviceinfo/hardwareinfo/SocInfoPreference.kt
 new file mode 100644
-index 0000000..6e17703
+index 0000000000000000000000000000000000000000..6e17703c8bb7e96dc6a1f8eabd716a67ce30ac0c
 --- /dev/null
 +++ b/src/com/android/settings/deviceinfo/hardwareinfo/SocInfoPreference.kt
 @@ -0,0 +1,74 @@
@@ -867,7 +881,7 @@ index 0000000..6e17703
 +}
 diff --git a/src/com/android/settings/deviceinfo/hardwareinfo/SocInfoPreferenceController.java b/src/com/android/settings/deviceinfo/hardwareinfo/SocInfoPreferenceController.java
 new file mode 100644
-index 0000000..1efd4b4
+index 0000000000000000000000000000000000000000..1efd4b488e112d818f476365f3fc4b116a6257fb
 --- /dev/null
 +++ b/src/com/android/settings/deviceinfo/hardwareinfo/SocInfoPreferenceController.java
 @@ -0,0 +1,47 @@
@@ -920,7 +934,7 @@ index 0000000..1efd4b4
 +}
 diff --git a/src/com/android/settings/deviceinfo/hardwareinfo/UsableRamPreference.kt b/src/com/android/settings/deviceinfo/hardwareinfo/UsableRamPreference.kt
 new file mode 100644
-index 0000000..678d6dd
+index 0000000000000000000000000000000000000000..678d6dd9a16aeeb1c64d7d732d05a9192b4a9e5b
 --- /dev/null
 +++ b/src/com/android/settings/deviceinfo/hardwareinfo/UsableRamPreference.kt
 @@ -0,0 +1,74 @@
@@ -1000,7 +1014,7 @@ index 0000000..678d6dd
 +}
 diff --git a/src/com/android/settings/deviceinfo/hardwareinfo/UsableRamPreferenceController.java b/src/com/android/settings/deviceinfo/hardwareinfo/UsableRamPreferenceController.java
 new file mode 100644
-index 0000000..c02d31b
+index 0000000000000000000000000000000000000000..c02d31b3c8d61e5d9090f8597c19c140d6c37f94
 --- /dev/null
 +++ b/src/com/android/settings/deviceinfo/hardwareinfo/UsableRamPreferenceController.java
 @@ -0,0 +1,48 @@
@@ -1052,8 +1066,77 @@ index 0000000..c02d31b
 +        return summary != null ? summary : mContext.getString(R.string.unknown);
 +    }
 +}
+diff --git a/src/com/android/settings/display/MinRefreshRatePreferenceController.java b/src/com/android/settings/display/MinRefreshRatePreferenceController.java
+index b9c63040f26c5c8b0d083357cbd33ae4ff06ea07..4bfa0482693113172763336a4bbdb81fa2544499 100644
+--- a/src/com/android/settings/display/MinRefreshRatePreferenceController.java
++++ b/src/com/android/settings/display/MinRefreshRatePreferenceController.java
+@@ -61,6 +61,10 @@ public class MinRefreshRatePreferenceController extends BasePreferenceController
+                 }
+             }
+         }
++        if (mEntries.size() > 1) {
++            mEntries.add(0, mContext.getString(R.string.refresh_rate_automatic));
++            mValues.add(0, "0.00");
++        }
+     }
+ 
+     @Override
+@@ -85,7 +89,7 @@ public class MinRefreshRatePreferenceController extends BasePreferenceController
+     @Override
+     public void updateState(Preference preference) {
+         final float currentValue = Settings.System.getFloat(mContext.getContentResolver(),
+-                MIN_REFRESH_RATE, 60.00f);
++                MIN_REFRESH_RATE, 0f);
+         int index = mListPreference.findIndexOfValue(
+                 String.format(Locale.US, "%.02f", currentValue));
+         if (index < 0) index = 0;
+diff --git a/src/com/android/settings/display/PeakRefreshRateListPreferenceController.java b/src/com/android/settings/display/PeakRefreshRateListPreferenceController.java
+index 9acf6c1125f9b59b392edd9dcfa0485c3393486a..1e590d8525d25cf02eaea735e458d26010b9978d 100644
+--- a/src/com/android/settings/display/PeakRefreshRateListPreferenceController.java
++++ b/src/com/android/settings/display/PeakRefreshRateListPreferenceController.java
+@@ -53,6 +53,7 @@ public class PeakRefreshRateListPreferenceController extends BasePreferenceContr
+     private final IDeviceConfigChange mOnDeviceConfigChange;
+     private final DeviceConfigDisplaySettings mDeviceConfigDisplaySettings;
+     private ListPreference mListPreference;
++    private String mHighestRefreshRateValue;
+ 
+     private List<String> mEntries = new ArrayList<>();
+     private List<String> mValues = new ArrayList<>();
+@@ -87,12 +88,17 @@ public class PeakRefreshRateListPreferenceController extends BasePreferenceContr
+                         m.getPhysicalHeight() == mode.getPhysicalHeight()) {
+                     mEntries.add(String.format("%.02fHz", m.getRefreshRate())
+                             .replaceAll("[\\.,]00", ""));
+-                    mValues.add(mValues.isEmpty()
+-                            ? "Infinity"
+-                            : String.format(Locale.US, "%.02f", m.getRefreshRate()));
++                    String refreshRateValue = String.format(
++                            Locale.US, "%.02f", m.getRefreshRate());
++                    if (mValues.isEmpty()) mHighestRefreshRateValue = refreshRateValue;
++                    mValues.add(mValues.isEmpty() ? "Infinity" : refreshRateValue);
+                 }
+             }
+         }
++        if (mEntries.size() > 1) {
++            mEntries.add(0, mContext.getString(R.string.refresh_rate_automatic));
++            mValues.add(0, "0.00");
++        }
+     }
+ 
+     @Override
+@@ -117,8 +123,9 @@ public class PeakRefreshRateListPreferenceController extends BasePreferenceContr
+     public void updateState(Preference preference) {
+         final float currentValue = Settings.System.getFloat(mContext.getContentResolver(),
+                 Settings.System.PEAK_REFRESH_RATE, getDefaultPeakRefreshRate());
+-        int index = mListPreference.findIndexOfValue(
+-                String.format(Locale.US, "%.02f", currentValue));
++        String entryValue = String.format(Locale.US, "%.02f", currentValue);
++        if (entryValue.equals(mHighestRefreshRateValue)) entryValue = "Infinity";
++        int index = mListPreference.findIndexOfValue(entryValue);
+         if (index < 0) index = 0;
+         mListPreference.setValueIndex(index);
+         mListPreference.setSummary(mListPreference.getEntries()[index]);
 diff --git a/src/com/android/settings/fuelgauge/BatterySettingsFeatureProviderImpl.java b/src/com/android/settings/fuelgauge/BatterySettingsFeatureProviderImpl.java
-index 854004d..9670239 100644
+index 854004daf4f444f249f4b819462c8cb45895966c..9670239bd36055ec473834fed7214d16ab5054c9 100644
 --- a/src/com/android/settings/fuelgauge/BatterySettingsFeatureProviderImpl.java
 +++ b/src/com/android/settings/fuelgauge/BatterySettingsFeatureProviderImpl.java
 @@ -34,12 +34,14 @@ public class BatterySettingsFeatureProviderImpl implements BatterySettingsFeatur
@@ -1074,7 +1157,7 @@ index 854004d..9670239 100644
  
      @Override
 diff --git a/src/com/android/settings/fuelgauge/BatteryUtils.java b/src/com/android/settings/fuelgauge/BatteryUtils.java
-index 6adaa7a..7a08a7a 100644
+index 6adaa7aa5183c072d8b3069a623c8980f8fc46bc..7a08a7ac0b3b07cf20882c405ebcf5f89de0f72a 100644
 --- a/src/com/android/settings/fuelgauge/BatteryUtils.java
 +++ b/src/com/android/settings/fuelgauge/BatteryUtils.java
 @@ -60,6 +60,8 @@ import com.google.protobuf.MessageLite;
@@ -1109,7 +1192,7 @@ index 6adaa7a..7a08a7a 100644
              final Context context,
 diff --git a/src/com/android/settings/network/HonorEuiccProfilePreparation.java b/src/com/android/settings/network/HonorEuiccProfilePreparation.java
 new file mode 100644
-index 0000000..af06a58
+index 0000000000000000000000000000000000000000..af06a58a4bb5cc6c3c61cf14b8a1ee748884d2d3
 --- /dev/null
 +++ b/src/com/android/settings/network/HonorEuiccProfilePreparation.java
 @@ -0,0 +1,127 @@
@@ -1242,7 +1325,7 @@ index 0000000..af06a58
 +}
 diff --git a/src/com/android/settings/network/HonorLdyAn00EsimEntry.kt b/src/com/android/settings/network/HonorLdyAn00EsimEntry.kt
 new file mode 100644
-index 0000000..08b1493
+index 0000000000000000000000000000000000000000..08b1493a75498c9d49218032ed8304aebd2c0f80
 --- /dev/null
 +++ b/src/com/android/settings/network/HonorLdyAn00EsimEntry.kt
 @@ -0,0 +1,101 @@
@@ -1349,7 +1432,7 @@ index 0000000..08b1493
 +}
 diff --git a/src/com/android/settings/network/HonorLdyAn00EsimSetupActivity.java b/src/com/android/settings/network/HonorLdyAn00EsimSetupActivity.java
 new file mode 100644
-index 0000000..8e0a46d
+index 0000000000000000000000000000000000000000..8e0a46d2749f27fa9658fccd41a7422fec52dfbb
 --- /dev/null
 +++ b/src/com/android/settings/network/HonorLdyAn00EsimSetupActivity.java
 @@ -0,0 +1,125 @@
@@ -1480,7 +1563,7 @@ index 0000000..8e0a46d
 +}
 diff --git a/src/com/android/settings/network/HonorLdyAn00EsimSetupViewModel.java b/src/com/android/settings/network/HonorLdyAn00EsimSetupViewModel.java
 new file mode 100644
-index 0000000..198ae84
+index 0000000000000000000000000000000000000000..198ae84e5fb9e48a9519894256ba0aed9a3ba86a
 --- /dev/null
 +++ b/src/com/android/settings/network/HonorLdyAn00EsimSetupViewModel.java
 @@ -0,0 +1,368 @@
@@ -1853,7 +1936,7 @@ index 0000000..198ae84
 +    }
 +}
 diff --git a/src/com/android/settings/network/MobileNetworkListFragment.kt b/src/com/android/settings/network/MobileNetworkListFragment.kt
-index 59acade..af13d00 100644
+index 59acade78ad930765a59c0cc27885c442991a564..af13d00be9fd6d311dde4d3932ff8bd4094463e8 100644
 --- a/src/com/android/settings/network/MobileNetworkListFragment.kt
 +++ b/src/com/android/settings/network/MobileNetworkListFragment.kt
 @@ -22,6 +22,13 @@ import android.os.Bundle
@@ -1969,7 +2052,7 @@ index 59acade..af13d00 100644
  
      override fun getPreferenceScreenResId() = R.xml.network_provider_sims_list
 diff --git a/src/com/android/settings/network/MobileNetworkListScreen.kt b/src/com/android/settings/network/MobileNetworkListScreen.kt
-index c5ea990..6512ef3 100644
+index c5ea99073a4d0b6ae97f24163e45e7e58dcdbdf8..6512ef38e156dd462f88d3272aa7380ae094968a 100644
 --- a/src/com/android/settings/network/MobileNetworkListScreen.kt
 +++ b/src/com/android/settings/network/MobileNetworkListScreen.kt
 @@ -86,7 +86,9 @@ open class MobileNetworkListScreen(context: Context) :
@@ -2003,7 +2086,7 @@ index c5ea990..6512ef3 100644
      private fun getSelectableSubscriptionInfoList(context: Context): List<SubscriptionInfo> =
          subscriptionInfoList
 diff --git a/src/com/android/settings/network/NetworkProviderSimListController.java b/src/com/android/settings/network/NetworkProviderSimListController.java
-index 51059a7..d8101ae 100644
+index 51059a742d995f17c1ec8bdb18f61e465914f0f6..d8101aec64afdaa8218736df44b8ddadfc069107 100644
 --- a/src/com/android/settings/network/NetworkProviderSimListController.java
 +++ b/src/com/android/settings/network/NetworkProviderSimListController.java
 @@ -17,6 +17,7 @@
@@ -2076,7 +2159,7 @@ index 51059a7..d8101ae 100644
  
      @Override
 diff --git a/src/com/android/settings/network/SimOnboardingActivity.kt b/src/com/android/settings/network/SimOnboardingActivity.kt
-index 0524954..9a9af7c 100644
+index 05249548c9e3d820d6a2cd79c60b478b817500fa..9a9af7c9a029d901522068682b1288831e4f9e3c 100644
 --- a/src/com/android/settings/network/SimOnboardingActivity.kt
 +++ b/src/com/android/settings/network/SimOnboardingActivity.kt
 @@ -93,6 +93,7 @@ class SimOnboardingActivity : SpaBaseDialogActivity() {
@@ -2130,7 +2213,7 @@ index 0524954..9a9af7c 100644
          showError = rememberSaveable { mutableStateOf(ErrorType.ERROR_NONE) }
          showProgressDialog = rememberSaveable { mutableStateOf(false) }
 diff --git a/src/com/android/settings/network/SwitchToEuiccSubscriptionSidecar.java b/src/com/android/settings/network/SwitchToEuiccSubscriptionSidecar.java
-index 4a19e62..857545e 100644
+index 4a19e6287f66e1bc7b2947199336dc14b8ec9460..857545e72807c43e2225f336153e2de156f542aa 100644
 --- a/src/com/android/settings/network/SwitchToEuiccSubscriptionSidecar.java
 +++ b/src/com/android/settings/network/SwitchToEuiccSubscriptionSidecar.java
 @@ -25,6 +25,7 @@ import android.telephony.UiccPortInfo;
@@ -2406,7 +2489,7 @@ index 4a19e62..857545e 100644
                  && mIsDuringSimSlotMapping) {
              // Continue to switch the SimSlotMapping, after the esim is disabled.
 diff --git a/src/com/android/settings/network/telephony/DeleteEuiccSubscriptionDialogActivity.java b/src/com/android/settings/network/telephony/DeleteEuiccSubscriptionDialogActivity.java
-index 8247f63..12fda09 100644
+index 8247f63c9f9961af3f2134560a65ce1fd3c2f25b..12fda09192387d068406f3c7c5618d6d886b9719 100644
 --- a/src/com/android/settings/network/telephony/DeleteEuiccSubscriptionDialogActivity.java
 +++ b/src/com/android/settings/network/telephony/DeleteEuiccSubscriptionDialogActivity.java
 @@ -26,6 +26,9 @@ import android.util.Log;
@@ -2488,7 +2571,7 @@ index 8247f63..12fda09 100644
      private void showDeleteSimConfirmDialog() {
          ConfirmDialogFragment.show(
 diff --git a/src/com/android/settings/network/telephony/DeleteEuiccSubscriptionSidecar.java b/src/com/android/settings/network/telephony/DeleteEuiccSubscriptionSidecar.java
-index 5ab7234..bf623a3 100644
+index 5ab7234f155f174aa678e5ba2cc42649c8b1ee29..bf623a3d8c7067d3eb49497a367bb9b12c2ea08a 100644
 --- a/src/com/android/settings/network/telephony/DeleteEuiccSubscriptionSidecar.java
 +++ b/src/com/android/settings/network/telephony/DeleteEuiccSubscriptionSidecar.java
 @@ -19,13 +19,21 @@ package com.android.settings.network.telephony;
@@ -2649,7 +2732,7 @@ index 5ab7234..bf623a3 100644
          PendingIntent intent = createCallbackIntent();
 diff --git a/src/com/android/settings/network/telephony/HonorProfileRouteUi.java b/src/com/android/settings/network/telephony/HonorProfileRouteUi.java
 new file mode 100644
-index 0000000..381c7ab
+index 0000000000000000000000000000000000000000..381c7ab0643769dd5454aa895cf626eee86be2cd
 --- /dev/null
 +++ b/src/com/android/settings/network/telephony/HonorProfileRouteUi.java
 @@ -0,0 +1,134 @@
@@ -2788,7 +2871,7 @@ index 0000000..381c7ab
 +    void destroyed() { if (activity.isFinishing()) model.cancelProfileHandoff(); }
 +}
 diff --git a/src/com/android/settings/network/telephony/ToggleSubscriptionDialogActivity.java b/src/com/android/settings/network/telephony/ToggleSubscriptionDialogActivity.java
-index f4d2ce2..edc2b55 100644
+index f4d2ce2b03c076ab1daa9eaa245b3c19610e3af1..edc2b55daef8bf77dcace1caa4ac931f393a2ca7 100644
 --- a/src/com/android/settings/network/telephony/ToggleSubscriptionDialogActivity.java
 +++ b/src/com/android/settings/network/telephony/ToggleSubscriptionDialogActivity.java
 @@ -32,6 +32,10 @@ import com.android.internal.annotations.VisibleForTesting;
@@ -2893,7 +2976,7 @@ index f4d2ce2..edc2b55 100644
          if (mSubscriptionManager.canDisablePhysicalSubscription() && mSubInfo != null) {
              mSubscriptionManager.setUiccApplicationsEnabled(mSubInfo.getSubscriptionId(), mEnable);
 diff --git a/src/com/android/settings/spa/network/SimsSection.kt b/src/com/android/settings/spa/network/SimsSection.kt
-index 33f151d..238c617 100644
+index 33f151d665101d5d6d5fdb51b09ce9b3ad1431b7..238c6176ff1366bc8050a1c6624a3122695d2099 100644
 --- a/src/com/android/settings/spa/network/SimsSection.kt
 +++ b/src/com/android/settings/spa/network/SimsSection.kt
 @@ -26,6 +26,15 @@ import androidx.compose.material.icons.outlined.Add
@@ -3135,7 +3218,7 @@ index 33f151d..238c617 100644
 +}
 diff --git a/tests/robotests/src/com/android/settings/biometrics/face/FaceEnrollChallengeOwnershipTest.java b/tests/robotests/src/com/android/settings/biometrics/face/FaceEnrollChallengeOwnershipTest.java
 new file mode 100644
-index 0000000..563c55a
+index 0000000000000000000000000000000000000000..563c55a3eb05f6bc578cf764efabe73f53c11c15
 --- /dev/null
 +++ b/tests/robotests/src/com/android/settings/biometrics/face/FaceEnrollChallengeOwnershipTest.java
 @@ -0,0 +1,192 @@
@@ -3332,7 +3415,7 @@ index 0000000..563c55a
 +    }
 +}
 diff --git a/tests/robotests/src/com/android/settings/biometrics/fingerprint/FingerprintEnrollFindSensorTest.java b/tests/robotests/src/com/android/settings/biometrics/fingerprint/FingerprintEnrollFindSensorTest.java
-index 2055909..6319aae 100644
+index 2055909e6fb73e6baa0d1bdaa2f748f494fc31b5..6319aae7181e50fec3db155f1e0ac6f70f75f443 100644
 --- a/tests/robotests/src/com/android/settings/biometrics/fingerprint/FingerprintEnrollFindSensorTest.java
 +++ b/tests/robotests/src/com/android/settings/biometrics/fingerprint/FingerprintEnrollFindSensorTest.java
 @@ -208,6 +208,7 @@ public class FingerprintEnrollFindSensorTest {
@@ -3344,7 +3427,7 @@ index 2055909..6319aae 100644
      }
  
 diff --git a/tests/robotests/src/com/android/settings/deviceinfo/batteryinfo/BatteryInfoApiScreenTest.kt b/tests/robotests/src/com/android/settings/deviceinfo/batteryinfo/BatteryInfoApiScreenTest.kt
-index 9fde350..aacc1eb 100644
+index 9fde350915e24b53967a6c537ff46db1fa362e38..aacc1eb17c4b36a6f6d083b68f40cb1b124514d3 100644
 --- a/tests/robotests/src/com/android/settings/deviceinfo/batteryinfo/BatteryInfoApiScreenTest.kt
 +++ b/tests/robotests/src/com/android/settings/deviceinfo/batteryinfo/BatteryInfoApiScreenTest.kt
 @@ -113,6 +113,26 @@ class BatteryInfoApiScreenTest {
@@ -3376,7 +3459,7 @@ index 9fde350..aacc1eb 100644
          val cycleCount = 42
 diff --git a/tests/robotests/src/com/android/settings/deviceinfo/batteryinfo/BatteryManufactureCalendarTest.kt b/tests/robotests/src/com/android/settings/deviceinfo/batteryinfo/BatteryManufactureCalendarTest.kt
 new file mode 100644
-index 0000000..48a38c5
+index 0000000000000000000000000000000000000000..48a38c5cf43128ed890c6ebd522baf43c09fd9a9
 --- /dev/null
 +++ b/tests/robotests/src/com/android/settings/deviceinfo/batteryinfo/BatteryManufactureCalendarTest.kt
 @@ -0,0 +1,135 @@
@@ -3517,7 +3600,7 @@ index 0000000..48a38c5
 +}
 diff --git a/tests/robotests/src/com/android/settings/deviceinfo/hardwareinfo/CpuInfoApiTest.kt b/tests/robotests/src/com/android/settings/deviceinfo/hardwareinfo/CpuInfoApiTest.kt
 new file mode 100644
-index 0000000..0905b20
+index 0000000000000000000000000000000000000000..0905b20dd03bbce9d00eebf59f376123df8444ec
 --- /dev/null
 +++ b/tests/robotests/src/com/android/settings/deviceinfo/hardwareinfo/CpuInfoApiTest.kt
 @@ -0,0 +1,90 @@
@@ -3613,7 +3696,7 @@ index 0000000..0905b20
 +}
 diff --git a/tests/robotests/src/com/android/settings/deviceinfo/hardwareinfo/CpuInfoTest.java b/tests/robotests/src/com/android/settings/deviceinfo/hardwareinfo/CpuInfoTest.java
 new file mode 100644
-index 0000000..1977bc8
+index 0000000000000000000000000000000000000000..1977bc8f64dbda002eb84f2ef99686a91e89fd31
 --- /dev/null
 +++ b/tests/robotests/src/com/android/settings/deviceinfo/hardwareinfo/CpuInfoTest.java
 @@ -0,0 +1,236 @@
@@ -3855,7 +3938,7 @@ index 0000000..1977bc8
 +}
 diff --git a/tests/robotests/src/com/android/settings/deviceinfo/hardwareinfo/HardwarePlatformInfoTest.kt b/tests/robotests/src/com/android/settings/deviceinfo/hardwareinfo/HardwarePlatformInfoTest.kt
 new file mode 100644
-index 0000000..d50811e
+index 0000000000000000000000000000000000000000..d50811e7ba0c0a201c89104e98ce8258c3df3cde
 --- /dev/null
 +++ b/tests/robotests/src/com/android/settings/deviceinfo/hardwareinfo/HardwarePlatformInfoTest.kt
 @@ -0,0 +1,169 @@
@@ -4030,7 +4113,7 @@ index 0000000..d50811e
 +}
 diff --git a/tests/robotests/src/com/android/settings/fuelgauge/BatteryInfoDateAvailabilityTest.java b/tests/robotests/src/com/android/settings/fuelgauge/BatteryInfoDateAvailabilityTest.java
 new file mode 100644
-index 0000000..6e6b3d5
+index 0000000000000000000000000000000000000000..6e6b3d5a37e82ff339278fce2d7fd938dd07f622
 --- /dev/null
 +++ b/tests/robotests/src/com/android/settings/fuelgauge/BatteryInfoDateAvailabilityTest.java
 @@ -0,0 +1,76 @@
@@ -4112,7 +4195,7 @@ index 0000000..6e6b3d5
 +}
 diff --git a/tests/robotests/src/com/android/settings/network/HonorCachedProfileNavigationTest.java b/tests/robotests/src/com/android/settings/network/HonorCachedProfileNavigationTest.java
 new file mode 100644
-index 0000000..b1d2f65
+index 0000000000000000000000000000000000000000..b1d2f65fadc9e77749f270ee9976d5ed9ea8bc31
 --- /dev/null
 +++ b/tests/robotests/src/com/android/settings/network/HonorCachedProfileNavigationTest.java
 @@ -0,0 +1,104 @@
@@ -4222,7 +4305,7 @@ index 0000000..b1d2f65
 +}
 diff --git a/tests/robotests/src/com/android/settings/network/HonorLdyAn00EsimEntryTest.kt b/tests/robotests/src/com/android/settings/network/HonorLdyAn00EsimEntryTest.kt
 new file mode 100644
-index 0000000..af61663
+index 0000000000000000000000000000000000000000..af61663556bf7239593fb0837a147fa740502414
 --- /dev/null
 +++ b/tests/robotests/src/com/android/settings/network/HonorLdyAn00EsimEntryTest.kt
 @@ -0,0 +1,187 @@
@@ -4415,7 +4498,7 @@ index 0000000..af61663
 +}
 diff --git a/tests/robotests/src/com/android/settings/network/HonorPhysicalSlotRoutingTest.java b/tests/robotests/src/com/android/settings/network/HonorPhysicalSlotRoutingTest.java
 new file mode 100644
-index 0000000..521d53c
+index 0000000000000000000000000000000000000000..521d53c2741dd49a177f96930781f553045165cc
 --- /dev/null
 +++ b/tests/robotests/src/com/android/settings/network/HonorPhysicalSlotRoutingTest.java
 @@ -0,0 +1,185 @@
@@ -4605,7 +4688,7 @@ index 0000000..521d53c
 +    }
 +}
 diff --git a/tests/robotests/src/com/android/settings/password/ChooseLockPatternTest.java b/tests/robotests/src/com/android/settings/password/ChooseLockPatternTest.java
-index e764fce..0b1c664 100644
+index e764fce424ce611504dfc1343da345cda4cffcd5..0b1c664436c752b1ad39d5770ac0d6da03e10058 100644
 --- a/tests/robotests/src/com/android/settings/password/ChooseLockPatternTest.java
 +++ b/tests/robotests/src/com/android/settings/password/ChooseLockPatternTest.java
 @@ -175,6 +175,7 @@ public class ChooseLockPatternTest {
@@ -4618,7 +4701,7 @@ index e764fce..0b1c664 100644
      }
  }
 diff --git a/tests/robotests/src/com/android/settings/password/ConfirmLockPatternTest.java b/tests/robotests/src/com/android/settings/password/ConfirmLockPatternTest.java
-index 30774b0..ad5f4cb 100644
+index 30774b0a41aa7f5c9b7844cda7369b190879d4a5..ad5f4cb11973d140746a0090361bb6f313958ac1 100644
 --- a/tests/robotests/src/com/android/settings/password/ConfirmLockPatternTest.java
 +++ b/tests/robotests/src/com/android/settings/password/ConfirmLockPatternTest.java
 @@ -373,7 +373,8 @@ public class ConfirmLockPatternTest {
