@@ -115,7 +115,7 @@ index 4d3e467357612383a1f9541795c30c2c51e7c197..b6d7d52a76334331a06455d8d0e08481
       */
 diff --git a/core/java/android/hardware/face/HonorLdyAn00FaceAdapter.java b/core/java/android/hardware/face/HonorLdyAn00FaceAdapter.java
 new file mode 100644
-index 0000000000000000000000000000000000000000..7cc4d682b4fdaa8e46cfc8698225a623c41d01ab
+index 0000000000000000000000000000000000000000..d6460088cbfaeeca44e189fb57441d96a30bc30e
 --- /dev/null
 +++ b/core/java/android/hardware/face/HonorLdyAn00FaceAdapter.java
 @@ -0,0 +1,1133 @@
@@ -754,7 +754,7 @@ index 0000000000000000000000000000000000000000..7cc4d682b4fdaa8e46cfc8698225a623
 +                        HonorLdyAn00FaceOperation.Kind.AUTHENTICATE);
 +                mCameraUse.ticket = cancellation.mTicket;
 +                armDeadline(35_000);
-+                // Stock keyguard flags mode0; attention enabled, mask/child opt-ins absent.
++                // Retain the stock keyguard flag; eyes-open enforcement remains unverified.
 +                mStage = "authentication-flag";
 +                requireSuccess(checkedVendor().setFlag(1 << 6));
 +                if (continueCameraUse()) {
