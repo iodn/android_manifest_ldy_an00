@@ -372,7 +372,7 @@ index 6a94012..bd5e99b 100644
      virtual uint32_t latency() const = 0;  // should be in IAfThreadBase?
  
 diff --git a/services/audioflinger/Threads.cpp b/services/audioflinger/Threads.cpp
-index 43c634e..593ff62 100644
+index 43c634e..da46e0d 100644
 --- a/services/audioflinger/Threads.cpp
 +++ b/services/audioflinger/Threads.cpp
 @@ -22,6 +22,9 @@
@@ -518,7 +518,7 @@ index 43c634e..593ff62 100644
      dprintf(fd, "  Master volume: %f\n", mMasterVolume);
      dprintf(fd, "  Master mute: %s\n", mMasterMute ? "on" : "off");
      dprintf(fd, "  Mixer channel Mask: %#x (%s)\n",
-@@ -2970,6 +3021,72 @@ uint32_t PlaybackThread::latency_l() const
+@@ -2970,6 +3021,73 @@ uint32_t PlaybackThread::latency_l() const
      return 0;
  }
  
@@ -535,6 +535,7 @@ index 43c634e..593ff62 100644
 +        case AUDIO_FORMAT_PCM_16_BIT: spec.format = PcmFormat::Int16; break;
 +        case AUDIO_FORMAT_PCM_32_BIT: spec.format = PcmFormat::Int32; break;
 +        case AUDIO_FORMAT_PCM_FLOAT: spec.format = PcmFormat::Float32; break;
++        case AUDIO_FORMAT_PCM_24_BIT_PACKED: spec.format = PcmFormat::Packed24; break;
 +        default: spec.format = PcmFormat::Unsupported;
 +    }
 +    spec.normalMixer = mType == MIXER;
@@ -591,7 +592,7 @@ index 43c634e..593ff62 100644
  void PlaybackThread::setMasterVolume(float value)
  {
      audio_utils::lock_guard _l(mutex());
-@@ -3430,6 +3547,7 @@ NO_THREAD_SAFETY_ANALYSIS
+@@ -3430,6 +3548,7 @@ NO_THREAD_SAFETY_ANALYSIS
      // with non PCM formats for compressed music, e.g. AAC, and Offload threads.
      const size_t sinkBufferSize = mNormalFrameCount * mFrameSize;
      (void)posix_memalign(&mSinkBuffer, 32, sinkBufferSize);
@@ -599,7 +600,7 @@ index 43c634e..593ff62 100644
  
      // We resize the mMixerBuffer according to the requirements of the sink buffer which
      // drives the output.
-@@ -4323,6 +4441,10 @@ NO_THREAD_SAFETY_ANALYSIS  // manual locking of AudioFlinger
+@@ -4323,6 +4442,10 @@ NO_THREAD_SAFETY_ANALYSIS  // manual locking of AudioFlinger
                      }
                  }
              }
@@ -610,7 +611,7 @@ index 43c634e..593ff62 100644
          } // mutex() scope ends
  
          if (mBytesRemaining == 0) {
-@@ -4406,6 +4528,9 @@ NO_THREAD_SAFETY_ANALYSIS  // manual locking of AudioFlinger
+@@ -4406,6 +4529,9 @@ NO_THREAD_SAFETY_ANALYSIS  // manual locking of AudioFlinger
              }
  
              mBytesRemaining = mCurrentWriteLength;
@@ -620,7 +621,7 @@ index 43c634e..593ff62 100644
              if (isSuspended()) {
                  // Simulate write to HAL when suspended (e.g. BT SCO phone call).
                  mSleepTimeUs = suspendSleepTimeUs(); // assumes full buffer.
-@@ -4529,6 +4654,19 @@ NO_THREAD_SAFETY_ANALYSIS  // manual locking of AudioFlinger
+@@ -4529,6 +4655,19 @@ NO_THREAD_SAFETY_ANALYSIS  // manual locking of AudioFlinger
                  // writePeriodNs is updated >= 0 when ret > 0.
                  int64_t writePeriodNs = -1;
                  if (mBytesRemaining) {
@@ -640,7 +641,7 @@ index 43c634e..593ff62 100644
                      // FIXME rewrite to reduce number of system calls
                      const int64_t lastIoBeginNs = systemTime();
                      ret = threadLoop_write();
-@@ -5043,6 +5181,14 @@ status_t PlaybackThread::createAudioPatch_l(const struct audio_patch *patch,
+@@ -5043,6 +5182,14 @@ status_t PlaybackThread::createAudioPatch_l(const struct audio_patch *patch,
          *handle = AUDIO_PATCH_HANDLE_NONE;
      }
  
@@ -655,7 +656,7 @@ index 43c634e..593ff62 100644
      // TODO(b/493682418) - Workaround for BT software HALs
      if (isSuspended()) {
          ALOGD("%s: restoring output with newly active patch", __func__);
-@@ -5102,6 +5248,11 @@ status_t PlaybackThread::releaseAudioPatch_l(const audio_patch_handle_t handle)
+@@ -5102,6 +5249,11 @@ status_t PlaybackThread::releaseAudioPatch_l(const audio_patch_handle_t handle)
      } else {
          status = mOutput->stream->legacyReleaseAudioPatch();
      }
@@ -667,7 +668,7 @@ index 43c634e..593ff62 100644
      // TODO(b/493682418) - Workaround for BT software HALs
      if (!afThreadCallback()->isPrimary(mOutput->audioHwDev)
              && hasMixer()
-@@ -5240,6 +5391,7 @@ MixerThread::MixerThread(const sp<IAfThreadCallback>& afThreadCallback, AudioStr
+@@ -5240,6 +5392,7 @@ MixerThread::MixerThread(const sp<IAfThreadCallback>& afThreadCallback, AudioStr
              mFrameSize = audio_bytes_per_frame(mChannelCount + mHapticChannelCount, mFormat);
              const size_t sinkBufferSize = mNormalFrameCount * mFrameSize;
              (void)posix_memalign(&mSinkBuffer, 32, sinkBufferSize);
@@ -675,7 +676,7 @@ index 43c634e..593ff62 100644
          }
  
          // create a MonoPipe to connect our submix to FastMixer
-@@ -5392,6 +5544,21 @@ MixerThread::~MixerThread()
+@@ -5392,6 +5545,21 @@ MixerThread::~MixerThread()
  }
  
  void MixerThread::onFirstRef() {
@@ -697,7 +698,7 @@ index 43c634e..593ff62 100644
      PlaybackThread::onFirstRef();
  
      audio_utils::lock_guard _l(mutex());
-@@ -5676,6 +5843,35 @@ PlaybackThread::mixer_state MixerThread::prepareTracks_l(
+@@ -5676,6 +5844,35 @@ PlaybackThread::mixer_state MixerThread::prepareTracks_l(
      mMixerBufferValid = false;  // mMixerBuffer has no valid data until appropriate tracks found.
      mEffectBufferValid = false; // mEffectBuffer has no valid data until tracks found.
  
@@ -809,10 +810,10 @@ index a60c886..f576a7b 100644
      audio_utils::Balance            mBalance;
 diff --git a/services/audioflinger/sws0730_candidate/Android.bp b/services/audioflinger/sws0730_candidate/Android.bp
 new file mode 100644
-index 0000000..cccfe3e
+index 0000000..a364c2a
 --- /dev/null
 +++ b/services/audioflinger/sws0730_candidate/Android.bp
-@@ -0,0 +1,43 @@
+@@ -0,0 +1,55 @@
 +package {
 +    default_applicable_licenses: ["frameworks_av_license"],
 +}
@@ -852,6 +853,18 @@ index 0000000..cccfe3e
 +    cppflags: ["-fexceptions"],
 +    cflags: ["-Wall", "-Wextra", "-Werror", "-UNDEBUG"],
 +    ldflags: ["-Wl,--wrap=free"],
++    sanitize: { address: true, undefined: true },
++    gtest: false,
++    compile_multilib: "64",
++}
++
++// Pure PCM container conversion checks against the actual audio_utils implementation.
++cc_test_host {
++    name: "honor_sws0730_pcm_test",
++    srcs: ["Sws0730Pcm.cpp", "Sws0730PcmHostTest.cpp"],
++    shared_libs: ["libaudioutils"],
++    cpp_std: "c++20",
++    cflags: ["-Wall", "-Wextra", "-Werror", "-UNDEBUG"],
 +    sanitize: { address: true, undefined: true },
 +    gtest: false,
 +    compile_multilib: "64",
@@ -2615,10 +2628,10 @@ index 0000000..231db1b
 +} // namespace honor::sws0730
 diff --git a/services/audioflinger/sws0730_candidate/Sws0730Pcm.cpp b/services/audioflinger/sws0730_candidate/Sws0730Pcm.cpp
 new file mode 100644
-index 0000000..fa875ee
+index 0000000..96ce901
 --- /dev/null
 +++ b/services/audioflinger/sws0730_candidate/Sws0730Pcm.cpp
-@@ -0,0 +1,52 @@
+@@ -0,0 +1,58 @@
 +#include "Sws0730Pcm.h"
 +#include <audio_utils/primitives.h>
 +#include <cmath>
@@ -2628,6 +2641,7 @@ index 0000000..fa875ee
 +size_t pcmSampleBytes(PcmFormat format) {
 +    switch(format) {
 +        case PcmFormat::Int16: return 2;
++        case PcmFormat::Packed24: return 3;
 +        case PcmFormat::Float32: case PcmFormat::Int32: return 4;
 +        default: return 0;
 +    }
@@ -2635,9 +2649,10 @@ index 0000000..fa875ee
 +namespace {
 +bool shape(PcmFormat format, const void* bytes, size_t count, size_t samples) {
 +    const auto width=pcmSampleBytes(format);
++    const size_t alignment = format == PcmFormat::Packed24 ? 1 : width;
 +    return width && samples && !(samples%2) &&
 +            samples<=std::numeric_limits<size_t>::max()/width &&
-+            count==samples*width && reinterpret_cast<uintptr_t>(bytes)%width==0;
++            count==samples*width && reinterpret_cast<uintptr_t>(bytes)%alignment==0;
 +}
 +}
 +bool decodeStereo(PcmFormat format, std::span<const uint8_t> input, std::span<int32_t> output) {
@@ -2653,6 +2668,8 @@ index 0000000..fa875ee
 +        }
 +        case PcmFormat::Int32:
 +            std::memcpy(output.data(),input.data(),input.size()); return true;
++        case PcmFormat::Packed24:
++            memcpy_to_i32_from_p24(output.data(),input.data(),output.size()); return true;
 +        default: return false;
 +    }
 +}
@@ -2667,13 +2684,15 @@ index 0000000..fa875ee
 +                                    input.size()); return true;
 +        case PcmFormat::Int32:
 +            std::memcpy(output.data(),input.data(),output.size()); return true;
++        case PcmFormat::Packed24:
++            memcpy_to_p24_from_i32(output.data(),input.data(),input.size()); return true;
 +        default: return false;
 +    }
 +}
 +}
 diff --git a/services/audioflinger/sws0730_candidate/Sws0730Pcm.h b/services/audioflinger/sws0730_candidate/Sws0730Pcm.h
 new file mode 100644
-index 0000000..ccf90b9
+index 0000000..c54a823
 --- /dev/null
 +++ b/services/audioflinger/sws0730_candidate/Sws0730Pcm.h
 @@ -0,0 +1,10 @@
@@ -2682,10 +2701,118 @@ index 0000000..ccf90b9
 +#include <cstddef>
 +#include <span>
 +namespace honor::sws0730 {
-+enum class PcmFormat { Unsupported, Int16, Float32, Int32 };
++enum class PcmFormat { Unsupported, Int16, Float32, Int32, Packed24 };
 +size_t pcmSampleBytes(PcmFormat);
 +bool decodeStereo(PcmFormat, std::span<const uint8_t>, std::span<int32_t>);
 +bool encodeStereo(PcmFormat, std::span<const int32_t>, std::span<uint8_t>);
++}
+diff --git a/services/audioflinger/sws0730_candidate/Sws0730PcmHostTest.cpp b/services/audioflinger/sws0730_candidate/Sws0730PcmHostTest.cpp
+new file mode 100644
+index 0000000..d97acf8
+--- /dev/null
++++ b/services/audioflinger/sws0730_candidate/Sws0730PcmHostTest.cpp
+@@ -0,0 +1,102 @@
++// SPDX-License-Identifier: Apache-2.0
++#include "Sws0730Pcm.h"
++#include <array>
++#include <cassert>
++#include <cstring>
++#include <iostream>
++#include <limits>
++using namespace honor::sws0730;
++template<class T,size_t N> auto bytes(std::array<T,N>& a) {
++    return std::span<uint8_t>(reinterpret_cast<uint8_t*>(a.data()),sizeof(a));
++}
++int main() {
++    size_t checks=0;
++    std::array<int16_t,8> in16{-32768,-32767,-1,0,1,1234,32766,32767};
++    std::array<int32_t,8> canonical{};
++    assert(decodeStereo(PcmFormat::Int16,bytes(in16),canonical));
++    for(size_t i=0;i<8;++i){assert(canonical[i]==int32_t(int64_t(in16[i])*65536));++checks;}
++    std::array<int16_t,8> out16{};
++    assert(encodeStereo(PcmFormat::Int16,canonical,bytes(out16)) && in16==out16);++checks;
++    std::array<float,8> floating{-2.f,-1.f,-.5f,0.f,.5f,.75f,1.f,2.f};
++    std::array<int32_t,8> expected{INT32_MIN,INT32_MIN,-1073741824,0,1073741824,1610612736,
++                                INT32_MAX,INT32_MAX};
++    assert(decodeStereo(PcmFormat::Float32,bytes(floating),canonical));
++    assert(canonical==expected);++checks;
++    std::array<float,8> outFloat{};
++    assert(encodeStereo(PcmFormat::Float32,canonical,bytes(outFloat)));
++    assert(outFloat[0]==-1.f && outFloat[2]==-.5f && outFloat[4]==.5f && outFloat[5]==.75f);
++    ++checks;
++    std::array<int32_t,8> out32{};
++    assert(encodeStereo(PcmFormat::Int32,canonical,bytes(out32)) && out32==canonical);
++    canonical.fill(0);assert(decodeStereo(PcmFormat::Int32,bytes(out32),canonical));
++    assert(canonical==expected);++checks;
++    const auto unchanged=canonical;
++    floating[3]=std::numeric_limits<float>::quiet_NaN();
++    assert(!decodeStereo(PcmFormat::Float32,bytes(floating),canonical) && canonical==unchanged);
++    floating[3]=std::numeric_limits<float>::infinity();
++    assert(!decodeStereo(PcmFormat::Float32,bytes(floating),canonical) && canonical==unchanged);
++    checks+=2;
++    assert(!decodeStereo(PcmFormat::Unsupported,bytes(in16),canonical));
++    assert(!decodeStereo(PcmFormat::Int16,bytes(in16).first(14),canonical));
++    assert(!decodeStereo(PcmFormat::Int16,bytes(in16),std::span(canonical).first(7)));
++    assert(!encodeStereo(PcmFormat::Int16,canonical,bytes(out16).first(14)));
++    assert(!encodeStereo(PcmFormat::Unsupported,canonical,bytes(out16)));
++    checks+=5;
++    alignas(8) std::array<uint8_t,40> unaligned{};
++    assert(!decodeStereo(PcmFormat::Float32,std::span(unaligned).subspan(1,32),canonical));
++    assert(!encodeStereo(PcmFormat::Float32,canonical,std::span(unaligned).subspan(1,32)));
++    assert(!decodeStereo(PcmFormat::Int16,std::span(unaligned).subspan(1,16),canonical));
++    assert(!decodeStereo(PcmFormat::Int32,{},{}));
++    checks+=4;
++
++    // Native stock memcpy_by_audio_format PCM24_PACKED <-> PCM32 preserves high24 bits.
++    constexpr size_t sampleCount=256;
++    alignas(8) std::array<uint8_t,sampleCount*3+4> packed{};
++    size_t offset=1;
++    if((reinterpret_cast<uintptr_t>(packed.data())+offset)%3==0)++offset;
++    const auto encoded=std::span(packed).subspan(offset,sampleCount*3);
++    std::array<int32_t,sampleCount> source24{},decoded24{};
++    uint32_t seed=0x73524;
++    for(size_t i=0;i<sampleCount;++i) {
++        seed=1664525u*seed+1013904223u;
++        uint32_t bits=seed&0xffffff;
++        const int32_t value=bits<0x800000 ? int32_t(bits) : int32_t(int64_t(bits)-0x1000000);
++        source24[i]=value;
++        for(size_t byte=0;byte<3;++byte) encoded[3*i+byte]=uint8_t(bits>>(8*byte));
++    }
++    source24[0]=-8388608;source24[1]=8388607;
++    source24[2]=-1;source24[3]=0;source24[4]=1;source24[5]=-65537;
++    for(size_t i=0;i<6;++i)for(size_t byte=0;byte<3;++byte)
++        encoded[3*i+byte]=uint8_t(uint32_t(source24[i])>>(8*byte));
++    assert(pcmSampleBytes(PcmFormat::Packed24)==3);
++    assert(reinterpret_cast<uintptr_t>(encoded.data())%3!=0);checks+=2;
++    assert(decodeStereo(PcmFormat::Packed24,encoded,decoded24));
++    for(size_t i=0;i<sampleCount;++i) {
++        assert(decoded24[i]==int32_t(int64_t(source24[i])*256));++checks;
++    }
++    alignas(8) std::array<uint8_t,sampleCount*3+4> packedOutput;packedOutput.fill(0xa5);
++    const auto outPacked=std::span(packedOutput).subspan(offset,sampleCount*3);
++    assert(encodeStereo(PcmFormat::Packed24,decoded24,outPacked));
++    assert(std::memcmp(outPacked.data(),encoded.data(),encoded.size())==0);++checks;
++    assert(packedOutput[offset-1]==0xa5 && packedOutput[offset+outPacked.size()]==0xa5);++checks;
++    // Arbitrary fullscalePCM32 encodes with truncation, not round-to-nearest.
++    constexpr std::array<int32_t,12> fullscale{INT32_MIN,INT32_MIN+1,-257,-256,-1,0,
++            1,255,256,257,INT32_MAX-1,INT32_MAX};
++    std::array<uint8_t,36> narrow{};
++    assert(encodeStereo(PcmFormat::Packed24,fullscale,narrow));
++    for(size_t i=0;i<fullscale.size();++i) {
++        const uint32_t expectedBits=uint32_t(fullscale[i])>>8;
++        for(size_t byte=0;byte<3;++byte) {
++            assert(narrow[3*i+byte]==uint8_t(expectedBits>>(8*byte)));++checks;
++        }
++    }
++    const auto before=decoded24;
++    assert(!decodeStereo(PcmFormat::Packed24,encoded.first(encoded.size()-1),decoded24));
++    assert(decoded24==before);checks+=2;
++    assert(!decodeStereo(PcmFormat::Packed24,encoded,std::span(decoded24).first(255)));++checks;
++    const auto narrowBefore=narrow;
++    assert(!encodeStereo(PcmFormat::Packed24,fullscale,std::span(narrow).first(35)));
++    assert(narrow==narrowBefore);checks+=2;
++
++    std::cout<<"PCM_ACTUAL_AUDIO_UTILS_PASS checks="<<checks<<std::endl;
 +}
 diff --git a/services/audiopolicy/managerdefault/AudioPolicyManager.cpp b/services/audiopolicy/managerdefault/AudioPolicyManager.cpp
 index 2b588ec..b3c7ff4 100644
