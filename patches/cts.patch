@@ -1,7 +1,8 @@
 diff --git a/tests/tests/media/codec/src/android/media/codec/cts/EncodeDecodeTest.java b/tests/tests/media/codec/src/android/media/codec/cts/EncodeDecodeTest.java
+index c795b958..9fb02a77 100644
 --- a/tests/tests/media/codec/src/android/media/codec/cts/EncodeDecodeTest.java
 +++ b/tests/tests/media/codec/src/android/media/codec/cts/EncodeDecodeTest.java
-@@ -42,6 +42,7 @@
+@@ -42,6 +42,7 @@ import android.platform.test.annotations.Presubmit;
  import android.util.Log;
  
  import androidx.test.filters.SmallTest;
@@ -9,17 +10,92 @@ diff --git a/tests/tests/media/codec/src/android/media/codec/cts/EncodeDecodeTes
  
  import com.android.compatibility.common.util.ApiLevelUtil;
  import com.android.compatibility.common.util.ApiTest;
-@@ -82,6 +83,9 @@
+@@ -82,6 +83,11 @@ public class EncodeDecodeTest {
      private static final String TAG = "EncodeDecodeTest";
      private static final boolean VERBOSE = false;           // lots of logging
      private static final boolean DEBUG_SAVE_FILE = false;   // save copy of encoded movie
 +    private static final boolean REQUIRE_FRAME_CONTENT_VALIDATION = Boolean.parseBoolean(
 +            InstrumentationRegistry.getArguments().getString(
 +                    "require-frame-content-validation", "false"));
++    private static final boolean INCLUDE_MTK_HEVC = Boolean.parseBoolean(
++            InstrumentationRegistry.getArguments().getString("include-mtk-hevc", "false"));
      private static final String DEBUG_FILE_NAME_BASE = "/sdcard/test.";
      private static final boolean IS_AFTER_T = ApiLevelUtil.isAfter(Build.VERSION_CODES.TIRAMISU);
  
-@@ -1063,6 +1067,10 @@
+@@ -139,16 +145,21 @@ public class EncodeDecodeTest {
+             MediaFormat format = MediaFormat.createVideoFormat(mediaType, (Integer)arg[1],
+                     (Integer)arg[2]);
+ 
++            final boolean requireMtkHevc = INCLUDE_MTK_HEVC
++                    && MediaFormat.MIMETYPE_VIDEO_HEVC.equals(mediaType);
++            final int previousSize = argsList.size();
+             String[] encoderNames = MediaUtils.getEncoderNamesForMime(mediaType);
+             String[] decoderNames = MediaUtils.getDecoderNamesForMime(mediaType);
+             // First pair of decoder and encoder that supports given format is chosen
+             outerLoop:
+             for (String decoder : decoderNames) {
+-                if (TestArgs.shouldSkipCodec(decoder)) {
++                if ((requireMtkHevc && !"c2.mtk.hevc.decoder".equals(decoder))
++                        || TestArgs.shouldSkipCodec(decoder)) {
+                     continue;
+                 }
+                 for (String encoder : encoderNames) {
+-                    if (TestArgs.shouldSkipCodec(encoder)) {
++                    if ((requireMtkHevc && !"c2.mtk.hevc.encoder".equals(encoder))
++                            || TestArgs.shouldSkipCodec(encoder)) {
+                         continue;
+                     }
+                     if (MediaUtils.supports(encoder, format) &&
+@@ -164,6 +175,10 @@ public class EncodeDecodeTest {
+                     }
+                 }
+             }
++            if (requireMtkHevc) {
++                assertTrue("No exact MediaTek HEVC pair supports " + format,
++                        argsList.size() > previousSize);
++            }
+         }
+         return argsList;
+     }
+@@ -174,13 +189,18 @@ public class EncodeDecodeTest {
+         format.setInteger(MediaFormat.KEY_BIT_RATE, mBitRate);
+         format.setInteger(MediaFormat.KEY_FRAME_RATE, FRAME_RATE);
+         format.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, IFRAME_INTERVAL);
+-        assumeTrue(MediaUtils.supports(mEncoderName, format));
+-        assumeTrue(MediaUtils.supports(mDecoderName, format));
++        if (INCLUDE_MTK_HEVC && MediaFormat.MIMETYPE_VIDEO_HEVC.equals(mMimeType)) {
++            assertTrue(MediaUtils.supports(mEncoderName, format));
++            assertTrue(MediaUtils.supports(mDecoderName, format));
++        } else {
++            assumeTrue(MediaUtils.supports(mEncoderName, format));
++            assumeTrue(MediaUtils.supports(mDecoderName, format));
++        }
+     }
+ 
+     @Parameterized.Parameters(name = "{index}_{0}_{1}")
+     public static Collection<Object[]> input() {
+-        final List<Object[]> exhaustiveArgsList = Arrays.asList(new Object[][]{
++        final List<Object[]> exhaustiveArgsList = new ArrayList<>(Arrays.asList(new Object[][]{
+                 // Mime, width, height, bit-rate, allow bt601, allow bt709
+                 {MediaFormat.MIMETYPE_VIDEO_AVC, 176, 144, 1000000, true, false},
+                 {MediaFormat.MIMETYPE_VIDEO_AVC, 320, 240, 2000000, true, false},
+@@ -188,7 +208,14 @@ public class EncodeDecodeTest {
+                 {MediaFormat.MIMETYPE_VIDEO_VP8, 176, 144, 1000000, true, false},
+                 {MediaFormat.MIMETYPE_VIDEO_VP8, 320, 240, 2000000, true, false},
+                 {MediaFormat.MIMETYPE_VIDEO_VP8, 1280, 720, 6000000, true, true},
+-        });
++        }));
++        if (INCLUDE_MTK_HEVC) {
++            exhaustiveArgsList.addAll(Arrays.asList(new Object[][]{
++                    {MediaFormat.MIMETYPE_VIDEO_HEVC, 176, 144, 1000000, true, false},
++                    {MediaFormat.MIMETYPE_VIDEO_HEVC, 320, 240, 2000000, true, false},
++                    {MediaFormat.MIMETYPE_VIDEO_HEVC, 1280, 720, 6000000, true, true},
++            }));
++        }
+         return prepareParamList(exhaustiveArgsList);
+     }
+ 
+@@ -1063,6 +1090,10 @@ public class EncodeDecodeTest {
          // e.g. Nexus 4 0x7FA30C03 OMX_QCOM_COLOR_FormatYUV420PackedSemiPlanar64x32Tile2m8ka
          int colorFormat = format.getInteger(MediaFormat.KEY_COLOR_FORMAT);
          if (!isRecognizedFormat(colorFormat)) {

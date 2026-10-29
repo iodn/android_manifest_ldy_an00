@@ -21,10 +21,10 @@
     {
       "path": "cts",
       "revision": "3d1bf2a7eb2b7aaa4636c854ef481f256c40c2dd",
-      "tree": "dd1e2c3f7b41c0b9226e80a786900825b0d0a6ab",
+      "tree": "62aafa98af7c796d3170c88f8c053221f6525318",
       "base_revision": "3d1bf2a7eb2b7aaa4636c854ef481f256c40c2dd",
       "patch": "patches/cts.patch",
-      "patch_sha256": "d816f58f67d75bad45657b19f67603154037df752c42ac21e32db2de084170a3",
+      "patch_sha256": "a35af7bf0d2456a4a4b004b0ab1e25e1027e3cb25d7e1cfb61bc0f1f8f03dc95",
       "patch_tree_verified": true,
       "remote_url": "https://android.googlesource.com/platform/cts"
     },
