@@ -6,6 +6,8 @@ import tempfile
 import unittest
 import zipfile
 
+import validate_ota_vendor_retention as retention
+
 HERE = Path(__file__).resolve().parent
 
 
@@ -43,6 +45,16 @@ class ReleaseChecks(unittest.TestCase):
             archive.writestr('META-INF/com/android/metadata',
                              '\n'.join(k + '=' + v for k, v in metadata.items()))
             archive.writestr('payload_properties.txt', 'FILE_HASH=a\nMETADATA_HASH=b\n')
+            manifest = retention.metadata.DeltaArchiveManifest()
+            for name in ['system', 'vbmeta_system']:
+                manifest.partitions.add().partition_name = name
+            manifest.partial_update = True
+            group = manifest.dynamic_partition_metadata.groups.add()
+            group.name = retention.GROUP_NAME
+            group.size = retention.GROUP_BYTES
+            group.partition_names.append('system')
+            raw = manifest.SerializeToString()
+            archive.writestr('payload.bin', struct.pack('>4sQQI', b'CrAU', 2, len(raw), 0) + raw)
 
     def test_feed_matches_shipped_updater_protocol(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -53,6 +65,58 @@ class ReleaseChecks(unittest.TestCase):
             self.assertEqual(result[0]['files'][0]['os_sdk_level'], 37)
             self.assertEqual(result[0]['files'][0]['size'], path.stat().st_size)
             self.assertNotIn('response', result[0])
+
+    def test_feed_rejects_vendor_update(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / 'vendor.zip'
+            self.package(path)
+            with zipfile.ZipFile(path) as archive:
+                members = {name: archive.read(name) for name in archive.namelist()}
+            raw = members['payload.bin'][24:]
+            manifest = retention.metadata.DeltaArchiveManifest()
+            manifest.ParseFromString(raw)
+            manifest.partitions.add().partition_name = 'vendor'
+            raw = manifest.SerializeToString()
+            members['payload.bin'] = struct.pack('>4sQQI', b'CrAU', 2, len(raw), 0) + raw
+            with zipfile.ZipFile(path, 'w') as archive:
+                for name, content in members.items():
+                    archive.writestr(name, content)
+            with self.assertRaisesRegex(retention.AdmissionError, 'exactly system'):
+                feed.entry(path, 'https://example.org/vendor.zip')
+
+    def test_feed_rejects_postinstall_hooks_before_hashing(self):
+        from unittest.mock import patch
+        for index in [0, 1]:
+            for run, hook in [(True, ''), (True, 'bin/postinstall'),
+                              (False, 'bin/postinstall')]:
+                with self.subTest(partition=index, run=run, hook=hook):
+                    with tempfile.TemporaryDirectory() as temporary:
+                        path = Path(temporary) / 'hook.zip'
+                        self.package(path)
+                        with zipfile.ZipFile(path) as archive:
+                            members = {name: archive.read(name) for name in archive.namelist()}
+                        manifest = retention.metadata.DeltaArchiveManifest()
+                        manifest.ParseFromString(members['payload.bin'][24:])
+                        manifest.partitions[index].run_postinstall = run
+                        manifest.partitions[index].postinstall_path = hook
+                        raw = manifest.SerializeToString()
+                        members['payload.bin'] = struct.pack('>4sQQI', b'CrAU', 2, len(raw), 0) + raw
+                        with zipfile.ZipFile(path, 'w') as archive:
+                            for name, content in members.items():
+                                archive.writestr(name, content)
+                        with patch.object(feed.hashlib, 'file_digest',
+                                          side_effect=AssertionError('hashed refused package')):
+                            with self.assertRaisesRegex(retention.AdmissionError,
+                                                        'postinstall hooks'):
+                                feed.entry(path, 'https://example.org/hook.zip')
+
+    def test_feed_rejects_missing_payload(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / 'missing.zip'
+            with zipfile.ZipFile(path, 'w') as archive:
+                archive.writestr('payload_properties.txt', 'FILE_HASH=a')
+            with self.assertRaisesRegex(retention.AdmissionError, 'exactly one'):
+                feed.entry(path, 'https://example.org/missing.zip')
 
     def test_feed_rejects_other_model(self):
         with tempfile.TemporaryDirectory() as temporary:

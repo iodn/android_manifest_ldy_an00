@@ -122,10 +122,14 @@ The installed update endpoint stays at
 `https://raw.githubusercontent.com/iodn/android_manifest_ldy_an00/main/ota/ldy_an00.json`.
 Publish and test signed assets before adding an entry. The Updater protocol uses
 an array containing `files[]`. `tools/make_feed.py` prepares an entry from a signed OTA.
+The feed tool checks the OTA partition scope; verify release signatures separately.
 
 Run host checks with:
 
 ```sh
+python3 -m venv .venv
+. .venv/bin/activate
+python3 -m pip install -r tools/requirements.txt
 python3 -m unittest discover -s tools -p 'test_*.py'
 ```
 

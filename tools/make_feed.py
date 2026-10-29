@@ -8,10 +8,13 @@ from pathlib import Path
 from urllib.parse import urlparse
 import zipfile
 
+import validate_ota_vendor_retention
+
 
 def entry(package, url):
     if urlparse(url).scheme != 'https' or not urlparse(url).netloc:
         raise ValueError('An absolute HTTPS release-asset URL is required')
+    validate_ota_vendor_retention.validate_zip(package)
     with zipfile.ZipFile(package) as archive:
         metadata = dict(line.split('=', 1) for line in
                         archive.read('META-INF/com/android/metadata').decode().splitlines()

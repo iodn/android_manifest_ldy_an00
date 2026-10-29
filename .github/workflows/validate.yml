@@ -7,5 +7,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - run: python3 -m pip install --requirement tools/requirements.txt
       - run: python3 -m unittest discover -s tools -p 'test_*.py' -v
       - run: python3 -m json.tool ota/ldy_an00.json > /dev/null
