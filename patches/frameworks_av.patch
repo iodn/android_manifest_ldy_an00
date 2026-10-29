@@ -1,3 +1,40 @@
+diff --git a/media/libaudioclient/include/media/HonorSwsControl.h b/media/libaudioclient/include/media/HonorSwsControl.h
+new file mode 100644
+index 0000000..d61ec77
+--- /dev/null
++++ b/media/libaudioclient/include/media/HonorSwsControl.h
+@@ -0,0 +1,31 @@
++// SPDX-License-Identifier: Apache-2.0
++#pragma once
++#include <string_view>
++
++namespace android::honor_sws {
++// New framework-owned protocol. These are not private Honor HAL commands.
++inline constexpr std::string_view kMusicIndexKey = "lineage_sws_music_index";
++inline constexpr const char* kControlProperty = "ro.audio.honor_sws_output";
++
++inline bool parseMusicIndexPayload(std::string_view value, int& index) {
++    constexpr std::string_view prefix = "v1:speaker:";
++    if (value.size() <= prefix.size() || value.substr(0, prefix.size()) != prefix) return false;
++    const std::string_view digits = value.substr(prefix.size());
++    if (digits.size() == 1 && digits[0] >= '0' && digits[0] <= '9') {
++        index = digits[0] - '0';
++    } else if (digits.size() == 2 && digits[0] == '1'
++            && digits[1] >= '0' && digits[1] <= '5') {
++        index = 10 + digits[1] - '0';
++    } else {
++        return false;
++    }
++    return true;
++}
++
++inline bool isCanonicalMusicCommand(std::string_view command, std::string_view payload) {
++    return command.size() == kMusicIndexKey.size() + 1 + payload.size()
++            && command.substr(0, kMusicIndexKey.size()) == kMusicIndexKey
++            && command[kMusicIndexKey.size()] == '='
++            && command.substr(kMusicIndexKey.size() + 1) == payload;
++}
++} // namespace android::honor_sws
 diff --git a/media/libaudiohal/impl/Android.bp b/media/libaudiohal/impl/Android.bp
 index 00f3929..87a995a 100644
 --- a/media/libaudiohal/impl/Android.bp
@@ -215,6 +252,2482 @@ index 0000000..cdbd701
 +}
 +}  // namespace
 +}  // namespace android
+diff --git a/services/audioflinger/Android.bp b/services/audioflinger/Android.bp
+index 5dd33e5..bdd914f 100644
+--- a/services/audioflinger/Android.bp
++++ b/services/audioflinger/Android.bp
+@@ -214,6 +214,7 @@ cc_library {
+     ],
+ 
+     static_libs: [
++        "libhonor_sws0730_core_candidate",
+         "libaudiospdif",
+         "libcpustats",
+     ],
+diff --git a/services/audioflinger/AudioFlinger.cpp b/services/audioflinger/AudioFlinger.cpp
+index b37dc6f..f11a8b5 100644
+--- a/services/audioflinger/AudioFlinger.cpp
++++ b/services/audioflinger/AudioFlinger.cpp
+@@ -42,6 +42,7 @@
+ #include <com_android_media_audioserver.h>
+ #include <media/AidlConversion.h>
+ #include <media/AudioParameter.h>
++#include <media/HonorSwsControl.h>
+ #include <media/AudioValidator.h>
+ #include <media/IPermissionProvider.h>
+ #include <media/MediaMetricsItem.h>
+@@ -1807,10 +1808,38 @@ status_t AudioFlinger::setParameters(audio_io_handle_t ioHandle, const String8&
+     // check calling permissions
+     VALUE_OR_RETURN_CONVERTED(enforceCallingPermission(MODIFY_AUDIO_SETTINGS));
+ 
++    // Framework-owned SWS control schema, not an Honor/vendor parameter.
++    // Consume the whole standalone command before HAL or downstream forwarding.
++    AudioParameter swsParameters(keyValuePairs);
++    String8 swsValue;
++    if (swsParameters.get(String8(honor_sws::kMusicIndexKey.data()), swsValue) == NO_ERROR) {
++        if (IPCThreadState::self()->getCallingUid() != AID_AUDIOSERVER
++                || ioHandle == AUDIO_IO_HANDLE_NONE) {
++            return PERMISSION_DENIED;
++        }
++        const std::string_view payload(swsValue.c_str(), swsValue.length());
++        int index;
++        if (!honor_sws::isCanonicalMusicCommand(
++                    std::string_view(keyValuePairs.c_str(), keyValuePairs.length()), payload)
++                || !honor_sws::parseMusicIndexPayload(payload, index)) {
++            return BAD_VALUE;
++        }
++        if (!property_get_bool(honor_sws::kControlProperty, false)) {
++            return INVALID_OPERATION;
++        }
++        sp<IAfPlaybackThread> thread;
++        {
++            audio_utils::lock_guard lock(mutex());
++            thread = checkPlaybackThread_l(ioHandle);
++        }
++        return thread != nullptr ? thread->setHonorSwsMusicIndex(index) : BAD_VALUE;
++    }
++
+     String8 filteredKeyValuePairs = keyValuePairs;
+     filterReservedParameters(filteredKeyValuePairs, IPCThreadState::self()->getCallingUid());
+ 
+     ALOGV("%s: filtered keyvalue %s", __func__, filteredKeyValuePairs.c_str());
++    IAfThreadBase::observeHonorSwsDiagnostics(AudioParameter(filteredKeyValuePairs));
+ 
+     // AUDIO_IO_HANDLE_NONE means the parameters are global to the audio hardware interface
+     if (ioHandle == AUDIO_IO_HANDLE_NONE) {
+@@ -4654,6 +4683,17 @@ NO_THREAD_SAFETY_ANALYSIS
+         ALOGW("%s() same dst and src outputs %d", __func__, dstIo);
+         return NO_ERROR;
+     }
++    // Stock observes the original handles before record dispatch or playback validation.
++    // Its multi-instance policy keeps each found playback output enabled, regardless
++    // of subsequent chain migration success or orphan-source substitution.
++    if (sessionId == AUDIO_SESSION_OUTPUT_MIX) {
++        if (auto* source = checkPlaybackThread_l(srcIo); source != nullptr) {
++            source->setHonorSwsEffectEnabled(true);
++        }
++        if (auto* destination = checkPlaybackThread_l(dstIo); destination != nullptr) {
++            destination->setHonorSwsEffectEnabled(true);
++        }
++    }
+     IAfRecordThread* const srcRecordThread = checkRecordThread_l(srcIo);
+     IAfRecordThread* const dstRecordThread = checkRecordThread_l(dstIo);
+     if (srcRecordThread != nullptr || dstRecordThread != nullptr) {
+diff --git a/services/audioflinger/IAfThread.h b/services/audioflinger/IAfThread.h
+index 6a94012..bd5e99b 100644
+--- a/services/audioflinger/IAfThread.h
++++ b/services/audioflinger/IAfThread.h
+@@ -47,6 +47,7 @@ namespace com::android::media::permission {
+ 
+ namespace android {
+ 
++class AudioParameter;
+ class IAfDirectOutputThread;
+ class IAfDuplicatingThread;
+ class IAfPlaybackThread;
+@@ -136,6 +137,7 @@ public:
+ 
+ class IAfThreadBase : public virtual RefBase {
+ public:
++    static void observeHonorSwsDiagnostics(const AudioParameter&);
+     enum type_t {
+         MIXER,          // Thread class is MixerThread
+         DIRECT,         // Thread class is DirectOutputThread
+@@ -298,6 +300,7 @@ public:
+     virtual const std::vector<sp<IAfEffectChain>>& getEffectChains_l() const
+             REQUIRES(mutex()) = 0;
+     // set audio mode to all effect chains
++    virtual void setHonorSwsEffectEnabled(bool) {}
+     virtual void setMode(audio_mode_t mode)
+             EXCLUDES_ThreadBase_Mutex = 0;
+     // get effect module with corresponding ID on specified audio session
+@@ -494,6 +497,9 @@ public:
+         // suspend by audio policy manager is orthogonal to mixer state
+     };
+ 
++    // Internal audioserver control only; no Binder transaction or HAL parameter.
++    virtual status_t setHonorSwsMusicIndex(int /*index*/) { return INVALID_OPERATION; }
++
+     // return estimated latency in milliseconds, as reported by HAL
+     virtual uint32_t latency() const = 0;  // should be in IAfThreadBase?
+ 
+diff --git a/services/audioflinger/Threads.cpp b/services/audioflinger/Threads.cpp
+index 43c634e..593ff62 100644
+--- a/services/audioflinger/Threads.cpp
++++ b/services/audioflinger/Threads.cpp
+@@ -22,6 +22,9 @@
+ #define ATRACE_TAG ATRACE_TAG_AUDIO
+ 
+ #include "Threads.h"
++#include "sws0730_candidate/Sws0730Owner.h"
++#include <strings.h>
++#include <media/HonorSwsControl.h>
+ 
+ #include "Client.h"
+ #include "IAfEffect.h"
+@@ -686,6 +689,8 @@ status_t ThreadBase::readyToRun()
+ void ThreadBase::exit()
+ {
+     ALOGV("ThreadBase::exit");
++    const auto sws = mHonorSwsOutput;
++    if (sws) sws->retire();
+     // do any cleanup required for exit to succeed
+     preExit();
+     {
+@@ -708,15 +713,22 @@ void ThreadBase::exit()
+     // For TimeCheck: track waiting on the thread join of getTid().
+     audio_utils::mutex::scoped_join_wait_check sjw(getTid());
+ 
+-    requestExitAndWait();
++    const status_t joined = requestExitAndWait();
++    // mStatus may report a failed readyToRun even after the reader exited.
++    // Closed AudioFlinger outputs are removed and never restart this Thread instance.
++    if (sws && joined != WOULD_BLOCK && !isRunning()) sws->readerJoined();
+ }
+ 
+ status_t ThreadBase::setParameters(const String8& keyValuePairs)
+ {
+     ALOGV("ThreadBase::setParameters() %s", keyValuePairs.c_str());
+-    audio_utils::lock_guard _l(mutex());
+-
+-    return sendSetParameterConfigEvent_l(keyValuePairs);
++    status_t status;
++    {
++        audio_utils::lock_guard _l(mutex());
++        status = sendSetParameterConfigEvent_l(keyValuePairs);
++    }
++    if (status == NO_ERROR) publishHonorSwsControl();
++    return status;
+ }
+ 
+ // sendConfigEvent_l() must be called with ThreadBase::mLock held
+@@ -812,26 +824,34 @@ status_t ThreadBase::sendSetParameterConfigEvent_l(const String8& keyValuePair)
+ }
+ 
+ status_t ThreadBase::sendCreateAudioPatchConfigEvent(
+-                                                        const struct audio_patch *patch,
+-                                                        audio_patch_handle_t *handle)
++        const struct audio_patch *patch, audio_patch_handle_t *handle)
+ {
+-    audio_utils::lock_guard _l(mutex());
+-    sp<ConfigEvent> configEvent = (ConfigEvent *)new CreateAudioPatchConfigEvent(*patch, *handle);
+-    status_t status = sendConfigEvent_l(configEvent);
+-    if (status == NO_ERROR) {
+-        CreateAudioPatchConfigEventData *data =
+-                                        (CreateAudioPatchConfigEventData *)configEvent->mData.get();
+-        *handle = data->mHandle;
++    status_t status;
++    {
++        audio_utils::lock_guard _l(mutex());
++        sp<ConfigEvent> configEvent =
++                (ConfigEvent *)new CreateAudioPatchConfigEvent(*patch, *handle);
++        status = sendConfigEvent_l(configEvent);
++        if (status == NO_ERROR) {
++            const auto* data =
++                    (CreateAudioPatchConfigEventData *)configEvent->mData.get();
++            *handle = data->mHandle;
++        }
+     }
++    if (status == NO_ERROR) publishHonorSwsControl();
+     return status;
+ }
+ 
+-status_t ThreadBase::sendReleaseAudioPatchConfigEvent(
+-                                                                const audio_patch_handle_t handle)
++status_t ThreadBase::sendReleaseAudioPatchConfigEvent(const audio_patch_handle_t handle)
+ {
+-    audio_utils::lock_guard _l(mutex());
+-    sp<ConfigEvent> configEvent = (ConfigEvent *)new ReleaseAudioPatchConfigEvent(handle);
+-    return sendConfigEvent_l(configEvent);
++    status_t status;
++    {
++        audio_utils::lock_guard _l(mutex());
++        sp<ConfigEvent> configEvent = (ConfigEvent *)new ReleaseAudioPatchConfigEvent(handle);
++        status = sendConfigEvent_l(configEvent);
++    }
++    if (status == NO_ERROR) publishHonorSwsControl();
++    return status;
+ }
+ 
+ void ThreadBase::sendCheckOutputStageEffectsEvent()
+@@ -1928,9 +1948,37 @@ sp<IAfEffectChain> ThreadBase::getEffectChain_l(audio_session_t sessionId)
+     return 0;
+ }
+ 
++namespace {
++std::atomic<bool> gHonorSwsDiagnosticBypass{false};
++}
++
++void IAfThreadBase::observeHonorSwsDiagnostics(const AudioParameter& param) {
++    String8 value;
++    // Preserve stock precedence: MMI first; matching Type-C start then stop.
++    if (param.get(String8("mmi_audioeffect"), value) == NO_ERROR) {
++        gHonorSwsDiagnosticBypass.store(value == "off");
++        return;
++    }
++    if (param.get(String8("typec_mos_test_start"), value) == NO_ERROR
++            && strncasecmp(value.c_str(), "false", 5) == 0) {
++        gHonorSwsDiagnosticBypass.store(true);
++        return;
++    }
++    if (param.get(String8("typec_mos_test_stop"), value) == NO_ERROR
++            && strncasecmp(value.c_str(), "false", 5) == 0) {
++        gHonorSwsDiagnosticBypass.store(false);
++    }
++}
++
++void ThreadBase::setHonorSwsEffectEnabled(bool enabled) {
++    audio_utils::lock_guard lock(mutex());
++    mHonorSwsEffectEnabled = enabled;
++}
++
+ void ThreadBase::setMode(audio_mode_t mode)
+ {
+     audio_utils::lock_guard _l(mutex());
++    mHonorSwsAudioMode = mode;
+     size_t size = mEffectChains.size();
+     for (size_t i = 0; i < size; i++) {
+         mEffectChains[i]->setMode_l(mode);
+@@ -2526,6 +2574,9 @@ void PlaybackThread::dumpTracks_l(int fd, const Vector<String16>& /* args */)
+ 
+ void PlaybackThread::dumpInternals_l(int fd, const Vector<String16>& args)
+ {
++    if (mHonorSwsOutput) {
++        dprintf(fd, "  %s\n", mHonorSwsOutput->diagnostics().c_str());
++    }
+     dprintf(fd, "  Master volume: %f\n", mMasterVolume);
+     dprintf(fd, "  Master mute: %s\n", mMasterMute ? "on" : "off");
+     dprintf(fd, "  Mixer channel Mask: %#x (%s)\n",
+@@ -2970,6 +3021,72 @@ uint32_t PlaybackThread::latency_l() const
+     return 0;
+ }
+ 
++::honor::sws0730::FrameworkControl PlaybackThread::honorSwsControl_l() const {
++    using namespace ::honor::sws0730;
++    FrameworkControl control;
++    auto& spec = control.spec;
++    spec.outputHandle = mId;
++    spec.allocationEpoch = mHonorSwsAllocationEpoch;
++    spec.sampleRate = mSampleRate; spec.channels = mChannelCount;
++    spec.outputFlags = mOutput ? static_cast<uint32_t>(mOutput->flags) : 0;
++    spec.maxFrames = mNormalFrameCount;
++    switch (mFormat) {
++        case AUDIO_FORMAT_PCM_16_BIT: spec.format = PcmFormat::Int16; break;
++        case AUDIO_FORMAT_PCM_32_BIT: spec.format = PcmFormat::Int32; break;
++        case AUDIO_FORMAT_PCM_FLOAT: spec.format = PcmFormat::Float32; break;
++        default: spec.format = PcmFormat::Unsupported;
++    }
++    spec.normalMixer = mType == MIXER;
++    spec.fastMixer = hasFastMixer(); spec.haptics = mHapticChannelCount != 0;
++    spec.spatializer = mType == SPATIALIZER; spec.duplicating = mType == DUPLICATING;
++    spec.bitPerfect = mOutput && (mOutput->flags & AUDIO_OUTPUT_FLAG_BIT_PERFECT);
++    control.routeEpoch = mHonorSwsControls.routeEpoch;
++    control.revision = mHonorSwsControls.revision;
++    control.musicIndex = mHonorSwsControls.musicIndex;
++    control.confirmedSpeaker = mHonorSwsControls.confirmedSpeaker;
++    return control;
++}
++
++void PlaybackThread::publishHonorSwsControl() {
++    std::shared_ptr<::honor::sws0730::OutputState> owner;
++    ::honor::sws0730::FrameworkControl control;
++    {
++        audio_utils::lock_guard lock(mutex());
++        if (exitPending()) return;
++        owner = mHonorSwsOutput;
++        if (!owner) return;
++        control = honorSwsControl_l();
++    }
++    // The synchronous config requester queues preparation after the audio thread
++    // completed its event. No worker queue allocation occurs in create/release_l.
++    owner->update(control);
++}
++
++status_t PlaybackThread::setHonorSwsMusicIndex(int index) {
++    std::shared_ptr<::honor::sws0730::OutputState> owner;
++    ::honor::sws0730::FrameworkControl control;
++    {
++        audio_utils::lock_guard lock(mutex());
++        if (exitPending()) return DEAD_OBJECT;
++        if (index < 0 || index > 15) return BAD_VALUE;
++        if (mType != MIXER || mChannelCount != 2 || mHapticChannelCount != 0
++                || mOutput == nullptr
++                || (mOutput->flags != AUDIO_OUTPUT_FLAG_PRIMARY
++                        && mOutput->flags != AUDIO_OUTPUT_FLAG_DEEP_BUFFER)) {
++            return INVALID_OPERATION;
++        }
++        if (mHonorSwsControls.musicIndex != index) {
++            mHonorSwsControls.musicIndex = index;
++            ++mHonorSwsControls.revision;
++            broadcast_l();
++        }
++        owner = mHonorSwsOutput; control = honorSwsControl_l();
++    }
++    // This setter is reached on AudioCommandThread, never the PCM callback.
++    if (owner) owner->update(control);
++    return NO_ERROR;
++}
++
+ void PlaybackThread::setMasterVolume(float value)
+ {
+     audio_utils::lock_guard _l(mutex());
+@@ -3430,6 +3547,7 @@ NO_THREAD_SAFETY_ANALYSIS
+     // with non PCM formats for compressed music, e.g. AAC, and Offload threads.
+     const size_t sinkBufferSize = mNormalFrameCount * mFrameSize;
+     (void)posix_memalign(&mSinkBuffer, 32, sinkBufferSize);
++    ++mHonorSwsAllocationEpoch;
+ 
+     // We resize the mMixerBuffer according to the requirements of the sink buffer which
+     // drives the output.
+@@ -4323,6 +4441,10 @@ NO_THREAD_SAFETY_ANALYSIS  // manual locking of AudioFlinger
+                     }
+                 }
+             }
++            if (mHonorSwsOutput && mBytesRemaining == 0) {
++                mHonorSwsGenerationControl = honorSwsControl_l();
++                mHonorSwsGenerationDecision = mHonorSwsDecision;
++            }
+         } // mutex() scope ends
+ 
+         if (mBytesRemaining == 0) {
+@@ -4406,6 +4528,9 @@ NO_THREAD_SAFETY_ANALYSIS  // manual locking of AudioFlinger
+             }
+ 
+             mBytesRemaining = mCurrentWriteLength;
++            if (mHonorSwsOutput && mCurrentWriteLength != 0) {
++                ++mHonorSwsGeneration;
++            }
+             if (isSuspended()) {
+                 // Simulate write to HAL when suspended (e.g. BT SCO phone call).
+                 mSleepTimeUs = suspendSleepTimeUs(); // assumes full buffer.
+@@ -4529,6 +4654,19 @@ NO_THREAD_SAFETY_ANALYSIS  // manual locking of AudioFlinger
+                 // writePeriodNs is updated >= 0 when ret > 0.
+                 int64_t writePeriodNs = -1;
+                 if (mBytesRemaining) {
++                    if (mHonorSwsOutput && mType == MIXER && mSinkBuffer != nullptr) {
++                        const auto& control = mHonorSwsGenerationControl;
++                        // Effects may rewrite mSinkBuffer even on a partial-write retry.
++                        // Always supply the complete encoded generation; the mailbox
++                        // replays its original cached result without running DSP again.
++                        (void)mHonorSwsOutput->process(
++                                control.spec,
++                                {mHonorSwsGeneration, control.routeEpoch,
++                                 control.revision, control.confirmedSpeaker,
++                                 mHonorSwsGenerationDecision},
++                                std::span<uint8_t>(static_cast<uint8_t*>(mSinkBuffer),
++                                                   mCurrentWriteLength));
++                    }
+                     // FIXME rewrite to reduce number of system calls
+                     const int64_t lastIoBeginNs = systemTime();
+                     ret = threadLoop_write();
+@@ -5043,6 +5181,14 @@ status_t PlaybackThread::createAudioPatch_l(const struct audio_patch *patch,
+         *handle = AUDIO_PATCH_HANDLE_NONE;
+     }
+ 
++    // Existing route members were assigned before the HAL call; confirm separately.
++    if (status == NO_ERROR && mType == MIXER) {
++        ++mHonorSwsControls.routeEpoch;
++        ++mHonorSwsControls.revision;
++        mHonorSwsControls.confirmedSpeaker = patch->num_sinks == 1
++                && patch->sinks[0].ext.device.type == AUDIO_DEVICE_OUT_SPEAKER;
++    }
++
+     // TODO(b/493682418) - Workaround for BT software HALs
+     if (isSuspended()) {
+         ALOGD("%s: restoring output with newly active patch", __func__);
+@@ -5102,6 +5248,11 @@ status_t PlaybackThread::releaseAudioPatch_l(const audio_patch_handle_t handle)
+     } else {
+         status = mOutput->stream->legacyReleaseAudioPatch();
+     }
++    if (status == NO_ERROR && mType == MIXER) {
++        ++mHonorSwsControls.routeEpoch;
++        ++mHonorSwsControls.revision;
++        mHonorSwsControls.confirmedSpeaker = false;
++    }
+     // TODO(b/493682418) - Workaround for BT software HALs
+     if (!afThreadCallback()->isPrimary(mOutput->audioHwDev)
+             && hasMixer()
+@@ -5240,6 +5391,7 @@ MixerThread::MixerThread(const sp<IAfThreadCallback>& afThreadCallback, AudioStr
+             mFrameSize = audio_bytes_per_frame(mChannelCount + mHapticChannelCount, mFormat);
+             const size_t sinkBufferSize = mNormalFrameCount * mFrameSize;
+             (void)posix_memalign(&mSinkBuffer, 32, sinkBufferSize);
++            ++mHonorSwsAllocationEpoch;
+         }
+ 
+         // create a MonoPipe to connect our submix to FastMixer
+@@ -5392,6 +5544,21 @@ MixerThread::~MixerThread()
+ }
+ 
+ void MixerThread::onFirstRef() {
++    if (mType == MIXER && property_get_bool(honor_sws::kControlProperty, false)) {
++        ::honor::sws0730::FrameworkControl control;
++        {
++            audio_utils::lock_guard lock(mutex());
++            mHonorSwsAudioMode = mAfThreadCallback->getMode();
++            mHonorSwsEffectEnabled = mOutput != nullptr
++                    && (mOutput->flags & AUDIO_OUTPUT_FLAG_PRIMARY) != 0;
++            mHonorSwsConfiguredMask = mChannelMask;
++            control = honorSwsControl_l();
++        }
++        char runMode[PROPERTY_VALUE_MAX] = {};
++        property_get("ro.runmode", runMode, "");
++        mHonorSwsFactory = strcmp(runMode, "factory") == 0;
++        mHonorSwsOutput = ::honor::sws0730::OutputState::create(control);
++    }
+     PlaybackThread::onFirstRef();
+ 
+     audio_utils::lock_guard _l(mutex());
+@@ -5676,6 +5843,35 @@ PlaybackThread::mixer_state MixerThread::prepareTracks_l(
+     mMixerBufferValid = false;  // mMixerBuffer has no valid data until appropriate tracks found.
+     mEffectBufferValid = false; // mEffectBuffer has no valid data until tracks found.
+ 
++    if (mHonorSwsOutput) {
++        using ::honor::sws0730::GateInput;
++        using ::honor::sws0730::GateState;
++        GateInput input;
++        input.configuredChannelMask = mHonorSwsConfiguredMask;
++        input.currentChannelMask = mChannelMask;
++        for (const auto& device : mOutDeviceTypeAddrs) input.deviceMask |= device.mType;
++        input.normalMixer = mType == MIXER;
++        input.hasFastMixer = hasFastMixer();
++        input.effectFlag = mHonorSwsEffectEnabled;
++        input.factory = mHonorSwsFactory;
++        input.diagnosticBypass = gHonorSwsDiagnosticBypass.load();
++        // Stock counts the prior cached final volume BEFORE this cycle updates tracks.
++        for (const auto& track : mActivePlaybackTracksView) {
++            ++input.activeTracks;
++            const int stream = track->streamType();
++            input.eligibleTracks += GateState::eligible(stream, track->isStatic());
++            input.silentMusicTracks += GateState::silentMusic(
++                    stream, track->getFinalVolume(), mHonorSwsAudioMode, input.effectFlag);
++            input.anyPatch |= stream == AUDIO_STREAM_PATCH;
++        }
++        mHonorSwsDecision = mHonorSwsGateState.prepare(input);
++        // This initial adapter does not implement stock channel remapping.
++        if (mHonorSwsConfiguredMask != AUDIO_CHANNEL_OUT_STEREO
++                || mChannelMask != AUDIO_CHANNEL_OUT_STEREO) {
++            mHonorSwsDecision = {};
++        }
++    }
++
+     // DeferredOperations handles statistics after setting mixerStatus.
+     class DeferredOperations {
+     public:
+diff --git a/services/audioflinger/Threads.h b/services/audioflinger/Threads.h
+index a60c886..f576a7b 100644
+--- a/services/audioflinger/Threads.h
++++ b/services/audioflinger/Threads.h
+@@ -38,6 +38,9 @@
+ #include <timing/MonotonicFrameCounter.h>
+ #include <utils/Log.h>
+ 
++#include "sws0730_candidate/Sws0730Owner.h"
++#include "sws0730_candidate/Sws0730Gate.h"
++
+ namespace android {
+ 
+ class AsyncCallbackThread;
+@@ -61,6 +64,7 @@ public:
+ 
+     status_t readyToRun() final;
+     void clearPowerManager() final EXCLUDES_ThreadBase_Mutex;
++    void setHonorSwsEffectEnabled(bool enabled) final EXCLUDES_ThreadBase_Mutex;
+ 
+     // base for record and playback
+     enum {
+@@ -1075,6 +1079,17 @@ protected:
+     AudioStreamIn* mInput = nullptr; // NO_THREAD_SAFETY_ANALYSIS
+     AudioStreamOut* mOutput = nullptr; // NO_THREAD_SAFETY_ANALYSIS
+ 
++    // Created before playback run; registry owns heavy resources through actual reader join.
++    virtual void publishHonorSwsControl() {} // External config caller only.
++    std::shared_ptr<::honor::sws0730::OutputState> mHonorSwsOutput;
++    uint64_t mHonorSwsAllocationEpoch = 0;
++    audio_mode_t mHonorSwsAudioMode GUARDED_BY(mutex()) = AUDIO_MODE_NORMAL;
++    bool mHonorSwsEffectEnabled GUARDED_BY(mutex()) = false;
++    bool mHonorSwsFactory = false;
++    uint32_t mHonorSwsConfiguredMask = 0;
++
++
++
+     // mHapticChannelMask and mHapticChannelCount will only be valid when the thread supports
+     // Haptic playback.
+     audio_channel_mask_t mHapticChannelMask = AUDIO_CHANNEL_NONE;
+@@ -1096,6 +1111,16 @@ public:
+         return sp<IAfPlaybackThread>::fromExisting(this);
+     }
+ 
++    status_t setHonorSwsMusicIndex(int index) override EXCLUDES_ThreadBase_Mutex;
++    ::honor::sws0730::FrameworkControl honorSwsControl_l() const REQUIRES(mutex());
++    void publishHonorSwsControl() override;
++    // One callback owner; latched before producing a new encoded sink buffer.
++    ::honor::sws0730::FrameworkControl mHonorSwsGenerationControl;
++    uint64_t mHonorSwsGeneration = 0;
++    ::honor::sws0730::GateState mHonorSwsGateState;
++    ::honor::sws0730::RuntimeDecision mHonorSwsDecision;
++    ::honor::sws0730::RuntimeDecision mHonorSwsGenerationDecision;
++
+     // retry count before removing active track in case of underrun on offloaded thread:
+     // we need to make sure that AudioTrack client has enough time to send large buffers
+     //FIXME may be more appropriate if expressed in time units. Need to revise how underrun is
+@@ -1550,6 +1575,16 @@ protected:
+ 
+     void collectTimestamps_l() REQUIRES(mutex(), ThreadBase_ThreadLoop);
+ 
++    // Staged framework controls. Future output adapter latches them per new buffer.
++    // Unknown/unreceived index remains -1; no guessed startup UI value.
++    struct HonorSwsControlSnapshot {
++        uint64_t routeEpoch = 0;
++        uint64_t revision = 0;
++        int musicIndex = -1;
++        bool confirmedSpeaker = false;
++    };
++    HonorSwsControlSnapshot mHonorSwsControls GUARDED_BY(mutex());
++
+     float                           mMasterVolume;
+     std::atomic<float>              mMasterBalance{};
+     audio_utils::Balance            mBalance;
+diff --git a/services/audioflinger/sws0730_candidate/Android.bp b/services/audioflinger/sws0730_candidate/Android.bp
+new file mode 100644
+index 0000000..cccfe3e
+--- /dev/null
++++ b/services/audioflinger/sws0730_candidate/Android.bp
+@@ -0,0 +1,43 @@
++package {
++    default_applicable_licenses: ["frameworks_av_license"],
++}
++
++cc_library_static {
++    name: "libhonor_sws0730_core_candidate",
++    srcs: ["Sws0730.cpp", "Sws0730Bundle.cpp", "Sws0730Engine.cpp", "Sws0730Pcm.cpp", "Sws0730Output.cpp", "Sws0730Mailbox.cpp", "Sws0730Gate.cpp", "Sws0730Owner.cpp"],
++    target: {
++        android: { shared_libs: ["libdl", "libaudioutils", "liblog"] },
++        linux_glibc: { host_ldlibs: ["-ldl"], shared_libs: ["libaudioutils", "liblog"] },
++    },
++    header_libs: ["libutils_headers", "libbase_headers"],
++    export_include_dirs: ["."],
++    cpp_std: "c++20",
++    cflags: ["-Wall", "-Wextra", "-Werror"],
++    host_supported: true,
++    compile_multilib: "64",
++    visibility: ["//frameworks/av:__subpackages__"],
++}
++
++// Isolated host lifecycle plumbing. Uses the real CommandThread and libutils Thread.
++// OwnerCorrectionTest includes Owner.cpp once and supplies the error-only engine factory.
++cc_test_host {
++    name: "honor_sws0730_owner_correction_test",
++    srcs: [
++        "OwnerCorrectionTest.cpp",
++        "Sws0730.cpp",
++        "Sws0730Bundle.cpp",
++        "Sws0730Pcm.cpp",
++        "Sws0730Output.cpp",
++        "Sws0730Mailbox.cpp",
++        "Sws0730Gate.cpp",
++    ],
++    header_libs: ["libutils_headers", "libbase_headers"],
++    shared_libs: ["libaudioutils", "liblog", "libutils"],
++    cpp_std: "c++20",
++    cppflags: ["-fexceptions"],
++    cflags: ["-Wall", "-Wextra", "-Werror", "-UNDEBUG"],
++    ldflags: ["-Wl,--wrap=free"],
++    sanitize: { address: true, undefined: true },
++    gtest: false,
++    compile_multilib: "64",
++}
+diff --git a/services/audioflinger/sws0730_candidate/OwnerCorrectionTest.cpp b/services/audioflinger/sws0730_candidate/OwnerCorrectionTest.cpp
+new file mode 100644
+index 0000000..c7896cc
+--- /dev/null
++++ b/services/audioflinger/sws0730_candidate/OwnerCorrectionTest.cpp
+@@ -0,0 +1,390 @@
++// SPDX-License-Identifier: Apache-2.0
++// Lifecycle plumbing only. The substituted engine NEVER returns apply success.
++#define HONOR_SWS_OWNER_LIFECYCLE_TEST 1
++#include "Sws0730Owner.cpp"
++#include <utils/Thread.h>
++#include <array>
++#include <atomic>
++#include <cassert>
++#include <chrono>
++#include <cstdlib>
++#include <iostream>
++#include <new>
++#include <pthread.h>
++#include <thread>
++
++using namespace honor::sws0730;
++namespace {
++thread_local size_t allocations = 0, releases = 0;
++std::array<std::atomic<void*>, 256> banks{};
++std::atomic<size_t> bankFrees{0}, wrongBankThread{0}, applyCalls{0};
++std::atomic<uintptr_t> workerId{0};
++std::atomic<size_t> checkCalls{0}, setCalls{0};
++std::atomic<int> lastRaw{-1};
++std::atomic<bool> blockCheck{false}, checkEntered{false}, releaseCheck{false};
++uintptr_t threadId() { return static_cast<uintptr_t>(pthread_self()); }
++void track(void* p) {
++    for (auto& slot : banks) {
++        void* empty = nullptr;
++        if (slot.compare_exchange_strong(empty, p)) return;
++    }
++    std::abort();
++}
++template<class Predicate> void await(Predicate predicate) {
++    const auto until = std::chrono::steady_clock::now() + std::chrono::seconds(5);
++    while (!predicate()) {
++        assert(std::chrono::steady_clock::now() < until);
++        std::this_thread::yield();
++    }
++}
++int getSize(uint32_t* sizes, const Config*) {
++    const uint32_t expected[]{10256, 585224, 129840, 135364};
++    std::copy(std::begin(expected), std::end(expected), sizes);
++    return 0;
++}
++int initialize(void** a, void** b) {
++    const auto id = threadId();
++    const auto prior = workerId.exchange(id);
++    assert(prior == 0 || prior == id);
++    for (size_t i = 0; i < 3; ++i) { track(a[i]); track(b[i]); }
++    return 0; // Allocation/ownership plumbing only, not native DSP initialization.
++}
++int check(const void*, const void*) {
++    ++checkCalls;
++    if (blockCheck.load()) {
++        checkEntered = true;
++        while (!releaseCheck.load()) std::this_thread::yield();
++    }
++    return 0;
++}
++int set(void**, void*, const void*, const void*) { ++setCalls; return 0; }
++int apply(void**, void**, void*, const Config* cfg) {
++    lastRaw = cfg->rawFlag;
++    ++applyCalls;
++    return -777; // Fail closed. No simulated DSP output or success.
++}
++FrameworkControl control(int handle) {
++    FrameworkControl c;
++    c.spec.outputHandle = handle; c.spec.allocationEpoch = 1;
++    c.spec.sampleRate = 48000; c.spec.channels = 2;
++    c.spec.outputFlags = 2; c.spec.maxFrames = 480;
++    c.spec.format = PcmFormat::Int16; c.spec.normalMixer = true;
++    c.routeEpoch = c.revision = 1; c.musicIndex = 8; c.confirmedSpeaker = true;
++    return c;
++}
++}
++void* operator new(size_t n) {
++    if (void* p = std::malloc(n ? n : 1)) { ++allocations; return p; }
++    throw std::bad_alloc();
++}
++void operator delete(void* p) noexcept { if (p) ++releases; std::free(p); }
++void operator delete(void* p, size_t) noexcept { ::operator delete(p); }
++void* operator new[](size_t n) { return ::operator new(n); }
++void operator delete[](void* p) noexcept { ::operator delete(p); }
++void operator delete[](void* p, size_t) noexcept { ::operator delete(p); }
++extern "C" void __real_free(void*);
++extern "C" void __wrap_free(void* p) {
++    if (p) for (auto& slot : banks) {
++        void* found = p;
++        if (slot.compare_exchange_strong(found, nullptr)) {
++            ++bankFrees;
++            if (threadId() != workerId.load()) ++wrongBankThread;
++            break;
++        }
++    }
++    __real_free(p);
++}
++namespace honor::sws0730 {
++std::optional<Capi> loadEngine() {
++    Capi api;
++    api.getSize = getSize; api.init = initialize; api.check = ::check;
++    api.set = ::set; api.apply = ::apply;
++    api.library = std::make_shared<int>(1);
++    api.execution = std::make_shared<std::mutex>();
++    return api;
++}
++// The only private seam, available solely in this test translation unit.
++// All production operations still use the real owner, mailbox and CommandThread.
++struct OwnerLifecycleTestAccess {
++    static std::array<uint64_t,5> counters(const std::shared_ptr<OutputState>& s) {
++        return {s->mCoreRaw0NewCalls.load(),s->mCoreRaw1NewCalls.load(),
++                s->mSkippedNewCalls.load(),s->mBackendFailureNewCalls.load(),
++                s->mUnknownNewCalls.load()};
++    }
++    static uint64_t outcome(const std::shared_ptr<OutputState>& s) {
++        return s->mLastOutcome.load();
++    }
++    static std::array<uint64_t,3> calls(const std::shared_ptr<OutputState>& s) {
++        return {s->mProcessed.load(),s->mRefused.load(),s->mRetries.load()};
++    }
++    static void drain() { OutputRegistry::instance().mWorker.wait_for_all_tasks(); }
++    static void enqueue(std::function<void()> task) {
++        assert(OutputRegistry::instance().mWorker.add("test-barrier", std::move(task)));
++    }
++    static bool ready(const std::shared_ptr<OutputState>& s) { return s->mReady.load(); }
++    static bool closed(const std::shared_ptr<OutputState>& s) { return s->mClosed.load(); }
++    static bool mailbox(const std::shared_ptr<OutputState>& s) {
++        return s->mReaderMailbox.load() != nullptr;
++    }
++    static bool retained(const std::shared_ptr<OutputState>& s) {
++        bool found = false;
++        enqueue([&] {
++            const auto& m = OutputRegistry::instance().mStates;
++            const auto i = m.find(s->mHandle);
++            found = i != m.end() && i->second.get() == s.get();
++        });
++        drain();
++        return found;
++    }
++};
++}
++using Access = OwnerLifecycleTestAccess;
++struct Barrier {
++    std::atomic<bool> entered{false}, released{false};
++    Barrier() {
++        Access::enqueue([this] {
++            entered = true;
++            while (!released.load()) std::this_thread::yield();
++        });
++        await([&] { return entered.load(); });
++    }
++    void release() { released = true; Access::drain(); }
++    ~Barrier() { assert(released.load()); }
++};
++void close(const std::shared_ptr<OutputState>& s) {
++    s->retire(); s->readerJoined(); Access::drain();
++    assert(Access::closed(s) && !Access::mailbox(s));
++}
++void prematureMailbox(uint64_t allocation) {
++    auto c = control(101); c.spec.allocationEpoch = allocation;
++    Barrier barrier;
++    auto s = OutputState::create(c);
++    assert(!Access::mailbox(s));
++    std::array<int16_t, 960> input{}; input.fill(123);
++    auto bytes = std::span<uint8_t>(reinterpret_cast<uint8_t*>(input.data()), sizeof(input));
++    const auto before = applyCalls.load();
++    const auto a = allocations, d = releases;
++    auto r = s->process(c.spec, {1, 1, 1, true, {true, true, true}}, bytes);
++    assert(r.disposition == OutputDisposition::Unqualified);
++    assert(allocations == a && releases == d);
++    barrier.release();
++    assert(Access::ready(s) && Access::mailbox(s));
++    const auto a2 = allocations, d2 = releases;
++    r = s->process(c.spec, {1, 1, 1, true, {true, false, false}}, bytes);
++    assert(r.disposition == OutputDisposition::Unqualified && r.replayed &&
++           r.decision.known && r.decision.shouldProcess && r.decision.runtimeGate &&
++           applyCalls == before);
++    assert(allocations == a2 && releases == d2);
++    r = s->process(c.spec, {2, 1, 1, true, {true, true, true}}, bytes);
++    assert(r.disposition == OutputDisposition::BackendFailure && r.nativeError == -777);
++    assert(applyCalls == before + 1);
++    for (auto v : input) assert(v == 123); // Error output does not corrupt sink.
++    const auto a3 = allocations, d3 = releases;
++    r = s->process(c.spec, {2, 1, 1, true, {true, true, true}}, bytes);
++    assert(r.replayed && r.disposition == OutputDisposition::BackendFailure);
++    assert(applyCalls == before + 1 && allocations == a3 && releases == d3);
++    close(s);
++}
++void pendingRetire() {
++    auto c = control(102);
++    Barrier barrier;
++    auto s = OutputState::create(c);
++    s->retire();
++    barrier.release();
++    assert(!Access::closed(s) && !Access::mailbox(s));
++    s->readerJoined(); Access::drain();
++    assert(Access::closed(s));
++}
++void retireDuringPrepare() {
++    blockCheck = true; checkEntered = false; releaseCheck = false;
++    auto s = OutputState::create(control(107));
++    await([&] { return checkEntered.load(); });
++    assert(Access::mailbox(s) && !Access::ready(s));
++    const auto before = bankFrees.load();
++    s->retire();
++    releaseCheck = true; Access::drain(); blockCheck = false;
++    assert(!Access::closed(s) && Access::mailbox(s) && bankFrees == before);
++    s->readerJoined(); Access::drain();
++    assert(Access::closed(s) && bankFrees >= before + 6);
++}
++void staleReadyAndHandleReuse() {
++    auto c = control(103);
++    auto old = OutputState::create(c); Access::drain();
++    assert(Access::ready(old) && Access::retained(old));
++    auto invalid = c; invalid.spec.sampleRate = 44100; invalid.revision = 2;
++    old->update(invalid); Access::drain();
++    assert(!Access::ready(old)); // Regression: ContextMismatch used to retain ready=true.
++    auto replacement = OutputState::create(c); Access::drain();
++    assert(!Access::ready(replacement) && !Access::mailbox(replacement));
++    assert(Access::retained(old) && !Access::retained(replacement));
++    close(old);
++    replacement->update(c); Access::drain();
++    assert(Access::ready(replacement) && Access::retained(replacement));
++    old->readerJoined(); Access::drain(); // Late duplicate cleanup must not erase replacement.
++    assert(Access::retained(replacement) && Access::ready(replacement));
++    close(replacement);
++}
++void liveReaderRetainsHeavyResources() {
++    auto c = control(104);
++    auto s = OutputState::create(c); Access::drain();
++    assert(Access::ready(s));
++    const auto before = bankFrees.load();
++    std::atomic<bool> stop{false};
++    std::atomic<size_t> count{0};
++    std::thread reader([&] {
++        std::array<int16_t, 2> data{123, 456};
++        const auto a = allocations, d = releases;
++        uint64_t generation = 1;
++        while (!stop.load()) {
++            auto bytes = std::span<uint8_t>(reinterpret_cast<uint8_t*>(data.data()), sizeof(data));
++            // Mismatched route deliberately keeps native Apply uninvoked.
++            auto result = s->process(c.spec, {generation++, 0, 0, false, {true,true,true}}, bytes);
++            assert(result.disposition == OutputDisposition::Unqualified);
++            ++count;
++        }
++        assert(allocations == a && releases == d);
++    });
++    await([&] { return count.load() > 100; });
++    s->retire(); Access::drain();
++    assert(!Access::closed(s) && Access::mailbox(s) && bankFrees == before);
++    stop = true; reader.join();
++    s->readerJoined(); Access::drain();
++    assert(Access::closed(s) && bankFrees >= before + 6);
++    assert(wrongBankThread == 0); // Actual Core-owned bank frees occurred on init worker.
++}
++class SelfJoinThread final : public android::Thread {
++public:
++    std::atomic<int> result{12345};
++    std::atomic<bool> release{false};
++private:
++    bool threadLoop() override {
++        result = requestExitAndWait(); // Actual platform self-join path.
++        while (!release.load()) std::this_thread::yield();
++        return false;
++    }
++};
++class FailedReadyThread final : public android::Thread {
++private:
++    android::status_t readyToRun() override { return android::BAD_VALUE; }
++    bool threadLoop() override { std::abort(); }
++};
++void actualThreadJoinSemantics() {
++    auto c = control(105);
++    auto s = OutputState::create(c); Access::drain();
++    auto self = android::sp<SelfJoinThread>::make();
++    assert(self->run("SWS_SelfJoin") == android::NO_ERROR);
++    await([&] { return self->result.load() != 12345; });
++    s->retire();
++    assert(self->result == android::WOULD_BLOCK && self->isRunning());
++    Access::drain(); assert(!Access::closed(s) && Access::mailbox(s));
++    self->release = true;
++    assert(self->requestExitAndWait() == android::NO_ERROR && !self->isRunning());
++    s->readerJoined(); Access::drain(); assert(Access::closed(s));
++
++    auto failedState = OutputState::create(control(106)); Access::drain();
++    auto failed = android::sp<FailedReadyThread>::make();
++    assert(failed->run("SWS_FailedReady") == android::NO_ERROR);
++    const auto result = failed->requestExitAndWait();
++    assert(result == android::BAD_VALUE && !failed->isRunning());
++    failedState->retire();
++    // Proposed caller condition, using actual platform return/isRunning behavior.
++    if (result != android::WOULD_BLOCK && !failed->isRunning()) failedState->readerJoined();
++    Access::drain(); assert(Access::closed(failedState));
++}
++
++void runtimeDecisions(bool raw) {
++    auto c = control(raw ? 108 : 109);
++    auto state = OutputState::create(c); Access::drain();
++    assert(Access::ready(state));
++    const auto checkBefore = checkCalls.load(), setBefore = setCalls.load();
++    const auto applyBefore = applyCalls.load();
++    std::array<int16_t,480> samples; samples.fill(101);
++    auto bytes = std::span<uint8_t>(reinterpret_cast<uint8_t*>(samples.data()),sizeof(samples));
++    const auto a = allocations, d = releases;
++    auto r = state->process(c.spec,{1,1,1,true,{true,true,!raw}},bytes);
++    assert(r.disposition == OutputDisposition::Processed && !r.replayed);
++    assert(setCalls == setBefore+1 && applyCalls == applyBefore);
++    const std::array<uint64_t,5> accepted{uint64_t(raw),uint64_t(!raw),0,0,0};
++    assert(Access::counters(state) == accepted);
++    assert(Access::outcome(state) == (uint64_t(7) | (uint64_t(!raw)<<3)
++            | (static_cast<uint64_t>(OutputDisposition::Processed)<<8)));
++    for(auto v:samples)assert(v == 0);
++    samples.fill(202);
++    r = state->process(c.spec,{2,1,1,true,{true,false,false}},bytes);
++    assert(r.disposition == OutputDisposition::Skipped && !r.replayed);
++    for(auto v:samples)assert(v == 202);
++    assert(setCalls == setBefore+1 && applyCalls == applyBefore);
++    samples.fill(303);
++    r = state->process(c.spec,{2,1,1,true,{true,true,raw}},bytes);
++    assert(r.replayed && r.disposition == OutputDisposition::Skipped &&
++           !r.decision.shouldProcess);
++    for(auto v:samples)assert(v == 202);
++    const std::array<uint64_t,5> skipped{uint64_t(raw),uint64_t(!raw),1,0,0};
++    assert(Access::counters(state) == skipped);
++    assert(Access::outcome(state) == (uint64_t(51)
++            | (static_cast<uint64_t>(OutputDisposition::Skipped)<<8)));
++    samples.fill(404);
++    r = state->process(c.spec,{3,1,1,true,{true,true,raw}},bytes);
++    assert(r.disposition == OutputDisposition::BackendFailure && r.nativeError == -777);
++    assert(setCalls == setBefore+2 && applyCalls == applyBefore+1 && lastRaw == int(raw));
++    for(auto v:samples)assert(v == 404);
++    samples.fill(505);
++    r = state->process(c.spec,{3,1,1,true,{true,false,!raw}},bytes);
++    assert(r.replayed && r.disposition == OutputDisposition::BackendFailure &&
++           r.decision.shouldProcess && r.decision.runtimeGate == raw);
++    for(auto v:samples)assert(v == 404);
++    assert(setCalls == setBefore+2 && applyCalls == applyBefore+1);
++    const std::array<uint64_t,5> failed{uint64_t(raw),uint64_t(!raw),1,1,0};
++    assert(Access::counters(state) == failed);
++    assert(Access::outcome(state) == (uint64_t(55) | (uint64_t(raw)<<3)
++            | (static_cast<uint64_t>(OutputDisposition::BackendFailure)<<8)));
++    assert((Access::calls(state) == std::array<uint64_t,3>{1,2,2}));
++    // No profile preparation, revision update, C++ ownership allocation/free on track changes.
++    assert(checkCalls == checkBefore && allocations == a && releases == d);
++    // Dump is control-thread-only; these names explicitly count calls, not PCM/Apply success.
++    const auto dump = state->diagnostics();
++    assert(dump.find("latestKnown=1 latestShouldProcess=1 latestRuntimeGate=") != std::string::npos);
++    assert(dump.find("latestOwnerRetry=1 latestReplayed=1") != std::string::npos);
++    assert(dump.find("backendFailureNewCalls=1") != std::string::npos);
++    close(state);
++}
++void unknownDecisionDiagnostics() {
++    auto c = control(110);
++    auto state = OutputState::create(c); Access::drain();
++    assert(Access::ready(state));
++    std::array<int16_t,2> samples{123,456};
++    auto bytes=std::span<uint8_t>(reinterpret_cast<uint8_t*>(samples.data()),sizeof(samples));
++    const auto applyBefore=applyCalls.load(),setBefore=setCalls.load();
++    const auto a=allocations,d=releases;
++    auto r=state->process(c.spec,{1,1,1,true,{}},bytes);
++    assert(r.disposition==OutputDisposition::Unqualified && !r.replayed);
++    r=state->process(c.spec,{1,1,1,true,{true,true,true}},bytes);
++    assert(r.replayed && !r.decision.known);
++    assert((Access::counters(state)==std::array<uint64_t,5>{0,0,0,0,1}));
++    assert((Access::calls(state)==std::array<uint64_t,3>{0,1,1}));
++    assert(Access::outcome(state)==(uint64_t(49)
++            | (static_cast<uint64_t>(OutputDisposition::Unqualified)<<8)));
++    assert(applyCalls==applyBefore && setCalls==setBefore);
++    assert(allocations==a && releases==d);
++    close(state);
++}
++
++int main() {
++    runtimeDecisions(false);
++    runtimeDecisions(true);
++    unknownDecisionDiagnostics();
++    prematureMailbox(1);
++    prematureMailbox(2);
++    pendingRetire();
++    retireDuringPrepare();
++    staleReadyAndHandleReuse();
++    liveReaderRetainsHeavyResources();
++    actualThreadJoinSemantics();
++    Access::drain();
++    assert(wrongBankThread == 0 && bankFrees > 0);
++    std::cout << "OWNER_CORRECTION_TEST_PASS premailbox=1 partial_retry=1 pending_retire=1 "
++                  "reuse_identity=1 stale_ready=1 real_thread_join=1 worker_bank_free=1 "
++                  "runtime_raw0_raw1=1 skip_queue_frozen=1 decision_retry_frozen=1 no_gate_profile_prepare=1 "
++                 "outcome_coherent=1 raw_counters_no_apply_success_claim=1 unknown_retry_frozen=1 "
++                 "scope=fake_engine_plumbing_apply_always_error" << std::endl;
++}
+diff --git a/services/audioflinger/sws0730_candidate/Sws0730.cpp b/services/audioflinger/sws0730_candidate/Sws0730.cpp
+new file mode 100644
+index 0000000..c5a0bce
+--- /dev/null
++++ b/services/audioflinger/sws0730_candidate/Sws0730.cpp
+@@ -0,0 +1,378 @@
++#include "Sws0730.h"
++#include <algorithm>
++#include <cstdlib>
++#include <cstring>
++#include <limits>
++#include <utility>
++
++namespace honor::sws0730 {
++namespace {
++template<class T> T load(const uint8_t* p) { T v; std::memcpy(&v, p, sizeof(v)); return v; }
++template<class T> void store(uint8_t* p, T v) { std::memcpy(p, &v, sizeof(v)); }
++int q16(int32_t v) { return v / 65536; }
++int volumeLevel(int volume) {
++    const int v = static_cast<int16_t>(volume);
++    constexpr int t[] = {1, 4, 7, 10, 13, 15};
++    for (int i = 0; i < 6; ++i) if (t[i] >= v) return i;
++    return 6;
++}
++}
++TuningPool::TuningPool(Tables tables) : mTables(std::move(tables)) {
++    for (const auto& [id, source] : mTables.extended) {
++        auto& target = mExtended[id];
++        std::copy(source.begin(), source.end(), target.begin());
++    }
++    const auto t1 = reinterpret_cast<uintptr_t>(mTables.blobs[3].data());
++    const auto t2 = reinterpret_cast<uintptr_t>(mTables.blobs[4].data());
++    for (int scene = 0; scene < 9; ++scene)
++        for (int j = 0; j < 4; ++j) fix(41000 + 80 * scene + j, t1, t2);
++    for (int fold = 0; fold < 3; ++fold)
++        for (int mode = 0; mode < 2; ++mode)
++            for (int scene = 0; scene < 9; ++scene) {
++                const auto offset = mode * 65680 + (scene == 8 ? 16420 : scene * 8210);
++                for (int l = 0; l < 7; ++l)
++                    fix(fold * 4000 + mode * 400 + scene * 20 + l, t1 + offset, t2 + offset);
++            }
++}
++std::shared_ptr<const TuningPool> TuningPool::create(Tables tables) {
++    constexpr size_t sizes[] = {22574, 24630, 82120, 131360, 131360,
++                                5120, 19200, 4106, 8210, 1200};
++    // Exact retained SPA file is two bytes shorter than its zero-initialized stock array.
++    if (tables.blobs[0].size() == 22572) tables.blobs[0].resize(22574, 0);
++    for (size_t i = 0; i < 10; ++i)
++        if (tables.blobs[i].size() != sizes[i]) return {};
++    return std::shared_ptr<const TuningPool>(new TuningPool(std::move(tables)));
++}
++void TuningPool::fix(int key, uintptr_t t1, uintptr_t t2) {
++    const auto row = mTables.rows.find(key);
++    if (row == mTables.rows.end()) return;
++    const auto ext = mExtended.find(row->second.second);
++    if (ext == mExtended.end()) return;
++    const auto ptr = [&](size_t i) { return reinterpret_cast<uintptr_t>(mTables.blobs[i].data()); };
++    const std::array<uintptr_t, 11> values = {
++        ptr(0), ptr(1), ptr(2), t1, t2, ptr(5), ptr(6), ptr(7), ptr(8), ptr(9), ptr(9)};
++    std::memcpy(ext->second.data() + 0x9f8, values.data(), 88);
++}
++bool TuningPool::select(int key, Profile& out) const {
++    const auto row = mTables.rows.find(key);
++    if (row == mTables.rows.end()) return false;
++    const auto b = mTables.base.find(row->second.first);
++    const auto x = mExtended.find(row->second.second);
++    if (b == mTables.base.end() || x == mExtended.end()) return false;
++    // Intentional guard: stock has virtual rows whose pointer graph is never initialized.
++    for (size_t i = 0; i < 11; ++i)
++        if (!load<uintptr_t>(x->second.data() + 0x9f8 + i * 8)) return false;
++    out.base = b->second; out.extended = x->second;
++    return true;
++}
++bool TuningPool::headphoneType(Profile& p, int type) const {
++    if (type < 0 || type > 32767) return false;
++    type = type > 17 ? 3 : type;
++    const auto* t = mTables.headphoneTypes.data() + type * 32;
++    auto* b = p.base.data(); auto* x = p.extended.data();
++    for (size_t off : {0xea, 0xec})
++        store<uint16_t>(b + off, load<uint16_t>(t) | (uint16_t(b[off + 1]) << 8));
++    for (size_t off : {0x122, 0x13a})
++        for (size_t j = 0; j < 4; ++j)
++            store<uint16_t>(b + off + 2 * j,
++                (load<uint16_t>(b + off + 2 * j) & 0xff00) | load<uint16_t>(t + 2 + 2 * j));
++    for (size_t off : {0x12a, 0x142})
++        store<uint16_t>(b + off, load<uint16_t>(t + 10) | (uint16_t(b[off + 1]) << 8));
++    std::memcpy(b + 0x16a, t + 12, 8); store<uint16_t>(b + 0x172, load<uint16_t>(t + 20));
++    std::memcpy(b + 0x1ca, t + 22, 8); store<uint16_t>(b + 0x1d2, load<uint16_t>(t + 30));
++    const uintptr_t ptr = reinterpret_cast<uintptr_t>(mTables.blobs[2].data()) + type * 4106;
++    store(x + 0xa08, ptr);
++    store<uint16_t>(x + 0x3e4, type | (uint16_t(x[0x3e5]) << 8));
++    return true;
++}
++int Controls::speakerKey() const {
++    if (fold < 0 || fold > 2 || speakerMode < 0 || speakerMode > 1 || scene < 0 || scene > 8)
++        return -1;
++    return fold * 4000 + speakerMode * 400 + scene * 20 + volumeLevel(volumeIndex);
++}
++bool headphoneProfile(const TuningPool& pool, const Controls& c, Profile& p, int& hpScene) {
++    switch (c.headphoneMode) {
++        case 0: hpScene = 0; break;
++        case 1: hpScene = 5; break;
++        case 2: hpScene = 6; break;
++        case 3: hpScene = 7; break;
++        case 4: hpScene = 8; break;
++        default: return false;
++    }
++    if (!pool.select(41000 + hpScene * 80 + volumeLevel(c.volumeIndex), p) ||
++        !pool.headphoneType(p, c.headphoneType)) return false;
++    if (hpScene == 8) {
++        auto* b = p.base.data();
++        for (size_t off : {0, 2})
++            store<uint16_t>(b + off, (load<uint16_t>(b + off) & ~4) | 0x80);
++        for (size_t i = 0; i < 10; ++i) {
++            int v = c.eq[i];
++            if (c.eqType == 6 && c.globalEqLimit) v = std::min(v, c.globalEqLimit);
++            for (size_t start : {0x122, 0x13a}) {
++                const auto off = start + i * 2;
++                store<uint16_t>(b + off, uint16_t(b[off]) | uint16_t(uint16_t(v) << 8));
++            }
++        }
++        p.extended[0x3e1] = c.extraByte;
++        for (size_t off : {0xa, 0xc}) store<uint16_t>(b + off, c.extraWord);
++    }
++    return true;
++}
++size_t raising(const Block& b, unsigned ch) {
++    int prev = q16(b[ch]), state = 0, quiet = 0, budget = 0, peak = 0;
++    size_t marked = 0;
++    for (size_t i = 1; i < kFrames; ++i) {
++        const int cur = q16(b[2 * i + ch]), amp = std::abs(cur);
++        if (!state) {
++            if (amp >= 10) { prev = cur; continue; }
++            quiet = 2; state = 1;
++        } else if (state == 1) {
++            if (amp <= 9) { ++quiet; prev = cur; continue; }
++            if (quiet < 11) { state = 0; prev = cur; continue; }
++            if (amp > 5 * std::abs(prev) &&
++                (std::abs(cur - prev) > 100 || std::abs(cur + prev) > 100)) return i;
++            budget = 13; state = 2; peak = amp; marked = i;
++        } else if (budget >= 1 && amp < 2 * peak) {
++            --budget; peak = std::max(peak, amp);
++        } else {
++            if (amp > 5 * std::abs(prev) &&
++                (std::abs(cur - prev) > 100 || std::abs(cur + prev) >= 101)) return marked;
++            state = 0;
++        }
++        prev = cur;
++    }
++    return 0;
++}
++size_t falling(const Block& b, unsigned ch) {
++    int prev = q16(b[ch]), rememberedPrev = 0, count = 0;
++    bool low = false; size_t rememberedStart = 0;
++    for (size_t i = 1; i < kFrames; ++i) {
++        const int cur = q16(b[2 * i + ch]), amp = std::abs(cur);
++        size_t start;
++        if (low) { prev = rememberedPrev; start = rememberedStart; }
++        else {
++            const int prod = prev * 0x6667;
++            const int approx = (prod >> 18) + (prod < 0);
++            if (amp >= std::abs(approx) || std::abs(amp - std::abs(prev)) < 101) {
++                prev = cur; continue;
++            }
++            start = i;
++        }
++        if (amp < std::abs(prev / 10)) { ++count; low = true; }
++        else { count = 0; low = false; }
++        const size_t elapsed = i - start;
++        if ((count >= 11 && i == kFrames - 1 && elapsed < 48) ||
++            (count >= 48 && elapsed < 480)) return start;
++        rememberedStart = start; rememberedPrev = prev; prev = cur;
++    }
++    return 0;
++}
++void fadeIn(Block& b, size_t start, unsigned ch) {
++    if (start >= kFrames) return;
++    const auto span = kFrames - start;
++    for (size_t j = 0; j < span; ++j)
++        b[2 * (start + j) + ch] = int64_t(j) * b[2 * (start + j) + ch] / int64_t(span);
++}
++void fadeOut(Block& b, size_t start, unsigned ch) {
++    for (size_t j = 0; j < start; ++j)
++        b[2 * j + ch] -= int64_t(j) * b[2 * j + ch] / int64_t(start);
++    fadeIn(b, start, ch);
++}
++void Auxiliary::clear() { mCache.fill(0); }
++Block Auxiliary::process(const Block& b, bool enabled) {
++    Block out;
++    std::copy(mCache.begin(), mCache.end(), out.begin());
++    std::copy(b.begin(), b.end() - 96, out.begin() + 96);
++    std::copy(b.end() - 96, b.end(), mCache.begin());
++    for (unsigned ch = 0; ch < 2; ++ch) {
++        const auto rise = raising(out, ch);
++        if (enabled && rise) fadeIn(out, rise, ch);
++        const auto fall = falling(out, ch);
++        if (enabled && fall) fadeOut(out, fall, ch);
++    }
++    return out;
++}
++void SeekState::set(int v, int user) {
++    value = v;
++    if (user == 1) { counter = 64; latched = 0; }
++}
++void SeekState::beforeCallback() { if (counter >= 1) counter -= 8; }
++void SeekState::process(Block& b, int user, int raw) {
++    for (size_t frame = 0; frame < kFrames; ++frame)
++        if (counter > 0 && user == 1) {
++            if (latched == 1) {
++                if (raw) b[2 * frame] = b[2 * frame + 1] = 0;
++            } else if (b[frame] < -300 || b[frame] > 300) latched = 1;
++        }
++}
++void StereoQueue::reset() {
++    mPending = 0; mHead = 0; mTail = 960; mCount = 960;
++    mReady.fill(0);
++}
++bool StereoQueue::push(int32_t left, int32_t right) {
++    if (mPending >= kFrames) return false;
++    mInput[2 * mPending] = left; mInput[2 * mPending + 1] = right;
++    return ++mPending == kFrames;
++}
++bool StereoQueue::commit(const Block& block) {
++    if (mPending != kFrames || mCount + kSamples > mReady.size()) return false;
++    for (const auto sample : block) {
++        mReady[mTail] = sample; mTail = (mTail + 1) % mReady.size(); ++mCount;
++    }
++    mPending = 0;
++    return true;
++}
++bool StereoQueue::pop(int32_t* stereo) {
++    if (mCount < 2) return false;
++    for (size_t ch = 0; ch < 2; ++ch) {
++        stereo[ch] = mReady[mHead]; mHead = (mHead + 1) % mReady.size(); --mCount;
++    }
++    return true;
++}
++SinkPreparation SinkGeneration::prepare(uint64_t generation, std::span<uint8_t> sink) {
++    if (sink.size() > mBytes.size()) return SinkPreparation::Invalid;
++    if (mValid && generation == mGeneration) {
++        if (sink.size() != mSize) return SinkPreparation::Invalid;
++        std::copy_n(mBytes.begin(), mSize, sink.begin());
++        return SinkPreparation::Replayed;
++    }
++    mGeneration = generation; mSize = sink.size(); mValid = false; mPrepared = true;
++    return SinkPreparation::NeedsProcessing;
++}
++bool SinkGeneration::capture(uint64_t generation, std::span<const uint8_t> sink) {
++    if (!mPrepared || generation != mGeneration || sink.size() != mSize) return false;
++    std::copy(sink.begin(), sink.end(), mBytes.begin()); mPrepared = false; mValid = true;
++    return true;
++}
++void SinkGeneration::reset() { mValid = false; mPrepared = false; mSize = 0; }
++Core::Core(Capi api, std::shared_ptr<const TuningPool> pool, size_t maxFrames)
++    : mApi(std::move(api)), mPool(std::move(pool)), mStage(maxFrames * 2) {}
++std::shared_ptr<Core> Core::create(Capi api, std::shared_ptr<const TuningPool> pool,
++                                  size_t maxFrames, int& error) {
++    error = 0;
++    if (!api.library || !api.execution || !pool || !api.getSize || !api.init || !api.check || !api.set ||
++        !api.apply || !maxFrames || maxFrames > std::numeric_limits<size_t>::max() / 8) return {};
++    auto core = std::shared_ptr<Core>(new Core(std::move(api), std::move(pool), maxFrames));
++    return core->initialize(error) ? core : nullptr;
++}
++bool Core::initialize(int& error) {
++    alignas(16) Config cfg{nullptr, nullptr, 480, 0, 0, -32, 2, 2};
++    alignas(16) std::array<uint32_t, 4> sizes{};
++    {
++            if ((error = mApi.getSize(sizes.data(), &cfg))) return false;
++    }
++    if (sizes != std::array<uint32_t, 4>{10256, 585224, 129840, 135364}) return false;
++    for (size_t i = 0; i < 7; ++i) {
++        void* p = nullptr;
++        const auto bytes = sizes[i == 6 ? 3 : i % 3];
++        if (posix_memalign(&p, 32, bytes)) return false;
++        std::memset(p, 0, bytes);
++        mMemory[i] = std::shared_ptr<void>(p, std::free);
++        if (i < 3) mBank0[i] = p;
++        else if (i < 6) mBank1[i - 3] = p;
++        else mScratch = p;
++    }
++    return (error = mApi.init(mBank0.data(), mBank1.data())) == 0;
++}
++Core::~Core() { close(); }
++std::shared_ptr<const PreparedProfile> PreparedProfile::create(
++        Capi api, std::shared_ptr<const TuningPool> pool, const Controls& controls, int& error) {
++    error = 0;
++    if (!api.library || !api.execution || !api.check || !pool ||
++        controls.level < -758 || controls.level > 0) return {};
++    auto prepared = std::shared_ptr<PreparedProfile>(new PreparedProfile);
++    prepared->mApi = std::move(api); prepared->mPool = std::move(pool);
++    prepared->mControls = controls;
++    const bool found = controls.route == Controls::Route::Speaker ?
++            prepared->mPool->select(controls.speakerKey(), prepared->mProfile) :
++            headphoneProfile(*prepared->mPool, controls, prepared->mProfile, prepared->mHpScene);
++    if (!found) return {};
++    error = prepared->mApi.check(prepared->mProfile.base.data(), prepared->mProfile.extended.data());
++    if (error) return {};
++    return prepared;
++}
++Status Core::commitPrepared(const PreparedProfile& prepared) {
++    // The owning output callback exclusively owns mutable Core state at this boundary.
++    if (mClosed) return Status::Closed;
++    if (mFailed) return Status::BackendFailure;
++    if (prepared.mPool.get() != mPool.get() ||
++        prepared.mApi.library.get() != mApi.library.get() ||
++        prepared.mApi.execution.get() != mApi.execution.get() ||
++        prepared.mApi.check != mApi.check) return Status::Invalid;
++    mProfile = prepared.mProfile; mControls = prepared.mControls;
++    mHpScene = prepared.mHpScene; mConfigured = true;
++    return Status::Ok;
++}
++void Core::resetQueues() { mQueue.reset(); mAux.clear(); mSeek = {}; }
++Status Core::configure(const Controls& controls, int& error) {
++    std::lock_guard lock(mMutex); error = 0;
++    if (mClosed) return Status::Closed;
++    if (mFailed) return Status::BackendFailure;
++    if (controls.level < -758 || controls.level > 0) return Status::Invalid;
++    Profile profile; int hpScene = mHpScene;
++    const bool found = controls.route == Controls::Route::Speaker ?
++        mPool->select(controls.speakerKey(), profile) :
++        headphoneProfile(*mPool, controls, profile, hpScene);
++    if (!found) return Status::Invalid;
++    if ((error = mApi.check(profile.base.data(), profile.extended.data()))) {
++        mFailed = true;
++        return Status::BackendFailure;
++    }
++    mProfile = profile;
++    mControls = controls; mHpScene = hpScene; mConfigured = true;
++    return Status::Ok;
++}
++Status Core::seek(int value) {
++    std::lock_guard lock(mMutex);
++    if (mClosed) return Status::Closed;
++    mSeek.set(value, mControls.userEnable);
++    return Status::Ok;
++}
++Status Core::process(std::span<const int32_t> input, std::span<int32_t> output, int& error,
++                     std::optional<bool> runtimeGate) {
++    std::lock_guard lock(mMutex); error = 0;
++    if (mClosed) return Status::Closed;
++    if (mFailed) return Status::BackendFailure;
++    if (!mConfigured || input.size() != output.size() || input.size() % 2 ||
++        input.size() > mStage.size()) return Status::Invalid;
++    // Stock replays SetPara before every output callback, even for unchanged records.
++    if ((error = mApi.set(mBank0.data(), mScratch, mProfile.base.data(),
++                          mProfile.extended.data()))) {
++        mFailed = true;
++        return Status::BackendFailure;
++    }
++    mSeek.beforeCallback();
++    int raw = mControls.userEnable != 0 && runtimeGate.value_or(mControls.processingGate != 0);
++    if (mControls.route != Controls::Route::Speaker && (mHpScene == 0 || mHpScene == 7))
++        raw = 0;
++    const bool fade = raw || mHpScene == 0 || mHpScene == 7; // Selected gUiType1.
++    for (size_t frame = 0; frame < input.size() / 2; ++frame) {
++        if (mQueue.push(input[2 * frame], input[2 * frame + 1])) {
++            alignas(8) auto block = mAux.process(mQueue.pending(), fade);
++            alignas(16) Config cfg{block.data(), mAlgorithmOutput.data(), 480,
++                                   uint32_t(raw), 0, mControls.level, 2, 2};
++            if ((error = mApi.apply(mBank0.data(), mBank1.data(), mScratch, &cfg))) {
++                mFailed = true;
++                return Status::BackendFailure; // Caller output unchanged.
++            }
++            mSeek.process(mAlgorithmOutput, mControls.userEnable, raw);
++            if (!mQueue.commit(mAlgorithmOutput)) {
++                mFailed = true; return Status::BackendFailure;
++            }
++        }
++        if (!mQueue.pop(mStage.data() + 2 * frame)) {
++            mFailed = true; return Status::BackendFailure;
++        }
++    }
++    std::copy_n(mStage.begin(), input.size(), output.begin());
++    return Status::Ok;
++}
++void Core::close() {
++    std::lock_guard lock(mMutex);
++    if (mClosed) return;
++    mClosed = true; mConfigured = false;
++    for (auto& region : mMemory) region.reset();
++    mBank0.fill(nullptr); mBank1.fill(nullptr); mScratch = nullptr;
++    mPool.reset(); mApi.library.reset(); mApi.execution.reset(); resetQueues();
++}
++}
+diff --git a/services/audioflinger/sws0730_candidate/Sws0730.h b/services/audioflinger/sws0730_candidate/Sws0730.h
+new file mode 100644
+index 0000000..a5c617f
+--- /dev/null
++++ b/services/audioflinger/sws0730_candidate/Sws0730.h
+@@ -0,0 +1,169 @@
++#pragma once
++#include <optional>
++// Research canonical stereo core. Not an Android effect or all-route integration.
++#include <array>
++#include <cstddef>
++#include <cstdint>
++#include <map>
++#include <memory>
++#include <mutex>
++#include <span>
++#include <vector>
++
++namespace honor::sws0730 {
++constexpr size_t kFrames = 480, kSamples = 960;
++using Block = std::array<int32_t, kSamples>;
++struct alignas(8) Config {
++    int32_t* input;
++    int32_t* output;
++    uint32_t frames, rawFlag, unknown18;
++    int32_t level;
++    uint32_t format, channels;
++};
++static_assert(sizeof(void*) == 8 && sizeof(Config) == 40);
++static_assert(offsetof(Config, frames) == 0x10 && offsetof(Config, channels) == 0x24);
++struct Capi {
++    int (*getSize)(uint32_t*, const Config*) = nullptr;
++    int (*init)(void**, void**) = nullptr;
++    int (*check)(const void*, const void*) = nullptr;
++    int (*set)(void**, void*, const void*, const void*) = nullptr;
++    int (*apply)(void**, void**, void*, const Config*) = nullptr;
++    // Must own the verified engine DSO until all instances are closed.
++    std::shared_ptr<void> library;
++    // Factory-shared identity retained for prepared-profile compatibility checks.
++    // Core uses per-instance ownership/mMutex; it does not take this global lock.
++    std::shared_ptr<std::mutex> execution;
++};
++struct Profile {
++    alignas(8) std::array<uint8_t, 838> base;
++    alignas(8) std::array<uint8_t, 2640> extended;
++};
++struct Tables {
++    std::map<int, std::pair<int, int>> rows;
++    std::map<int, std::array<uint8_t, 838>> base;
++    std::map<int, std::array<uint8_t, 2552>> extended;
++    std::array<uint8_t, 576> headphoneTypes;
++    // spa, sdc, lph, tws1, tws2, sur, teh, asc1, asc2, act.
++    std::array<std::vector<uint8_t>, 10> blobs;
++};
++class TuningPool {
++public:
++    // Pointer tails refer to this owner's immutable blob storage.
++    TuningPool(const TuningPool&) = delete;
++    TuningPool& operator=(const TuningPool&) = delete;
++    TuningPool(TuningPool&&) = delete;
++    TuningPool& operator=(TuningPool&&) = delete;
++    static std::shared_ptr<const TuningPool> create(Tables tables);
++    bool select(int key, Profile& out) const;
++    bool headphoneType(Profile& p, int type) const;
++private:
++    explicit TuningPool(Tables tables);
++    void fix(int key, uintptr_t tws1, uintptr_t tws2);
++    Tables mTables;
++    std::map<int, std::array<uint8_t, 2640>> mExtended;
++};
++struct Controls {
++    enum class Route { Speaker, Headset, A2dp } route = Route::Speaker;
++    // These are engine defaults, not Honor Java/UI defaults.
++    int fold = 0, speakerMode = 0, scene = 0, volumeIndex = 5;
++    int userEnable = 0, processingGate = 0;
++    int headphoneMode = 1, headphoneType = 0; // InitSws defaults, not UI preference.
++    std::array<int16_t, 10> eq{};
++    int eqType = 0, globalEqLimit = 0;
++    uint8_t extraByte = 100; // InitSws writes this byte; native constructor initially zeros it.
++    uint16_t extraWord = 0;
++    int level = -32; // Truncation of native initial float -32.9999275; units unnamed.
++    int speakerKey() const;
++};
++bool headphoneProfile(const TuningPool&, const Controls&, Profile&, int& hpScene);
++class PreparedProfile {
++public:
++    // Control-thread preparation only; last owner release is also control-thread work.
++    static std::shared_ptr<const PreparedProfile> create(
++            Capi, std::shared_ptr<const TuningPool>, const Controls&, int& nativeError);
++    const Controls& controls() const { return mControls; }
++private:
++    friend class Core;
++    Capi mApi;
++    std::shared_ptr<const TuningPool> mPool;
++    Controls mControls;
++    Profile mProfile{};
++    int mHpScene = 0;
++};
++size_t raising(const Block&, unsigned channel);
++size_t falling(const Block&, unsigned channel);
++void fadeIn(Block&, size_t start, unsigned channel);
++void fadeOut(Block&, size_t start, unsigned channel);
++class Auxiliary {
++public:
++    void clear();
++    Block process(const Block&, bool fade);
++private:
++    std::array<int32_t, 96> mCache{};
++};
++struct SeekState {
++    int value = 0, counter = 0, latched = 0;
++    void set(int newValue, int userEnable);
++    void beforeCallback();
++    void process(Block&, int userEnable, int rawFlag);
++};
++enum class Status { Ok, Invalid, Closed, BackendFailure };
++class StereoQueue {
++public:
++    void reset();
++    bool push(int32_t left, int32_t right);
++    const Block& pending() const { return mInput; }
++    bool commit(const Block&);
++    bool pop(int32_t* stereo);
++private:
++    alignas(8) Block mInput{};
++    std::array<int32_t, 1920> mReady{};
++    size_t mPending = 0, mHead = 0, mTail = 960, mCount = 960;
++};
++enum class SinkPreparation { NeedsProcessing, Replayed, Invalid };
++class SinkGeneration {
++public:
++    explicit SinkGeneration(size_t capacity) : mBytes(capacity) {}
++    SinkPreparation prepare(uint64_t generation, std::span<uint8_t> sink);
++    bool capture(uint64_t generation, std::span<const uint8_t> sink);
++    void reset();
++private:
++    std::vector<uint8_t> mBytes;
++    uint64_t mGeneration = 0;
++    size_t mSize = 0;
++    bool mValid = false, mPrepared = false;
++};
++class Core {
++public:
++    static std::shared_ptr<Core> create(Capi api, std::shared_ptr<const TuningPool> pool,
++                                       size_t maxCallbackFrames, int& nativeError);
++    ~Core();
++    Status configure(const Controls&, int& nativeError);
++    // Callback-exclusive boundary operation: never race with configure/process/close.
++    // Prepared object must remain owned off callback; no shared-owner update here.
++    Status commitPrepared(const PreparedProfile&);
++    Status seek(int value);
++    Status process(std::span<const int32_t> input, std::span<int32_t> output,
++                   int& nativeError, std::optional<bool> runtimeGate = std::nullopt);
++    void close();
++private:
++    Core(Capi, std::shared_ptr<const TuningPool>, size_t);
++    bool initialize(int&);
++    void resetQueues();
++    mutable std::mutex mMutex;
++    Capi mApi;
++    std::shared_ptr<const TuningPool> mPool;
++    std::array<std::shared_ptr<void>, 7> mMemory;
++    alignas(16) std::array<void*, 3> mBank0{}, mBank1{};
++    void* mScratch = nullptr;
++    Controls mControls;
++    int mHpScene = 0;
++    bool mConfigured = false, mClosed = false, mFailed = false;
++    Auxiliary mAux;
++    SeekState mSeek;
++    Profile mProfile{};
++    alignas(8) Block mAlgorithmOutput{};
++    StereoQueue mQueue;
++    std::vector<int32_t> mStage;
++};
++}
+diff --git a/services/audioflinger/sws0730_candidate/Sws0730Bundle.cpp b/services/audioflinger/sws0730_candidate/Sws0730Bundle.cpp
+new file mode 100644
+index 0000000..6d1cb7a
+--- /dev/null
++++ b/services/audioflinger/sws0730_candidate/Sws0730Bundle.cpp
+@@ -0,0 +1,75 @@
++#include "Sws0730Bundle.h"
++#include <cstring>
++#include <limits>
++#include <utility>
++namespace honor::sws0730 {
++namespace {
++struct Reader {
++    std::span<const uint8_t> bytes;
++    size_t offset = 0;
++    bool read(void* out, size_t count) {
++        if (count > bytes.size() - offset) return false;
++        std::memcpy(out, bytes.data() + offset, count); offset += count; return true;
++    }
++    bool u32(uint32_t& out) {
++        uint8_t b[4];
++        if (!read(b, 4)) return false;
++        out = uint32_t(b[0]) | (uint32_t(b[1]) << 8) |
++              (uint32_t(b[2]) << 16) | (uint32_t(b[3]) << 24);
++        return true;
++    }
++    bool id(int& out) {
++        uint32_t value;
++        if (!u32(value) || value > uint32_t(std::numeric_limits<int>::max())) return false;
++        out = int(value); return true;
++    }
++};
++}
++bool parseTuningBundle(std::span<const uint8_t> bytes, Tables& out) {
++    // This exact version is the pinned LDY0730 shape, not an extensible untrusted XML loader.
++    if (bytes.size() > 2 * 1024 * 1024) return false;
++    Reader r{bytes};
++    char magic[8]; uint32_t version, bases, extended, rows, hp, blobs;
++    if (!r.read(magic, 8) || std::memcmp(magic, "SWS0730B", 8) ||
++        !r.u32(version) || version != 1 || !r.u32(bases) || bases != 141 ||
++        !r.u32(extended) || extended != 141 || !r.u32(rows) || rows != 377 ||
++        !r.u32(hp) || hp != 576 || !r.u32(blobs) || blobs != 10) return false;
++    Tables result;
++    int previous = -1;
++    for (uint32_t i = 0; i < bases; ++i) {
++        int id; std::array<uint8_t, 838> value;
++        if (!r.id(id) || id <= previous || !(id & 1) || !r.read(value.data(), value.size()))
++            return false;
++        result.base.emplace(id, value); previous = id;
++    }
++    previous = -1;
++    for (uint32_t i = 0; i < extended; ++i) {
++        int id; std::array<uint8_t, 2552> value;
++        if (!r.id(id) || id <= previous || (id & 1) || !r.read(value.data(), value.size()))
++            return false;
++        result.extended.emplace(id, value); previous = id;
++    }
++    previous = -1;
++    for (uint32_t i = 0; i < rows; ++i) {
++        int key, b, e;
++        if (!r.id(key) || key <= previous || !r.id(b) || !r.id(e) ||
++            !result.base.contains(b) || !result.extended.contains(e)) return false;
++        result.rows.emplace(key, std::pair{b,e}); previous = key;
++    }
++    if (!r.read(result.headphoneTypes.data(), result.headphoneTypes.size())) return false;
++    constexpr uint32_t sizes[] = {22572,24630,82120,131360,131360,5120,19200,4106,8210,1200};
++    for (uint32_t i = 0; i < 10; ++i) {
++        uint32_t index, size;
++        if (!r.u32(index) || index != i || !r.u32(size) || size != sizes[i]) return false;
++        result.blobs[i].resize(size);
++        if (!r.read(result.blobs[i].data(), size)) return false;
++    }
++    if (r.offset != bytes.size()) return false;
++    out = std::move(result); return true;
++}
++std::shared_ptr<const TuningPool> loadTuningBundle(std::span<const uint8_t> bytes) {
++    Tables tables;
++    if (!parseTuningBundle(bytes, tables)) return {};
++    return TuningPool::create(std::move(tables));
++}
++}
+diff --git a/services/audioflinger/sws0730_candidate/Sws0730Bundle.h b/services/audioflinger/sws0730_candidate/Sws0730Bundle.h
+new file mode 100644
+index 0000000..9015888
+--- /dev/null
++++ b/services/audioflinger/sws0730_candidate/Sws0730Bundle.h
+@@ -0,0 +1,8 @@
++#pragma once
++#include "Sws0730.h"
++namespace honor::sws0730 {
++// Control-thread only. Copies bounded bytes into owned immutable pool storage.
++// Caller establishes payload provenance before calling; this parser is not a signature verifier.
++bool parseTuningBundle(std::span<const uint8_t> bytes, Tables& out);
++std::shared_ptr<const TuningPool> loadTuningBundle(std::span<const uint8_t> bytes);
++}
+diff --git a/services/audioflinger/sws0730_candidate/Sws0730Engine.cpp b/services/audioflinger/sws0730_candidate/Sws0730Engine.cpp
+new file mode 100644
+index 0000000..cc4b26e
+--- /dev/null
++++ b/services/audioflinger/sws0730_candidate/Sws0730Engine.cpp
+@@ -0,0 +1,43 @@
++#include "Sws0730Engine.h"
++#include <dlfcn.h>
++#include <memory>
++#include <mutex>
++namespace honor::sws0730 {
++namespace {
++struct LoadedEngine {
++    explicit LoadedEngine(void* value) : handle(value) {}
++    ~LoadedEngine() { dlclose(handle); }
++    void* const handle;
++    Capi functions;
++};
++std::mutex factoryMutex;
++std::weak_ptr<LoadedEngine> liveEngine;
++template<class T> bool resolve(void* handle, const char* name, T& out) {
++    dlerror();
++    void* symbol = dlsym(handle, name);
++    if (dlerror() || !symbol) return false;
++    out = reinterpret_cast<T>(symbol); // POSIX dlsym function-pointer conversion.
++    return true;
++}
++}
++std::optional<Capi> loadEngine() {
++    std::lock_guard lock(factoryMutex);
++    auto engine = liveEngine.lock();
++    if (!engine) {
++        void* handle = dlopen("lib64honorsound73.so", RTLD_NOW | RTLD_LOCAL);
++        if (!handle) return std::nullopt;
++        engine = std::make_shared<LoadedEngine>(handle);
++        auto& api = engine->functions;
++        if (!resolve(handle, "HonorSoundMobileGetSize", api.getSize) ||
++            !resolve(handle, "HonorSoundMobileInit", api.init) ||
++            !resolve(handle, "HonorSoundMobileChkPara", api.check) ||
++            !resolve(handle, "HonorSoundMobileSetPara", api.set) ||
++            !resolve(handle, "HonorSoundMobileApply", api.apply)) return std::nullopt;
++        api.execution = std::make_shared<std::mutex>();
++        liveEngine = engine;
++    }
++    Capi result = engine->functions;
++    result.library = std::move(engine);
++    return result;
++}
++}
+diff --git a/services/audioflinger/sws0730_candidate/Sws0730Engine.h b/services/audioflinger/sws0730_candidate/Sws0730Engine.h
+new file mode 100644
+index 0000000..878f69f
+--- /dev/null
++++ b/services/audioflinger/sws0730_candidate/Sws0730Engine.h
+@@ -0,0 +1,10 @@
++#pragma once
++#include "Sws0730.h"
++#include <optional>
++namespace honor::sws0730 {
++// Control-thread only: loading, symbol lookup and final owner release may invoke the linker.
++// Never call from process(). The verified image must provide the exact private engine.
++// Link this factory into exactly one process DSO (AudioFlinger), shared by all outputs;
++// duplicating this translation unit across DSOs would duplicate its execution lock/cache.
++std::optional<Capi> loadEngine();
++}
+diff --git a/services/audioflinger/sws0730_candidate/Sws0730Gate.cpp b/services/audioflinger/sws0730_candidate/Sws0730Gate.cpp
+new file mode 100644
+index 0000000..353f569
+--- /dev/null
++++ b/services/audioflinger/sws0730_candidate/Sws0730Gate.cpp
+@@ -0,0 +1,30 @@
++// SPDX-License-Identifier: Apache-2.0
++#include "Sws0730Gate.h"
++namespace honor::sws0730 {
++bool GateState::eligible(int stream, bool isStatic) {
++    return !isStatic && (stream == 2 || stream == 3 || stream == 4 || stream == 13);
++}
++bool GateState::silentMusic(int stream, float volume, int mode, bool effectFlag) {
++    return stream == 3 && volume == 0 && mode != 2 && mode != 3 && effectFlag;
++}
++RuntimeDecision GateState::prepare(const GateInput& in) {
++    // Reject inconsistent caller snapshots without advancing the native counter.
++    if (in.eligibleTracks > in.activeTracks || in.silentMusicTracks > in.activeTracks)
++        return {};
++    const bool positive = in.silentMusicTracks > 0 &&
++            in.silentMusicTracks == in.eligibleTracks;
++    if (!positive || in.configuredChannelMask != in.currentChannelMask) {
++        mSilenceBypass = false;
++        mRemaining = 200;
++    } else if (!mSilenceBypass && in.silentMusicTracks == in.activeTracks) {
++        const int old = mRemaining--;
++        if (old <= 0) mSilenceBypass = true;
++    } else {
++        mRemaining = 200;
++    }
++    const bool info2 = in.normalMixer && (!in.hasFastMixer ||
++            (in.deviceMask & 0x04000380) != 0 || in.anyPatch);
++    const bool should = in.effectFlag && !in.factory && !mSilenceBypass && info2;
++    return {true, should, in.eligibleTracks > 0 && !in.diagnosticBypass};
++}
++} // namespace honor::sws0730
+diff --git a/services/audioflinger/sws0730_candidate/Sws0730Gate.h b/services/audioflinger/sws0730_candidate/Sws0730Gate.h
+new file mode 100644
+index 0000000..4c8a66c
+--- /dev/null
++++ b/services/audioflinger/sws0730_candidate/Sws0730Gate.h
+@@ -0,0 +1,31 @@
++// SPDX-License-Identifier: Apache-2.0
++#pragma once
++#include <cstddef>
++#include <cstdint>
++namespace honor::sws0730 {
++// POD snapshots collected at the early prepareTracks boundary, before final-volume updates.
++struct GateInput {
++    size_t activeTracks = 0, eligibleTracks = 0, silentMusicTracks = 0;
++    uint32_t configuredChannelMask = 0, currentChannelMask = 0, deviceMask = 0;
++    bool normalMixer = false, hasFastMixer = false, anyPatch = false;
++    bool effectFlag = false, factory = false, diagnosticBypass = false;
++};
++struct RuntimeDecision {
++    bool known = false, shouldProcess = false, runtimeGate = false;
++};
++class GateState {
++public:
++    RuntimeDecision prepare(const GateInput&);
++    bool silenceBypass() const { return mSilenceBypass; }
++    int remaining() const { return mRemaining; }
++    // Count each active track once; mode must be a captured framework POD.
++    static bool eligible(int stream, bool isStatic);
++    static bool silentMusic(int stream, float previousFinalVolume, int mode, bool effectFlag);
++private:
++#ifdef HONOR_SWS_GATE_TEST
++    friend struct GateStateTestAccess;
++#endif
++    bool mSilenceBypass = false;
++    int mRemaining = 200;
++};
++} // namespace honor::sws0730
+diff --git a/services/audioflinger/sws0730_candidate/Sws0730Mailbox.cpp b/services/audioflinger/sws0730_candidate/Sws0730Mailbox.cpp
+new file mode 100644
+index 0000000..e01499d
+--- /dev/null
++++ b/services/audioflinger/sws0730_candidate/Sws0730Mailbox.cpp
+@@ -0,0 +1,72 @@
++#include "Sws0730Mailbox.h"
++#include <cassert>
++namespace honor::sws0730 {
++std::unique_ptr<OutputMailbox> OutputMailbox::create(int32_t handle, size_t capacity) {
++    if(handle<=0 || !capacity || capacity>65536*8)return {};
++    return std::unique_ptr<OutputMailbox>(new OutputMailbox(handle,capacity));
++}
++OutputMailbox::OutputMailbox(int32_t handle, size_t capacity)
++    : mOutputHandle(handle),mCapacity(capacity),mSnapshot(capacity) {
++    mRetired.reserve(2);
++}
++OutputMailbox::~OutputMailbox() { quiescentClose(); }
++bool OutputMailbox::publish(OutputPublication publication) {
++    if(publication.spec.outputHandle!=mOutputHandle ||
++       (publication.adapter && publication.adapter->spec()!=publication.spec))return false;
++    auto next=std::make_unique<Entry>(std::move(publication));
++    auto old=std::move(mCurrent);
++    mCurrent=std::move(next);
++    mPublished.store(mCurrent.get(),std::memory_order_seq_cst);
++    if(old)mRetired.push_back(std::move(old));
++    collect();return true;
++}
++void OutputMailbox::collect() {
++    const Entry* protectedEntry=mHazard.load(std::memory_order_seq_cst);
++    for(auto i=mRetired.begin();i!=mRetired.end();) {
++        if(i->get()!=protectedEntry)i=mRetired.erase(i);
++        else ++i;
++    }
++}
++void OutputMailbox::quiescentClose() {
++    // Caller must have joined the reader; a null hazard alone does not prove quiescence.
++    assert(mHazard.load(std::memory_order_seq_cst)==nullptr);
++    mPublished.store(nullptr,std::memory_order_seq_cst);
++    mCurrent.reset();mRetired.clear();
++}
++OutputResult OutputMailbox::process(const OutputSpec& spec, const GenerationState& state,
++                                   std::span<uint8_t> sink) {
++    const size_t width=pcmSampleBytes(spec.format);
++    if(spec.outputHandle!=mOutputHandle || !spec.allocationEpoch || !state.generation || !width || spec.channels!=2 ||
++       sink.empty() || sink.size()>mCapacity || sink.size()%(2*width)) return {};
++    if(spec.allocationEpoch!=mReaderSpec.allocationEpoch) {
++        if(spec.allocationEpoch<mReaderSpec.allocationEpoch)return {};
++        mSnapshot.reset();mReaderSpec=spec;mReaderGeneration=0;
++    }
++    if(spec!=mReaderSpec || state.generation<mReaderGeneration)return {};
++    const auto cached=mSnapshot.prepare(state.generation,sink);
++    if(cached==SinkPreparation::Invalid)return {};
++    if(cached==SinkPreparation::Replayed) {
++        auto result=mReaderResult;result.replayed=true;return result;
++    }
++    mReaderGeneration=state.generation;
++    OutputResult result{OutputDisposition::Unqualified,false,0,state.routeEpoch,state.controlRevision,state.decision};
++    // Standard load/publish/revalidate hazard protocol. Never dereference before validation.
++    for(unsigned attempt=0;attempt<2;++attempt) {
++        const Entry* entry=mPublished.load(std::memory_order_seq_cst);
++        mHazard.store(entry,std::memory_order_seq_cst);
++        if(entry!=mPublished.load(std::memory_order_seq_cst)) {
++            mHazard.store(nullptr,std::memory_order_seq_cst);continue;
++        }
++        if(entry) {
++            const auto& p=entry->publication;
++            if(p.spec==spec && p.routeEpoch==state.routeEpoch &&
++               p.controlRevision==state.controlRevision && p.adapter && p.prepared)
++                result=p.adapter->process(spec,state,p.prepared.get(),sink);
++        }
++        mHazard.store(nullptr,std::memory_order_seq_cst);break;
++    }
++    // Also freeze readiness refusal: an entry arriving on a partial retry cannot start DSP.
++    if(!mSnapshot.capture(state.generation,sink))return {};
++    mReaderResult=result;return result;
++}
++}
+diff --git a/services/audioflinger/sws0730_candidate/Sws0730Mailbox.h b/services/audioflinger/sws0730_candidate/Sws0730Mailbox.h
+new file mode 100644
+index 0000000..71b82a5
+--- /dev/null
++++ b/services/audioflinger/sws0730_candidate/Sws0730Mailbox.h
+@@ -0,0 +1,40 @@
++#pragma once
++#include "Sws0730Output.h"
++#include <atomic>
++#include <utility>
++namespace honor::sws0730 {
++struct OutputPublication {
++    OutputSpec spec;
++    uint64_t routeEpoch = 0, controlRevision = 0;
++    std::shared_ptr<OutputAdapter> adapter;
++    std::shared_ptr<const PreparedProfile> prepared;
++};
++class OutputMailbox {
++public:
++    // Single control-worker producer, single output-callback reader.
++    // Capacity allocated on control worker; larger sink returns InvalidContext.
++    static std::unique_ptr<OutputMailbox> create(int32_t outputHandle, size_t maxEncodedBytes);
++    // Destructor/control methods only on worker AFTER callback exit/join.
++    ~OutputMailbox();
++    OutputMailbox(const OutputMailbox&) = delete;
++    OutputMailbox& operator=(const OutputMailbox&) = delete;
++    bool publish(OutputPublication); // Dedicated normal-priority control worker only.
++    void collect(); // Worker only; never wait for reader.
++    void quiescentClose(); // Worker only, after reader joined; no further process.
++    OutputResult process(const OutputSpec&, const GenerationState&, std::span<uint8_t>);
++private:
++    explicit OutputMailbox(int32_t outputHandle, size_t maxEncodedBytes);
++    struct Entry { explicit Entry(OutputPublication p) : publication(std::move(p)) {} OutputPublication publication; };
++    static_assert(std::atomic<const Entry*>::is_always_lock_free);
++    std::atomic<const Entry*> mPublished{nullptr}, mHazard{nullptr};
++    std::unique_ptr<Entry> mCurrent;
++    std::vector<std::unique_ptr<Entry>> mRetired;
++    const int32_t mOutputHandle;
++    const size_t mCapacity;
++    SinkGeneration mSnapshot;
++    // Reader-owned fields; worker never touches while reader is live.
++    OutputSpec mReaderSpec;
++    uint64_t mReaderGeneration = 0;
++    OutputResult mReaderResult;
++};
++}
+diff --git a/services/audioflinger/sws0730_candidate/Sws0730Output.cpp b/services/audioflinger/sws0730_candidate/Sws0730Output.cpp
+new file mode 100644
+index 0000000..dbf780f
+--- /dev/null
++++ b/services/audioflinger/sws0730_candidate/Sws0730Output.cpp
+@@ -0,0 +1,77 @@
++#include "Sws0730Output.h"
++#include <utility>
++#include <algorithm>
++namespace honor::sws0730 {
++namespace {
++bool admitted(const OutputSpec& s) {
++    return s.outputHandle > 0 && s.allocationEpoch && s.sampleRate && s.channels == 2 &&
++            s.maxFrames && s.maxFrames <= 65536 && pcmSampleBytes(s.format) &&
++            (s.outputFlags == 2 || s.outputFlags == 8) && s.normalMixer &&
++            !s.fastMixer && !s.haptics && !s.spatializer && !s.bitPerfect && !s.duplicating;
++}
++}
++std::unique_ptr<OutputAdapter> OutputAdapter::create(
++        Capi api, std::shared_ptr<const TuningPool> pool, const OutputSpec& spec, int& error) {
++    error = 0;
++    if (!admitted(spec)) return {};
++    auto core = Core::create(std::move(api),std::move(pool),spec.maxFrames,error);
++    if (!core) return {};
++    return std::unique_ptr<OutputAdapter>(new OutputAdapter(std::move(core),spec));
++}
++OutputAdapter::OutputAdapter(std::shared_ptr<Core> core, const OutputSpec& spec)
++    : mCore(std::move(core)),mSpec(spec),
++      mSink(spec.maxFrames*2*pcmSampleBytes(spec.format)),
++      mInput(spec.maxFrames*2),mOutput(spec.maxFrames*2) {}
++OutputAdapter::~OutputAdapter() { close(); }
++OutputResult OutputAdapter::process(const OutputSpec& spec, const GenerationState& state,
++                                   const PreparedProfile* prepared, std::span<uint8_t> sink) {
++    const auto width=pcmSampleBytes(mSpec.format);
++    if (mClosed || mInvalid || spec != mSpec || !state.generation || sink.empty() ||
++        sink.size()%(2*width) || sink.size() > mSpec.maxFrames*2*width ||
++        state.generation < mLastGeneration) {
++        mInvalid = true; return {};
++    }
++    const auto cache=mSink.prepare(state.generation,sink);
++    if (cache==SinkPreparation::Invalid) { mInvalid=true; return {}; }
++    if (cache==SinkPreparation::Replayed) {
++        auto result=mLastResult; result.replayed=true; return result;
++    }
++    mLastGeneration=state.generation;
++    const bool current=state.routeEpoch >= mLatestRouteEpoch &&
++                       state.controlRevision >= mLatestControlRevision;
++    mLatestRouteEpoch=std::max(mLatestRouteEpoch,state.routeEpoch);
++    mLatestControlRevision=std::max(mLatestControlRevision,state.controlRevision);
++    OutputResult result{OutputDisposition::Unqualified,false,0,state.routeEpoch,
++                        state.controlRevision,state.decision};
++    if (state.decision.known && !state.decision.shouldProcess) {
++        result.disposition=OutputDisposition::Skipped;
++    } else if (state.decision.known && state.decision.shouldProcess &&
++        state.confirmedSpeaker && state.routeEpoch && state.controlRevision &&
++        current && prepared &&
++        prepared->controls().route==Controls::Route::Speaker) {
++        const size_t samples=sink.size()/width;
++        auto input=std::span(mInput).first(samples), output=std::span(mOutput).first(samples);
++        if (!decodeStereo(mSpec.format,sink,input)) result.disposition=OutputDisposition::InvalidInput;
++        else {
++            const auto committed=mCore->commitPrepared(*prepared);
++            if (committed==Status::Ok) {
++                const auto status=mCore->process(input,output,result.nativeError,state.decision.runtimeGate);
++                if (status==Status::Ok) {
++                    if (!encodeStereo(mSpec.format,output,sink)) {
++                        mInvalid=true; return {};
++                    }
++                    result.disposition=OutputDisposition::Processed;
++                } else result.disposition=OutputDisposition::BackendFailure;
++            } else if (committed==Status::BackendFailure || committed==Status::Closed)
++                result.disposition=OutputDisposition::BackendFailure;
++        }
++    }
++    // Cache unchanged encoded input on refusal/failure as well; never rerun same callback.
++    if (!mSink.capture(state.generation,sink)) { mInvalid=true; return {}; }
++    mLastResult=result; return result;
++}
++void OutputAdapter::close() {
++    if (mClosed) return;
++    mClosed=true; mCore->close(); mCore.reset();
++}
++}
+diff --git a/services/audioflinger/sws0730_candidate/Sws0730Output.h b/services/audioflinger/sws0730_candidate/Sws0730Output.h
+new file mode 100644
+index 0000000..1b08975
+--- /dev/null
++++ b/services/audioflinger/sws0730_candidate/Sws0730Output.h
+@@ -0,0 +1,55 @@
++#pragma once
++#include "Sws0730.h"
++#include "Sws0730Pcm.h"
++#include "Sws0730Gate.h"
++namespace honor::sws0730 {
++struct OutputSpec {
++    int32_t outputHandle = 0;
++    uint64_t allocationEpoch = 0;
++    uint32_t sampleRate = 0, channels = 0, outputFlags = 0;
++    size_t maxFrames = 0;
++    PcmFormat format = PcmFormat::Unsupported;
++    bool normalMixer = false, fastMixer = false, haptics = false;
++    bool spatializer = false, bitPerfect = false, duplicating = false;
++    bool operator==(const OutputSpec&) const = default;
++};
++struct GenerationState {
++    uint64_t generation = 0, routeEpoch = 0, controlRevision = 0;
++    bool confirmedSpeaker = false;
++    RuntimeDecision decision;
++};
++enum class OutputDisposition { Processed, Skipped, Unqualified, InvalidInput, BackendFailure, InvalidContext };
++struct OutputResult {
++    OutputDisposition disposition = OutputDisposition::InvalidContext;
++    bool replayed = false;
++    int nativeError = 0;
++    uint64_t routeEpoch = 0, controlRevision = 0;
++    RuntimeDecision decision;
++};
++class OutputAdapter {
++public:
++    OutputAdapter(const OutputAdapter&) = delete;
++    OutputAdapter& operator=(const OutputAdapter&) = delete;
++    OutputAdapter(OutputAdapter&&) = delete;
++    OutputAdapter& operator=(OutputAdapter&&) = delete;
++    // Control-thread create/retire only. No concurrent process/control/close calls.
++    static std::unique_ptr<OutputAdapter> create(
++            Capi, std::shared_ptr<const TuningPool>, const OutputSpec&, int& nativeError);
++    ~OutputAdapter();
++    const OutputSpec& spec() const { return mSpec; }
++    // One callback owner. Borrowed prepared remains owned by caller off callback.
++    // Sink is the whole encoded generation, not the remaining partial-write slice.
++    OutputResult process(const OutputSpec&, const GenerationState&, const PreparedProfile*,
++                         std::span<uint8_t> sink);
++    void close(); // After callback exit/join, outside AF/effect locks, on control thread.
++private:
++    OutputAdapter(std::shared_ptr<Core>, const OutputSpec&);
++    std::shared_ptr<Core> mCore;
++    const OutputSpec mSpec;
++    SinkGeneration mSink;
++    std::vector<int32_t> mInput, mOutput;
++    uint64_t mLastGeneration = 0, mLatestRouteEpoch = 0, mLatestControlRevision = 0;
++    OutputResult mLastResult;
++    bool mClosed = false, mInvalid = false;
++};
++}
+diff --git a/services/audioflinger/sws0730_candidate/Sws0730Owner.cpp b/services/audioflinger/sws0730_candidate/Sws0730Owner.cpp
+new file mode 100644
+index 0000000..cda1d3a
+--- /dev/null
++++ b/services/audioflinger/sws0730_candidate/Sws0730Owner.cpp
+@@ -0,0 +1,229 @@
++// SPDX-License-Identifier: Apache-2.0
++#include "Sws0730Owner.h"
++#include "Sws0730Bundle.h"
++#include "Sws0730Engine.h"
++#include <condition_variable>
++#include <audio_utils/CommandThread.h>
++#include <utils/Log.h>
++#include <fstream>
++#include <map>
++#include <optional>
++#include <sstream>
++#include <vector>
++
++namespace honor::sws0730 {
++class OutputRegistry {
++public:
++    static OutputRegistry& instance() {
++        // No quit/destructor: queued owner captures must never be discarded on an AF caller.
++        [[clang::no_destroy]] static OutputRegistry registry;
++        return registry;
++    }
++    void enqueue(const char* name, const std::shared_ptr<OutputState>& state,
++                 std::optional<FrameworkControl> control) {
++        const bool accepted = mWorker.add(name, [this, state, control] {
++            if (control) prepare(state, *control);
++            else finish(state);
++        });
++        // mWorker is private, process-lifetime and never quit. Its only rejection is quit.
++        LOG_ALWAYS_FATAL_IF(!accepted, "SWS control worker unexpectedly rejected a task");
++    }
++private:
++#ifdef HONOR_SWS_OWNER_LIFECYCLE_TEST
++    friend struct OwnerLifecycleTestAccess;
++#endif
++    enum Setup { Pending, BackendUnavailable, AwaitingControls, Unqualified,
++                 Ready, Retired, Closed, ContextMismatch, NativeFailure };
++    bool backend() {
++        if (mAttempted) return mApi.has_value() && mPool;
++        mAttempted = true;
++        constexpr size_t size = 914208;
++        std::ifstream file("/system_ext/etc/honor/sws0730.bin", std::ios::binary | std::ios::ate);
++        if (!file || file.tellg() != std::streampos(size)) return false;
++        std::vector<uint8_t> bytes(size);
++        file.seekg(0);
++        if (!file.read(reinterpret_cast<char*>(bytes.data()), bytes.size())) return false;
++        auto pool = loadTuningBundle(bytes);
++        auto api = loadEngine();
++        if (!pool || !api) return false;
++        mPool = std::move(pool); mApi = std::move(api);
++        return true;
++    }
++    void prepare(const std::shared_ptr<OutputState>& state, const FrameworkControl& control) {
++        if (state->mRetired.load()) { finish(state); return; }
++        auto [slot, inserted] = mStates.emplace(state->mHandle, state);
++        if (!inserted && slot->second.get() != state.get()) {
++            state->mSetup.store(ContextMismatch); return;
++        }
++        if (control.spec.outputHandle != state->mHandle ||
++            control.spec.allocationEpoch < state->mWorkerAllocation ||
++            (control.spec.allocationEpoch == state->mWorkerAllocation &&
++                    control.revision < state->mWorkerRevision)) return;
++        state->mWorkerAllocation = control.spec.allocationEpoch;
++        state->mWorkerRevision = control.revision;
++        state->mAllocation.store(control.spec.allocationEpoch);
++        state->mRoute.store(control.routeEpoch); state->mRevision.store(control.revision);
++        state->mRate.store(control.spec.sampleRate); state->mFlags.store(control.spec.outputFlags);
++        state->mFrames.store(control.spec.maxFrames);
++        if (!state->mMailbox) {
++            state->mMailbox = OutputMailbox::create(state->mHandle, 65536 * 8);
++            if (!state->mMailbox) { state->mSetup.store(ContextMismatch); return; }
++            if (!state->mRetired.load()) {
++                state->mReaderMailbox.store(state->mMailbox.get(), std::memory_order_release);
++            }
++        }
++        if (!backend()) { state->mSetup.store(BackendUnavailable); return; }
++        if (state->mRetired.load()) { finish(state); return; }
++        state->mMailbox->collect();
++        if (control.musicIndex < 0 || control.musicIndex > 15) {
++            state->mReady.store(false); state->mSetup.store(AwaitingControls); return;
++        }
++        if (!control.confirmedSpeaker || !control.routeEpoch || !control.revision) {
++            state->mReady.store(false); state->mSetup.store(Unqualified); return;
++        }
++        int error = 0;
++        if (!state->mAdapter || state->mAdapter->spec() != control.spec) {
++            if (state->mAdapter &&
++                    control.spec.allocationEpoch <= state->mAdapter->spec().allocationEpoch) {
++                state->mReady.store(false);
++                state->mSetup.store(ContextMismatch); return;
++            }
++            auto adapter = OutputAdapter::create(*mApi, mPool, control.spec, error);
++            if (!adapter) {
++                state->mReady.store(false); state->mNativeError.store(error);
++                state->mSetup.store(error ? NativeFailure : Unqualified); return;
++            }
++            state->mAdapter = std::shared_ptr<OutputAdapter>(std::move(adapter));
++        }
++        // Native constructor proves fold/mode/scene=0. Stock PostProcInitSws sends
++        // HIFIPARA=true (userEnable=1); framework gate remains caller-proven, never guessed.
++        Controls controls;
++        controls.userEnable = 1;
++        // The callback supplies the proven per-generation raw gate; not a profile revision.
++        controls.processingGate = 0;
++        controls.volumeIndex = control.musicIndex;
++        auto prepared = PreparedProfile::create(*mApi, mPool, controls, error);
++        if (!prepared) {
++            state->mReady.store(false); state->mNativeError.store(error);
++            state->mSetup.store(error ? NativeFailure : Unqualified); return;
++        }
++        if (state->mRetired.load()) { finish(state); return; }
++        const bool published = state->mMailbox->publish(
++                {control.spec, control.routeEpoch, control.revision, state->mAdapter, prepared});
++        state->mReady.store(published); state->mNativeError.store(error);
++        state->mSetup.store(published ? Ready : ContextMismatch);
++    }
++    void finish(const std::shared_ptr<OutputState>& state) {
++        if (!state->mRetired.load() || !state->mJoined.load()) return;
++        state->mReaderMailbox.store(nullptr, std::memory_order_release);
++        state->mReady.store(false);
++        if (state->mMailbox) {
++            state->mMailbox->quiescentClose();
++            state->mMailbox.reset();
++        }
++        state->mAdapter.reset(); // All final Core/DSO/pool owner release stays on worker.
++        state->mSetup.store(Closed); state->mClosed.store(true);
++        const auto it = mStates.find(state->mHandle);
++        if (it != mStates.end() && it->second.get() == state.get()) mStates.erase(it);
++    }
++    bool mAttempted = false;
++    std::optional<Capi> mApi;
++    std::shared_ptr<const TuningPool> mPool;
++    std::map<int32_t, std::shared_ptr<OutputState>> mStates;
++    // Separate from AF/TB callback queues; 120 means SCHED_OTHER nice0.
++    android::audio_utils::CommandThread mWorker{"LDY_SwsControl", 120};
++};
++std::shared_ptr<OutputState> OutputState::create(const FrameworkControl& control) {
++    if (control.spec.outputHandle <= 0) return {};
++    auto state = std::shared_ptr<OutputState>(new OutputState(control.spec.outputHandle));
++    OutputRegistry::instance().enqueue("create", state, control);
++    return state;
++}
++void OutputState::update(const FrameworkControl& control) {
++    if (!mRetired.load()) OutputRegistry::instance().enqueue("prepare", shared_from_this(), control);
++}
++void OutputState::retire() { mRetired.store(true); }
++void OutputState::readerJoined() {
++    mRetired.store(true); mJoined.store(true);
++    OutputRegistry::instance().enqueue("retire", shared_from_this(), std::nullopt);
++}
++OutputResult OutputState::process(const OutputSpec& spec, const GenerationState& state,
++                                 std::span<uint8_t> sink) {
++    OutputResult result{OutputDisposition::Unqualified, false, 0,
++                        state.routeEpoch, state.controlRevision,state.decision};
++    if (spec.outputHandle != mHandle || !spec.allocationEpoch || !state.generation) return {};
++    const bool retry = spec.allocationEpoch == mLastCallAllocation
++            && state.generation == mLastCallGeneration;
++    mLastCallAllocation = spec.allocationEpoch; mLastCallGeneration = state.generation;
++    auto* mailbox = mReaderMailbox.load(std::memory_order_acquire);
++    if (!mailbox) {
++        if (!retry) mNoMailboxResult = result;
++        result = mNoMailboxResult;
++        result.replayed = retry;
++        mNoMailboxAllocation = spec.allocationEpoch;
++        mNoMailboxGeneration = state.generation;
++    } else if (mNoMailboxAllocation != spec.allocationEpoch ||
++               mNoMailboxGeneration != state.generation) {
++        result = mailbox->process(spec, state, sink);
++    } else {
++        result = mNoMailboxResult;
++        result.replayed = retry;
++    }
++    // A mailbox arriving mid-partial-write must not start DSP in that pending raw generation.
++    if (retry) mRetries.fetch_add(1, std::memory_order_relaxed);
++    else {
++        if (result.disposition == OutputDisposition::Processed) {
++            mProcessed.fetch_add(1, std::memory_order_relaxed);
++            // Processed means Core accepted this callback, including initial queue prefill.
++            // It does not prove a native Apply call occurred or an audible DSP result.
++            if (result.decision.known && result.decision.shouldProcess) {
++                auto& counter = result.decision.runtimeGate ? mCoreRaw1NewCalls : mCoreRaw0NewCalls;
++                counter.fetch_add(1, std::memory_order_relaxed);
++            }
++        } else {
++            mRefused.fetch_add(1, std::memory_order_relaxed);
++            if (result.disposition == OutputDisposition::Skipped)
++                mSkippedNewCalls.fetch_add(1, std::memory_order_relaxed);
++            else if (result.disposition == OutputDisposition::BackendFailure)
++                mBackendFailureNewCalls.fetch_add(1, std::memory_order_relaxed);
++        }
++        if (!result.decision.known) mUnknownNewCalls.fetch_add(1, std::memory_order_relaxed);
++    }
++    if (result.nativeError) mNativeError.store(result.nativeError, std::memory_order_relaxed);
++    const auto& decision = result.decision; // Cached result, never this retry's requested gate.
++    const uint64_t outcome = 1 | (uint64_t(decision.known) << 1)
++            | (uint64_t(decision.shouldProcess) << 2) | (uint64_t(decision.runtimeGate) << 3)
++            | (uint64_t(retry) << 4) | (uint64_t(result.replayed) << 5)
++            | (static_cast<uint64_t>(result.disposition) << 8);
++    mLastOutcome.store(outcome, std::memory_order_relaxed);
++    return result;
++}
++std::string OutputState::diagnostics() const {
++    std::ostringstream out;
++    const uint64_t latest = mLastOutcome.load(std::memory_order_relaxed);
++    out << "SWS output=" << mHandle << " ready=" << mReady.load()
++        << " retired=" << mRetired.load() << " joined=" << mJoined.load()
++        << " closed=" << mClosed.load()
++        << " mailbox=" << (mReaderMailbox.load(std::memory_order_acquire) != nullptr)
++        << " allocation=" << mAllocation.load()
++        << " rate=" << mRate.load() << " flags=" << mFlags.load()
++        << " frames=" << mFrames.load() << " route=" << mRoute.load()
++        << " revision=" << mRevision.load() << " setup=" << mSetup.load()
++        << " nativeError=" << mNativeError.load()
++        << " latestRecorded=" << (latest & 1)
++        << " latestKnown=" << ((latest >> 1) & 1)
++        << " latestShouldProcess=" << ((latest >> 2) & 1)
++        << " latestRuntimeGate=" << ((latest >> 3) & 1)
++        << " latestOwnerRetry=" << ((latest >> 4) & 1)
++        << " latestReplayed=" << ((latest >> 5) & 1)
++        << " latestDisposition=" << ((latest >> 8) & 0xff)
++        << " processedNewCalls=" << mProcessed.load() << " refusedNewCalls=" << mRefused.load()
++        << " retryCalls=" << mRetries.load()
++        << " coreRaw0NewCalls=" << mCoreRaw0NewCalls.load()
++        << " coreRaw1NewCalls=" << mCoreRaw1NewCalls.load()
++        << " skippedNewCalls=" << mSkippedNewCalls.load()
++        << " backendFailureNewCalls=" << mBackendFailureNewCalls.load()
++        << " unknownDecisionNewCalls=" << mUnknownNewCalls.load();
++    return out.str();
++}
++} // namespace honor::sws0730
+diff --git a/services/audioflinger/sws0730_candidate/Sws0730Owner.h b/services/audioflinger/sws0730_candidate/Sws0730Owner.h
+new file mode 100644
+index 0000000..231db1b
+--- /dev/null
++++ b/services/audioflinger/sws0730_candidate/Sws0730Owner.h
+@@ -0,0 +1,60 @@
++// SPDX-License-Identifier: Apache-2.0
++#pragma once
++#include "Sws0730Mailbox.h"
++#include <atomic>
++#include <memory>
++#include <string>
++
++namespace honor::sws0730 {
++struct FrameworkControl {
++    OutputSpec spec;
++    uint64_t routeEpoch = 0, revision = 0;
++    int musicIndex = -1;
++    bool confirmedSpeaker = false;
++};
++class OutputRegistry;
++class OutputState : public std::enable_shared_from_this<OutputState> {
++public:
++    static std::shared_ptr<OutputState> create(const FrameworkControl&);
++    void update(const FrameworkControl&); // Control caller only, no AF raw capture.
++    void retire(); // Before requesting callback exit; does not free anything.
++    void readerJoined(); // ONLY after requestExitAndWait returned NO_ERROR.
++    OutputResult process(const OutputSpec&, const GenerationState&, std::span<uint8_t>);
++    std::string diagnostics() const; // Dump/control caller only.
++    OutputState(const OutputState&) = delete;
++    OutputState& operator=(const OutputState&) = delete;
++private:
++    friend class OutputRegistry;
++#ifdef HONOR_SWS_OWNER_LIFECYCLE_TEST
++    friend struct OwnerLifecycleTestAccess;
++#endif
++    explicit OutputState(int32_t outputHandle) : mHandle(outputHandle) {}
++    const int32_t mHandle;
++    std::atomic<bool> mRetired{false}, mJoined{false}, mReady{false}, mClosed{false};
++    std::atomic<OutputMailbox*> mReaderMailbox{nullptr};
++    static_assert(std::atomic<OutputMailbox*>::is_always_lock_free);
++    static_assert(std::atomic<uint64_t>::is_always_lock_free);
++    static_assert(std::atomic<int>::is_always_lock_free);
++    // Worker owns all heavy resources. Registry keeps State alive until joined cleanup.
++    std::unique_ptr<OutputMailbox> mMailbox;
++    std::shared_ptr<OutputAdapter> mAdapter;
++    uint64_t mWorkerAllocation = 0, mWorkerRevision = 0;
++    std::atomic<uint64_t> mAllocation{0}, mRoute{0}, mRevision{0};
++    std::atomic<uint32_t> mRate{0}, mFlags{0};
++    std::atomic<size_t> mFrames{0};
++    std::atomic<int> mSetup{0}, mNativeError{0};
++    std::atomic<uint64_t> mProcessed{0}, mRefused{0}, mRetries{0};
++    // Counts first calls per consecutive (allocation,generation), never frames/Apply calls.
++    // The single-reader producer must keep generations monotonic; partial retries do not count.
++    std::atomic<uint64_t> mCoreRaw0NewCalls{0}, mCoreRaw1NewCalls{0};
++    std::atomic<uint64_t> mSkippedNewCalls{0}, mBackendFailureNewCalls{0}, mUnknownNewCalls{0};
++    // One packed snapshot: recorded/known/should/raw/retry/replayed in bits0..5,
++    // disposition in bits8..15. A single dump load observes a coherent last outcome.
++    std::atomic<uint64_t> mLastOutcome{
++            static_cast<uint64_t>(OutputDisposition::InvalidContext) << 8};
++    // One callback reader only. No worker access to this readiness latch.
++    uint64_t mNoMailboxAllocation = 0, mNoMailboxGeneration = 0;
++    OutputResult mNoMailboxResult;
++    uint64_t mLastCallAllocation = 0, mLastCallGeneration = 0;
++};
++} // namespace honor::sws0730
+diff --git a/services/audioflinger/sws0730_candidate/Sws0730Pcm.cpp b/services/audioflinger/sws0730_candidate/Sws0730Pcm.cpp
+new file mode 100644
+index 0000000..fa875ee
+--- /dev/null
++++ b/services/audioflinger/sws0730_candidate/Sws0730Pcm.cpp
+@@ -0,0 +1,52 @@
++#include "Sws0730Pcm.h"
++#include <audio_utils/primitives.h>
++#include <cmath>
++#include <cstring>
++#include <limits>
++namespace honor::sws0730 {
++size_t pcmSampleBytes(PcmFormat format) {
++    switch(format) {
++        case PcmFormat::Int16: return 2;
++        case PcmFormat::Float32: case PcmFormat::Int32: return 4;
++        default: return 0;
++    }
++}
++namespace {
++bool shape(PcmFormat format, const void* bytes, size_t count, size_t samples) {
++    const auto width=pcmSampleBytes(format);
++    return width && samples && !(samples%2) &&
++            samples<=std::numeric_limits<size_t>::max()/width &&
++            count==samples*width && reinterpret_cast<uintptr_t>(bytes)%width==0;
++}
++}
++bool decodeStereo(PcmFormat format, std::span<const uint8_t> input, std::span<int32_t> output) {
++    if(!shape(format,input.data(),input.size(),output.size())) return false;
++    switch(format) {
++        case PcmFormat::Int16:
++            memcpy_to_i32_from_i16(output.data(),reinterpret_cast<const int16_t*>(input.data()),
++                                  output.size()); return true;
++        case PcmFormat::Float32: {
++            const auto* values=reinterpret_cast<const float*>(input.data());
++            for(size_t i=0;i<output.size();++i) if(!std::isfinite(values[i])) return false;
++            memcpy_to_i32_from_float(output.data(),values,output.size()); return true;
++        }
++        case PcmFormat::Int32:
++            std::memcpy(output.data(),input.data(),input.size()); return true;
++        default: return false;
++    }
++}
++bool encodeStereo(PcmFormat format, std::span<const int32_t> input, std::span<uint8_t> output) {
++    if(!shape(format,output.data(),output.size(),input.size())) return false;
++    switch(format) {
++        case PcmFormat::Int16:
++            memcpy_to_i16_from_i32(reinterpret_cast<int16_t*>(output.data()),input.data(),
++                                  input.size()); return true;
++        case PcmFormat::Float32:
++            memcpy_to_float_from_i32(reinterpret_cast<float*>(output.data()),input.data(),
++                                    input.size()); return true;
++        case PcmFormat::Int32:
++            std::memcpy(output.data(),input.data(),output.size()); return true;
++        default: return false;
++    }
++}
++}
+diff --git a/services/audioflinger/sws0730_candidate/Sws0730Pcm.h b/services/audioflinger/sws0730_candidate/Sws0730Pcm.h
+new file mode 100644
+index 0000000..ccf90b9
+--- /dev/null
++++ b/services/audioflinger/sws0730_candidate/Sws0730Pcm.h
+@@ -0,0 +1,10 @@
++#pragma once
++#include <cstdint>
++#include <cstddef>
++#include <span>
++namespace honor::sws0730 {
++enum class PcmFormat { Unsupported, Int16, Float32, Int32 };
++size_t pcmSampleBytes(PcmFormat);
++bool decodeStereo(PcmFormat, std::span<const uint8_t>, std::span<int32_t>);
++bool encodeStereo(PcmFormat, std::span<const int32_t>, std::span<uint8_t>);
++}
+diff --git a/services/audiopolicy/managerdefault/AudioPolicyManager.cpp b/services/audiopolicy/managerdefault/AudioPolicyManager.cpp
+index 2b588ec..b3c7ff4 100644
+--- a/services/audiopolicy/managerdefault/AudioPolicyManager.cpp
++++ b/services/audiopolicy/managerdefault/AudioPolicyManager.cpp
+@@ -48,6 +48,7 @@
+ #include <cutils/bitops.h>
+ #include <error/expected_utils.h>
+ #include <media/AudioParameter.h>
++#include <media/HonorSwsControl.h>
+ #include <policy.h>
+ #include <private/android_filesystem_config.h>
+ #include <system/audio.h>
+@@ -9280,6 +9281,28 @@ status_t AudioPolicyManager::checkAndSetVolume(IVolumeCurves &curves,
+                 Volume::getDeviceForVolume(deviceTypes) == AUDIO_DEVICE_OUT_BLE_BROADCAST;
+         muted = curves.isMuted() && !outputDesc->isFixedVolume(deviceTypes) && !isBleBroadcast;
+     }
++    // Current LDY stock/Lineage music curves expose exact UI indices 0..15.
++    // This new framework-only command never rescales dB or re-applies stock /10.
++    const auto& swsStreams = curves.getStreamTypes();
++    if (property_get_bool(honor_sws::kControlProperty, false)
++            && curves.getVolumeIndexMin() == 0 && curves.getVolumeIndexMax() == 15
++            && index >= 0 && index <= 15
++            && std::find(swsStreams.begin(), swsStreams.end(), AUDIO_STREAM_MUSIC)
++                    != swsStreams.end()
++            && isSingleDeviceType(deviceTypes, AUDIO_DEVICE_OUT_SPEAKER)) {
++        for (size_t i = 0; i < mOutputs.size(); ++i) {
++            const auto& swsOutput = mOutputs.valueAt(i);
++            if (swsOutput.get() == outputDesc.get() && !swsOutput->isDuplicated()
++                    && (swsOutput->mFlags == AUDIO_OUTPUT_FLAG_PRIMARY
++                            || swsOutput->mFlags == AUDIO_OUTPUT_FLAG_DEEP_BUFFER)) {
++                mpClientInterface->setParameters(mOutputs.keyAt(i),
++                        String8::format("%s=v1:speaker:%d",
++                                honor_sws::kMusicIndexKey.data(), index), delayMs);
++                break;
++            }
++        }
++    }
++
+     outputDesc->setVolume(volumeDb, muted, volumeSource, curves.getStreamTypes(),
+             deviceTypes, delayMs, force, isVoiceVolSrc);
+ 
 diff --git a/services/camera/libcameraservice/aidl/AidlCameraService.cpp b/services/camera/libcameraservice/aidl/AidlCameraService.cpp
 index 8e5bbde..a9afc9c 100644
 --- a/services/camera/libcameraservice/aidl/AidlCameraService.cpp
