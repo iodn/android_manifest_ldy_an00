@@ -1,5 +1,5 @@
 diff --git a/Android.bp b/Android.bp
-index 3b610e9..306a568 100644
+index 3b610e961982888a5a11ff0f739961aee08808fc..306a5685fe106fc1069a3823da858b696cfb733d 100644
 --- a/Android.bp
 +++ b/Android.bp
 @@ -20,6 +20,7 @@ android_library {
@@ -11,7 +11,7 @@ index 3b610e9..306a568 100644
      ],
      srcs: [
 diff --git a/app-common/src/main/java/im/angry/openeuicc/core/DefaultEuiccChannelManager.kt b/app-common/src/main/java/im/angry/openeuicc/core/DefaultEuiccChannelManager.kt
-index 84c1d9b..c6c1820 100644
+index 84c1d9bcab55150f7baedd712ab9a2bb2dc731c9..c6c1820c3a243953b26c0948e1c78f51f78382e4 100644
 --- a/app-common/src/main/java/im/angry/openeuicc/core/DefaultEuiccChannelManager.kt
 +++ b/app-common/src/main/java/im/angry/openeuicc/core/DefaultEuiccChannelManager.kt
 @@ -26,6 +26,7 @@ open class DefaultEuiccChannelManager(
@@ -228,7 +228,7 @@ index 84c1d9b..c6c1820 100644
      }
  }
 diff --git a/app-common/src/main/java/im/angry/openeuicc/core/EuiccChannelImpl.kt b/app-common/src/main/java/im/angry/openeuicc/core/EuiccChannelImpl.kt
-index 2e508ae..19dc8b0 100644
+index 2e508aeac792a550493a3c6fa9aee7beb9a03eaa..19dc8b0e0d0b75f0d71a61292a63efadf2a360bf 100644
 --- a/app-common/src/main/java/im/angry/openeuicc/core/EuiccChannelImpl.kt
 +++ b/app-common/src/main/java/im/angry/openeuicc/core/EuiccChannelImpl.kt
 @@ -50,5 +50,12 @@ class EuiccChannelImpl(
@@ -246,7 +246,7 @@ index 2e508ae..19dc8b0 100644
 +    }
  }
 diff --git a/app-common/src/main/java/im/angry/openeuicc/core/EuiccChannelManager.kt b/app-common/src/main/java/im/angry/openeuicc/core/EuiccChannelManager.kt
-index 7410232..1d40ad1 100644
+index 74102321bbbdedba461c2fdd7135ce7cbdbce002..1d40ad13984a7a8293e8e83724f0e4642b2d52a5 100644
 --- a/app-common/src/main/java/im/angry/openeuicc/core/EuiccChannelManager.kt
 +++ b/app-common/src/main/java/im/angry/openeuicc/core/EuiccChannelManager.kt
 @@ -106,4 +106,12 @@ interface EuiccChannelManager {
@@ -263,7 +263,7 @@ index 7410232..1d40ad1 100644
 +    }
  }
 diff --git a/app-common/src/main/java/im/angry/openeuicc/core/EuiccChannelWrapper.kt b/app-common/src/main/java/im/angry/openeuicc/core/EuiccChannelWrapper.kt
-index e47d403..9a1ff68 100644
+index e47d403b669174529da2097535f1f4ed08702117..9a1ff68cd2f1ba60b08e9f4f2a070d3e1a142c15 100644
 --- a/app-common/src/main/java/im/angry/openeuicc/core/EuiccChannelWrapper.kt
 +++ b/app-common/src/main/java/im/angry/openeuicc/core/EuiccChannelWrapper.kt
 @@ -29,7 +29,10 @@ class EuiccChannelWrapper(orig: EuiccChannel) : EuiccChannel {
@@ -280,7 +280,7 @@ index e47d403..9a1ff68 100644
      override val valid: Boolean
 diff --git a/app-common/src/main/java/im/angry/openeuicc/core/HonorLpaChannelAccess.kt b/app-common/src/main/java/im/angry/openeuicc/core/HonorLpaChannelAccess.kt
 new file mode 100644
-index 0000000..96a4155
+index 0000000000000000000000000000000000000000..96a41557a7130bc8b1b7380c0126755a72edcb0b
 --- /dev/null
 +++ b/app-common/src/main/java/im/angry/openeuicc/core/HonorLpaChannelAccess.kt
 @@ -0,0 +1,23 @@
@@ -309,7 +309,7 @@ index 0000000..96a4155
 +}
 diff --git a/app-common/src/main/java/im/angry/openeuicc/core/HonorLpaDiscoveryIntent.kt b/app-common/src/main/java/im/angry/openeuicc/core/HonorLpaDiscoveryIntent.kt
 new file mode 100644
-index 0000000..a290e1a
+index 0000000000000000000000000000000000000000..a290e1ac69d4784b25931ddd60bdeb6faeac89df
 --- /dev/null
 +++ b/app-common/src/main/java/im/angry/openeuicc/core/HonorLpaDiscoveryIntent.kt
 @@ -0,0 +1,20 @@
@@ -335,7 +335,7 @@ index 0000000..a290e1a
 +}
 diff --git a/app-common/src/main/java/im/angry/openeuicc/core/HonorLpaLeaseClient.kt b/app-common/src/main/java/im/angry/openeuicc/core/HonorLpaLeaseClient.kt
 new file mode 100644
-index 0000000..a7eb8e6
+index 0000000000000000000000000000000000000000..a7eb8e6ae85e4662bbcc49e5f2b328db5e7459eb
 --- /dev/null
 +++ b/app-common/src/main/java/im/angry/openeuicc/core/HonorLpaLeaseClient.kt
 @@ -0,0 +1,301 @@
@@ -642,7 +642,7 @@ index 0000000..a7eb8e6
 +}
 diff --git a/app-common/src/main/java/im/angry/openeuicc/core/HonorLpaOperationJournal.kt b/app-common/src/main/java/im/angry/openeuicc/core/HonorLpaOperationJournal.kt
 new file mode 100644
-index 0000000..515b172
+index 0000000000000000000000000000000000000000..515b17290f263718c36fc41a6bd172075d23ae5c
 --- /dev/null
 +++ b/app-common/src/main/java/im/angry/openeuicc/core/HonorLpaOperationJournal.kt
 @@ -0,0 +1,52 @@
@@ -700,7 +700,7 @@ index 0000000..515b172
 +}
 diff --git a/app-common/src/main/java/im/angry/openeuicc/core/LastProfileProof.kt b/app-common/src/main/java/im/angry/openeuicc/core/LastProfileProof.kt
 new file mode 100644
-index 0000000..8f24612
+index 0000000000000000000000000000000000000000..8f24612f959ef5f81c440fed5abe14a110fa8b18
 --- /dev/null
 +++ b/app-common/src/main/java/im/angry/openeuicc/core/LastProfileProof.kt
 @@ -0,0 +1,12 @@
@@ -717,7 +717,7 @@ index 0000000..8f24612
 +    }
 +}
 diff --git a/app-common/src/main/java/im/angry/openeuicc/core/LocalProfileAssistantWrapper.kt b/app-common/src/main/java/im/angry/openeuicc/core/LocalProfileAssistantWrapper.kt
-index 469a2bd..66204b6 100644
+index 469a2bdc2d270b05bfcaf34da62f88b39f1f05a9..66204b6d209b5fbb455a2d7c2f72a7027246a873 100644
 --- a/app-common/src/main/java/im/angry/openeuicc/core/LocalProfileAssistantWrapper.kt
 +++ b/app-common/src/main/java/im/angry/openeuicc/core/LocalProfileAssistantWrapper.kt
 @@ -7,8 +7,10 @@ import net.typeblog.lpac_jni.LocalProfileInfo
@@ -790,7 +790,7 @@ index 469a2bd..66204b6 100644
      override fun close() = lpa.close()
 diff --git a/app-common/src/main/java/im/angry/openeuicc/core/LogicalChannelCloseProof.kt b/app-common/src/main/java/im/angry/openeuicc/core/LogicalChannelCloseProof.kt
 new file mode 100644
-index 0000000..d76ed41
+index 0000000000000000000000000000000000000000..d76ed41143d9ac61a500bc8b2c3dc558fc4c7e2b
 --- /dev/null
 +++ b/app-common/src/main/java/im/angry/openeuicc/core/LogicalChannelCloseProof.kt
 @@ -0,0 +1,6 @@
@@ -802,7 +802,7 @@ index 0000000..d76ed41
 +}
 diff --git a/app-common/src/main/java/im/angry/openeuicc/core/LogicalChannelCloseReceipt.kt b/app-common/src/main/java/im/angry/openeuicc/core/LogicalChannelCloseReceipt.kt
 new file mode 100644
-index 0000000..10ed98f
+index 0000000000000000000000000000000000000000..10ed98f78a5069855b77c725874284fb6e80d2a6
 --- /dev/null
 +++ b/app-common/src/main/java/im/angry/openeuicc/core/LogicalChannelCloseReceipt.kt
 @@ -0,0 +1,22 @@
@@ -830,7 +830,7 @@ index 0000000..10ed98f
 +}
 diff --git a/app-common/src/main/java/im/angry/openeuicc/core/LpaChannelAdmission.kt b/app-common/src/main/java/im/angry/openeuicc/core/LpaChannelAdmission.kt
 new file mode 100644
-index 0000000..b6f31a2
+index 0000000000000000000000000000000000000000..b6f31a2e9c6c6382b139402350b4ad4cc326d7ff
 --- /dev/null
 +++ b/app-common/src/main/java/im/angry/openeuicc/core/LpaChannelAdmission.kt
 @@ -0,0 +1,25 @@
@@ -861,7 +861,7 @@ index 0000000..b6f31a2
 +}
 diff --git a/app-common/src/main/java/im/angry/openeuicc/core/NativeMutationBoundary.kt b/app-common/src/main/java/im/angry/openeuicc/core/NativeMutationBoundary.kt
 new file mode 100644
-index 0000000..38b32f8
+index 0000000000000000000000000000000000000000..38b32f80169186693ee4855314e5f37056b4d081
 --- /dev/null
 +++ b/app-common/src/main/java/im/angry/openeuicc/core/NativeMutationBoundary.kt
 @@ -0,0 +1,26 @@
@@ -893,7 +893,7 @@ index 0000000..38b32f8
 +}
 diff --git a/app-common/src/main/java/im/angry/openeuicc/core/SharedSlotOperationGate.kt b/app-common/src/main/java/im/angry/openeuicc/core/SharedSlotOperationGate.kt
 new file mode 100644
-index 0000000..56e7da7
+index 0000000000000000000000000000000000000000..56e7da768d7294231966c86571776bd4f4a00ae6
 --- /dev/null
 +++ b/app-common/src/main/java/im/angry/openeuicc/core/SharedSlotOperationGate.kt
 @@ -0,0 +1,15 @@
@@ -914,7 +914,7 @@ index 0000000..56e7da7
 +}
 diff --git a/app-common/src/main/java/im/angry/openeuicc/core/SharedSlotOperationPolicy.kt b/app-common/src/main/java/im/angry/openeuicc/core/SharedSlotOperationPolicy.kt
 new file mode 100644
-index 0000000..4ae3150
+index 0000000000000000000000000000000000000000..4ae31501a20db3560f9d7b285cbb434cdb60837b
 --- /dev/null
 +++ b/app-common/src/main/java/im/angry/openeuicc/core/SharedSlotOperationPolicy.kt
 @@ -0,0 +1,8 @@
@@ -928,7 +928,7 @@ index 0000000..4ae3150
 +}
 diff --git a/app-common/src/main/java/im/angry/openeuicc/service/DownloadedProfilePublication.kt b/app-common/src/main/java/im/angry/openeuicc/service/DownloadedProfilePublication.kt
 new file mode 100644
-index 0000000..269955c
+index 0000000000000000000000000000000000000000..269955c2575a72d6de2a20539dc6b788104e5ae8
 --- /dev/null
 +++ b/app-common/src/main/java/im/angry/openeuicc/service/DownloadedProfilePublication.kt
 @@ -0,0 +1,19 @@
@@ -952,7 +952,7 @@ index 0000000..269955c
 +    }
 +}
 diff --git a/app-common/src/main/java/im/angry/openeuicc/service/EuiccChannelManagerService.kt b/app-common/src/main/java/im/angry/openeuicc/service/EuiccChannelManagerService.kt
-index bce9efc..c2d533f 100644
+index bce9efcd89f0722a1eb2dba5a485a1919aa45be3..c2d533fe8f2db37aa94bb6ab4dbb6a02af2f4d5c 100644
 --- a/app-common/src/main/java/im/angry/openeuicc/service/EuiccChannelManagerService.kt
 +++ b/app-common/src/main/java/im/angry/openeuicc/service/EuiccChannelManagerService.kt
 @@ -14,6 +14,9 @@ import androidx.lifecycle.lifecycleScope
@@ -1298,7 +1298,7 @@ index bce9efc..c2d533f 100644
          }
 diff --git a/app-common/src/main/java/im/angry/openeuicc/service/FrameworkProfileDownload.kt b/app-common/src/main/java/im/angry/openeuicc/service/FrameworkProfileDownload.kt
 new file mode 100644
-index 0000000..566ecd7
+index 0000000000000000000000000000000000000000..566ecd7cd5a897257e87cd5720f89287d477bc7d
 --- /dev/null
 +++ b/app-common/src/main/java/im/angry/openeuicc/service/FrameworkProfileDownload.kt
 @@ -0,0 +1,79 @@
@@ -1382,7 +1382,7 @@ index 0000000..566ecd7
 +    }
 +}
 diff --git a/app-common/src/main/java/im/angry/openeuicc/ui/EuiccManagementFragment.kt b/app-common/src/main/java/im/angry/openeuicc/ui/EuiccManagementFragment.kt
-index 49006a7..83627b0 100644
+index 49006a78bbcf83e521bf8e3039f5bae2f0576db2..83627b06039e7e504d8f72eecba52f43c58761c6 100644
 --- a/app-common/src/main/java/im/angry/openeuicc/ui/EuiccManagementFragment.kt
 +++ b/app-common/src/main/java/im/angry/openeuicc/ui/EuiccManagementFragment.kt
 @@ -30,7 +30,8 @@ import com.google.android.material.floatingactionbutton.FloatingActionButton
@@ -1454,7 +1454,7 @@ index 49006a7..83627b0 100644
          }
 diff --git a/app-common/src/main/java/im/angry/openeuicc/ui/KnownBlankUi.kt b/app-common/src/main/java/im/angry/openeuicc/ui/KnownBlankUi.kt
 new file mode 100644
-index 0000000..7c2160d
+index 0000000000000000000000000000000000000000..7c2160d2ffec8c3367e48875f1c8d9cf3f432df0
 --- /dev/null
 +++ b/app-common/src/main/java/im/angry/openeuicc/ui/KnownBlankUi.kt
 @@ -0,0 +1,11 @@
@@ -1470,7 +1470,7 @@ index 0000000..7c2160d
 +    finishAffinity()
 +}
 diff --git a/app-common/src/main/java/im/angry/openeuicc/ui/MainActivity.kt b/app-common/src/main/java/im/angry/openeuicc/ui/MainActivity.kt
-index 6dd7de8..f513271 100644
+index 6dd7de88f9f26004bf8c466531e22a999146bcc9..d02371f5200f037108ffbdd9f01a89f99458c54e 100644
 --- a/app-common/src/main/java/im/angry/openeuicc/ui/MainActivity.kt
 +++ b/app-common/src/main/java/im/angry/openeuicc/ui/MainActivity.kt
 @@ -81,6 +81,10 @@ open class MainActivity : BaseEuiccAccessActivity(), OpenEuiccContextMarker {
@@ -1492,7 +1492,7 @@ index 6dd7de8..f513271 100644
          refreshing = true // We don't check this here -- the check happens in refresh()
          loadingProgress.visibility = View.VISIBLE
          viewPager.visibility = View.GONE
-@@ -164,13 +169,28 @@ open class MainActivity : BaseEuiccAccessActivity(), OpenEuiccContextMarker {
+@@ -164,13 +169,32 @@ open class MainActivity : BaseEuiccAccessActivity(), OpenEuiccContextMarker {
          // Prevent concurrent access with any running foreground task
          euiccChannelManagerService.waitForForegroundTask()
  
@@ -1505,8 +1505,12 @@ index 6dd7de8..f513271 100644
 +                    this, 1, 0, cardId)
 +            } catch (cancelled: kotlinx.coroutines.CancellationException) {
 +                throw cancelled
-+            } catch (_: Exception) {
-+                android.widget.Toast.makeText(this, R.string.download_wizard_error_generic,
++            } catch (failure: Exception) {
++                val message = if (im.angry.openeuicc.core.HonorLpaChannelAccess
++                        .isEndpointNotReadyFailure(failure)) {
++                    R.string.esim_endpoint_not_ready_guidance
++                } else R.string.download_wizard_error_generic
++                android.widget.Toast.makeText(this, message,
 +                    android.widget.Toast.LENGTH_LONG).show()
 +                finishAffinity()
 +                return
@@ -1524,7 +1528,7 @@ index 6dd7de8..f513271 100644
              Log.d(TAG, "slot $slotId port $portId")
  
              euiccChannelManager.flowEuiccSecureElements(slotId, portId).onEach { seId ->
-@@ -246,6 +266,14 @@ open class MainActivity : BaseEuiccAccessActivity(), OpenEuiccContextMarker {
+@@ -246,6 +270,14 @@ open class MainActivity : BaseEuiccAccessActivity(), OpenEuiccContextMarker {
          ShortcutManagerCompat.setDynamicShortcuts(this, buildShortcuts().take(4))
  
          refreshing = false
@@ -1532,7 +1536,7 @@ index 6dd7de8..f513271 100644
 +            refreshing=false;loadingProgress.visibility=View.GONE
 +            if(im.angry.openeuicc.core.HonorLpaChannelAccess.isKnownBlankFailure(failure)) finishForKnownBlank()
 +            else if(im.angry.openeuicc.core.HonorLpaChannelAccess.isEndpointNotReadyFailure(failure)) {
-+                android.widget.Toast.makeText(this,R.string.download_wizard_error_generic,android.widget.Toast.LENGTH_LONG).show()
++                android.widget.Toast.makeText(this,R.string.esim_endpoint_not_ready_guidance,android.widget.Toast.LENGTH_LONG).show()
 +                finishAffinity()
 +            } else throw failure
 +        }
@@ -1540,7 +1544,7 @@ index 6dd7de8..f513271 100644
  
      private fun refresh(fromUsbEvent: Boolean = false) {
 diff --git a/app-common/src/main/java/im/angry/openeuicc/ui/NotificationsActivity.kt b/app-common/src/main/java/im/angry/openeuicc/ui/NotificationsActivity.kt
-index c7aaa89..14674b1 100644
+index c7aaa8905492fcac02be6006fd6fa58a5ae620cd..14674b179c5730488686491f904430855fbbe0c9 100644
 --- a/app-common/src/main/java/im/angry/openeuicc/ui/NotificationsActivity.kt
 +++ b/app-common/src/main/java/im/angry/openeuicc/ui/NotificationsActivity.kt
 @@ -23,6 +23,9 @@ import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
@@ -1616,7 +1620,7 @@ index c7aaa89..14674b1 100644
  
                          refresh()
 diff --git a/app-common/src/main/java/im/angry/openeuicc/ui/ProfileDeleteFragment.kt b/app-common/src/main/java/im/angry/openeuicc/ui/ProfileDeleteFragment.kt
-index 3860958..f61cccb 100644
+index 38609588274e4b313b65ca76f5c62df0251ecc40..f61cccbe777f67009ee348664d11215d7e5c89b2 100644
 --- a/app-common/src/main/java/im/angry/openeuicc/ui/ProfileDeleteFragment.kt
 +++ b/app-common/src/main/java/im/angry/openeuicc/ui/ProfileDeleteFragment.kt
 @@ -10,7 +10,8 @@ import androidx.fragment.app.DialogFragment
@@ -1659,7 +1663,7 @@ index 3860958..f61cccb 100644
      }
  }
 diff --git a/app-common/src/main/java/im/angry/openeuicc/ui/SettingsFragment.kt b/app-common/src/main/java/im/angry/openeuicc/ui/SettingsFragment.kt
-index aefd715..a809ce1 100644
+index aefd7159018559c0b160d21943ff6769a0eeb6d8..a809ce1b124bfae3c24970c91f2230be44c7cfe9 100644
 --- a/app-common/src/main/java/im/angry/openeuicc/ui/SettingsFragment.kt
 +++ b/app-common/src/main/java/im/angry/openeuicc/ui/SettingsFragment.kt
 @@ -92,6 +92,7 @@ open class SettingsFragment : PreferenceFragmentCompat(), OpenEuiccContextMarker
@@ -1671,7 +1675,7 @@ index aefd715..a809ce1 100644
          }
  
 diff --git a/app-common/src/main/java/im/angry/openeuicc/ui/wizard/DownloadWizardActivity.kt b/app-common/src/main/java/im/angry/openeuicc/ui/wizard/DownloadWizardActivity.kt
-index acd690b..71f1514 100644
+index acd690be37ed8773ce06992308af2685d847349a..71f151482a7b48fbc44364bd635dcdcb4813fead 100644
 --- a/app-common/src/main/java/im/angry/openeuicc/ui/wizard/DownloadWizardActivity.kt
 +++ b/app-common/src/main/java/im/angry/openeuicc/ui/wizard/DownloadWizardActivity.kt
 @@ -25,7 +25,6 @@ import im.angry.openeuicc.ui.BaseEuiccAccessActivity
@@ -1753,7 +1757,7 @@ index acd690b..71f1514 100644
          outState.putLong("downloadTaskID", state.downloadTaskID)
          outState.putBoolean("confirmationCodeRequired", state.confirmationCodeRequired)
 diff --git a/app-common/src/main/java/im/angry/openeuicc/ui/wizard/DownloadWizardDetailsFragment.kt b/app-common/src/main/java/im/angry/openeuicc/ui/wizard/DownloadWizardDetailsFragment.kt
-index 4c538c5..d630d8a 100644
+index 4c538c5aef1daeea0d87474d191aa08504107537..d630d8ab888857b188d077becde61ff0a72ba947 100644
 --- a/app-common/src/main/java/im/angry/openeuicc/ui/wizard/DownloadWizardDetailsFragment.kt
 +++ b/app-common/src/main/java/im/angry/openeuicc/ui/wizard/DownloadWizardDetailsFragment.kt
 @@ -5,6 +5,7 @@ import android.view.LayoutInflater
@@ -1820,7 +1824,7 @@ index 4c538c5..d630d8a 100644
              inputComplete = inputComplete && confirmationCode.text.isNotEmpty()
          }
 diff --git a/app-common/src/main/java/im/angry/openeuicc/ui/wizard/DownloadWizardDiagnosticsFragment.kt b/app-common/src/main/java/im/angry/openeuicc/ui/wizard/DownloadWizardDiagnosticsFragment.kt
-index d20cdb6..1301f1f 100644
+index d20cdb6c63b3d20e659a6f4668c83296339bd25d..1301f1f9fe2a3a7d6f6e96a3984fcf40ee822fec 100644
 --- a/app-common/src/main/java/im/angry/openeuicc/ui/wizard/DownloadWizardDiagnosticsFragment.kt
 +++ b/app-common/src/main/java/im/angry/openeuicc/ui/wizard/DownloadWizardDiagnosticsFragment.kt
 @@ -58,7 +58,9 @@ class DownloadWizardDiagnosticsFragment : DownloadWizardActivity.DownloadWizardS
@@ -1845,7 +1849,7 @@ index d20cdb6..1301f1f 100644
                      str
                  }
 diff --git a/app-common/src/main/java/im/angry/openeuicc/ui/wizard/DownloadWizardMethodSelectFragment.kt b/app-common/src/main/java/im/angry/openeuicc/ui/wizard/DownloadWizardMethodSelectFragment.kt
-index 9da7d97..742a103 100644
+index 9da7d971b27acc592a31d0dd265e64ba3d35ba59..742a1031b723c50b33615339e346b9c7b0496eba 100644
 --- a/app-common/src/main/java/im/angry/openeuicc/ui/wizard/DownloadWizardMethodSelectFragment.kt
 +++ b/app-common/src/main/java/im/angry/openeuicc/ui/wizard/DownloadWizardMethodSelectFragment.kt
 @@ -118,6 +118,11 @@ class DownloadWizardMethodSelectFragment : DownloadWizardActivity.DownloadWizard
@@ -1861,7 +1865,7 @@ index 9da7d97..742a103 100644
              state.matchingId = parsed.matchingId
              state.confirmationCodeRequired = parsed.confirmationCodeRequired
 diff --git a/app-common/src/main/java/im/angry/openeuicc/ui/wizard/DownloadWizardProgressFragment.kt b/app-common/src/main/java/im/angry/openeuicc/ui/wizard/DownloadWizardProgressFragment.kt
-index 170a629..0b9b276 100644
+index 170a6290e3bf1597a8b3b9bacd199bc09c33dd87..0b9b276b77c8e68a00175f21b7a040d6caef2fe2 100644
 --- a/app-common/src/main/java/im/angry/openeuicc/ui/wizard/DownloadWizardProgressFragment.kt
 +++ b/app-common/src/main/java/im/angry/openeuicc/ui/wizard/DownloadWizardProgressFragment.kt
 @@ -20,7 +20,6 @@ import kotlinx.coroutines.flow.onEach
@@ -1898,7 +1902,7 @@ index 170a629..0b9b276 100644
  
              state.downloadTaskID = ret.taskId
 diff --git a/app-common/src/main/java/im/angry/openeuicc/ui/wizard/DownloadWizardSlotSelectFragment.kt b/app-common/src/main/java/im/angry/openeuicc/ui/wizard/DownloadWizardSlotSelectFragment.kt
-index ad3cece..66f2d79 100644
+index ad3cece92a29f4d45b86687a85e6deba7b70d590..66f2d79c4e408dd31fbedfc8516f6378174a4d2f 100644
 --- a/app-common/src/main/java/im/angry/openeuicc/ui/wizard/DownloadWizardSlotSelectFragment.kt
 +++ b/app-common/src/main/java/im/angry/openeuicc/ui/wizard/DownloadWizardSlotSelectFragment.kt
 @@ -95,6 +95,21 @@ class DownloadWizardSlotSelectFragment : DownloadWizardActivity.DownloadWizardSt
@@ -1924,7 +1928,7 @@ index ad3cece..66f2d79 100644
          val slots = euiccChannelManager.flowAllOpenEuiccPorts().flatMapConcat { (slotId, portId) ->
              euiccChannelManager.flowEuiccSecureElements(slotId, portId).map { seId ->
 diff --git a/app-common/src/main/java/im/angry/openeuicc/ui/wizard/SimplifiedErrorMessages.kt b/app-common/src/main/java/im/angry/openeuicc/ui/wizard/SimplifiedErrorMessages.kt
-index d1f3ae3..5c89c98 100644
+index d1f3ae3b43ea8fb577fbef4be6785352bc64d8e1..5c89c988d0a3703442cd0ae8b68f125cfea4068c 100644
 --- a/app-common/src/main/java/im/angry/openeuicc/ui/wizard/SimplifiedErrorMessages.kt
 +++ b/app-common/src/main/java/im/angry/openeuicc/ui/wizard/SimplifiedErrorMessages.kt
 @@ -2,6 +2,7 @@ package im.angry.openeuicc.ui.wizard
@@ -1983,7 +1987,7 @@ index d1f3ae3..5c89c98 100644
                  ?.optJSONObject("functionExecutionStatus")
                  ?.optJSONObject("statusCodeData")
 diff --git a/app-common/src/main/java/im/angry/openeuicc/ui/wizard/util.kt b/app-common/src/main/java/im/angry/openeuicc/ui/wizard/util.kt
-index 13c58ec..02135e1 100644
+index 13c58ec19b1b42a7793559e251daa9f38372842b..02135e11109f1aaec6b67e198755d103bd80fb9c 100644
 --- a/app-common/src/main/java/im/angry/openeuicc/ui/wizard/util.kt
 +++ b/app-common/src/main/java/im/angry/openeuicc/ui/wizard/util.kt
 @@ -20,15 +20,16 @@ suspend fun launchProfileDownload(
@@ -2008,7 +2012,7 @@ index 13c58ec..02135e1 100644
      if (autoConfirm) {
          // TODO: Ask user to confirm metadata for real if we need it
 diff --git a/app-common/src/main/java/im/angry/openeuicc/util/LPAUtils.kt b/app-common/src/main/java/im/angry/openeuicc/util/LPAUtils.kt
-index 6c530c9..1606071 100644
+index 6c530c92648318d9c56f32367e6ad138d8dfea8f..160607195d345ac0ebb7419e7dd37bb46122917c 100644
 --- a/app-common/src/main/java/im/angry/openeuicc/util/LPAUtils.kt
 +++ b/app-common/src/main/java/im/angry/openeuicc/util/LPAUtils.kt
 @@ -106,13 +106,15 @@ suspend inline fun EuiccChannelManager.beginTrackedOperation(
@@ -2030,7 +2034,7 @@ index 6c530c9..1606071 100644
      }
      Log.d(TAG, "Operation complete")
 diff --git a/app-common/src/main/java/im/angry/openeuicc/util/TelephonyCompat.kt b/app-common/src/main/java/im/angry/openeuicc/util/TelephonyCompat.kt
-index c124b32..f1a46aa 100644
+index c124b32efd436cfc874bd80c348e45c302aeded1..f1a46aa4271a4f5d4a92e62a87f64bd633735147 100644
 --- a/app-common/src/main/java/im/angry/openeuicc/util/TelephonyCompat.kt
 +++ b/app-common/src/main/java/im/angry/openeuicc/util/TelephonyCompat.kt
 @@ -36,6 +36,8 @@ fun SEService.getUiccReaderCompat(slotNumber: Int): Reader {
@@ -2043,7 +2047,7 @@ index c124b32..f1a46aa 100644
      val ports: Collection<UiccPortInfoCompat>
      val isRemovable: Boolean
 diff --git a/app-common/src/main/java/im/angry/openeuicc/util/Vendors.kt b/app-common/src/main/java/im/angry/openeuicc/util/Vendors.kt
-index 1ad6f33..71334f2 100644
+index 1ad6f335dfd00c02342194b7c5fd63eff5602ecf..71334f252cd5354e34965232e703ae63e1255769 100644
 --- a/app-common/src/main/java/im/angry/openeuicc/util/Vendors.kt
 +++ b/app-common/src/main/java/im/angry/openeuicc/util/Vendors.kt
 @@ -13,7 +13,7 @@ data class EuiccVendorInfo(
@@ -2056,7 +2060,7 @@ index 1ad6f33..71334f2 100644
  fun EuiccChannel.queryVendorAidListTransformation(aidList: List<ByteArray>): Pair<List<ByteArray>, VendorAidDecider>? =
      EUICC_VENDORS.firstNotNullOfOrNull { it.transformAidListIfNeeded(this, aidList) }
 diff --git a/app-common/src/main/res/layout/euicc_profile.xml b/app-common/src/main/res/layout/euicc_profile.xml
-index e27d775..624b4c2 100644
+index e27d77595a177af9bffd0c328d5c3724d7d68be8..624b4c2ef334b3f22754e3a9bc746fc7d753161e 100644
 --- a/app-common/src/main/res/layout/euicc_profile.xml
 +++ b/app-common/src/main/res/layout/euicc_profile.xml
 @@ -33,9 +33,13 @@
@@ -2085,7 +2089,7 @@ index e27d775..624b4c2 100644
              <TextView
                  android:id="@+id/provider_label"
 diff --git a/app-common/src/main/res/layout/fragment_download_details.xml b/app-common/src/main/res/layout/fragment_download_details.xml
-index 423f258..fd3e96b 100644
+index 423f258afabe15aca86c18326c89a2596bd5415a..fd3e96b8495ae6aea59e725c1bb7eee1e548d81b 100644
 --- a/app-common/src/main/res/layout/fragment_download_details.xml
 +++ b/app-common/src/main/res/layout/fragment_download_details.xml
 @@ -86,12 +86,18 @@
@@ -2109,7 +2113,7 @@ index 423f258..fd3e96b 100644
              app:layout_constrainedWidth="true"
              app:layout_constraintBottom_toBottomOf="parent"
 diff --git a/app-common/src/main/res/values/strings.xml b/app-common/src/main/res/values/strings.xml
-index 8d3ca77..ea2a685 100644
+index 8d3ca7759948e745b4e97305c992b8b909787faa..60a3ece88dd71469b3c70e2e43e1f1c382e8ba1c 100644
 --- a/app-common/src/main/res/values/strings.xml
 +++ b/app-common/src/main/res/values/strings.xml
 @@ -26,6 +26,9 @@
@@ -2122,7 +2126,7 @@ index 8d3ca77..ea2a685 100644
      <string name="profile_enable">Enable</string>
      <string name="profile_disable">Disable</string>
      <string name="profile_delete">Delete</string>
-@@ -250,4 +253,8 @@
+@@ -250,4 +253,9 @@
      <string name="pref_info_website">Official Website</string>
      <string name="pref_info_source_code">Source Code</string>
      <string name="pref_info_source_code_url" translatable="false">https://gitea.angry.im/PeterCxy/OpenEUICC</string>
@@ -2130,10 +2134,11 @@ index 8d3ca77..ea2a685 100644
 +    <string name="profile_download_policy_consent">I agree to apply my carrier’s eSIM profile policy rules.</string>
 +    <string name="profile_download_unsupported_activation">This activation code has an unsupported issuer restriction.</string>
 +    <string name="esim_known_blank_return_guidance">No active eSIM is available. Open SIM settings to return to physical SIM2.</string>
++    <string name="esim_endpoint_not_ready_guidance">Open system SIM settings &gt; Manage eSIMs to connect.</string>
  </resources>
 diff --git a/app-common/src/test/java/im/angry/openeuicc/core/HonorOperationAdmissionHostTest.kt b/app-common/src/test/java/im/angry/openeuicc/core/HonorOperationAdmissionHostTest.kt
 new file mode 100644
-index 0000000..b0297d8
+index 0000000000000000000000000000000000000000..b0297d8e3d7e0baa776019b000ee3ec2d8973103
 --- /dev/null
 +++ b/app-common/src/test/java/im/angry/openeuicc/core/HonorOperationAdmissionHostTest.kt
 @@ -0,0 +1,52 @@
@@ -2191,7 +2196,7 @@ index 0000000..b0297d8
 +}
 diff --git a/app-common/src/test/java/im/angry/openeuicc/core/LastProfileProofHostTest.kt b/app-common/src/test/java/im/angry/openeuicc/core/LastProfileProofHostTest.kt
 new file mode 100644
-index 0000000..779de3b
+index 0000000000000000000000000000000000000000..779de3b521a81c7f730a67e63f4b17c80b94ffab
 --- /dev/null
 +++ b/app-common/src/test/java/im/angry/openeuicc/core/LastProfileProofHostTest.kt
 @@ -0,0 +1,22 @@
@@ -2219,7 +2224,7 @@ index 0000000..779de3b
 +}
 diff --git a/app-common/src/test/java/im/angry/openeuicc/core/SharedSlotMutationGuardHostTest.kt b/app-common/src/test/java/im/angry/openeuicc/core/SharedSlotMutationGuardHostTest.kt
 new file mode 100644
-index 0000000..33c7757
+index 0000000000000000000000000000000000000000..33c775795a40655c69f4fbd2aacb64f6198d5927
 --- /dev/null
 +++ b/app-common/src/test/java/im/angry/openeuicc/core/SharedSlotMutationGuardHostTest.kt
 @@ -0,0 +1,87 @@
@@ -2312,7 +2317,7 @@ index 0000000..33c7757
 +}
 diff --git a/app-common/src/test/java/im/angry/openeuicc/service/DownloadedProfilePublicationTest.kt b/app-common/src/test/java/im/angry/openeuicc/service/DownloadedProfilePublicationTest.kt
 new file mode 100644
-index 0000000..fdea5e4
+index 0000000000000000000000000000000000000000..fdea5e4fcc5101396dddea3c61cb64f4f4e0d99d
 --- /dev/null
 +++ b/app-common/src/test/java/im/angry/openeuicc/service/DownloadedProfilePublicationTest.kt
 @@ -0,0 +1,62 @@
@@ -2380,7 +2385,7 @@ index 0000000..fdea5e4
 +}
 diff --git a/app-common/src/test/java/im/angry/openeuicc/service/FrameworkProfileDownloadHostTest.kt b/app-common/src/test/java/im/angry/openeuicc/service/FrameworkProfileDownloadHostTest.kt
 new file mode 100644
-index 0000000..d39ae9d
+index 0000000000000000000000000000000000000000..d39ae9db043cfbfb012084dc17841631e9b78099
 --- /dev/null
 +++ b/app-common/src/test/java/im/angry/openeuicc/service/FrameworkProfileDownloadHostTest.kt
 @@ -0,0 +1,93 @@
@@ -2479,7 +2484,7 @@ index 0000000..d39ae9d
 +}
 diff --git a/app-common/src/test/java/im/angry/openeuicc/service/MultipleStoredProfilesTest.kt b/app-common/src/test/java/im/angry/openeuicc/service/MultipleStoredProfilesTest.kt
 new file mode 100644
-index 0000000..ffae0fb
+index 0000000000000000000000000000000000000000..ffae0fb5bb2b820a3c85b1e0e035aebaa44decda
 --- /dev/null
 +++ b/app-common/src/test/java/im/angry/openeuicc/service/MultipleStoredProfilesTest.kt
 @@ -0,0 +1,75 @@
@@ -2559,7 +2564,7 @@ index 0000000..ffae0fb
 +    }
 +}
 diff --git a/app-common/src/test/java/im/angry/openeuicc/testutil/Mocks.kt b/app-common/src/test/java/im/angry/openeuicc/testutil/Mocks.kt
-index 4db0a76..d0fdff9 100644
+index 4db0a76ff45d05394a8c688526779473f657737e..d0fdff9c0e076bfb17430e5430ea32ed6dbbf513 100644
 --- a/app-common/src/test/java/im/angry/openeuicc/testutil/Mocks.kt
 +++ b/app-common/src/test/java/im/angry/openeuicc/testutil/Mocks.kt
 @@ -66,7 +66,7 @@ class MockLpa(
@@ -2572,7 +2577,7 @@ index 4db0a76..d0fdff9 100644
          lastHttpResponse = null,
          lastHttpException = null,
 diff --git a/app-common/src/test/java/im/angry/openeuicc/ui/wizard/DownloadWizardFlowTest.kt b/app-common/src/test/java/im/angry/openeuicc/ui/wizard/DownloadWizardFlowTest.kt
-index e27bbbe..447286e 100644
+index e27bbbe71b073025727d86e1bbfba61897d9dc31..447286eaa5af17e443813f60717638314de8d8e5 100644
 --- a/app-common/src/test/java/im/angry/openeuicc/ui/wizard/DownloadWizardFlowTest.kt
 +++ b/app-common/src/test/java/im/angry/openeuicc/ui/wizard/DownloadWizardFlowTest.kt
 @@ -344,4 +344,33 @@ class DownloadWizardFlowTest {
@@ -2611,7 +2616,7 @@ index e27bbbe..447286e 100644
  }
 diff --git a/app-common/src/test/java/im/angry/openeuicc/ui/wizard/DownloadedProfilePublicationErrorTest.kt b/app-common/src/test/java/im/angry/openeuicc/ui/wizard/DownloadedProfilePublicationErrorTest.kt
 new file mode 100644
-index 0000000..c6dbc8d
+index 0000000000000000000000000000000000000000..c6dbc8d4d1544ffb91233af038ddf71895ef5ce4
 --- /dev/null
 +++ b/app-common/src/test/java/im/angry/openeuicc/ui/wizard/DownloadedProfilePublicationErrorTest.kt
 @@ -0,0 +1,19 @@
@@ -2635,7 +2640,7 @@ index 0000000..c6dbc8d
 +    }
 +}
 diff --git a/app/src/main/AndroidManifest.xml b/app/src/main/AndroidManifest.xml
-index ea7562e..89d3d12 100644
+index ea7562e558a60c5357eaf6e9c203ce036d7da811..89d3d120c17aab787bdab89aa2bd912f0901e0df 100644
 --- a/app/src/main/AndroidManifest.xml
 +++ b/app/src/main/AndroidManifest.xml
 @@ -14,6 +14,8 @@
@@ -2668,7 +2673,7 @@ index ea7562e..89d3d12 100644
              android:name="androidx.appcompat.app.AppLocalesMetadataHolderService"
              android:enabled="false"
 diff --git a/app/src/main/java/im/angry/openeuicc/PrivilegedOpenEuiccApplication.kt b/app/src/main/java/im/angry/openeuicc/PrivilegedOpenEuiccApplication.kt
-index 67acb37..0662ddd 100644
+index 67acb37603669f99b9393d1937488577a53da2f9..0662dddf43bfc6c2b836b3399de11af403aaef29 100644
 --- a/app/src/main/java/im/angry/openeuicc/PrivilegedOpenEuiccApplication.kt
 +++ b/app/src/main/java/im/angry/openeuicc/PrivilegedOpenEuiccApplication.kt
 @@ -1,6 +1,5 @@
@@ -2691,7 +2696,7 @@ index 67acb37..0662ddd 100644
  }
 diff --git a/app/src/main/java/im/angry/openeuicc/core/DownloadedProfileRefreshRequest.kt b/app/src/main/java/im/angry/openeuicc/core/DownloadedProfileRefreshRequest.kt
 new file mode 100644
-index 0000000..3d20871
+index 0000000000000000000000000000000000000000..3d208716f946abaef588e14e7d044f6ae597927b
 --- /dev/null
 +++ b/app/src/main/java/im/angry/openeuicc/core/DownloadedProfileRefreshRequest.kt
 @@ -0,0 +1,37 @@
@@ -2733,7 +2738,7 @@ index 0000000..3d20871
 +    }
 +}
 diff --git a/app/src/main/java/im/angry/openeuicc/core/PrivilegedEuiccChannelFactory.kt b/app/src/main/java/im/angry/openeuicc/core/PrivilegedEuiccChannelFactory.kt
-index 387e7c6..b32c784 100644
+index 387e7c65c242267b45dc754c3c61c024cb5baa87..b32c784d15cad37eb3e8c9067654243faefb945c 100644
 --- a/app/src/main/java/im/angry/openeuicc/core/PrivilegedEuiccChannelFactory.kt
 +++ b/app/src/main/java/im/angry/openeuicc/core/PrivilegedEuiccChannelFactory.kt
 @@ -18,7 +18,7 @@ class PrivilegedEuiccChannelFactory(context: Context) : DefaultEuiccChannelFacto
@@ -2764,7 +2769,7 @@ index 387e7c6..b32c784 100644
      }
  }
 diff --git a/app/src/main/java/im/angry/openeuicc/core/PrivilegedEuiccChannelManager.kt b/app/src/main/java/im/angry/openeuicc/core/PrivilegedEuiccChannelManager.kt
-index eb9defb..25717b4 100644
+index eb9defb8084233b55e14ea7907451cfda5c23619..25717b4ad185de04a7172b8e1e59d989a78a40cc 100644
 --- a/app/src/main/java/im/angry/openeuicc/core/PrivilegedEuiccChannelManager.kt
 +++ b/app/src/main/java/im/angry/openeuicc/core/PrivilegedEuiccChannelManager.kt
 @@ -9,28 +9,16 @@ class PrivilegedEuiccChannelManager(appContainer: AppContainer, context: Context
@@ -2806,7 +2811,7 @@ index eb9defb..25717b4 100644
      }
  }
 diff --git a/app/src/main/java/im/angry/openeuicc/core/TelephonyManagerApduInterface.kt b/app/src/main/java/im/angry/openeuicc/core/TelephonyManagerApduInterface.kt
-index c7f42b7..1e87cf4 100644
+index c7f42b73010327827de820523895ab3a1d94822f..1e87cf43720fd0a8d2494804919b4f2c7f9bc2ac 100644
 --- a/app/src/main/java/im/angry/openeuicc/core/TelephonyManagerApduInterface.kt
 +++ b/app/src/main/java/im/angry/openeuicc/core/TelephonyManagerApduInterface.kt
 @@ -13,7 +13,7 @@ class TelephonyManagerApduInterface(
@@ -2880,7 +2885,7 @@ index c7f42b7..1e87cf4 100644
          }
 diff --git a/app/src/main/java/im/angry/openeuicc/service/FrameworkProfileList.kt b/app/src/main/java/im/angry/openeuicc/service/FrameworkProfileList.kt
 new file mode 100644
-index 0000000..3727302
+index 0000000000000000000000000000000000000000..3727302d20a8ce5d7f5f934974742a2807c22ab8
 --- /dev/null
 +++ b/app/src/main/java/im/angry/openeuicc/service/FrameworkProfileList.kt
 @@ -0,0 +1,27 @@
@@ -2912,7 +2917,7 @@ index 0000000..3727302
 +        }.build()
 +    }.toTypedArray()
 diff --git a/app/src/main/java/im/angry/openeuicc/service/OpenEuiccService.kt b/app/src/main/java/im/angry/openeuicc/service/OpenEuiccService.kt
-index 884e019..5910abb 100644
+index 884e01938eea020969279f0a8dcad33d46664445..5910abb15557b3363b8098e04b69b1770d0d290f 100644
 --- a/app/src/main/java/im/angry/openeuicc/service/OpenEuiccService.kt
 +++ b/app/src/main/java/im/angry/openeuicc/service/OpenEuiccService.kt
 @@ -2,7 +2,10 @@ package im.angry.openeuicc.service
@@ -3197,7 +3202,7 @@ index 884e019..5910abb 100644
      override fun onEraseSubscriptions(slotId: Int): Int {
 diff --git a/app/src/main/java/im/angry/openeuicc/ui/EuiccResolutionActivity.kt b/app/src/main/java/im/angry/openeuicc/ui/EuiccResolutionActivity.kt
 new file mode 100644
-index 0000000..2d12430
+index 0000000000000000000000000000000000000000..2d124309946c748507d62063b990583687a6c8e0
 --- /dev/null
 +++ b/app/src/main/java/im/angry/openeuicc/ui/EuiccResolutionActivity.kt
 @@ -0,0 +1,128 @@
@@ -3331,7 +3336,7 @@ index 0000000..2d12430
 +}
 diff --git a/app/src/main/java/im/angry/openeuicc/ui/EuiccUiRouting.kt b/app/src/main/java/im/angry/openeuicc/ui/EuiccUiRouting.kt
 new file mode 100644
-index 0000000..dbdd9e9
+index 0000000000000000000000000000000000000000..dbdd9e920d36b126195fb8cbae4bfd5eb2f6ec27
 --- /dev/null
 +++ b/app/src/main/java/im/angry/openeuicc/ui/EuiccUiRouting.kt
 @@ -0,0 +1,33 @@
@@ -3369,7 +3374,7 @@ index 0000000..dbdd9e9
 +    }
 +}
 diff --git a/app/src/main/java/im/angry/openeuicc/ui/LuiActivity.kt b/app/src/main/java/im/angry/openeuicc/ui/LuiActivity.kt
-index e7c22a9..70b6c49 100644
+index e7c22a913b4863aed174936726eb88b71d24b0bc..70b6c49a45bfc1a32e7acb34801dae0e00cdd66e 100644
 --- a/app/src/main/java/im/angry/openeuicc/ui/LuiActivity.kt
 +++ b/app/src/main/java/im/angry/openeuicc/ui/LuiActivity.kt
 @@ -1,6 +1,8 @@
@@ -3412,7 +3417,7 @@ index e7c22a9..70b6c49 100644
          }
      }
 diff --git a/app/src/main/java/im/angry/openeuicc/ui/PrivilegedMainActivity.kt b/app/src/main/java/im/angry/openeuicc/ui/PrivilegedMainActivity.kt
-index 90956e1..f9c1a7b 100644
+index 90956e1f66674c19353ec732850c87326000da2d..f9c1a7ba2974d4590e7fbf653f9fe4455bc134eb 100644
 --- a/app/src/main/java/im/angry/openeuicc/ui/PrivilegedMainActivity.kt
 +++ b/app/src/main/java/im/angry/openeuicc/ui/PrivilegedMainActivity.kt
 @@ -1,13 +1,30 @@
@@ -3479,7 +3484,7 @@ index 90956e1..f9c1a7b 100644
          }
  
 diff --git a/app/src/main/java/im/angry/openeuicc/util/PrivilegedTelephonyCompat.kt b/app/src/main/java/im/angry/openeuicc/util/PrivilegedTelephonyCompat.kt
-index 30637d9..bfe066d 100644
+index 30637d9fa484fb73aa04af12702683af1a39211e..bfe066d2b540d7ece435fdad7c79cb989bad8f8d 100644
 --- a/app/src/main/java/im/angry/openeuicc/util/PrivilegedTelephonyCompat.kt
 +++ b/app/src/main/java/im/angry/openeuicc/util/PrivilegedTelephonyCompat.kt
 @@ -43,7 +43,7 @@ class RealUiccCardInfoCompat(val inner: UiccCardInfo) : UiccCardInfoCompat {
@@ -3492,7 +3497,7 @@ index 30637d9..bfe066d 100644
  }
  
 diff --git a/app/src/main/java/im/angry/openeuicc/util/PrivilegedTelephonyUtils.kt b/app/src/main/java/im/angry/openeuicc/util/PrivilegedTelephonyUtils.kt
-index 3b1a253..69b42c7 100644
+index 3b1a2534515ccab66ef1b9894c34e6fe78832787..69b42c71a913fc0b217250bd9bc9ff119ea7bf5a 100644
 --- a/app/src/main/java/im/angry/openeuicc/util/PrivilegedTelephonyUtils.kt
 +++ b/app/src/main/java/im/angry/openeuicc/util/PrivilegedTelephonyUtils.kt
 @@ -5,6 +5,7 @@ import android.telephony.TelephonyManager
@@ -3530,7 +3535,7 @@ index 3b1a253..69b42c7 100644
              requestEmbeddedSubscriptionInfoListRefresh(cardId)
          } catch (e: Exception) {
 diff --git a/app/src/main/res/values/strings.xml b/app/src/main/res/values/strings.xml
-index 0e25db7..add6441 100644
+index 0e25db7518e9630674a009eff753e2c54c493eed..add644173c4fcd9fc6e24a74db33bbd810387b78 100644
 --- a/app/src/main/res/values/strings.xml
 +++ b/app/src/main/res/values/strings.xml
 @@ -27,4 +27,10 @@
@@ -3546,7 +3551,7 @@ index 0e25db7..add6441 100644
  </resources>
 diff --git a/host-tests/profile-publication/DownloadedProfileRefreshRequestTest.kt b/host-tests/profile-publication/DownloadedProfileRefreshRequestTest.kt
 new file mode 100644
-index 0000000..1fa4d8b
+index 0000000000000000000000000000000000000000..1fa4d8b49627c56049e54e45215d900a8509695d
 --- /dev/null
 +++ b/host-tests/profile-publication/DownloadedProfileRefreshRequestTest.kt
 @@ -0,0 +1,49 @@
@@ -3601,7 +3606,7 @@ index 0000000..1fa4d8b
 +}
 diff --git a/host-tests/profile-publication/EuiccUiRoutingTest.kt b/host-tests/profile-publication/EuiccUiRoutingTest.kt
 new file mode 100644
-index 0000000..4b88c10
+index 0000000000000000000000000000000000000000..4b88c10fe7f1412d05f40f1f852c03325de944f0
 --- /dev/null
 +++ b/host-tests/profile-publication/EuiccUiRoutingTest.kt
 @@ -0,0 +1,62 @@
@@ -3669,7 +3674,7 @@ index 0000000..4b88c10
 +}
 diff --git a/host-tests/profile-publication/FrameworkProfileListTest.kt b/host-tests/profile-publication/FrameworkProfileListTest.kt
 new file mode 100644
-index 0000000..dcb249c
+index 0000000000000000000000000000000000000000..dcb249c8d9739f748bb2cbd9cf506035e01e28de
 --- /dev/null
 +++ b/host-tests/profile-publication/FrameworkProfileListTest.kt
 @@ -0,0 +1,38 @@
@@ -3713,7 +3718,7 @@ index 0000000..dcb249c
 +}
 diff --git a/host-tests/profile-publication/README.md b/host-tests/profile-publication/README.md
 new file mode 100644
-index 0000000..dfb1904
+index 0000000000000000000000000000000000000000..dfb1904865d4d7a08e2d155521a808bd1e1c050c
 --- /dev/null
 +++ b/host-tests/profile-publication/README.md
 @@ -0,0 +1,3 @@
@@ -3721,7 +3726,7 @@ index 0000000..dfb1904
 +
 +They do not invoke a real SubscriptionManager, radio, APDU, profile operation, or Android UI. Native Settings row publication and accessibility still require a rebuilt candidate and a device test.
 diff --git a/libs/lpac-jni/src/main/java/net/typeblog/lpac_jni/LocalProfileInfo.kt b/libs/lpac-jni/src/main/java/net/typeblog/lpac_jni/LocalProfileInfo.kt
-index 01ee23f..fe26eef 100644
+index 01ee23f3b97df87732e925b596058351fe5b89fb..fe26eef5cf0f47b1d7d3d6c3d1b9038b869554ca 100644
 --- a/libs/lpac-jni/src/main/java/net/typeblog/lpac_jni/LocalProfileInfo.kt
 +++ b/libs/lpac-jni/src/main/java/net/typeblog/lpac_jni/LocalProfileInfo.kt
 @@ -19,7 +19,7 @@ data class LocalProfileInfo(
@@ -3734,7 +3739,7 @@ index 01ee23f..fe26eef 100644
          }
      }
 diff --git a/libs/lpac-jni/src/main/java/net/typeblog/lpac_jni/impl/LocalProfileAssistantImpl.kt b/libs/lpac-jni/src/main/java/net/typeblog/lpac_jni/impl/LocalProfileAssistantImpl.kt
-index 91c572e..2290c9f 100644
+index 91c572eae354fdc4e8ebb1731af21e037571e6fd..2290c9f70b17dd99c08f6054100f2888e335891e 100644
 --- a/libs/lpac-jni/src/main/java/net/typeblog/lpac_jni/impl/LocalProfileAssistantImpl.kt
 +++ b/libs/lpac-jni/src/main/java/net/typeblog/lpac_jni/impl/LocalProfileAssistantImpl.kt
 @@ -273,7 +273,7 @@ class LocalProfileAssistantImpl(

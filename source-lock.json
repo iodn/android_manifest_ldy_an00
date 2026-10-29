@@ -147,13 +147,15 @@
     },
     {
       "path": "packages/apps/OpenEUICC",
-      "revision": "67da2311fe45e9f0f3591430549cffc64e5c358c",
-      "tree": "c6a5e6b5cea696455aa3aedcad74ddc16ab041a9",
+      "revision": "238a3dcbe82c31c3bcea3b1ecce1869b316420b5",
+      "tree": "f1d69aa40ce0c36a4a634bf656e334641e8fbb0c",
       "base_revision": "89d677e07d0ebbd2d157ede2cb31f76aec737e3a",
       "patch": "patches/packages_apps_OpenEUICC.patch",
-      "patch_sha256": "d718559feaf1b914a5289637e6948735b5101ab62ced7badaae07b0dd0a93435",
+      "patch_sha256": "b1dec0b2d91e6d21917dff9f5ec14a15723a0d513c4b2d81456e3ec43164e6a6",
       "patch_tree_verified": true,
-      "remote_url": "https://github.com/estkme-group/openeuicc.git"
+      "remote_url": "https://github.com/estkme-group/openeuicc.git",
+      "target_snapshot_revision": "238a3dcbe82c31c3bcea3b1ecce1869b316420b5",
+      "target_snapshot_tree": "f1d69aa40ce0c36a4a634bf656e334641e8fbb0c"
     },
     {
       "path": "packages/apps/OpenEUICC/libs/lpac-jni/src/main/jni/cjson/cjson",
@@ -171,15 +173,15 @@
     },
     {
       "path": "packages/apps/Settings",
-      "revision": "90c824730ca68e405c5e1babc504ca8c5787b0ee",
-      "tree": "12ac19c8016cc58aae1d4012340f73a40febe38d",
+      "revision": "444ac31339714e9abeac97bd990070f009495b65",
+      "tree": "a37f8a5df859c53cf4d04a51c6f0559cfe5807c0",
       "base_revision": "0b97deb37dcba757a3130899273fb4c298702f00",
       "patch": "patches/packages_apps_Settings.patch",
-      "patch_sha256": "b2bf42a8fe7bb72318c5531caf856736902dc0d987e8574b616ea3592fe4a6e6",
+      "patch_sha256": "fb9d8ab0d64772af4114a503224c2d7cb2ec171df626582d9ef802c4e594bcbc",
       "patch_tree_verified": true,
       "remote_url": "https://github.com/LineageOS/android_packages_apps_Settings",
-      "target_snapshot_revision": "90c824730ca68e405c5e1babc504ca8c5787b0ee",
-      "target_snapshot_tree": "12ac19c8016cc58aae1d4012340f73a40febe38d",
+      "target_snapshot_revision": "444ac31339714e9abeac97bd990070f009495b65",
+      "target_snapshot_tree": "a37f8a5df859c53cf4d04a51c6f0559cfe5807c0",
       "historical_public_snapshot": {
         "revision": "8397134ae4ee640f1a26eb9f12d9eddb91650b89",
         "tree": "5f22ecf62a013dbae9b9d336782b93681ddf3489"
