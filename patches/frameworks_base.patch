@@ -1,5 +1,5 @@
 diff --git a/Android.bp b/Android.bp
-index 2cfb70c0e..752c0d8ea 100644
+index 2cfb70c0ef99aac0a1f9c42de01a8880962fcfa3..752c0d8ea7440336448b9fd0c169e0ea7a95bc8a 100644
 --- a/Android.bp
 +++ b/Android.bp
 @@ -803,3 +803,22 @@ filegroup {
@@ -27,7 +27,7 @@ index 2cfb70c0e..752c0d8ea 100644
 +}
 diff --git a/LDY-AN00-FINGERPRINT-BRIDGE.txt b/LDY-AN00-FINGERPRINT-BRIDGE.txt
 new file mode 100644
-index 000000000..c835232ae
+index 0000000000000000000000000000000000000000..c835232aef70e748944907c6273d9baf3a134f51
 --- /dev/null
 +++ b/LDY-AN00-FINGERPRINT-BRIDGE.txt
 @@ -0,0 +1,37 @@
@@ -69,7 +69,7 @@ index 000000000..c835232ae
 +Original Java physicalConvert2Px26f170 uses Math.round percorner then original controllerintegeraverage ->608,1951. DTSradius72→nativecmd902132310→stockgetHighLightspotRadius26e7d8→setHighLightSpotRadius25d62c→setRadius2610e4→CanvasdrawCircle260f74. OriginalgetPxScale257bfc=current/defaultdisplayheight; radius72nativepixels atscale1. A separate58dp logo fallback is not used as sensor radius. OEMdisplay method266a74→2992d4 mode0initial,1base;2984b8MTKoverride usesro.config.default_screensize.
 +Source module/geometry assets staged in separate devicechild; normal Soong/resources/policy/finalimage checks still required. Product opt-in selection for host candidate can follow source qualification; installation/enrollment requires separate reviewed trial approval. No hardware functional PASS is claimed.
 diff --git a/core/java/android/hardware/face/FaceSensorConfigurations.java b/core/java/android/hardware/face/FaceSensorConfigurations.java
-index 4d3e46735..b6d7d52a7 100644
+index 4d3e467357612383a1f9541795c30c2c51e7c197..b6d7d52a76334331a06455d8d0e084813a655f99 100644
 --- a/core/java/android/hardware/face/FaceSensorConfigurations.java
 +++ b/core/java/android/hardware/face/FaceSensorConfigurations.java
 @@ -180,6 +180,9 @@ public class FaceSensorConfigurations implements Parcelable {
@@ -115,7 +115,7 @@ index 4d3e46735..b6d7d52a7 100644
       */
 diff --git a/core/java/android/hardware/face/HonorLdyAn00FaceAdapter.java b/core/java/android/hardware/face/HonorLdyAn00FaceAdapter.java
 new file mode 100644
-index 000000000..7cc4d682b
+index 0000000000000000000000000000000000000000..7cc4d682b4fdaa8e46cfc8698225a623c41d01ab
 --- /dev/null
 +++ b/core/java/android/hardware/face/HonorLdyAn00FaceAdapter.java
 @@ -0,0 +1,1133 @@
@@ -1254,7 +1254,7 @@ index 000000000..7cc4d682b
 +}
 diff --git a/core/java/android/hardware/face/HonorLdyAn00FaceBootFence.java b/core/java/android/hardware/face/HonorLdyAn00FaceBootFence.java
 new file mode 100644
-index 000000000..e84983701
+index 0000000000000000000000000000000000000000..e849837014205ad6f11e0743e89bd3d7719bb208
 --- /dev/null
 +++ b/core/java/android/hardware/face/HonorLdyAn00FaceBootFence.java
 @@ -0,0 +1,57 @@
@@ -1317,7 +1317,7 @@ index 000000000..e84983701
 +}
 diff --git a/core/java/android/hardware/face/HonorLdyAn00FaceBootFenceFile.java b/core/java/android/hardware/face/HonorLdyAn00FaceBootFenceFile.java
 new file mode 100644
-index 000000000..7e425cf14
+index 0000000000000000000000000000000000000000..7e425cf14fb5f359e32c58a0331a3e320bc6df61
 --- /dev/null
 +++ b/core/java/android/hardware/face/HonorLdyAn00FaceBootFenceFile.java
 @@ -0,0 +1,110 @@
@@ -1433,7 +1433,7 @@ index 000000000..7e425cf14
 +}
 diff --git a/core/java/android/hardware/face/HonorLdyAn00FaceCameraPrivacy.java b/core/java/android/hardware/face/HonorLdyAn00FaceCameraPrivacy.java
 new file mode 100644
-index 000000000..bfbe7525f
+index 0000000000000000000000000000000000000000..bfbe7525f519858aaa34a1322bd7c1ce69f23b0c
 --- /dev/null
 +++ b/core/java/android/hardware/face/HonorLdyAn00FaceCameraPrivacy.java
 @@ -0,0 +1,63 @@
@@ -1502,7 +1502,7 @@ index 000000000..bfbe7525f
 +}
 diff --git a/core/java/android/hardware/face/HonorLdyAn00FaceCredentialReset.java b/core/java/android/hardware/face/HonorLdyAn00FaceCredentialReset.java
 new file mode 100644
-index 000000000..3b7a4d55e
+index 0000000000000000000000000000000000000000..3b7a4d55e126f0e90fe4ef5a955a91e41c1a950d
 --- /dev/null
 +++ b/core/java/android/hardware/face/HonorLdyAn00FaceCredentialReset.java
 @@ -0,0 +1,56 @@
@@ -1564,7 +1564,7 @@ index 000000000..3b7a4d55e
 +}
 diff --git a/core/java/android/hardware/face/HonorLdyAn00FaceHatCodec.java b/core/java/android/hardware/face/HonorLdyAn00FaceHatCodec.java
 new file mode 100644
-index 000000000..f773fdb06
+index 0000000000000000000000000000000000000000..f773fdb06bd2cae33cddfaa6c12aa813883a1a36
 --- /dev/null
 +++ b/core/java/android/hardware/face/HonorLdyAn00FaceHatCodec.java
 @@ -0,0 +1,24 @@
@@ -1594,7 +1594,7 @@ index 000000000..f773fdb06
 +}
 diff --git a/core/java/android/hardware/face/HonorLdyAn00FaceLockout.java b/core/java/android/hardware/face/HonorLdyAn00FaceLockout.java
 new file mode 100644
-index 000000000..b352bf16f
+index 0000000000000000000000000000000000000000..b352bf16fa49a9ee418a1b208f3a00c8fbb70862
 --- /dev/null
 +++ b/core/java/android/hardware/face/HonorLdyAn00FaceLockout.java
 @@ -0,0 +1,73 @@
@@ -1673,7 +1673,7 @@ index 000000000..b352bf16f
 +}
 diff --git a/core/java/android/hardware/face/HonorLdyAn00FaceLockoutFile.java b/core/java/android/hardware/face/HonorLdyAn00FaceLockoutFile.java
 new file mode 100644
-index 000000000..d3185c35c
+index 0000000000000000000000000000000000000000..d3185c35c6b1967ea9aab3d1bdc129f7c5d39e94
 --- /dev/null
 +++ b/core/java/android/hardware/face/HonorLdyAn00FaceLockoutFile.java
 @@ -0,0 +1,99 @@
@@ -1778,7 +1778,7 @@ index 000000000..d3185c35c
 +}
 diff --git a/core/java/android/hardware/face/HonorLdyAn00FaceOperation.java b/core/java/android/hardware/face/HonorLdyAn00FaceOperation.java
 new file mode 100644
-index 000000000..07485d83e
+index 0000000000000000000000000000000000000000..07485d83ec7ced881eacb06455a4d9c0d1ae003c
 --- /dev/null
 +++ b/core/java/android/hardware/face/HonorLdyAn00FaceOperation.java
 @@ -0,0 +1,134 @@
@@ -1918,7 +1918,7 @@ index 000000000..07485d83e
 +}
 diff --git a/core/java/android/hardware/face/HonorLdyAn00FaceResetPermits.java b/core/java/android/hardware/face/HonorLdyAn00FaceResetPermits.java
 new file mode 100644
-index 000000000..b6cd9217b
+index 0000000000000000000000000000000000000000..b6cd9217b9709eed92a919ccf7fb7a18f3a392d8
 --- /dev/null
 +++ b/core/java/android/hardware/face/HonorLdyAn00FaceResetPermits.java
 @@ -0,0 +1,99 @@
@@ -2023,7 +2023,7 @@ index 000000000..b6cd9217b
 +}
 diff --git a/core/java/android/hardware/face/HonorLdyAn00FaceVendorClient.java b/core/java/android/hardware/face/HonorLdyAn00FaceVendorClient.java
 new file mode 100644
-index 000000000..1bcb9b093
+index 0000000000000000000000000000000000000000..1bcb9b093c9b64b17bede9ab242306dbd20ee3fb
 --- /dev/null
 +++ b/core/java/android/hardware/face/HonorLdyAn00FaceVendorClient.java
 @@ -0,0 +1,246 @@
@@ -2274,7 +2274,7 @@ index 000000000..1bcb9b093
 +    }
 +}
 diff --git a/core/java/android/hardware/fingerprint/FingerprintSensorConfigurations.java b/core/java/android/hardware/fingerprint/FingerprintSensorConfigurations.java
-index 2c6371c5d..81a2183df 100644
+index 2c6371c5d2245541f08274003c8380b39fd7f2d0..81a2183df6b47588bfdeae33b75d22d2f14493ad 100644
 --- a/core/java/android/hardware/fingerprint/FingerprintSensorConfigurations.java
 +++ b/core/java/android/hardware/fingerprint/FingerprintSensorConfigurations.java
 @@ -185,6 +185,9 @@ public class FingerprintSensorConfigurations implements Parcelable {
@@ -2289,7 +2289,7 @@ index 2c6371c5d..81a2183df 100644
              Slog.i(TAG, "getIFingerprint fqName is mapped: " + fqName + "->" + fqNameMapped);
 diff --git a/core/java/android/hardware/fingerprint/HonorLdyAn00FingerprintAdapter.java b/core/java/android/hardware/fingerprint/HonorLdyAn00FingerprintAdapter.java
 new file mode 100644
-index 000000000..af1b03f7f
+index 0000000000000000000000000000000000000000..af1b03f7ff7205bcc2002414fa205e9478765c69
 --- /dev/null
 +++ b/core/java/android/hardware/fingerprint/HonorLdyAn00FingerprintAdapter.java
 @@ -0,0 +1,521 @@
@@ -2816,7 +2816,7 @@ index 000000000..af1b03f7f
 +}
 diff --git a/core/java/android/hardware/fingerprint/LdyAn00FingerprintGeometry.java b/core/java/android/hardware/fingerprint/LdyAn00FingerprintGeometry.java
 new file mode 100644
-index 000000000..94624b8d4
+index 0000000000000000000000000000000000000000..94624b8d4e983285db4ad220bcbe1e9f71186abe
 --- /dev/null
 +++ b/core/java/android/hardware/fingerprint/LdyAn00FingerprintGeometry.java
 @@ -0,0 +1,15 @@
@@ -2837,7 +2837,7 @@ index 000000000..94624b8d4
 +}
 diff --git a/core/java/android/hardware/fingerprint/LdyAn00FingerprintTouchMode.java b/core/java/android/hardware/fingerprint/LdyAn00FingerprintTouchMode.java
 new file mode 100644
-index 000000000..3633ee66d
+index 0000000000000000000000000000000000000000..3633ee66dbbb60afbe4aacf7dca9e5aad8b50650
 --- /dev/null
 +++ b/core/java/android/hardware/fingerprint/LdyAn00FingerprintTouchMode.java
 @@ -0,0 +1,134 @@
@@ -2976,7 +2976,7 @@ index 000000000..3633ee66d
 +    }
 +}
 diff --git a/core/java/android/os/PackageTagsList.java b/core/java/android/os/PackageTagsList.java
-index 733da5964..3fcf40b3e 100644
+index 733da596426ab686181893340d3602403e629d45..3fcf40b3e431ebfcd9e850179c2d0fc441fa213c 100644
 --- a/core/java/android/os/PackageTagsList.java
 +++ b/core/java/android/os/PackageTagsList.java
 @@ -73,6 +73,15 @@ public final class PackageTagsList implements Parcelable {
@@ -2996,7 +2996,7 @@ index 733da5964..3fcf40b3e 100644
       * Returns true if the given attribution tag is found within this instance under any package.
       * Only returns true if the attribution tag literal is found, not if any package contains the
 diff --git a/core/res/res/values/config.xml b/core/res/res/values/config.xml
-index a19202ff1..7ae8c7696 100644
+index a19202ff1683b2a5a3db8935ef41f9c003be0c36..7ae8c7696f04588805febe594ebedd1793d13a53 100644
 --- a/core/res/res/values/config.xml
 +++ b/core/res/res/values/config.xml
 @@ -8074,4 +8074,6 @@
@@ -3007,7 +3007,7 @@ index a19202ff1..7ae8c7696 100644
 +    <bool name="config_useHonorLdyAn00FingerprintBridge">false</bool>
  </resources>
 diff --git a/core/res/res/values/symbols.xml b/core/res/res/values/symbols.xml
-index f20a2b6a0..8c39e8a33 100644
+index f20a2b6a0e74fe8155c33d73ff446a4c47273f80..8c39e8a336f07b45d7665e836f1e9b66aa2b99c6 100644
 --- a/core/res/res/values/symbols.xml
 +++ b/core/res/res/values/symbols.xml
 @@ -6626,4 +6626,5 @@
@@ -3018,7 +3018,7 @@ index f20a2b6a0..8c39e8a33 100644
    </resources>
 diff --git a/core/tests/face-operation-owner/HonorFaceStrongResetHostTest.java b/core/tests/face-operation-owner/HonorFaceStrongResetHostTest.java
 new file mode 100644
-index 000000000..477313c17
+index 0000000000000000000000000000000000000000..477313c172f5f4c0c26dad650a64ed81340c0e22
 --- /dev/null
 +++ b/core/tests/face-operation-owner/HonorFaceStrongResetHostTest.java
 @@ -0,0 +1,49 @@
@@ -3073,7 +3073,7 @@ index 000000000..477313c17
 +}
 diff --git a/core/tests/face-operation-owner/HonorLdyAn00FaceBootFenceHostTest.java b/core/tests/face-operation-owner/HonorLdyAn00FaceBootFenceHostTest.java
 new file mode 100644
-index 000000000..9936a3f13
+index 0000000000000000000000000000000000000000..9936a3f13008f43d6e9f6e2b49c55fdc8804a762
 --- /dev/null
 +++ b/core/tests/face-operation-owner/HonorLdyAn00FaceBootFenceHostTest.java
 @@ -0,0 +1,47 @@
@@ -3126,7 +3126,7 @@ index 000000000..9936a3f13
 +}
 diff --git a/core/tests/face-operation-owner/HonorLdyAn00FaceHatCodecHostTest.java b/core/tests/face-operation-owner/HonorLdyAn00FaceHatCodecHostTest.java
 new file mode 100644
-index 000000000..474cea6b7
+index 0000000000000000000000000000000000000000..474cea6b7dbbbb71857ee734515ff07560c17bba
 --- /dev/null
 +++ b/core/tests/face-operation-owner/HonorLdyAn00FaceHatCodecHostTest.java
 @@ -0,0 +1,36 @@
@@ -3168,7 +3168,7 @@ index 000000000..474cea6b7
 +}
 diff --git a/core/tests/face-operation-owner/HonorLdyAn00FaceOperationHostTest.java b/core/tests/face-operation-owner/HonorLdyAn00FaceOperationHostTest.java
 new file mode 100644
-index 000000000..468634197
+index 0000000000000000000000000000000000000000..468634197fe0d135a4f73d2e45a06ac0f8a35259
 --- /dev/null
 +++ b/core/tests/face-operation-owner/HonorLdyAn00FaceOperationHostTest.java
 @@ -0,0 +1,134 @@
@@ -3308,7 +3308,7 @@ index 000000000..468634197
 +}
 diff --git a/core/tests/face-operation-owner/HonorLdyAn00FaceResetHostTest.java b/core/tests/face-operation-owner/HonorLdyAn00FaceResetHostTest.java
 new file mode 100644
-index 000000000..e8f6a25fe
+index 0000000000000000000000000000000000000000..e8f6a25fe8e0b9d94934f537854f6084d5ee5dda
 --- /dev/null
 +++ b/core/tests/face-operation-owner/HonorLdyAn00FaceResetHostTest.java
 @@ -0,0 +1,176 @@
@@ -3490,7 +3490,7 @@ index 000000000..e8f6a25fe
 +}
 diff --git a/core/tests/face-operation-owner/run-host-test.sh b/core/tests/face-operation-owner/run-host-test.sh
 new file mode 100755
-index 000000000..396533bb7
+index 0000000000000000000000000000000000000000..396533bb77ea031605be6feb869d1addd936729f
 --- /dev/null
 +++ b/core/tests/face-operation-owner/run-host-test.sh
 @@ -0,0 +1,23 @@
@@ -3519,7 +3519,7 @@ index 000000000..396533bb7
 +"$1/bin/java" -cp "$face_test_out" com.android.server.biometrics.sensors.HonorFaceStrongResetHostTest
 diff --git a/core/tests/honorface/Android.bp b/core/tests/honorface/Android.bp
 new file mode 100644
-index 000000000..b00f5590b
+index 0000000000000000000000000000000000000000..b00f5590b6372111ec54dde3fab0e3cfafba772e
 --- /dev/null
 +++ b/core/tests/honorface/Android.bp
 @@ -0,0 +1,22 @@
@@ -3547,7 +3547,7 @@ index 000000000..b00f5590b
 +}
 diff --git a/core/tests/honorface/AndroidManifest.xml b/core/tests/honorface/AndroidManifest.xml
 new file mode 100644
-index 000000000..528a28ce5
+index 0000000000000000000000000000000000000000..528a28ce551fc261304221344890ac99bb7c08e2
 --- /dev/null
 +++ b/core/tests/honorface/AndroidManifest.xml
 @@ -0,0 +1,6 @@
@@ -3559,14 +3559,14 @@ index 000000000..528a28ce5
 +</manifest>
 diff --git a/core/tests/honorface/jarjar-rules.txt b/core/tests/honorface/jarjar-rules.txt
 new file mode 100644
-index 000000000..77d10dc38
+index 0000000000000000000000000000000000000000..77d10dc38fcbd26a74b4c9b1fd8b1495f166a628
 --- /dev/null
 +++ b/core/tests/honorface/jarjar-rules.txt
 @@ -0,0 +1 @@
 +rule android.hardware.face.HonorLdyAn00Face** org.lineageos.honorface.test.HonorLdyAn00Face@1
 diff --git a/core/tests/honorface/src/android/hardware/face/HonorLdyAn00FaceAdapterTest.java b/core/tests/honorface/src/android/hardware/face/HonorLdyAn00FaceAdapterTest.java
 new file mode 100644
-index 000000000..9a57a3f52
+index 0000000000000000000000000000000000000000..9a57a3f520ad410cbb300198e39745b3ee0dccdb
 --- /dev/null
 +++ b/core/tests/honorface/src/android/hardware/face/HonorLdyAn00FaceAdapterTest.java
 @@ -0,0 +1,1476 @@
@@ -5048,7 +5048,7 @@ index 000000000..9a57a3f52
 +}
 diff --git a/core/tests/honorface/src/android/hardware/face/HonorLdyAn00FaceMetadataFileTest.java b/core/tests/honorface/src/android/hardware/face/HonorLdyAn00FaceMetadataFileTest.java
 new file mode 100644
-index 000000000..3fe832137
+index 0000000000000000000000000000000000000000..3fe832137285de287eb56ec457473204334ca549
 --- /dev/null
 +++ b/core/tests/honorface/src/android/hardware/face/HonorLdyAn00FaceMetadataFileTest.java
 @@ -0,0 +1,83 @@
@@ -5137,7 +5137,7 @@ index 000000000..3fe832137
 +}
 diff --git a/core/tests/honorface/src/android/hardware/face/HonorLdyAn00FaceVendorClientTest.java b/core/tests/honorface/src/android/hardware/face/HonorLdyAn00FaceVendorClientTest.java
 new file mode 100644
-index 000000000..9ac024a00
+index 0000000000000000000000000000000000000000..9ac024a007ff3afc1194a263780650c1d4e03a2f
 --- /dev/null
 +++ b/core/tests/honorface/src/android/hardware/face/HonorLdyAn00FaceVendorClientTest.java
 @@ -0,0 +1,278 @@
@@ -5421,7 +5421,7 @@ index 000000000..9ac024a00
 +}
 diff --git a/core/tests/honorface/src/com/android/server/biometrics/sensors/AuthenticationClientHonorStrongResetTest.java b/core/tests/honorface/src/com/android/server/biometrics/sensors/AuthenticationClientHonorStrongResetTest.java
 new file mode 100644
-index 000000000..78f8d670f
+index 0000000000000000000000000000000000000000..78f8d670f43ef023bfe49c19c7efb9143d316991
 --- /dev/null
 +++ b/core/tests/honorface/src/com/android/server/biometrics/sensors/AuthenticationClientHonorStrongResetTest.java
 @@ -0,0 +1,139 @@
@@ -5566,7 +5566,7 @@ index 000000000..78f8d670f
 +}
 diff --git a/core/tests/host/ldy_an00_fingerprint/AUTH-TOUCH-README.txt b/core/tests/host/ldy_an00_fingerprint/AUTH-TOUCH-README.txt
 new file mode 100644
-index 000000000..c46840342
+index 0000000000000000000000000000000000000000..c4684034238b66662c6308b62b2057166c7292b3
 --- /dev/null
 +++ b/core/tests/host/ldy_an00_fingerprint/AUTH-TOUCH-README.txt
 @@ -0,0 +1,52 @@
@@ -5624,7 +5624,7 @@ index 000000000..c46840342
 +authorized owner authentication/cancel/lockout/session-switch test remain required.
 diff --git a/core/tests/host/ldy_an00_fingerprint/GeometryHostTest.java b/core/tests/host/ldy_an00_fingerprint/GeometryHostTest.java
 new file mode 100644
-index 000000000..8c2d88c48
+index 0000000000000000000000000000000000000000..8c2d88c482aaa2b6403dc95e86b39d316cf15152
 --- /dev/null
 +++ b/core/tests/host/ldy_an00_fingerprint/GeometryHostTest.java
 @@ -0,0 +1,27 @@
@@ -5657,7 +5657,7 @@ index 000000000..8c2d88c48
 +}
 diff --git a/core/tests/host/ldy_an00_fingerprint/TouchModeHostTest.java b/core/tests/host/ldy_an00_fingerprint/TouchModeHostTest.java
 new file mode 100644
-index 000000000..f48b80a5a
+index 0000000000000000000000000000000000000000..f48b80a5aa4dfdf7040a5e566ef6664978fcf297
 --- /dev/null
 +++ b/core/tests/host/ldy_an00_fingerprint/TouchModeHostTest.java
 @@ -0,0 +1,183 @@
@@ -5845,7 +5845,7 @@ index 000000000..f48b80a5a
 +    }
 +}
 diff --git a/services/core/java/com/android/server/biometrics/sensors/AuthenticationClient.java b/services/core/java/com/android/server/biometrics/sensors/AuthenticationClient.java
-index 090353b8f..8f62aeb1a 100644
+index 090353b8f7c57c8f3af1a614715d3f83b6c54bc5..8f62aeb1a9bae1e59ba01d399e0ba7ad4c6e4dae 100644
 --- a/services/core/java/com/android/server/biometrics/sensors/AuthenticationClient.java
 +++ b/services/core/java/com/android/server/biometrics/sensors/AuthenticationClient.java
 @@ -29,6 +29,8 @@ import android.hardware.biometrics.BiometricConstants;
@@ -5922,7 +5922,7 @@ index 090353b8f..8f62aeb1a 100644
                  final int result = KeyStoreAuthorization.getInstance().addAuthToken(byteToken);
                  if (result != 0) {
 diff --git a/services/core/java/com/android/server/biometrics/sensors/BiometricScheduler.java b/services/core/java/com/android/server/biometrics/sensors/BiometricScheduler.java
-index 1d4e8b8c1..4754d439c 100644
+index 1d4e8b8c185edbe26c97569c4f7f48fbd960533f..4754d439c21621562acea5aa57cee61ff1181b90 100644
 --- a/services/core/java/com/android/server/biometrics/sensors/BiometricScheduler.java
 +++ b/services/core/java/com/android/server/biometrics/sensors/BiometricScheduler.java
 @@ -167,7 +167,22 @@ public class BiometricScheduler<T, U> {
@@ -5951,7 +5951,7 @@ index 1d4e8b8c1..4754d439c 100644
                      // do not unset the current operation that may be newer
 diff --git a/services/core/java/com/android/server/biometrics/sensors/HonorFaceStrongReset.java b/services/core/java/com/android/server/biometrics/sensors/HonorFaceStrongReset.java
 new file mode 100644
-index 000000000..eb314987e
+index 0000000000000000000000000000000000000000..eb314987ec551295c12c81c23f7e809e4f8116e8
 --- /dev/null
 +++ b/services/core/java/com/android/server/biometrics/sensors/HonorFaceStrongReset.java
 @@ -0,0 +1,33 @@
@@ -5989,7 +5989,7 @@ index 000000000..eb314987e
 +    }
 +}
 diff --git a/services/core/java/com/android/server/biometrics/sensors/face/FaceService.java b/services/core/java/com/android/server/biometrics/sensors/face/FaceService.java
-index a34791f70..a1d3cf686 100644
+index a34791f70533fe01be5e857628c33a544edc0b6d..a1d3cf686993a987604b51b6bca3e65d9f858733 100644
 --- a/services/core/java/com/android/server/biometrics/sensors/face/FaceService.java
 +++ b/services/core/java/com/android/server/biometrics/sensors/face/FaceService.java
 @@ -814,7 +814,8 @@ public class FaceService extends SystemService {
@@ -6003,7 +6003,7 @@ index a34791f70..a1d3cf686 100644
                  + a.length);
          if (!ArrayUtils.contains(a, "virtual")) {
 diff --git a/services/core/java/com/android/server/biometrics/sensors/face/aidl/AidlResponseHandler.java b/services/core/java/com/android/server/biometrics/sensors/face/aidl/AidlResponseHandler.java
-index 5f16fe665..4805c9fb5 100644
+index 5f16fe66549e78f2666f17f988f3549f021a0622..4805c9fb5cfcc9a0fbc2e1a8daa4fb3a74838835 100644
 --- a/services/core/java/com/android/server/biometrics/sensors/face/aidl/AidlResponseHandler.java
 +++ b/services/core/java/com/android/server/biometrics/sensors/face/aidl/AidlResponseHandler.java
 @@ -19,6 +19,7 @@ package com.android.server.biometrics.sensors.face.aidl;
@@ -6080,7 +6080,7 @@ index 5f16fe665..4805c9fb5 100644
      }
  }
 diff --git a/services/core/java/com/android/server/biometrics/sensors/face/aidl/FaceGenerateChallengeClient.java b/services/core/java/com/android/server/biometrics/sensors/face/aidl/FaceGenerateChallengeClient.java
-index cf45eb8b3..1f0cca3c0 100644
+index cf45eb8b31784722cbb02d6ae9c89f302f65dec3..1f0cca3c045e8d53827e15ec6a9a3990ca1e8704 100644
 --- a/services/core/java/com/android/server/biometrics/sensors/face/aidl/FaceGenerateChallengeClient.java
 +++ b/services/core/java/com/android/server/biometrics/sensors/face/aidl/FaceGenerateChallengeClient.java
 @@ -27,13 +27,15 @@ import com.android.server.biometrics.log.BiometricContext;
@@ -6114,7 +6114,7 @@ index cf45eb8b3..1f0cca3c0 100644
          try {
              final ClientMonitorCallbackConverter listener = getListener();
 diff --git a/services/core/java/com/android/server/biometrics/sensors/face/aidl/FaceProvider.java b/services/core/java/com/android/server/biometrics/sensors/face/aidl/FaceProvider.java
-index a70664cfe..69c32f5f8 100644
+index a70664cfe76bd62159c989e46c9066aa88051b94..69c32f5f83283ccb4645e202830b9321b4468d02 100644
 --- a/services/core/java/com/android/server/biometrics/sensors/face/aidl/FaceProvider.java
 +++ b/services/core/java/com/android/server/biometrics/sensors/face/aidl/FaceProvider.java
 @@ -35,6 +35,7 @@ import android.hardware.biometrics.ITestSessionCallback;
@@ -6158,7 +6158,7 @@ index a70664cfe..69c32f5f8 100644
      public void cancelEnrollment(int sensorId, @NonNull IBinder token, long requestId) {
          mHandler.post(() ->
 diff --git a/services/core/java/com/android/server/biometrics/sensors/face/aidl/FaceRevokeChallengeClient.java b/services/core/java/com/android/server/biometrics/sensors/face/aidl/FaceRevokeChallengeClient.java
-index 0d6143a7d..f99b0cd60 100644
+index 0d6143a7d0f080eba9ddafed5cd973f93beb8960..f99b0cd604a534bbc5b4559facce064ec1de4a57 100644
 --- a/services/core/java/com/android/server/biometrics/sensors/face/aidl/FaceRevokeChallengeClient.java
 +++ b/services/core/java/com/android/server/biometrics/sensors/face/aidl/FaceRevokeChallengeClient.java
 @@ -26,13 +26,15 @@ import android.util.Slog;
@@ -6192,7 +6192,7 @@ index 0d6143a7d..f99b0cd60 100644
          final boolean success = challenge == mChallenge;
          mCallback.onClientFinished(this, success);
 diff --git a/services/core/java/com/android/server/biometrics/sensors/face/aidl/Sensor.java b/services/core/java/com/android/server/biometrics/sensors/face/aidl/Sensor.java
-index 35659018c..60803fd05 100644
+index 35659018cd67b058368cd9d8c379f772df88eb58..60803fd051c044c7dc64f8d73486f8bb6c38ef3a 100644
 --- a/services/core/java/com/android/server/biometrics/sensors/face/aidl/Sensor.java
 +++ b/services/core/java/com/android/server/biometrics/sensors/face/aidl/Sensor.java
 @@ -32,6 +32,7 @@ import android.hardware.biometrics.face.IFace;
@@ -6235,8 +6235,640 @@ index 35659018c..60803fd05 100644
      /**
       * Returns lockout mode of this sensor.
       */
+diff --git a/services/core/java/com/android/server/display/BrightnessRangeController.java b/services/core/java/com/android/server/display/BrightnessRangeController.java
+index e504b7b2008ba851bb8dff50a4ae9a1b0016511b..7fd4ec7d1d5a910f9fc29e9809886ff791de8ce0 100644
+--- a/services/core/java/com/android/server/display/BrightnessRangeController.java
++++ b/services/core/java/com/android/server/display/BrightnessRangeController.java
+@@ -124,6 +124,23 @@ class BrightnessRangeController {
+                 state.getBrightnessMaxReason());
+     }
+ 
++    void onBrightnessChanged(float brightness, float unthrottledBrightness,
++            DisplayBrightnessState state, float outputBrightness) {
++        mHbmController.onHdrBoostApplied(
++                state.getHdrBrightness() != DisplayBrightnessState.BRIGHTNESS_NOT_SET);
++        mHbmController.onBrightnessChanged(brightness, unthrottledBrightness,
++                state.getBrightnessMaxReason(), outputBrightness);
++    }
++
++    void onHdrBoostApplied(DisplayBrightnessState state) {
++        mHbmController.onHdrBoostApplied(
++                state.getHdrBrightness() != DisplayBrightnessState.BRIGHTNESS_NOT_SET);
++    }
++
++    boolean isHdrBrightnessMode() {
++        return mHbmController.isHdrBrightnessMode();
++    }
++
+     float getCurrentBrightnessMin() {
+         return mHbmController.getCurrentBrightnessMin();
+     }
+@@ -149,6 +166,10 @@ class BrightnessRangeController {
+         return  mHbmController.getHdrBrightnessValue();
+     }
+ 
++    float getHdrBrightnessValue(float sdrMappingInput) {
++        return mHbmController.getHdrBrightnessValue(sdrMappingInput);
++    }
++
+     float getTransitionPoint() {
+         return mHbmController.getTransitionPoint();
+     }
+diff --git a/services/core/java/com/android/server/display/DisplayPowerController.java b/services/core/java/com/android/server/display/DisplayPowerController.java
+index f839a319dbc7f9c4ef1ee3bd9907f46a7936b7ab..60e92c58cf806134ac97f879f4ad221a28bbd83c 100644
+--- a/services/core/java/com/android/server/display/DisplayPowerController.java
++++ b/services/core/java/com/android/server/display/DisplayPowerController.java
+@@ -391,6 +391,7 @@ final class DisplayPowerController implements AutomaticBrightnessController.Call
+     private float[] mNitsRange;
+ 
+     private final BrightnessRangeController mBrightnessRangeController;
++    private final SdrHdrBrightnessCapController mSdrHdrBrightnessCaps;
+ 
+     private final BrightnessClamperController mBrightnessClamperController;
+ 
+@@ -593,6 +594,9 @@ final class DisplayPowerController implements AutomaticBrightnessController.Call
+                         mDisplayDeviceConfig, displayDeviceInfo.width, displayDeviceInfo.height,
+                         displayToken, mDisplayId), mContext, flags, mSensorManager, pluginManager,
+                         mDisplayBrightnessController.getCurrentBrightness());
++        mSdrHdrBrightnessCaps = new SdrHdrBrightnessCapController(
++                mHandler, pluginManager, this::sendUpdatePowerState,
++                SystemProperties.getBoolean("ro.display.sdr_hdr_caps", false), mUniqueDisplayId);
+         // Seed the cached brightness
+         saveBrightnessInfo(getScreenBrightnessSetting());
+         mAutomaticBrightnessStrategy =
+@@ -898,6 +902,7 @@ final class DisplayPowerController implements AutomaticBrightnessController.Call
+                 changed = true;
+                 mDisplayDevice = device;
+                 mUniqueDisplayId = uniqueId;
++                mSdrHdrBrightnessCaps.onDisplayChanged(uniqueId);
+                 mPhysicalDisplayName = displayName;
+                 mDisplayStatsId = mUniqueDisplayId.hashCode();
+                 mDisplayDeviceConfig = config;
+@@ -1285,6 +1290,7 @@ final class DisplayPowerController implements AutomaticBrightnessController.Call
+         mDisplayPowerProximityStateController.cleanup();
+         mBrightnessRangeController.stop();
+         mBrightnessClamperController.stop();
++        mSdrHdrBrightnessCaps.stop();
+         mDisplayBrightnessReporter.stop();
+         mHandler.removeCallbacksAndMessages(null);
+ 
+@@ -1396,7 +1402,11 @@ final class DisplayPowerController implements AutomaticBrightnessController.Call
+                         mDisplayOffloadSession,
+                         mIsWearBedtimeModeEnabled,
+                         shouldUseChargingMode);
+-        float brightnessState = displayBrightnessState.getBrightness();
++        final SdrHdrBrightnessCapController.Frame capFrame = mSdrHdrBrightnessCaps.snapshot(
++                mUniqueDisplayId, displayBrightnessState.getBrightnessReason().getReason(),
++                state, mPowerRequest);
++        final float strategyBrightness = displayBrightnessState.getBrightness();
++        float brightnessState = capFrame.beforeHdr(strategyBrightness);
+         float rawBrightnessState = displayBrightnessState.getBrightness();
+         mBrightnessReasonTemp.set(displayBrightnessState.getBrightnessReason());
+         boolean slowChange = displayBrightnessState.isSlowChange();
+@@ -1454,6 +1464,7 @@ final class DisplayPowerController implements AutomaticBrightnessController.Call
+                 displayBrightnessState, mPowerRequest,
+                 brightnessState, slowChange, /* displayState= */ state);
+         brightnessState = clampedState.getBrightness();
++        final float hdrMappingInput = brightnessState;
+         slowChange = clampedState.isSlowChange();
+         // faster rate wins, at this point customAnimationRate == -1, strategy does not control
+         // customAnimationRate. Should be revisited if strategy start setting this value
+@@ -1466,12 +1477,15 @@ final class DisplayPowerController implements AutomaticBrightnessController.Call
+             // only considering maxBrightness (ignoring brightness modifiers like low power or dim)
+             // so that the slider accurately represents the full possible range,
+             // even if they range changes what it means in absolute terms.
++            final float outputMaximum = Math.min(
++                    mBrightnessRangeController.getCurrentBrightnessMax(),
++                    capFrame.sdrMaximum(clampedState.getMaxBrightness()));
+             mDisplayBrightnessController.updateScreenBrightnessSetting(
+                     unthrottledBrightnessState,
+-                    Math.max(mBrightnessRangeController.getCurrentBrightnessMin(),
+-                            clampedState.getMinBrightness()),
+-                    Math.min(mBrightnessRangeController.getCurrentBrightnessMax(),
+-                            clampedState.getMaxBrightness()));
++                    capFrame.sdrMinimum(
++                            Math.max(mBrightnessRangeController.getCurrentBrightnessMin(),
++                                    clampedState.getMinBrightness()), outputMaximum),
++                    outputMaximum);
+         }
+ 
+         // The current brightness to use has been calculated at this point, and HbmController should
+@@ -1479,8 +1493,10 @@ final class DisplayPowerController implements AutomaticBrightnessController.Call
+         // here instead of having HbmController listen to the brightness setting because certain
+         // brightness sources (such as an app override) are not saved to the setting, but should be
+         // reflected in HBM calculations.
+-        mBrightnessRangeController.onBrightnessChanged(brightnessState, unthrottledBrightnessState,
+-                clampedState);
++        if (!capFrame.active()) {
++            mBrightnessRangeController.onBrightnessChanged(
++                    brightnessState, unthrottledBrightnessState, clampedState);
++        }
+ 
+         // Initial HDR value to be replaced with calculated HDR value if one exists.
+         float hdrBrightness = brightnessState;
+@@ -1538,25 +1554,60 @@ final class DisplayPowerController implements AutomaticBrightnessController.Call
+             // use instead. We still preserve the calculated brightness for Standard Dynamic Range
+             // (SDR) layers, but the main brightness value will be the one for HDR.
+             float sdrAnimateValue = animateValue;
++            boolean hdrSelected = false;
++            if (capFrame.active()) {
++                mBrightnessRangeController.onHdrBoostApplied(clampedState);
++            }
+ 
+             if (clampedState.getHdrBrightness() != DisplayBrightnessState.BRIGHTNESS_NOT_SET) {
+                 // TODO(b/343792639): The decision to prevent HBM for HDR in low power mode will be
+                 // done in HdrBrightnessModifier.
+                 // customAnimationRate and reason also handled by HdrBrightnessModifier
+                 animateValue = clampedState.getHdrBrightness();
++                hdrSelected = true;
+                 hdrBrightness = animateValue;
+-            } else if (mBrightnessRangeController.getHighBrightnessMode()
+-                    == BrightnessInfo.HIGH_BRIGHTNESS_MODE_HDR
++            } else if ((capFrame.active()
++                    ? mBrightnessRangeController.isHdrBrightnessMode()
++                    : mBrightnessRangeController.getHighBrightnessMode()
++                            == BrightnessInfo.HIGH_BRIGHTNESS_MODE_HDR)
+                     && (mBrightnessReasonTemp.getModifier() & BrightnessReason.MODIFIER_DIMMED) == 0
+                     && (mBrightnessReasonTemp.getModifier() & BrightnessReason.MODIFIER_LOW_POWER)
+                     == 0) {
+                 // We want to scale HDR brightness level with the SDR level, we also need to restore
+                 // SDR brightness immediately when entering dim or low power mode.
+-                animateValue = mBrightnessRangeController.getHdrBrightnessValue();
++                animateValue = capFrame.active()
++                        ? mBrightnessRangeController.getHdrBrightnessValue(hdrMappingInput)
++                        : mBrightnessRangeController.getHdrBrightnessValue();
++                hdrSelected = true;
+                 hdrBrightness = animateValue;
+                 mBrightnessReasonTemp.addModifier(BrightnessReason.MODIFIER_HDR);
+             }
+ 
++            if (capFrame.active()) {
++                SdrHdrBrightnessCapController.Output output = hdrSelected
++                        ? capFrame.finish(sdrAnimateValue, animateValue)
++                        : capFrame.finishSdr(sdrAnimateValue, animateValue);
++                boolean limited = capFrame.changed(
++                        strategyBrightness, sdrAnimateValue, animateValue, output);
++                boolean validOutput = BrightnessUtils.isValidBrightnessValue(output.sdr())
++                        && BrightnessUtils.isValidBrightnessValue(output.main());
++                if (validOutput) {
++                    sdrAnimateValue = output.sdr();
++                    animateValue = output.main();
++                    brightnessState = sdrAnimateValue;
++                    hdrBrightness = animateValue;
++                    clampedState = capFrame.reportingState(clampedState, output, limited);
++                    mBrightnessReasonTemp.addModifier(capFrame.reasonModifier(limited));
++                    customAnimationRate = Math.max(
++                            customAnimationRate, capFrame.transitionRate(limited));
++                }
++                // Rejected animation targets are not newly reported output targets.
++                mBrightnessRangeController.onBrightnessChanged(
++                        validOutput ? brightnessState : mPowerState.getSdrScreenBrightness(),
++                        unthrottledBrightnessState, clampedState,
++                        validOutput ? animateValue : mPowerState.getScreenBrightness());
++            }
++
+             // if doze or suspend state is requested, we want to finish brightnes animation fast
+             // to allow state animation to start
+             if (mPowerRequest.policy == POLICY_DOZE
+@@ -1620,6 +1671,12 @@ final class DisplayPowerController implements AutomaticBrightnessController.Call
+             brightnessAdjusted = saveBrightnessInfo(getScreenBrightnessSetting(),
+                     animateValue, clampedState);
+         } else {
++            if (capFrame.active()) {
++                // No new output was selected while animation is blocked.
++                mBrightnessRangeController.onBrightnessChanged(
++                        mPowerState.getSdrScreenBrightness(), unthrottledBrightnessState,
++                        clampedState, mPowerState.getScreenBrightness());
++            }
+             brightnessAdjusted = saveBrightnessInfo(getScreenBrightnessSetting(), clampedState);
+         }
+ 
+diff --git a/services/core/java/com/android/server/display/HighBrightnessModeController.java b/services/core/java/com/android/server/display/HighBrightnessModeController.java
+index c742640be09e652e64ad39f3f72e2208d5b4e471..851a8add1426ed07e3167d64f300a44524b6ea1b 100644
+--- a/services/core/java/com/android/server/display/HighBrightnessModeController.java
++++ b/services/core/java/com/android/server/display/HighBrightnessModeController.java
+@@ -100,6 +100,8 @@ class HighBrightnessModeController {
+     private float mBrightness;
+     // This value excludes brightness throttling effects.
+     private float mUnthrottledBrightness;
++    // Last final output target reported by DPC, not a measured panel brightness.
++    private float mLastOutputBrightness = Float.NaN;
+     private @BrightnessInfo.BrightnessMaxReason int mThrottlingReason =
+         BrightnessInfo.BRIGHTNESS_MAX_REASON_NONE;
+ 
+@@ -205,11 +207,16 @@ class HighBrightnessModeController {
+     }
+ 
+     float getHdrBrightnessValue() {
++        return getHdrBrightnessValue(mBrightness);
++    }
++
++    // Mapping input is independent of the actual output used for HBM accounting.
++    float getHdrBrightnessValue(float sdrMappingInput) {
+         if (mHdrBrightnessCfg != null) {
+             // ratioScaleFactor is implemented in HdrBrightnessModifier which replaces the HDR code
+             // in this class
+             float hdrBrightness = mHdrBrightnessCfg.getHdrBrightnessFromSdr(
+-                    mBrightness, mMaxDesiredHdrSdrRatio, /* ratioScaleFactor= */ 1);
++                    sdrMappingInput, mMaxDesiredHdrSdrRatio, /* ratioScaleFactor= */ 1);
+             if (hdrBrightness != PowerManager.BRIGHTNESS_INVALID) {
+                 return hdrBrightness;
+             }
+@@ -221,7 +228,7 @@ class HighBrightnessModeController {
+         // point happens to be) in order to go full HDR. Likewise, HDR on manual brightness should
+         // automatically scale the brightness without forcing the user to adjust to higher values.
+         return MathUtils.map(getCurrentBrightnessMin(), getCurrentBrightnessMax(),
+-                mBrightnessMin, mBrightnessMax, mBrightness);
++                mBrightnessMin, mBrightnessMax, sdrMappingInput);
+     }
+ 
+     void onAmbientLuxChange(float ambientLux) {
+@@ -241,10 +248,17 @@ class HighBrightnessModeController {
+ 
+     void onBrightnessChanged(float brightness, float unthrottledBrightness,
+             @BrightnessInfo.BrightnessMaxReason int throttlingReason) {
++        onBrightnessChanged(brightness, unthrottledBrightness, throttlingReason, Float.NaN);
++    }
++
++    // Separate final output/accounting from the explicit HDR mapping input.
++    void onBrightnessChanged(float brightness, float unthrottledBrightness,
++            @BrightnessInfo.BrightnessMaxReason int throttlingReason, float outputBrightness) {
+         if (!deviceSupportsHbm()) {
+             return;
+         }
+         mBrightness = brightness;
++        mLastOutputBrightness = outputBrightness;
+         mUnthrottledBrightness = unthrottledBrightness;
+         mThrottlingReason = throttlingReason;
+ 
+@@ -278,6 +292,11 @@ class HighBrightnessModeController {
+         recalculateTimeAllowance();
+     }
+ 
++    // Pure current-state HDR eligibility, without advancing accounting or statistics.
++    boolean isHdrBrightnessMode() {
++        return deviceSupportsHbm() && mIsHdrLayerPresent;
++    }
++
+     int getHighBrightnessMode() {
+         return mHbmMode;
+     }
+@@ -291,6 +310,7 @@ class HighBrightnessModeController {
+     }
+ 
+     void stop() {
++        mLastOutputBrightness = Float.NaN;
+         registerHdrListener(null /*displayToken*/);
+         mSettingsObserver.stopObserving();
+     }
+@@ -301,6 +321,7 @@ class HighBrightnessModeController {
+ 
+     void resetHbmData(int width, int height, IBinder displayToken, String displayUniqueId,
+             HighBrightnessModeData hbmData, HdrBrightnessDeviceConfig hdrBrightnessCfg) {
++        mLastOutputBrightness = Float.NaN;
+         mWidth = width;
+         mHeight = height;
+         mHbmData = hbmData;
+@@ -332,6 +353,7 @@ class HighBrightnessModeController {
+         pw.println("HighBrightnessModeController:");
+         pw.println("  mHbmControllerIsEnabled=" + mHbmControllerIsEnabled);
+         pw.println("  mBrightness=" + mBrightness);
++        pw.println("  mLastOutputBrightness=" + mLastOutputBrightness);
+         pw.println("  mUnthrottledBrightness=" + mUnthrottledBrightness);
+         pw.println("  mThrottlingReason=" + BrightnessInfo.briMaxReasonToString(mThrottlingReason));
+         pw.println("  mCurrentMin=" + getCurrentBrightnessMin());
+@@ -558,10 +580,15 @@ class HighBrightnessModeController {
+         }
+     }
+ 
++    private float getHdrBrightnessForStats() {
++        return Float.isNaN(mLastOutputBrightness)
++                ? getHdrBrightnessValue() : mLastOutputBrightness;
++    }
++
+     private void updateHbmStats(int newMode) {
+         int state = FrameworkStatsLog.DISPLAY_HBM_STATE_CHANGED__STATE__HBM_OFF;
+         if (newMode == BrightnessInfo.HIGH_BRIGHTNESS_MODE_HDR
+-                && getHdrBrightnessValue() > mHbmData.transitionPoint) {
++                && getHdrBrightnessForStats() > mHbmData.transitionPoint) {
+             state = FrameworkStatsLog.DISPLAY_HBM_STATE_CHANGED__STATE__HBM_ON_HDR;
+         } else if (newMode == BrightnessInfo.HIGH_BRIGHTNESS_MODE_SUNLIGHT
+                 && mBrightness > mHbmData.transitionPoint) {
+@@ -695,7 +722,8 @@ class HighBrightnessModeController {
+ 
+                 // Calling the brightness update so that we can recalculate
+                 // brightness with HDR in mind.
+-                onBrightnessChanged(mBrightness, mUnthrottledBrightness, mThrottlingReason);
++                onBrightnessChanged(mBrightness, mUnthrottledBrightness, mThrottlingReason,
++                        mLastOutputBrightness);
+                 Trace.traceEnd(Trace.TRACE_TAG_POWER);
+             });
+         }
+diff --git a/services/core/java/com/android/server/display/SdrHdrBrightnessCapController.java b/services/core/java/com/android/server/display/SdrHdrBrightnessCapController.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..1e11f1ab281df54ffcec29d552da9ea913f7cb39
+--- /dev/null
++++ b/services/core/java/com/android/server/display/SdrHdrBrightnessCapController.java
+@@ -0,0 +1,187 @@
++// SPDX-License-Identifier: Apache-2.0
++package com.android.server.display;
++
++import android.annotation.Nullable;
++import android.annotation.SuppressLint;
++import android.hardware.display.DisplayManagerInternal.DisplayPowerRequest;
++import android.os.Handler;
++import android.view.Display;
++
++import com.android.server.display.brightness.BrightnessReason;
++import com.android.server.display.plugin.PluginManager;
++import com.android.server.display.plugin.PluginType;
++import com.android.server.display.plugin.types.SdrHdrBrightnessCaps;
++
++import java.util.Objects;
++
++/** Display-handler-owned, default-inactive coherent cap transport. */
++final class SdrHdrBrightnessCapController {
++    private final Handler mHandler;
++    private final PluginManager mPlugins;
++    private final Runnable mChanged;
++    private final boolean mEnabled;
++    private String mDisplayId;
++    private PluginManager.PluginChangeListener<SdrHdrBrightnessCaps> mListener;
++    private SdrHdrBrightnessCaps mCaps;
++    private long mGeneration;
++    private long mRevision;
++    private boolean mStopped;
++
++    SdrHdrBrightnessCapController(Handler handler, PluginManager plugins, Runnable changed,
++            boolean enabled, String initialDisplayId) {
++        mHandler = new Handler(handler.getLooper());
++        mPlugins = plugins;
++        mChanged = changed;
++        mEnabled = enabled;
++        mHandler.post(() -> {
++            if (mGeneration == 0 && !mStopped) onDisplayChanged(initialDisplayId);
++        });
++    }
++
++    // Constructor calls this through our handler. DPC replacement/stop already runs there.
++    @SuppressLint("MissingPermission")
++    void onDisplayChanged(String displayId) {
++        if (mStopped) return;
++        final long generation = ++mGeneration;
++        if (mListener != null) {
++            mPlugins.unsubscribe(PluginType.SDR_HDR_BRIGHTNESS_CAPS, mDisplayId, mListener);
++        }
++        mListener = null;
++        mDisplayId = displayId;
++        mCaps = null;
++        mRevision++;
++        if (!mEnabled || displayId == null) return;
++        mListener = value -> mHandler.post(() -> {
++            if (mStopped || generation != mGeneration
++                    || !Objects.equals(displayId, mDisplayId)) return;
++            if (!Objects.equals(mCaps, value)) {
++                mCaps = value; // PluginStorage has already resolved display/global fallback.
++                mRevision++;
++                mChanged.run();
++            }
++        });
++        mPlugins.subscribe(PluginType.SDR_HDR_BRIGHTNESS_CAPS, displayId, mListener);
++    }
++
++    @SuppressLint("MissingPermission")
++    void stop() {
++        mStopped = true;
++        mGeneration++;
++        if (mListener != null) {
++            mPlugins.unsubscribe(PluginType.SDR_HDR_BRIGHTNESS_CAPS, mDisplayId, mListener);
++        }
++        mListener = null;
++        mCaps = null;
++        mHandler.removeCallbacksAndMessages(null);
++    }
++
++    Frame snapshot(String displayId, int reason, int state, DisplayPowerRequest request) {
++        // Stock doze, private app-no-limit, camera/APL scenes are not represented here.
++        // No producer is enabled until it can assert the supported ordinary policy.
++        boolean ordinary = mEnabled && !mStopped && Objects.equals(displayId, mDisplayId)
++                && state == Display.STATE_ON && request.policy == DisplayPowerRequest.POLICY_BRIGHT
++                && !request.lowPowerMode && !request.boostScreenBrightness;
++        boolean automatic = ordinary && reason == BrightnessReason.REASON_AUTOMATIC
++                && mCaps != null && mCaps.ordinaryAuto();
++        boolean manual = ordinary && reason == BrightnessReason.REASON_MANUAL
++                && mCaps != null && mCaps.manual();
++        return new Frame(mGeneration, mRevision, automatic || manual ? mCaps : null, automatic);
++    }
++
++    final class Frame {
++        private final long mFrameGeneration;
++        private final long mFrameRevision;
++        @Nullable private final SdrHdrBrightnessCaps mFrameCaps;
++        private final boolean mAutomatic;
++
++        private Frame(long generation, long revision, SdrHdrBrightnessCaps caps, boolean automatic) {
++            mFrameGeneration = generation;
++            mFrameRevision = revision;
++            mFrameCaps = caps;
++            mAutomatic = automatic;
++        }
++
++        boolean active() {
++            return mFrameCaps != null && !mStopped && mFrameGeneration == mGeneration;
++        }
++
++        long revision() { return mFrameRevision; }
++
++        float beforeHdr(float strategyValue) {
++            return active() && mAutomatic
++                    ? cap(strategyValue, mFrameCaps.automaticInputCap()) : strategyValue;
++        }
++
++        float sdrMaximum(float original) {
++            return active() ? Math.min(original, mFrameCaps.sdrOutputCap()) : original;
++        }
++
++        float sdrMinimum(float original, float maximum) {
++            return active() ? Math.min(original, maximum) : original;
++        }
++
++        Output finish(float sdr, float main) {
++            if (!active()) return new Output(sdr, main);
++            float limitedSdr = cap(sdr, mFrameCaps.sdrOutputCap());
++            float limitedMain = cap(main, mFrameCaps.hdrOutputCap());
++            if (validOutput(limitedSdr) && validOutput(limitedMain)) {
++                limitedSdr = Math.min(limitedSdr, limitedMain);
++            }
++            return new Output(limitedSdr, limitedMain);
++        }
++
++        Output finishSdr(float sdr, float main) {
++            if (!active()) return new Output(sdr, main);
++            float limitedSdr = cap(sdr, mFrameCaps.sdrOutputCap());
++            float limitedMain = cap(main, mFrameCaps.sdrOutputCap());
++            if (validOutput(limitedSdr) && validOutput(limitedMain)) {
++                limitedSdr = Math.min(limitedSdr, limitedMain);
++            }
++            return new Output(limitedSdr, limitedMain);
++        }
++
++        boolean changed(float originalInput, float sdr, float main, Output output) {
++            return active() && (Float.compare(beforeHdr(originalInput), originalInput) != 0
++                    || Float.compare(output.sdr(), sdr) != 0
++                    || Float.compare(output.main(), main) != 0);
++        }
++
++        float transitionRate(boolean limited) {
++            return active() && limited ? mFrameCaps.customTransitionRate() : -1f;
++        }
++
++        int reasonModifier(boolean limited) {
++            return active() && limited ? mFrameCaps.reasonModifier() : BrightnessReason.MODIFIER_NONE;
++        }
++
++        DisplayBrightnessState reportingState(DisplayBrightnessState state, Output output,
++                boolean limited) {
++            if (!active()) return state;
++            DisplayBrightnessState.Builder result = DisplayBrightnessState.Builder.from(state);
++            float maximum = sdrMaximum(state.getMaxBrightness());
++            if (maximum < state.getMaxBrightness()) {
++                result.setMaxBrightness(maximum);
++                result.setMinBrightness(Math.min(state.getMinBrightness(), maximum));
++                result.setBrightnessMaxReason(
++                        android.hardware.display.BrightnessInfo.BRIGHTNESS_MAX_REASON_PLUGIN);
++            }
++            result.setBrightness(output.sdr());
++            // Keep legacy HDR provenance unset: it is not a new-clamper HDR boost.
++            if (state.getHdrBrightness() != DisplayBrightnessState.BRIGHTNESS_NOT_SET) {
++                result.setHdrBrightness(output.main());
++            }
++            result.getBrightnessReason().addModifier(reasonModifier(limited));
++            return result.build();
++        }
++    }
++
++    record Output(float sdr, float main) {}
++
++    private static boolean validOutput(float value) {
++        return Float.isFinite(value) && value >= 0f;
++    }
++
++    private static float cap(float value, float maximum) {
++        return validOutput(value) ? Math.min(value, maximum) : value;
++    }
++}
+diff --git a/services/core/java/com/android/server/display/brightness/clamper/BrightnessPluginModifier.java b/services/core/java/com/android/server/display/brightness/clamper/BrightnessPluginModifier.java
+index 32ab3427e1cb5ed4cc82c8bac61c1c0cc3c57777..c6b678c062dcf4d956642f5a91be54b55770db3f 100644
+--- a/services/core/java/com/android/server/display/brightness/clamper/BrightnessPluginModifier.java
++++ b/services/core/java/com/android/server/display/brightness/clamper/BrightnessPluginModifier.java
+@@ -142,16 +142,19 @@ public class BrightnessPluginModifier implements BrightnessStateModifier,
+ 
+     private void onMaxBrightnessCapOverrideChanged(@Nullable MaxBrightnessCapOverride
+             maxBrightnessCapOverride) {
+-        if (maxBrightnessCapOverride != null) {
+-            float newMaxBrightnessCap = maxBrightnessCapOverride.maxBrightnessCap();
+-            @BrightnessReason.Modifier
+-            int reasonModifier = maxBrightnessCapOverride.reasonModifier();
+-            if (mMaxBrightnessCap != newMaxBrightnessCap || reasonModifier != mReasonModifier) {
+-                mMaxBrightnessCap = newMaxBrightnessCap;
+-                mReasonModifier = reasonModifier;
+-                mTransitionRate = maxBrightnessCapOverride.customTransitionRate();
+-                mClamperChangeListener.onChanged();
+-            }
++        float newMaxBrightnessCap = maxBrightnessCapOverride != null
++                ? maxBrightnessCapOverride.maxBrightnessCap() : PowerManager.BRIGHTNESS_MAX;
++        @BrightnessReason.Modifier
++        int reasonModifier = maxBrightnessCapOverride != null
++                ? maxBrightnessCapOverride.reasonModifier() : BrightnessReason.MODIFIER_NONE;
++        float transitionRate = maxBrightnessCapOverride != null
++                ? maxBrightnessCapOverride.customTransitionRate() : CUSTOM_ANIMATION_RATE_NOT_SET;
++        if (mMaxBrightnessCap != newMaxBrightnessCap || reasonModifier != mReasonModifier
++                || mTransitionRate != transitionRate) {
++            mMaxBrightnessCap = newMaxBrightnessCap;
++            mReasonModifier = reasonModifier;
++            mTransitionRate = transitionRate;
++            mClamperChangeListener.onChanged();
+         }
+     }
+ 
+diff --git a/services/core/java/com/android/server/display/plugin/PluginManager.java b/services/core/java/com/android/server/display/plugin/PluginManager.java
+index 62260a6b1a55ca518002c649c271dbacc52d3c19..b30b4bc04206d465ce3ae04ae477886945b3042c 100644
+--- a/services/core/java/com/android/server/display/plugin/PluginManager.java
++++ b/services/core/java/com/android/server/display/plugin/PluginManager.java
+@@ -18,6 +18,7 @@ package com.android.server.display.plugin;
+ 
+ import android.annotation.Nullable;
+ import android.content.Context;
++import android.os.SystemProperties;
+ import android.text.TextUtils;
+ import android.util.Slog;
+ 
+@@ -133,6 +134,9 @@ public class PluginManager {
+             if (Flags.enableMaxBrightnessCapOverridePluginType()) {
+                 enabledTypes.add(PluginType.MAX_BRIGHTNESS_CAP_OVERRIDE);
+             }
++            if (SystemProperties.getBoolean("ro.display.sdr_hdr_caps", false)) {
++                enabledTypes.add(PluginType.SDR_HDR_BRIGHTNESS_CAPS);
++            }
+             return enabledTypes;
+         }
+ 
+diff --git a/services/core/java/com/android/server/display/plugin/PluginType.java b/services/core/java/com/android/server/display/plugin/PluginType.java
+index 397dd6d21117e7f5486bf072de3a6fdd8c336107..6621363cc30d3c181933fdd30795040365897288 100644
+--- a/services/core/java/com/android/server/display/plugin/PluginType.java
++++ b/services/core/java/com/android/server/display/plugin/PluginType.java
+@@ -20,6 +20,7 @@ import com.android.internal.annotations.Keep;
+ import com.android.internal.annotations.VisibleForTesting;
+ import com.android.server.display.plugin.types.HdrBoostOverride;
+ import com.android.server.display.plugin.types.MaxBrightnessCapOverride;
++import com.android.server.display.plugin.types.SdrHdrBrightnessCaps;
+ 
+ /**
+  * Represent customisation entry point to Framework. OEM and Framework team should define
+@@ -49,6 +50,10 @@ public class PluginType<T> {
+     public static final PluginType<MaxBrightnessCapOverride> MAX_BRIGHTNESS_CAP_OVERRIDE =
+             new PluginType<>(MaxBrightnessCapOverride.class, "max_brightness_cap_override");
+ 
++    /** Coherent cap-only policy. No publisher or consumer is enabled by default. */
++    public static final PluginType<SdrHdrBrightnessCaps> SDR_HDR_BRIGHTNESS_CAPS =
++            new PluginType<>(SdrHdrBrightnessCaps.class, "sdr_hdr_brightness_caps");
++
+     final Class<T> mType;
+     final String mName;
+ 
+diff --git a/services/core/java/com/android/server/display/plugin/types/SdrHdrBrightnessCaps.java b/services/core/java/com/android/server/display/plugin/types/SdrHdrBrightnessCaps.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..f7b711d446d227ad3933569d2396b7c33cb62ba2
+--- /dev/null
++++ b/services/core/java/com/android/server/display/plugin/types/SdrHdrBrightnessCaps.java
+@@ -0,0 +1,25 @@
++// SPDX-License-Identifier: Apache-2.0
++package com.android.server.display.plugin.types;
++
++import com.android.internal.annotations.Keep;
++import com.android.server.display.brightness.BrightnessReason;
++
++/** One resolved policy revision. It supplies limits and never enables HDR. */
++@Keep
++public record SdrHdrBrightnessCaps(float automaticInputCap, float sdrOutputCap,
++        float hdrOutputCap, boolean ordinaryAuto, boolean manual,
++        float customTransitionRate, int reasonModifier) {
++    public SdrHdrBrightnessCaps {
++        if (!validCap(automaticInputCap) || !validCap(sdrOutputCap)
++                || !validCap(hdrOutputCap)
++                || !(customTransitionRate == -1f
++                        || Float.isFinite(customTransitionRate) && customTransitionRate > 0f)
++                || (reasonModifier & ~BrightnessReason.MODIFIER_MASK) != 0) {
++            throw new IllegalArgumentException("Invalid brightness cap policy");
++        }
++    }
++
++    private static boolean validCap(float cap) {
++        return Float.isFinite(cap) && cap >= 0f && cap <= 1f;
++    }
++}
 diff --git a/services/core/java/com/android/server/health/HealthServiceWrapperAidl.java b/services/core/java/com/android/server/health/HealthServiceWrapperAidl.java
-index 2600d4b12..7660ae9e4 100644
+index 2600d4b128154e0f38b8225875a3b43c7b88b094..7660ae9e4f8614cb1ff976109ab7fb729651df01 100644
 --- a/services/core/java/com/android/server/health/HealthServiceWrapperAidl.java
 +++ b/services/core/java/com/android/server/health/HealthServiceWrapperAidl.java
 @@ -39,6 +39,8 @@ import com.android.internal.annotations.VisibleForTesting;
@@ -6332,7 +6964,7 @@ index 2600d4b12..7660ae9e4 100644
          getHandlerThread()
 diff --git a/services/core/java/com/android/server/health/HonorBatteryManufacturingDate.java b/services/core/java/com/android/server/health/HonorBatteryManufacturingDate.java
 new file mode 100644
-index 000000000..b4a2e4998
+index 0000000000000000000000000000000000000000..b4a2e49984df43c4500db4b1172984ddda84633f
 --- /dev/null
 +++ b/services/core/java/com/android/server/health/HonorBatteryManufacturingDate.java
 @@ -0,0 +1,72 @@
@@ -6410,7 +7042,7 @@ index 000000000..b4a2e4998
 +}
 diff --git a/services/core/java/com/android/server/health/HonorBatterySerialNumber.java b/services/core/java/com/android/server/health/HonorBatterySerialNumber.java
 new file mode 100644
-index 000000000..7491fb739
+index 0000000000000000000000000000000000000000..7491fb739cc69509467d627212996503e955c961
 --- /dev/null
 +++ b/services/core/java/com/android/server/health/HonorBatterySerialNumber.java
 @@ -0,0 +1,64 @@
@@ -6479,7 +7111,7 @@ index 000000000..7491fb739
 +    private HonorBatterySerialNumber() {}
 +}
 diff --git a/services/core/java/com/android/server/locksettings/BiometricDeferredQueue.java b/services/core/java/com/android/server/locksettings/BiometricDeferredQueue.java
-index 5f20556e3..6db3fa6ca 100644
+index 5f20556e3433561598a0757a66d94f5bb8ec9e2b..6db3fa6ca4b1a8a454267d5dcd422fac45b56ba9 100644
 --- a/services/core/java/com/android/server/locksettings/BiometricDeferredQueue.java
 +++ b/services/core/java/com/android/server/locksettings/BiometricDeferredQueue.java
 @@ -21,6 +21,7 @@ import android.annotation.Nullable;
@@ -6553,7 +7185,7 @@ index 5f20556e3..6db3fa6ca 100644
                              }
                          }
 diff --git a/services/core/java/com/android/server/locksettings/LockSettingsService.java b/services/core/java/com/android/server/locksettings/LockSettingsService.java
-index b0d81fbef..4d960a410 100644
+index b0d81fbefcd6f5affc0232dbba5837b582ab3d09..4d960a410550437e6a5e80a3cd923849b7dd47fe 100644
 --- a/services/core/java/com/android/server/locksettings/LockSettingsService.java
 +++ b/services/core/java/com/android/server/locksettings/LockSettingsService.java
 @@ -1426,6 +1426,9 @@ public class LockSettingsService extends ILockSettings.Stub {
@@ -6599,8 +7231,698 @@ index b0d81fbef..4d960a410 100644
          Slogf.i(TAG, "Changing lockscreen credential of user %d; newCredentialType=%s\n",
                  userId, LockPatternUtils.credentialTypeToString(credential.getType()));
          final int savedCredentialType = getCredentialTypeInternal(userId);
+diff --git a/services/tests/displayservicetests/Android.bp b/services/tests/displayservicetests/Android.bp
+index 02875613e509147c516d22e379dd6a11bbbe6bc3..556448d90c28fc6c3aa13d70b7c45b3e4fa4fb99 100644
+--- a/services/tests/displayservicetests/Android.bp
++++ b/services/tests/displayservicetests/Android.bp
+@@ -79,3 +79,67 @@ test_module_config {
+     ],
+     include_filters: ["com.android.server.display"],
+ }
++
++// Focused coherent-cap regression target; unrelated test classes are not compiled.
++android_test {
++    name: "LdyAn00CoherentBrightnessFrameworkTests",
++
++    manifest: "CoherentCapsManifest.xml",
++    srcs: [
++        "src/com/android/server/display/DisplayPowerControllerTest.java",
++        "src/com/android/server/display/HighBrightnessModeControllerTest.java",
++        "src/com/android/server/display/SdrHdrCapTransportTest.java",
++        "src/com/android/server/display/plugin/CapPluginStorageFixture.java",
++        "src/com/android/server/display/plugin/PluginStorageTest.kt",
++        "src/com/android/server/display/TestUtils.kt",
++        "src/com/android/server/display/config/DisplayDeviceConfigTestUtils.kt",
++    ],
++
++    libs: [
++        "android.test.mock.stubs.system",
++    ],
++
++    static_libs: [
++        "androidx.test.ext.junit",
++        "androidx.test.rules",
++        "compatibility-device-util-axt",
++        "flag-junit",
++        "frameworks-base-testutils",
++        "junit",
++        "junit-params",
++        "kotlin-test",
++        "mockito-kotlin2",
++        "mockingservicestests-utils-mockito",
++        "platform-compat-test-rules",
++        "platform-test-annotations",
++        "platformprotoslite",
++        "service-permission.stubs.system_server",
++        "services.core",
++        "servicestests-utils",
++        "statsdprotolite",
++        "StatsdTestUtils",
++        "surfaceflinger_flags_java_lib",
++        "testables",
++        "TestParameterInjector",
++        "desktop-test-lib",
++        "platform-test-rules",
++    ],
++
++    defaults: [
++        "modules-utils-testable-device-config-defaults",
++    ],
++
++    platform_apis: true,
++    test_suites: [
++        "device-tests",
++        "automotive-tests",
++    ],
++
++    certificate: "platform",
++
++    dxflags: ["--multi-dex"],
++
++    optimize: {
++        enabled: false,
++    },
++}
+diff --git a/services/tests/displayservicetests/CoherentCapsManifest.xml b/services/tests/displayservicetests/CoherentCapsManifest.xml
+new file mode 100644
+index 0000000000000000000000000000000000000000..d3d897143747e9ac5f8f9cf4289155b9635557ce
+--- /dev/null
++++ b/services/tests/displayservicetests/CoherentCapsManifest.xml
+@@ -0,0 +1,48 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Copyright (C) 2023 The Android Open Source Project
++
++     Licensed under the Apache License, Version 2.0 (the "License");
++     you may not use this file except in compliance with the License.
++     You may obtain a copy of the License at
++
++          http://www.apache.org/licenses/LICENSE-2.0
++
++     Unless required by applicable law or agreed to in writing, software
++     distributed under the License is distributed on an "AS IS" BASIS,
++     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++     See the License for the specific language governing permissions and
++     limitations under the License.
++-->
++
++<manifest xmlns:android="http://schemas.android.com/apk/res/android"
++    package="com.android.frameworks.coherentbrightnesstests">
++
++    <!-- Permissions -->
++    <uses-permission android:name="android.permission.CONTROL_DISPLAY_BRIGHTNESS" />
++    <uses-permission android:name="android.permission.CONTROL_DISPLAY_COLOR_TRANSFORMS" />
++    <uses-permission android:name="android.permission.DEVICE_POWER" />
++    <uses-permission android:name="android.permission.INTERACT_ACROSS_USERS_FULL" />
++    <uses-permission android:name="android.permission.LOG_COMPAT_CHANGE" />
++    <uses-permission android:name="android.permission.MANAGE_ACTIVITY_TASKS" />
++    <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS" />
++    <uses-permission android:name="android.permission.READ_COMPAT_CHANGE_CONFIG" />
++    <uses-permission android:name="android.permission.READ_DEVICE_CONFIG" />
++    <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS" />
++    <uses-permission android:name="android.permission.MANAGE_USB" />
++    <uses-permission android:name="android.permission.MANAGE_DISPLAYS" />
++
++    <!-- Permissions needed for DisplayTransformManagerTest -->
++    <uses-permission android:name="android.permission.CHANGE_CONFIGURATION" />
++    <uses-permission android:name="android.permission.HARDWARE_TEST"/>
++
++    <application android:debuggable="true"
++                 android:testOnly="true">
++        <uses-library android:name="android.test.mock" android:required="true" />
++        <uses-library android:name="android.test.runner" />
++    </application>
++
++    <instrumentation
++        android:name="androidx.test.runner.AndroidJUnitRunner"
++        android:label="Coherent Brightness Framework Tests"
++        android:targetPackage="com.android.frameworks.coherentbrightnesstests" />
++</manifest>
+diff --git a/services/tests/displayservicetests/src/com/android/server/display/DisplayPowerControllerTest.java b/services/tests/displayservicetests/src/com/android/server/display/DisplayPowerControllerTest.java
+index 9e9bfd42597475197f5f666e3d85373b0bb55b39..557e00c053519843858e21a5f81fbe6660ac25fc 100644
+--- a/services/tests/displayservicetests/src/com/android/server/display/DisplayPowerControllerTest.java
++++ b/services/tests/displayservicetests/src/com/android/server/display/DisplayPowerControllerTest.java
+@@ -1057,7 +1057,8 @@ public final class DisplayPowerControllerTest {
+                 /* userChangedBrightness= */ false, /* adjustment= */ 0,
+                 /* userChangedAutoBrightnessAdjustment= */ false, DisplayPowerRequest.POLICY_BRIGHT,
+                 Display.STATE_ON, /* useNormalBrightnessForDoze= */ false,
+-                /* shouldResetShortTermModel= */ false
++                /* shouldResetShortTermModel= */ false,
++                /* autoBrightnessOneShot= */ false
+         );
+         verify(mHolder.hbmController)
+                 .setAutoBrightnessEnabled(AutomaticBrightnessController.AUTO_BRIGHTNESS_ENABLED);
+@@ -1086,7 +1087,8 @@ public final class DisplayPowerControllerTest {
+                 /* userChangedBrightness= */ false, /* adjustment= */ 0,
+                 /* userChangedAutoBrightnessAdjustment= */ false, DisplayPowerRequest.POLICY_DOZE,
+                 Display.STATE_DOZE, /* useNormalBrightnessForDoze= */ false,
+-                /* shouldResetShortTermModel= */ false
++                /* shouldResetShortTermModel= */ false,
++                /* autoBrightnessOneShot= */ false
+         );
+         verify(mHolder.hbmController)
+                 .setAutoBrightnessEnabled(AutomaticBrightnessController.AUTO_BRIGHTNESS_ENABLED);
+@@ -1115,7 +1117,8 @@ public final class DisplayPowerControllerTest {
+                 /* userChangedBrightness= */ false, /* adjustment= */ 0,
+                 /* userChangedAutoBrightnessAdjustment= */ false, DisplayPowerRequest.POLICY_DOZE,
+                 Display.STATE_DOZE, /* useNormalBrightnessForDoze= */ false,
+-                /* shouldResetShortTermModel= */ false
++                /* shouldResetShortTermModel= */ false,
++                /* autoBrightnessOneShot= */ false
+         );
+         verify(mHolder.hbmController)
+                 .setAutoBrightnessEnabled(AutomaticBrightnessController.AUTO_BRIGHTNESS_ENABLED);
+@@ -1139,7 +1142,8 @@ public final class DisplayPowerControllerTest {
+                 /* userChangedBrightness= */ false, /* adjustment= */ 0,
+                 /* userChangedAutoBrightnessAdjustment= */ false, DisplayPowerRequest.POLICY_BRIGHT,
+                 Display.STATE_ON, /* useNormalBrightnessForDoze= */ false,
+-                /* shouldResetShortTermModel= */ false
++                /* shouldResetShortTermModel= */ false,
++                /* autoBrightnessOneShot= */ false
+         );
+         verify(mHolder.hbmController)
+                 .setAutoBrightnessEnabled(AutomaticBrightnessController.AUTO_BRIGHTNESS_DISABLED);
+@@ -1163,7 +1167,8 @@ public final class DisplayPowerControllerTest {
+                 /* userChangedBrightness= */ false, /* adjustment= */ 0,
+                 /* userChangedAutoBrightnessAdjustment= */ false, DisplayPowerRequest.POLICY_OFF,
+                 Display.STATE_OFF, /* useNormalBrightnessForDoze */ false,
+-                /* shouldResetShortTermModel= */ false
++                /* shouldResetShortTermModel= */ false,
++                /* autoBrightnessOneShot= */ false
+         );
+         verify(mHolder.hbmController).setAutoBrightnessEnabled(
+                 AutomaticBrightnessController.AUTO_BRIGHTNESS_OFF_DUE_TO_DISPLAY_STATE);
+@@ -1190,7 +1195,8 @@ public final class DisplayPowerControllerTest {
+                 /* userChangedBrightness= */ false, /* adjustment= */ 0,
+                 /* userChangedAutoBrightnessAdjustment= */ false, DisplayPowerRequest.POLICY_DOZE,
+                 Display.STATE_DOZE, /* useNormalBrightnessForDoze= */ false,
+-                /* shouldResetShortTermModel= */ false
++                /* shouldResetShortTermModel= */ false,
++                /* autoBrightnessOneShot= */ false
+         );
+         verify(mHolder.hbmController).setAutoBrightnessEnabled(
+                 AutomaticBrightnessController.AUTO_BRIGHTNESS_OFF_DUE_TO_DISPLAY_STATE);
+@@ -1219,7 +1225,8 @@ public final class DisplayPowerControllerTest {
+                 /* userChangedBrightness= */ false, /* adjustment= */ 0,
+                 /* userChangedAutoBrightnessAdjustment= */ false, DisplayPowerRequest.POLICY_DOZE,
+                 Display.STATE_DOZE, /* useNormalBrightnessForDoze= */ false,
+-                /* shouldResetShortTermModel= */ false
++                /* shouldResetShortTermModel= */ false,
++                /* autoBrightnessOneShot= */ false
+         );
+         verify(mHolder.hbmController).setAutoBrightnessEnabled(
+                 AutomaticBrightnessController.AUTO_BRIGHTNESS_OFF_DUE_TO_DISPLAY_STATE);
+@@ -1244,7 +1251,8 @@ public final class DisplayPowerControllerTest {
+                 /* userChangedBrightness= */ false, /* adjustment= */ 0,
+                 /* userChangedAutoBrightnessAdjustment= */ false, DisplayPowerRequest.POLICY_BRIGHT,
+                 Display.STATE_ON, /* useNormalBrightnessForDoze */ false,
+-                /* shouldResetShortTermModel= */ false
++                /* shouldResetShortTermModel= */ false,
++                /* autoBrightnessOneShot= */ false
+         );
+ 
+         // HBM should be allowed for the follower display
+@@ -1270,7 +1278,8 @@ public final class DisplayPowerControllerTest {
+                 /* userChangedBrightness= */ false, /* adjustment= */ 0,
+                 /* userChangedAutoBrightnessAdjustment= */ false, DisplayPowerRequest.POLICY_BRIGHT,
+                 Display.STATE_ON, /* useNormalBrightnessForDoze= */ false,
+-                /* shouldResetShortTermModel= */ false
++                /* shouldResetShortTermModel= */ false,
++                /* autoBrightnessOneShot= */ false
+         );
+         clearInvocations(mHolder.automaticBrightnessController);
+ 
+@@ -1289,7 +1298,8 @@ public final class DisplayPowerControllerTest {
+                 /* userChangedAutoBrightnessAdjustment= */ anyBoolean(),
+                 /* displayPolicy= */ anyInt(), /* displayState= */ anyInt(),
+                 /* useNormalBrightnessForDoze= */ anyBoolean(),
+-                /* shouldResetShortTermModel= */ anyBoolean()
++                /* shouldResetShortTermModel= */ anyBoolean(),
++                /* autoBrightnessOneShot= */ anyBoolean()
+         );
+         clearInvocations(mHolder.automaticBrightnessController);
+ 
+@@ -1308,7 +1318,8 @@ public final class DisplayPowerControllerTest {
+                 /* userChangedBrightness= */ false, /* adjustment= */ 0,
+                 /* userChangedAutoBrightnessAdjustment= */ false, DisplayPowerRequest.POLICY_BRIGHT,
+                 Display.STATE_ON, /* useNormalBrightnessForDoze= */ false,
+-                /* shouldResetShortTermModel= */ false
++                /* shouldResetShortTermModel= */ false,
++                /* autoBrightnessOneShot= */ false
+         );
+         clearInvocations(mHolder.automaticBrightnessController);
+     }
+@@ -2135,7 +2146,8 @@ public final class DisplayPowerControllerTest {
+                 /* displayPolicy= */ anyInt(),
+                 /* displayState= */ anyInt(),
+                 /* useNormalBrightnessForDoze= */ anyBoolean(),
+-                /* shouldResetShortTermModel= */ anyBoolean());
++                /* shouldResetShortTermModel= */ anyBoolean(),
++                /* autoBrightnessOneShot= */ anyBoolean());
+         verify(mBrightnessTrackerMock, never()).notifyBrightnessChanged(
+                 /* brightness= */ anyFloat(),
+                 /* userInitiated= */ eq(true),
+@@ -2927,4 +2939,172 @@ public final class DisplayPowerControllerTest {
+             return dpc.new ChargingStateReceiver(true);
+         }
+     }
++    private com.android.server.display.plugin.CapPluginStorageFixture mCoherentStorage;
++
++    private void prepareCoherentCaps(boolean enabled, boolean automatic, boolean hdr) {
++        mHolder.dpc.stop();
++        advanceTime(1);
++        doAnswer((Answer<Boolean>) invocation -> enabled).when(() ->
++                SystemProperties.getBoolean("ro.display.sdr_hdr_caps", false));
++        mCoherentStorage = new com.android.server.display.plugin.CapPluginStorageFixture(
++                mContext, mDisplayManagerFlagsMock);
++        mMockPluginManager = mCoherentStorage.manager;
++        Settings.System.putInt(mContext.getContentResolver(), Settings.System.SCREEN_BRIGHTNESS_MODE,
++                automatic ? Settings.System.SCREEN_BRIGHTNESS_MODE_AUTOMATIC
++                        : Settings.System.SCREEN_BRIGHTNESS_MODE_MANUAL);
++        mHolder = createDisplayPowerController(DISPLAY_ID, UNIQUE_ID);
++        when(mHolder.displayPowerState.getScreenState()).thenReturn(Display.STATE_ON);
++        when(mHolder.displayPowerState.getColorFadeLevel()).thenReturn(1f);
++        when(mHolder.automaticBrightnessController.getAutomaticScreenBrightness(
++                any(BrightnessEvent.class))).thenReturn(.8f);
++        when(mHolder.brightnessSetting.getBrightness()).thenReturn(.8f);
++        ArgumentCaptor<BrightnessSetting.BrightnessSettingListener> listener =
++                ArgumentCaptor.forClass(BrightnessSetting.BrightnessSettingListener.class);
++        verify(mHolder.brightnessSetting).registerListener(listener.capture());
++        listener.getValue().onBrightnessChanged(.8f);
++        when(mHolder.clamperController.clamp(any(), any(), anyFloat(), anyBoolean(), anyInt()))
++                .thenAnswer(invocation -> DisplayBrightnessState.Builder.from(
++                        (DisplayBrightnessState) invocation.getArgument(0))
++                        .setBrightness(invocation.getArgument(2))
++                        .setHdrBrightness(hdr
++                                ? (float) Math.sqrt((Float) invocation.getArgument(2))
++                                : DisplayBrightnessState.BRIGHTNESS_NOT_SET)
++                        .setMaxBrightness(1f).setCustomAnimationRate(-1f).build());
++        mCoherentStorage.storage.updateValue(
++                com.android.server.display.plugin.PluginType.SDR_HDR_BRIGHTNESS_CAPS, UNIQUE_ID,
++                new com.android.server.display.plugin.types.SdrHdrBrightnessCaps(
++                        .4f, .4f, .7f, true, true, 2f,
++                        BrightnessReason.MODIFIER_THROTTLED));
++        advanceTime(1);
++        clearInvocations(mHolder.animator, mHolder.hbmController, mHolder.clamperController);
++    }
++
++    @Test
++    public void testCoherentCaps_DefaultOffIdentityWithRealStorage() {
++        prepareCoherentCaps(false, false, true);
++        mHolder.dpc.requestPowerState(new DisplayPowerRequest(), false);
++        advanceTime(1);
++        verify(mHolder.animator, atLeastOnce()).animateTo(eq((float) Math.sqrt(.8f)), eq(.8f),
++                anyFloat(), anyBoolean(), anyFloat());
++        verify(mHolder.hbmController, never()).onBrightnessChanged(
++                anyFloat(), anyFloat(), anyInt(), anyFloat());
++    }
++
++    @Test
++    public void testCoherentCaps_ManualKeepsOriginalHdrMappingInput() {
++        prepareCoherentCaps(true, false, true);
++        mHolder.dpc.requestPowerState(new DisplayPowerRequest(), false);
++        advanceTime(1);
++        verify(mHolder.clamperController, atLeastOnce()).clamp(
++                any(), any(), eq(.8f), anyBoolean(), anyInt());
++        verify(mHolder.animator, atLeastOnce()).animateTo(
++                eq(.7f), eq(.4f), anyFloat(), anyBoolean(), anyFloat());
++        verify(mHolder.hbmController, atLeastOnce()).onBrightnessChanged(
++                eq(.4f), eq(.8f), anyInt(), eq(.7f));
++    }
++
++    @Test
++    public void testCoherentCaps_AutoCapsStrategyReturnBeforeHdr() {
++        prepareCoherentCaps(true, true, true);
++        mHolder.dpc.requestPowerState(new DisplayPowerRequest(), false);
++        advanceTime(1);
++        verify(mHolder.clamperController, atLeastOnce()).clamp(
++                any(), any(), eq(.4f), anyBoolean(), anyInt());
++        verify(mHolder.animator, atLeastOnce()).animateTo(eq((float) Math.sqrt(.4f)), eq(.4f),
++                anyFloat(), anyBoolean(), anyFloat());
++        assertEquals(.8f, mHolder.automaticBrightnessController
++                .getAutomaticScreenBrightness(new BrightnessEvent(DISPLAY_ID)), 0f);
++    }
++
++    @Test
++    public void testCoherentCaps_LegacyUsesExplicitOriginalMappingInput() {
++        prepareCoherentCaps(true, false, false);
++        when(mHolder.hbmController.isHdrBrightnessMode()).thenReturn(true);
++        when(mHolder.hbmController.getHdrBrightnessValue(.8f)).thenReturn(.9f);
++        mHolder.dpc.requestPowerState(new DisplayPowerRequest(), false);
++        advanceTime(1);
++        verify(mHolder.hbmController, atLeastOnce()).getHdrBrightnessValue(.8f);
++        verify(mHolder.animator, atLeastOnce()).animateTo(
++                eq(.7f), eq(.4f), anyFloat(), anyBoolean(), anyFloat());
++    }
++
++    @Test
++    public void testCoherentCaps_RejectedHdrAccountsPreviousOutput() {
++        prepareCoherentCaps(true, false, true);
++        when(mHolder.displayPowerState.getSdrScreenBrightness()).thenReturn(.2f);
++        when(mHolder.displayPowerState.getScreenBrightness()).thenReturn(.3f);
++        when(mHolder.clamperController.clamp(any(), any(), anyFloat(), anyBoolean(), anyInt()))
++                .thenAnswer(invocation -> DisplayBrightnessState.Builder.from(
++                        (DisplayBrightnessState) invocation.getArgument(0))
++                        .setBrightness(invocation.getArgument(2))
++                        .setHdrBrightness(Float.NaN).build());
++        mHolder.dpc.requestPowerState(new DisplayPowerRequest(), false);
++        advanceTime(1);
++        verify(mHolder.animator, never()).animateTo(
++                anyFloat(), anyFloat(), anyFloat(), anyBoolean(), anyFloat());
++        verify(mHolder.hbmController, atLeastOnce()).onBrightnessChanged(
++                eq(.2f), eq(.8f), anyInt(), eq(.3f));
++    }
++
++    @Test
++    public void testCoherentCaps_BlockedAnimationAccountsPreviousOutput() {
++        prepareCoherentCaps(true, false, true);
++        mHolder.dpc.setDisplayOffloadSession(mDisplayOffloadSession);
++        when(mDisplayOffloadSession.blockScreenOn(any())).thenReturn(true);
++        when(mHolder.displayPowerState.getScreenState()).thenReturn(Display.STATE_OFF);
++        DisplayPowerRequest request = new DisplayPowerRequest();
++        request.policy = DisplayPowerRequest.POLICY_OFF;
++        mHolder.dpc.requestPowerState(request, false);
++        advanceTime(1);
++        request.policy = DisplayPowerRequest.POLICY_BRIGHT;
++        mHolder.dpc.requestPowerState(request, false);
++        advanceTime(1);
++        when(mHolder.displayPowerState.getScreenState()).thenReturn(Display.STATE_ON);
++        when(mHolder.displayPowerState.getSdrScreenBrightness()).thenReturn(.2f);
++        when(mHolder.displayPowerState.getScreenBrightness()).thenReturn(.3f);
++        clearInvocations(mHolder.animator, mHolder.hbmController);
++        mHolder.dpc.updateBrightness();
++        advanceTime(1);
++        verify(mHolder.animator, never()).animateTo(
++                anyFloat(), anyFloat(), anyFloat(), anyBoolean(), anyFloat());
++        verify(mHolder.hbmController, atLeastOnce()).onBrightnessChanged(
++                eq(.2f), eq(.8f), anyInt(), eq(.3f));
++    }
++
++    @Test
++    public void testCoherentCaps_UpdatesHdrPresenceBeforeLegacyEligibility() {
++        prepareCoherentCaps(true, false, false);
++        when(mHolder.hbmController.getHighBrightnessMode()).thenReturn(
++                BrightnessInfo.HIGH_BRIGHTNESS_MODE_HDR);
++        when(mHolder.hbmController.isHdrBrightnessMode()).thenReturn(false);
++        mHolder.dpc.requestPowerState(new DisplayPowerRequest(), false);
++        advanceTime(1);
++        InOrder order = inOrder(mHolder.hbmController);
++        order.verify(mHolder.hbmController).onHdrBoostApplied(false);
++        order.verify(mHolder.hbmController).isHdrBrightnessMode();
++        verify(mHolder.hbmController, never()).getHdrBrightnessValue(anyFloat());
++    }
++
++    @Test
++    public void testCoherentCaps_ReportsOutputRangeAndEvents() throws Exception {
++        prepareCoherentCaps(true, false, true);
++        mHolder.dpc.requestPowerState(new DisplayPowerRequest(), false);
++        advanceTime(1);
++        BrightnessInfo info = mHolder.dpc.getBrightnessInfo();
++        assertEquals(.7f, info.adjustedBrightness, 0f);
++        assertEquals(.4f, info.brightnessMaximum, 0f);
++        assertTrue(info.brightnessMinimum <= info.brightnessMaximum);
++        assertEquals(BrightnessInfo.BRIGHTNESS_MAX_REASON_PLUGIN, info.brightnessMaxReason);
++        assertEquals(.4f, mHolder.dpc.mDisplayBrightnessController.getCurrentBrightness(), 0f);
++        // Test-only observation avoids adding a production API for the diagnostic event.
++        java.lang.reflect.Field field =
++                DisplayPowerController.class.getDeclaredField("mLastBrightnessEvent");
++        field.setAccessible(true);
++        BrightnessEvent event = (BrightnessEvent) field.get(mHolder.dpc);
++        assertEquals(.4f, event.getBrightness(), 0f);
++        assertEquals(.7f, event.getHdrBrightness(), 0f);
++        assertTrue((event.getReason().getModifier()
++                & BrightnessReason.MODIFIER_THROTTLED) != 0);
++    }
++
+ }
+diff --git a/services/tests/displayservicetests/src/com/android/server/display/HighBrightnessModeControllerTest.java b/services/tests/displayservicetests/src/com/android/server/display/HighBrightnessModeControllerTest.java
+index a6ea86f7023c40b4024655682a3cdc5d00c616fd..1c937e4582aad54cd47ea3beccace77a89f839cc 100644
+--- a/services/tests/displayservicetests/src/com/android/server/display/HighBrightnessModeControllerTest.java
++++ b/services/tests/displayservicetests/src/com/android/server/display/HighBrightnessModeControllerTest.java
+@@ -868,4 +868,50 @@ public class HighBrightnessModeControllerTest {
+     private void hbmcOnBrightnessChanged(HighBrightnessModeController hbmc, float brightness) {
+         hbmc.onBrightnessChanged(brightness, brightness, BrightnessInfo.BRIGHTNESS_MAX_REASON_NONE);
+     }
++    @Test
++    public void testCoherentMappingInputDoesNotReplaceReportedOutput() {
++        HighBrightnessModeController hbmc = new TestHbmBuilder()
++                .setHdrBrightnessConfig(mHdrBrightnessDeviceConfigMock).build();
++        when(mHdrBrightnessDeviceConfigMock.getHdrBrightnessFromSdr(
++                anyFloat(), anyFloat(), anyFloat())).thenAnswer(i -> i.getArgument(0));
++        hbmc.onBrightnessChanged(.3f, .8f, BrightnessInfo.BRIGHTNESS_MAX_REASON_NONE, .4f);
++        assertEquals(.8f, hbmc.getHdrBrightnessValue(.8f), EPSILON);
++        assertEquals(.3f, hbmc.getHdrBrightnessValue(), EPSILON);
++    }
++
++    @Test
++    public void testCoherentActualHdrStatsSurviveRatioUpdate() {
++        HighBrightnessModeController hbmc = new TestHbmBuilder()
++                .setHdrBrightnessConfig(mHdrBrightnessDeviceConfigMock).build();
++        when(mHdrBrightnessDeviceConfigMock.getHdrBrightnessFromSdr(
++                anyFloat(), anyFloat(), anyFloat())).thenReturn(.95f);
++        hbmc.onBrightnessChanged(.3f, .8f, BrightnessInfo.BRIGHTNESS_MAX_REASON_NONE, .4f);
++        hbmc.getHdrListener().onHdrInfoChanged(null, 1, DISPLAY_WIDTH, DISPLAY_HEIGHT, 0, 2);
++        advanceTime(0);
++        verify(mInjectorMock, never()).reportHbmStateChange(anyInt(),
++                eq(FrameworkStatsLog.DISPLAY_HBM_STATE_CHANGED__STATE__HBM_ON_HDR), anyInt());
++        hbmc.getHdrListener().onHdrInfoChanged(null, 1, DISPLAY_WIDTH, DISPLAY_HEIGHT, 0, 3);
++        advanceTime(0);
++        verify(mInjectorMock, never()).reportHbmStateChange(anyInt(),
++                eq(FrameworkStatsLog.DISPLAY_HBM_STATE_CHANGED__STATE__HBM_ON_HDR), anyInt());
++        hbmc.onBrightnessChanged(.3f, .8f, BrightnessInfo.BRIGHTNESS_MAX_REASON_NONE, .9f);
++        verify(mInjectorMock).reportHbmStateChange(anyInt(),
++                eq(FrameworkStatsLog.DISPLAY_HBM_STATE_CHANGED__STATE__HBM_ON_HDR), anyInt());
++    }
++
++    @Test
++    public void testCoherentCurrentHdrEligibilityDoesNotDependOnCachedMode() {
++        HighBrightnessModeController hbmc = createDefaultHbm();
++        hbmc.disableHdrBoost();
++        hbmc.onHdrBoostApplied(true);
++        assertTrue(hbmc.isHdrBrightnessMode());
++        hbmc.onHdrBoostApplied(false);
++        assertFalse(hbmc.isHdrBrightnessMode());
++
++        HighBrightnessModeController legacy = createDefaultHbm();
++        legacy.mIsHdrLayerPresent = true; // The legacy listener owns this state.
++        legacy.onHdrBoostApplied(false);
++        assertTrue(legacy.isHdrBrightnessMode());
++    }
++
+ }
+diff --git a/services/tests/displayservicetests/src/com/android/server/display/SdrHdrCapTransportTest.java b/services/tests/displayservicetests/src/com/android/server/display/SdrHdrCapTransportTest.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..6b4f0a082557f0a63ae0c1f59fcf40a7da2f88b9
+--- /dev/null
++++ b/services/tests/displayservicetests/src/com/android/server/display/SdrHdrCapTransportTest.java
+@@ -0,0 +1,124 @@
++// SPDX-License-Identifier: Apache-2.0
++package com.android.server.display;
++
++import static com.android.dx.mockito.inline.extended.ExtendedMockito.doAnswer;
++import static org.junit.Assert.assertEquals;
++import static org.junit.Assert.assertFalse;
++import static org.junit.Assert.assertTrue;
++import static org.mockito.Mockito.mock;
++import android.content.Context;
++import android.hardware.display.DisplayManagerInternal.DisplayPowerRequest;
++import android.os.Handler;
++import android.os.SystemProperties;
++import android.os.test.TestLooper;
++import androidx.test.ext.junit.runners.AndroidJUnit4;
++import androidx.test.filters.SmallTest;
++import com.android.modules.utils.testing.ExtendedMockitoRule;
++import com.android.server.display.feature.DisplayManagerFlags;
++import com.android.server.display.plugin.CapPluginStorageFixture;
++import com.android.server.display.plugin.PluginType;
++import com.android.server.display.plugin.types.SdrHdrBrightnessCaps;
++import org.junit.Before;
++import org.junit.Rule;
++import org.junit.Test;
++import org.junit.runner.RunWith;
++import org.mockito.quality.Strictness;
++import org.mockito.stubbing.Answer;
++
++@SmallTest
++@RunWith(AndroidJUnit4.class)
++public class SdrHdrCapTransportTest {
++    @Rule public final ExtendedMockitoRule rule = new ExtendedMockitoRule.Builder(this)
++            .setStrictness(Strictness.LENIENT).spyStatic(SystemProperties.class).build();
++    private boolean mTypeEnabled;
++    private TestLooper mLooper;
++    private Handler mHandler;
++    private CapPluginStorageFixture mFixture;
++    private SdrHdrBrightnessCapController mController;
++    private int mChanges;
++
++    @Before public void setUp() {
++        mTypeEnabled = true;
++        doAnswer((Answer<Boolean>) invocation -> mTypeEnabled).when(() ->
++                SystemProperties.getBoolean("ro.display.sdr_hdr_caps", false));
++        mLooper = new TestLooper();
++        mHandler = new Handler(mLooper.getLooper());
++    }
++
++    private void create() {
++        mFixture = new CapPluginStorageFixture(
++                mock(Context.class), mock(DisplayManagerFlags.class));
++        mController = new SdrHdrBrightnessCapController(
++                mHandler, mFixture.manager, () -> mChanges++, true, "panel");
++        mLooper.dispatchAll();
++    }
++
++    private SdrHdrBrightnessCaps caps(float value, float rate) {
++        return new SdrHdrBrightnessCaps(value, value, value, true, true, rate, 8);
++    }
++
++    private SdrHdrBrightnessCapController.Frame frame(String display) {
++        return mController.snapshot(display, 4, 2, new DisplayPowerRequest());
++    }
++
++    @Test public void propertyOffRejectsTypeInRealStorage() {
++        mTypeEnabled = false;
++        create(); // Consumer deliberately enabled to test actual storage gate separately.
++        mFixture.storage.updateValue(PluginType.SDR_HDR_BRIGHTNESS_CAPS, "panel", caps(.3f, 1));
++        mLooper.dispatchAll();
++        assertFalse(frame("panel").active());
++        assertEquals(0, mChanges);
++    }
++
++    @Test public void globalFallbackAndTrueNullUseActualStorage() {
++        create();
++        mFixture.storage.updateGlobalValue(PluginType.SDR_HDR_BRIGHTNESS_CAPS, caps(.7f, 1));
++        mFixture.storage.updateValue(PluginType.SDR_HDR_BRIGHTNESS_CAPS, "panel", caps(.3f, 1));
++        mLooper.dispatchAll();
++        assertEquals(.3f, frame("panel").beforeHdr(.8f), 0);
++        mFixture.storage.updateValue(PluginType.SDR_HDR_BRIGHTNESS_CAPS, "panel", null);
++        mLooper.dispatchAll();
++        assertEquals(.7f, frame("panel").beforeHdr(.8f), 0);
++        mFixture.storage.updateGlobalValue(PluginType.SDR_HDR_BRIGHTNESS_CAPS, null);
++        mLooper.dispatchAll();
++        assertFalse(frame("panel").active());
++    }
++
++    @Test public void queuedOldDisplayUpdateCannotReachReplacement() {
++        create();
++        mFixture.storage.updateValue(PluginType.SDR_HDR_BRIGHTNESS_CAPS, "panel", caps(.1f, 1));
++        mController.onDisplayChanged("replacement");
++        mLooper.dispatchAll();
++        assertFalse(frame("replacement").active());
++        mFixture.storage.updateValue(
++                PluginType.SDR_HDR_BRIGHTNESS_CAPS, "replacement", caps(.6f, 1));
++        mLooper.dispatchAll();
++        assertEquals(.6f, frame("replacement").beforeHdr(.8f), 0);
++    }
++
++    @Test public void stopCancelsQueuedDeliveryAndUnsubscribes() {
++        create();
++        mFixture.storage.updateValue(PluginType.SDR_HDR_BRIGHTNESS_CAPS, "panel", caps(.1f, 1));
++        mController.stop();
++        mLooper.dispatchAll();
++        assertFalse(frame("panel").active());
++        assertEquals(0, mChanges);
++        mFixture.storage.updateGlobalValue(PluginType.SDR_HDR_BRIGHTNESS_CAPS, caps(.2f, 1));
++        mLooper.dispatchAll();
++        assertEquals(0, mChanges);
++    }
++
++    @Test public void realStorageRateOnlyUpdateAndOneFrameTuple() {
++        create();
++        mFixture.storage.updateValue(PluginType.SDR_HDR_BRIGHTNESS_CAPS, "panel", caps(.4f, 1));
++        mLooper.dispatchAll();
++        var original = frame("panel");
++        int before = mChanges;
++        mFixture.storage.updateValue(PluginType.SDR_HDR_BRIGHTNESS_CAPS, "panel", caps(.4f, 2));
++        mLooper.dispatchAll();
++        assertEquals(before + 1, mChanges);
++        assertEquals(1f, original.transitionRate(true), 0);
++        assertEquals(2f, frame("panel").transitionRate(true), 0);
++        assertTrue(original.revision() < frame("panel").revision());
++    }
++}
+diff --git a/services/tests/displayservicetests/src/com/android/server/display/brightness/clamper/BrightnessPluginModifierTest.java b/services/tests/displayservicetests/src/com/android/server/display/brightness/clamper/BrightnessPluginModifierTest.java
+index d6f79138b1d65f755ca2ce3d5c1cec1eecc03c50..0d0622d03d9c01af7db0ec339b67391b7e600924 100644
+--- a/services/tests/displayservicetests/src/com/android/server/display/brightness/clamper/BrightnessPluginModifierTest.java
++++ b/services/tests/displayservicetests/src/com/android/server/display/brightness/clamper/BrightnessPluginModifierTest.java
+@@ -127,6 +127,41 @@ public class BrightnessPluginModifierTest {
+         assertModifierState(PowerManager.BRIGHTNESS_MAX, CUSTOM_ANIMATION_RATE_NOT_SET, false);
+     }
+ 
++    @Test
++    public void testNullUpdateReleasesCap() {
++        mInjector.notifyPluginChanged(new MaxBrightnessCapOverride(BRIGHTNESS_CAP, 1.0f));
++        mTestHandler.flush();
++        clearInvocations(mMockClamperChangeListener);
++
++        mInjector.notifyPluginChanged(null);
++        mTestHandler.flush();
++
++        verify(mMockClamperChangeListener).onChanged();
++        assertModifierState(PowerManager.BRIGHTNESS_MAX, CUSTOM_ANIMATION_RATE_NOT_SET, false);
++    }
++
++    @Test
++    public void testRepeatedNullUpdateDoesNotNotify() {
++        mInjector.notifyPluginChanged(null);
++        mTestHandler.flush();
++
++        verify(mMockClamperChangeListener, never()).onChanged();
++        assertModifierState(PowerManager.BRIGHTNESS_MAX, CUSTOM_ANIMATION_RATE_NOT_SET, false);
++    }
++
++    @Test
++    public void testTransitionRateOnlyUpdateNotifies() {
++        mInjector.notifyPluginChanged(new MaxBrightnessCapOverride(BRIGHTNESS_CAP, 1.0f));
++        mTestHandler.flush();
++        clearInvocations(mMockClamperChangeListener);
++
++        mInjector.notifyPluginChanged(new MaxBrightnessCapOverride(BRIGHTNESS_CAP, 2.0f));
++        mTestHandler.flush();
++
++        verify(mMockClamperChangeListener).onChanged();
++        assertModifierState(BRIGHTNESS_CAP, 2.0f, true);
++    }
++
+     @Test
+     public void testNoOpUpdateDoesNotNotify() {
+         // Set an initial cap
+diff --git a/services/tests/displayservicetests/src/com/android/server/display/plugin/CapPluginStorageFixture.java b/services/tests/displayservicetests/src/com/android/server/display/plugin/CapPluginStorageFixture.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..4ac14f650395f54575070170a626365bdbdbccbc
+--- /dev/null
++++ b/services/tests/displayservicetests/src/com/android/server/display/plugin/CapPluginStorageFixture.java
+@@ -0,0 +1,30 @@
++// SPDX-License-Identifier: Apache-2.0
++package com.android.server.display.plugin;
++
++import android.content.Context;
++import com.android.server.display.feature.DisplayManagerFlags;
++import java.util.List;
++import java.util.Set;
++import java.util.concurrent.atomic.AtomicReference;
++
++/** Test-only bridge: real enabled-type selection, PluginManager and PluginStorage. */
++public final class CapPluginStorageFixture {
++    public final PluginManager manager;
++    public final PluginStorage storage;
++
++    public CapPluginStorageFixture(Context context, DisplayManagerFlags flags) {
++        AtomicReference<PluginStorage> ref = new AtomicReference<>();
++        manager = new PluginManager(context, null, flags, new PluginManager.Injector() {
++            @Override PluginStorage getPluginStorage(Set<PluginType<?>> enabledTypes) {
++                PluginStorage result = new PluginStorage(enabledTypes);
++                ref.set(result);
++                return result;
++            }
++            @Override List<Plugin> loadPlugins(Context c, PluginStorage s,
++                    PluginManager.PluginProviderDependencies d, Set<PluginType<?>> types) {
++                return List.of(); // No filesystem plugin/provider loading in tests.
++            }
++        });
++        storage = ref.get();
++    }
++}
 diff --git a/services/tests/servicestests/src/com/android/server/biometrics/sensors/BiometricSchedulerTest.java b/services/tests/servicestests/src/com/android/server/biometrics/sensors/BiometricSchedulerTest.java
-index 41a7ac259..3a8e409e8 100644
+index 41a7ac259d40150247da7eed9bcc5b146a1ebc8c..3a8e409e847a216df4888bd658d970704cca787c 100644
 --- a/services/tests/servicestests/src/com/android/server/biometrics/sensors/BiometricSchedulerTest.java
 +++ b/services/tests/servicestests/src/com/android/server/biometrics/sensors/BiometricSchedulerTest.java
 @@ -956,6 +956,148 @@ public class BiometricSchedulerTest {
@@ -6754,7 +8076,7 @@ index 41a7ac259..3a8e409e8 100644
          mCurrentUserId = 10;
 diff --git a/services/tests/servicestests/src/com/android/server/biometrics/sensors/face/aidl/AidlResponseHandlerTest.java b/services/tests/servicestests/src/com/android/server/biometrics/sensors/face/aidl/AidlResponseHandlerTest.java
 new file mode 100644
-index 000000000..2db2508e5
+index 0000000000000000000000000000000000000000..2db2508e5ed0867704f677c9f6d808fabb3f2cb5
 --- /dev/null
 +++ b/services/tests/servicestests/src/com/android/server/biometrics/sensors/face/aidl/AidlResponseHandlerTest.java
 @@ -0,0 +1,225 @@
@@ -6984,7 +8306,7 @@ index 000000000..2db2508e5
 +    }
 +}
 diff --git a/services/tests/servicestests/src/com/android/server/biometrics/sensors/face/aidl/FaceAuthenticationClientTest.java b/services/tests/servicestests/src/com/android/server/biometrics/sensors/face/aidl/FaceAuthenticationClientTest.java
-index 2492687ce..cffe6dbaa 100644
+index 2492687ce2b24d12996b84fd7946070d9c7e525b..cffe6dbaad9bf853048e294aea2051da758fa484 100644
 --- a/services/tests/servicestests/src/com/android/server/biometrics/sensors/face/aidl/FaceAuthenticationClientTest.java
 +++ b/services/tests/servicestests/src/com/android/server/biometrics/sensors/face/aidl/FaceAuthenticationClientTest.java
 @@ -30,6 +30,7 @@ import static org.mockito.ArgumentMatchers.anyInt;
@@ -7052,7 +8374,7 @@ index 2492687ce..cffe6dbaa 100644
                  null /* sensorPrivacyManager */, 0 /* biometricStrength */,
                  mAuthenticationStateListeners) {
 diff --git a/services/tests/servicestests/src/com/android/server/biometrics/sensors/face/aidl/FaceGenerateChallengeClientTest.java b/services/tests/servicestests/src/com/android/server/biometrics/sensors/face/aidl/FaceGenerateChallengeClientTest.java
-index c12f13ee8..f4f4d5a1a 100644
+index c12f13ee8cbe9bffc3c6916bc88d5ac19fa6b643..f4f4d5a1a823d0474e3e213d45b6e35c14e76bf2 100644
 --- a/services/tests/servicestests/src/com/android/server/biometrics/sensors/face/aidl/FaceGenerateChallengeClientTest.java
 +++ b/services/tests/servicestests/src/com/android/server/biometrics/sensors/face/aidl/FaceGenerateChallengeClientTest.java
 @@ -17,11 +17,13 @@
@@ -7090,7 +8412,7 @@ index c12f13ee8..f4f4d5a1a 100644
          mClient = new FaceGenerateChallengeClient(mContext, () -> mAidlSession, mToken, listener,
                  USER_ID, TAG, SENSOR_ID, mBiometricLogger, mBiometricContext);
 diff --git a/services/tests/servicestests/src/com/android/server/biometrics/sensors/face/aidl/FaceProviderTest.java b/services/tests/servicestests/src/com/android/server/biometrics/sensors/face/aidl/FaceProviderTest.java
-index abc9d68b0..067569050 100644
+index abc9d68b0fcf5c0d998830460bd07c198d2b3325..0675690503477a509c1b58e13f3bd4623bf2c092 100644
 --- a/services/tests/servicestests/src/com/android/server/biometrics/sensors/face/aidl/FaceProviderTest.java
 +++ b/services/tests/servicestests/src/com/android/server/biometrics/sensors/face/aidl/FaceProviderTest.java
 @@ -122,6 +122,39 @@ public class FaceProviderTest {
@@ -7134,7 +8456,7 @@ index abc9d68b0..067569050 100644
      public void setUp() throws RemoteException {
          MockitoAnnotations.initMocks(this);
 diff --git a/services/tests/servicestests/src/com/android/server/biometrics/sensors/face/aidl/SensorTest.java b/services/tests/servicestests/src/com/android/server/biometrics/sensors/face/aidl/SensorTest.java
-index bf970867f..c52e158e7 100644
+index bf970867f1492ae88f04ecb7a0147b81fc89bcda..c52e158e77018a154c9726ae8dd7d17fd74c33c9 100644
 --- a/services/tests/servicestests/src/com/android/server/biometrics/sensors/face/aidl/SensorTest.java
 +++ b/services/tests/servicestests/src/com/android/server/biometrics/sensors/face/aidl/SensorTest.java
 @@ -24,7 +24,10 @@ import static org.mockito.ArgumentMatchers.anyInt;
@@ -7179,7 +8501,7 @@ index bf970867f..c52e158e7 100644
      public void halSessionCallback_respondsToResetLockout() throws Exception {
          doAnswer((Answer<Void>) invocationOnMock -> {
 diff --git a/services/tests/servicestests/src/com/android/server/biometrics/sensors/fingerprint/aidl/SensorTest.java b/services/tests/servicestests/src/com/android/server/biometrics/sensors/fingerprint/aidl/SensorTest.java
-index 3d05df552..dacee0b97 100644
+index 3d05df552137d1f004205918ee79f41d42a26926..dacee0b97cdcf31c9cfe02cafd36f9b39fdfce91 100644
 --- a/services/tests/servicestests/src/com/android/server/biometrics/sensors/fingerprint/aidl/SensorTest.java
 +++ b/services/tests/servicestests/src/com/android/server/biometrics/sensors/fingerprint/aidl/SensorTest.java
 @@ -212,8 +212,9 @@ public class SensorTest {
@@ -7196,7 +8518,7 @@ index 3d05df552..dacee0b97 100644
  
 diff --git a/services/tests/servicestests/src/com/android/server/health/HonorBatteryManufacturingDateTest.java b/services/tests/servicestests/src/com/android/server/health/HonorBatteryManufacturingDateTest.java
 new file mode 100644
-index 000000000..654fdacf7
+index 0000000000000000000000000000000000000000..654fdacf7ef731c39981a4a81be5aec56ba08e1b
 --- /dev/null
 +++ b/services/tests/servicestests/src/com/android/server/health/HonorBatteryManufacturingDateTest.java
 @@ -0,0 +1,218 @@
@@ -7420,7 +8742,7 @@ index 000000000..654fdacf7
 +}
 diff --git a/services/tests/servicestests/src/com/android/server/health/HonorBatterySerialNumberTest.java b/services/tests/servicestests/src/com/android/server/health/HonorBatterySerialNumberTest.java
 new file mode 100644
-index 000000000..4b6a0949d
+index 0000000000000000000000000000000000000000..4b6a0949d6bc6a56b4bc0328aa894160a4315c88
 --- /dev/null
 +++ b/services/tests/servicestests/src/com/android/server/health/HonorBatterySerialNumberTest.java
 @@ -0,0 +1,178 @@
@@ -7603,7 +8925,7 @@ index 000000000..4b6a0949d
 +    }
 +}
 diff --git a/services/tests/servicestests/src/com/android/server/locksettings/SoftwareRateLimiterTest.java b/services/tests/servicestests/src/com/android/server/locksettings/SoftwareRateLimiterTest.java
-index 0bd7271bd..7438eb2d2 100644
+index 0bd7271bd2a8626e50992bc460bc53db024661b6..7438eb2d26d3f8bac3471b5572fa77a3858c085c 100644
 --- a/services/tests/servicestests/src/com/android/server/locksettings/SoftwareRateLimiterTest.java
 +++ b/services/tests/servicestests/src/com/android/server/locksettings/SoftwareRateLimiterTest.java
 @@ -635,7 +635,9 @@ public class SoftwareRateLimiterTest {
@@ -7618,7 +8940,7 @@ index 0bd7271bd..7438eb2d2 100644
  
      private LockscreenCredential newPassword(String password) {
 diff --git a/services/tests/servicestests/src/com/android/server/locksettings/recoverablekeystore/KeySyncTaskTest.java b/services/tests/servicestests/src/com/android/server/locksettings/recoverablekeystore/KeySyncTaskTest.java
-index dbdb70bcb..5ff5bd72d 100644
+index dbdb70bcbfdf6cade7247a7fe6e69951593643d9..5ff5bd72dc7b9a6e1553ca1a9c3440a974de024f 100644
 --- a/services/tests/servicestests/src/com/android/server/locksettings/recoverablekeystore/KeySyncTaskTest.java
 +++ b/services/tests/servicestests/src/com/android/server/locksettings/recoverablekeystore/KeySyncTaskTest.java
 @@ -974,6 +974,8 @@ public class KeySyncTaskTest {
@@ -7632,7 +8954,7 @@ index dbdb70bcb..5ff5bd72d 100644
      }
  }
 diff --git a/services/tests/servicestests/src/com/android/server/locksettings/recoverablekeystore/TestOnlyInsecureCertificateHelperTest.java b/services/tests/servicestests/src/com/android/server/locksettings/recoverablekeystore/TestOnlyInsecureCertificateHelperTest.java
-index 335155bb9..a8b109ae1 100644
+index 335155bb94c7e9fe285039b6b15b537ae6b9d813..a8b109ae1b354cf1dd548f12976902e9eb8d326c 100644
 --- a/services/tests/servicestests/src/com/android/server/locksettings/recoverablekeystore/TestOnlyInsecureCertificateHelperTest.java
 +++ b/services/tests/servicestests/src/com/android/server/locksettings/recoverablekeystore/TestOnlyInsecureCertificateHelperTest.java
 @@ -160,6 +160,8 @@ public class TestOnlyInsecureCertificateHelperTest {
@@ -7646,7 +8968,7 @@ index 335155bb9..a8b109ae1 100644
      }
  }
 diff --git a/telephony/java/android/telephony/ServiceState.java b/telephony/java/android/telephony/ServiceState.java
-index cda465c8f..ce7044599 100644
+index cda465c8f298f4956ec1081f9e8ddecb08b60fa2..ce7044599b9842853b13c31a9550b5dc74e0a48e 100644
 --- a/telephony/java/android/telephony/ServiceState.java
 +++ b/telephony/java/android/telephony/ServiceState.java
 @@ -1760,6 +1760,12 @@ public class ServiceState implements Parcelable {
@@ -7663,7 +8985,7 @@ index cda465c8f..ce7044599 100644
      public static boolean isPsOnlyTech(int radioTechnology) {
          return radioTechnology == RIL_RADIO_TECHNOLOGY_LTE
 diff --git a/telephony/java/android/telephony/ims/ImsCallForwardInfo.java b/telephony/java/android/telephony/ims/ImsCallForwardInfo.java
-index 1c2cac27e..b40d7bc19 100644
+index 1c2cac27eb377c358043b2af9175dce2fa4dee2c..b40d7bc199928cbd70ff0e38bbcb2a3e8310e5eb 100644
 --- a/telephony/java/android/telephony/ims/ImsCallForwardInfo.java
 +++ b/telephony/java/android/telephony/ims/ImsCallForwardInfo.java
 @@ -147,6 +147,18 @@ public final class ImsCallForwardInfo implements Parcelable {
@@ -7686,7 +9008,7 @@ index 1c2cac27e..b40d7bc19 100644
      @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
      public ImsCallForwardInfo() {
 diff --git a/telephony/java/android/telephony/ims/feature/ImsFeature.java b/telephony/java/android/telephony/ims/feature/ImsFeature.java
-index 6e245b2e8..be4e2d20f 100644
+index 6e245b2e87913afad4a44911d1db9166cdcaee83..be4e2d20f775e162034514a0c43baeaa32dc1ddc 100644
 --- a/telephony/java/android/telephony/ims/feature/ImsFeature.java
 +++ b/telephony/java/android/telephony/ims/feature/ImsFeature.java
 @@ -413,6 +413,15 @@ public abstract class ImsFeature {
@@ -7706,7 +9028,7 @@ index 6e245b2e8..be4e2d20f 100644
       * Internal method called by ImsFeature when setFeatureState has changed.
       */
 diff --git a/telephony/java/android/telephony/ims/feature/MmTelFeature.java b/telephony/java/android/telephony/ims/feature/MmTelFeature.java
-index 8c2471ccb..24a053f12 100644
+index 8c2471ccb9ae7a2c409342eead8fe3e802ee3e48..24a053f12df85552e51abbc7006893f408b2d901 100644
 --- a/telephony/java/android/telephony/ims/feature/MmTelFeature.java
 +++ b/telephony/java/android/telephony/ims/feature/MmTelFeature.java
 @@ -1089,6 +1089,14 @@ public class MmTelFeature extends ImsFeature {
@@ -7724,83 +9046,3 @@ index 8c2471ccb..24a053f12 100644
      /**
       * The current capability status that this MmTelFeature has defined is available. This
       * configuration will be used by the platform to figure out which capabilities are CURRENTLY
-diff --git a/services/core/java/com/android/server/display/brightness/clamper/BrightnessPluginModifier.java b/services/core/java/com/android/server/display/brightness/clamper/BrightnessPluginModifier.java
-index 32ab3427e..c6b678c06 100644
---- a/services/core/java/com/android/server/display/brightness/clamper/BrightnessPluginModifier.java
-+++ b/services/core/java/com/android/server/display/brightness/clamper/BrightnessPluginModifier.java
-@@ -142,16 +142,19 @@ public class BrightnessPluginModifier implements BrightnessStateModifier,
- 
-     private void onMaxBrightnessCapOverrideChanged(@Nullable MaxBrightnessCapOverride
-             maxBrightnessCapOverride) {
--        if (maxBrightnessCapOverride != null) {
--            float newMaxBrightnessCap = maxBrightnessCapOverride.maxBrightnessCap();
--            @BrightnessReason.Modifier
--            int reasonModifier = maxBrightnessCapOverride.reasonModifier();
--            if (mMaxBrightnessCap != newMaxBrightnessCap || reasonModifier != mReasonModifier) {
--                mMaxBrightnessCap = newMaxBrightnessCap;
--                mReasonModifier = reasonModifier;
--                mTransitionRate = maxBrightnessCapOverride.customTransitionRate();
--                mClamperChangeListener.onChanged();
--            }
-+        float newMaxBrightnessCap = maxBrightnessCapOverride != null
-+                ? maxBrightnessCapOverride.maxBrightnessCap() : PowerManager.BRIGHTNESS_MAX;
-+        @BrightnessReason.Modifier
-+        int reasonModifier = maxBrightnessCapOverride != null
-+                ? maxBrightnessCapOverride.reasonModifier() : BrightnessReason.MODIFIER_NONE;
-+        float transitionRate = maxBrightnessCapOverride != null
-+                ? maxBrightnessCapOverride.customTransitionRate() : CUSTOM_ANIMATION_RATE_NOT_SET;
-+        if (mMaxBrightnessCap != newMaxBrightnessCap || reasonModifier != mReasonModifier
-+                || mTransitionRate != transitionRate) {
-+            mMaxBrightnessCap = newMaxBrightnessCap;
-+            mReasonModifier = reasonModifier;
-+            mTransitionRate = transitionRate;
-+            mClamperChangeListener.onChanged();
-         }
-     }
- 
-diff --git a/services/tests/displayservicetests/src/com/android/server/display/brightness/clamper/BrightnessPluginModifierTest.java b/services/tests/displayservicetests/src/com/android/server/display/brightness/clamper/BrightnessPluginModifierTest.java
-index d6f79138b..0d0622d03 100644
---- a/services/tests/displayservicetests/src/com/android/server/display/brightness/clamper/BrightnessPluginModifierTest.java
-+++ b/services/tests/displayservicetests/src/com/android/server/display/brightness/clamper/BrightnessPluginModifierTest.java
-@@ -127,6 +127,41 @@ public class BrightnessPluginModifierTest {
-         assertModifierState(PowerManager.BRIGHTNESS_MAX, CUSTOM_ANIMATION_RATE_NOT_SET, false);
-     }
- 
-+    @Test
-+    public void testNullUpdateReleasesCap() {
-+        mInjector.notifyPluginChanged(new MaxBrightnessCapOverride(BRIGHTNESS_CAP, 1.0f));
-+        mTestHandler.flush();
-+        clearInvocations(mMockClamperChangeListener);
-+
-+        mInjector.notifyPluginChanged(null);
-+        mTestHandler.flush();
-+
-+        verify(mMockClamperChangeListener).onChanged();
-+        assertModifierState(PowerManager.BRIGHTNESS_MAX, CUSTOM_ANIMATION_RATE_NOT_SET, false);
-+    }
-+
-+    @Test
-+    public void testRepeatedNullUpdateDoesNotNotify() {
-+        mInjector.notifyPluginChanged(null);
-+        mTestHandler.flush();
-+
-+        verify(mMockClamperChangeListener, never()).onChanged();
-+        assertModifierState(PowerManager.BRIGHTNESS_MAX, CUSTOM_ANIMATION_RATE_NOT_SET, false);
-+    }
-+
-+    @Test
-+    public void testTransitionRateOnlyUpdateNotifies() {
-+        mInjector.notifyPluginChanged(new MaxBrightnessCapOverride(BRIGHTNESS_CAP, 1.0f));
-+        mTestHandler.flush();
-+        clearInvocations(mMockClamperChangeListener);
-+
-+        mInjector.notifyPluginChanged(new MaxBrightnessCapOverride(BRIGHTNESS_CAP, 2.0f));
-+        mTestHandler.flush();
-+
-+        verify(mMockClamperChangeListener).onChanged();
-+        assertModifierState(BRIGHTNESS_CAP, 2.0f, true);
-+    }
-+
-     @Test
-     public void testNoOpUpdateDoesNotNotify() {
-         // Set an initial cap
