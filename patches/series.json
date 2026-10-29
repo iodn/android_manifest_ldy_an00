@@ -34,10 +34,10 @@
     {
       "path": "frameworks/base",
       "revision": "f959707b8d812f07f15465f872b853e0d35f2815",
-      "tree": "0e05dc1743eed3c06dcc026cebc5e7ec1ae87b1e",
+      "tree": "1505f6cd5feee4fb526fa27e938d23fe7a3ae3c9",
       "base_revision": "d89e00a103772f803f760979aabf8145e7731e1b",
       "patch": "frameworks_base.patch",
-      "patch_sha256": "6867ddfebc2485fee49f370fa7f6a1e6e545762df2916f2f1421441433466e80",
+      "patch_sha256": "fcaedd58216802b73b4f2e93e28f72ffa992463cf12e3e779cb9043b60ef1722",
       "patch_tree_verified": true,
       "remote_url": "https://github.com/LineageOS/android_frameworks_base",
       "target_snapshot_revision": "f959707b8d812f07f15465f872b853e0d35f2815",

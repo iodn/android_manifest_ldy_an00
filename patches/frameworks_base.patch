@@ -3084,7 +3084,7 @@ index c94e6998867525f7b4d910f46cfbf1fe9fa3e0d3..786411bd4fa25f445af2a1698c5a8756
       * Notify the SurfaceFlinger to capture transaction traces when shutdown.
       * @hide
 diff --git a/core/jni/android_view_SurfaceControl.cpp b/core/jni/android_view_SurfaceControl.cpp
-index cf3c012bb1bffa1ac2360361476084de45b2e571..ae7c09d1b0658a0d494f3103e9f433f4d29300e0 100644
+index cf3c012bb1bffa1ac2360361476084de45b2e571..0679154b060fec8ae1afc0a5add42a094d63ed3b 100644
 --- a/core/jni/android_view_SurfaceControl.cpp
 +++ b/core/jni/android_view_SurfaceControl.cpp
 @@ -25,6 +25,7 @@
@@ -3130,7 +3130,7 @@ index cf3c012bb1bffa1ac2360361476084de45b2e571..ae7c09d1b0658a0d494f3103e9f433f4
 +        const auto& row = snapshot.rows[i];
 +        String16 name(row.name.c_str(), row.name.size());
 +        jstring javaName = env->NewString(
-+                reinterpret_cast<const jchar*>(name.string()), name.size());
++                reinterpret_cast<const jchar*>(name.c_str()), name.size());
 +        if (javaName == nullptr) return nullptr;
 +        jobject javaRow = env->NewObject(gSurfaceViewGeometryClassInfo.rowClass,
 +                gSurfaceViewGeometryClassInfo.rowCtor, javaName,
