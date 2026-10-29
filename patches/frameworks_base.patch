@@ -6567,10 +6567,10 @@ index c742640be09e652e64ad39f3f72e2208d5b4e471..b94d9961da901bbe7c5e4f8747c2ce8b
          }
 diff --git a/services/core/java/com/android/server/display/SdrHdrBrightnessCapController.java b/services/core/java/com/android/server/display/SdrHdrBrightnessCapController.java
 new file mode 100644
-index 0000000000000000000000000000000000000000..1e11f1ab281df54ffcec29d552da9ea913f7cb39
+index 0000000000000000000000000000000000000000..4b8806138056d16c8343611bb309149a7346315f
 --- /dev/null
 +++ b/services/core/java/com/android/server/display/SdrHdrBrightnessCapController.java
-@@ -0,0 +1,187 @@
+@@ -0,0 +1,191 @@
 +// SPDX-License-Identifier: Apache-2.0
 +package com.android.server.display;
 +
@@ -6624,9 +6624,13 @@ index 0000000000000000000000000000000000000000..1e11f1ab281df54ffcec29d552da9ea9
 +        mCaps = null;
 +        mRevision++;
 +        if (!mEnabled || displayId == null) return;
-+        mListener = value -> mHandler.post(() -> {
++        mListener = ignoredValue -> mHandler.post(() -> {
 +            if (mStopped || generation != mGeneration
 +                    || !Objects.equals(displayId, mDisplayId)) return;
++            // Storage notifies outside its lock: treat the callback as invalidation,
++            // not a revision. A delayed callback must not restore an older cap or null.
++            SdrHdrBrightnessCaps value = mPlugins.getCurrentValue(
++                    PluginType.SDR_HDR_BRIGHTNESS_CAPS, displayId);
 +            if (!Objects.equals(mCaps, value)) {
 +                mCaps = value; // PluginStorage has already resolved display/global fallback.
 +                mRevision++;
@@ -6793,7 +6797,7 @@ index 32ab3427e1cb5ed4cc82c8bac61c1c0cc3c57777..c6b678c062dcf4d956642f5a91be54b5
      }
  
 diff --git a/services/core/java/com/android/server/display/plugin/PluginManager.java b/services/core/java/com/android/server/display/plugin/PluginManager.java
-index 62260a6b1a55ca518002c649c271dbacc52d3c19..b30b4bc04206d465ce3ae04ae477886945b3042c 100644
+index 62260a6b1a55ca518002c649c271dbacc52d3c19..cae440ddce3fb551a9652c3567346740a9cabb94 100644
 --- a/services/core/java/com/android/server/display/plugin/PluginManager.java
 +++ b/services/core/java/com/android/server/display/plugin/PluginManager.java
 @@ -18,6 +18,7 @@ package com.android.server.display.plugin;
@@ -6804,7 +6808,20 @@ index 62260a6b1a55ca518002c649c271dbacc52d3c19..b30b4bc04206d465ce3ae04ae4778869
  import android.text.TextUtils;
  import android.util.Slog;
  
-@@ -133,6 +134,9 @@ public class PluginManager {
+@@ -82,6 +83,12 @@ public class PluginManager {
+         mPluginStorage.addListener(type, uniqueDisplayId, listener);
+     }
+ 
++    /** Returns the current resolved value; change notifications may arrive out of order. */
++    @Nullable
++    public <T> T getCurrentValue(PluginType<T> type, String uniqueDisplayId) {
++        return mPluginStorage.getCurrentValue(type, uniqueDisplayId);
++    }
++
+     /**
+      * Removes change listener
+      */
+@@ -133,6 +140,9 @@ public class PluginManager {
              if (Flags.enableMaxBrightnessCapOverridePluginType()) {
                  enabledTypes.add(PluginType.MAX_BRIGHTNESS_CAP_OVERRIDE);
              }
@@ -6814,6 +6831,26 @@ index 62260a6b1a55ca518002c649c271dbacc52d3c19..b30b4bc04206d465ce3ae04ae4778869
              return enabledTypes;
          }
  
+diff --git a/services/core/java/com/android/server/display/plugin/PluginStorage.java b/services/core/java/com/android/server/display/plugin/PluginStorage.java
+index d17fbe21deeb97474814fdcde07b34e53b259eee..bee09fab98ebb32fb178620a6264b60e09510d48 100644
+--- a/services/core/java/com/android/server/display/plugin/PluginStorage.java
++++ b/services/core/java/com/android/server/display/plugin/PluginStorage.java
+@@ -151,6 +151,15 @@ public class PluginStorage {
+         }
+     }
+ 
++    /** Returns the currently resolved display/global value at the read's lock boundary. */
++    @Nullable
++    <T> T getCurrentValue(PluginType<T> type, String uniqueDisplayId) {
++        if (isTypeDisabled(type)) return null;
++        synchronized (mLock) {
++            return this.<T>getValuesContainerLocked(type).getValueLocked(uniqueDisplayId);
++        }
++    }
++
+     /**
+      * Removes listener
+      */
 diff --git a/services/core/java/com/android/server/display/plugin/PluginType.java b/services/core/java/com/android/server/display/plugin/PluginType.java
 index 397dd6d21117e7f5486bf072de3a6fdd8c336107..6621363cc30d3c181933fdd30795040365897288 100644
 --- a/services/core/java/com/android/server/display/plugin/PluginType.java
@@ -7818,10 +7855,10 @@ index a6ea86f7023c40b4024655682a3cdc5d00c616fd..1c937e4582aad54cd47ea3beccace77a
  }
 diff --git a/services/tests/displayservicetests/src/com/android/server/display/SdrHdrCapTransportTest.java b/services/tests/displayservicetests/src/com/android/server/display/SdrHdrCapTransportTest.java
 new file mode 100644
-index 0000000000000000000000000000000000000000..6b4f0a082557f0a63ae0c1f59fcf40a7da2f88b9
+index 0000000000000000000000000000000000000000..8df952db021785ce93c6f83f41a31c439ca41a0f
 --- /dev/null
 +++ b/services/tests/displayservicetests/src/com/android/server/display/SdrHdrCapTransportTest.java
-@@ -0,0 +1,124 @@
+@@ -0,0 +1,198 @@
 +// SPDX-License-Identifier: Apache-2.0
 +package com.android.server.display;
 +
@@ -7841,7 +7878,12 @@ index 0000000000000000000000000000000000000000..6b4f0a082557f0a63ae0c1f59fcf40a7
 +import com.android.server.display.feature.DisplayManagerFlags;
 +import com.android.server.display.plugin.CapPluginStorageFixture;
 +import com.android.server.display.plugin.PluginType;
++import com.android.server.display.plugin.PluginManager;
 +import com.android.server.display.plugin.types.SdrHdrBrightnessCaps;
++import java.util.Objects;
++import java.util.concurrent.CountDownLatch;
++import java.util.concurrent.TimeUnit;
++import java.util.concurrent.atomic.AtomicReference;
 +import org.junit.Before;
 +import org.junit.Rule;
 +import org.junit.Test;
@@ -7945,6 +7987,75 @@ index 0000000000000000000000000000000000000000..6b4f0a082557f0a63ae0c1f59fcf40a7
 +        assertEquals(2f, frame("panel").transitionRate(true), 0);
 +        assertTrue(original.revision() < frame("panel").revision());
 +    }
++    private void assertOutOfOrderNotificationKeepsLatest(boolean clearFirst) throws Exception {
++        mFixture = new CapPluginStorageFixture(
++                mock(Context.class), mock(DisplayManagerFlags.class));
++        var initial = caps(.6f, 1);
++        var first = clearFirst ? null : caps(.8f, 1);
++        var latest = caps(.2f, 1);
++        mFixture.storage.updateValue(PluginType.SDR_HDR_BRIGHTNESS_CAPS, "panel", initial);
++        CountDownLatch firstCommitted = new CountDownLatch(1);
++        CountDownLatch releaseFirst = new CountDownLatch(1);
++        AtomicReference<Throwable> failure = new AtomicReference<>();
++        PluginManager.PluginChangeListener<SdrHdrBrightnessCaps> blocker = value -> {
++            if (Objects.equals(value, first)) {
++                firstCommitted.countDown();
++                try {
++                    if (!releaseFirst.await(5, TimeUnit.SECONDS)) {
++                        throw new AssertionError("First notification release timed out");
++                    }
++                } catch (InterruptedException e) {
++                    Thread.currentThread().interrupt();
++                    throw new AssertionError(e);
++                }
++            }
++        };
++        // Listener insertion order is real storage's LinkedHashSet order. Pause the
++        // first writer after its commit but before the controller receives its value.
++        mFixture.manager.subscribe(PluginType.SDR_HDR_BRIGHTNESS_CAPS, "panel", blocker);
++        mController = new SdrHdrBrightnessCapController(
++                mHandler, mFixture.manager, () -> mChanges++, true, "panel");
++        mLooper.dispatchAll();
++        Thread writer = new Thread(() -> {
++            try {
++                mFixture.storage.updateValue(
++                        PluginType.SDR_HDR_BRIGHTNESS_CAPS, "panel", first);
++            } catch (Throwable error) {
++                failure.set(error);
++            }
++        }, "old-cap-notification");
++        writer.start();
++        try {
++            assertTrue(firstCommitted.await(5, TimeUnit.SECONDS));
++            mFixture.storage.updateValue(PluginType.SDR_HDR_BRIGHTNESS_CAPS, "panel", latest);
++            mLooper.dispatchAll();
++            assertEquals(.2f, frame("panel").beforeHdr(.9f), 0);
++            int beforeOldDelivery = mChanges;
++            releaseFirst.countDown();
++            writer.join(5_000);
++            assertFalse(writer.isAlive());
++            assertTrue("Background writer failed: " + failure.get(), failure.get() == null);
++            mLooper.dispatchAll();
++            assertTrue(frame("panel").active());
++            assertEquals(.2f, frame("panel").beforeHdr(.9f), 0);
++            assertEquals(beforeOldDelivery, mChanges);
++        } finally {
++            releaseFirst.countDown();
++            writer.join(5_000);
++            mFixture.manager.unsubscribe(
++                    PluginType.SDR_HDR_BRIGHTNESS_CAPS, "panel", blocker);
++            mController.stop();
++        }
++    }
++
++    @Test public void olderSameDisplayValueCannotOverwriteNewerCommit() throws Exception {
++        assertOutOfOrderNotificationKeepsLatest(false);
++    }
++
++    @Test public void olderSameDisplayNullCannotClearNewerCommit() throws Exception {
++        assertOutOfOrderNotificationKeepsLatest(true);
++    }
++
 +}
 diff --git a/services/tests/displayservicetests/src/com/android/server/display/brightness/clamper/BrightnessPluginModifierTest.java b/services/tests/displayservicetests/src/com/android/server/display/brightness/clamper/BrightnessPluginModifierTest.java
 index d6f79138b1d65f755ca2ce3d5c1cec1eecc03c50..0d0622d03d9c01af7db0ec339b67391b7e600924 100644
