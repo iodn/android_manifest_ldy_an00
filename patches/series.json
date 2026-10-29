@@ -23,13 +23,19 @@
     },
     {
       "path": "frameworks/av",
-      "revision": "c8a71a8b71c841910ea2d2a8479eace463db3494",
-      "tree": "c12b9f9d4a831365b0c210c6ca863020aa04d438",
+      "revision": "80e22df10cc63426b21a1619fe693cd522ea78e0",
+      "tree": "c02373baf65928956538dd1ebf13c17c4ea7cf5f",
       "base_revision": "937eb9047ec2f88620f1f6a4d9e407f6c869d91a",
       "patch": "frameworks_av.patch",
-      "patch_sha256": "773a45160bb9224156d4613959c303e98067c7f63a68d40533e52bac42a4535e",
+      "patch_sha256": "5cdd1bc47b402861dac3adc97231a7c834679039d8f943bed552bfe3e96f98a8",
       "patch_tree_verified": true,
-      "remote_url": "https://github.com/LineageOS/android_frameworks_av"
+      "remote_url": "https://github.com/LineageOS/android_frameworks_av",
+      "historical_public_snapshot": {
+        "revision": "c8a71a8b71c841910ea2d2a8479eace463db3494",
+        "tree": "c12b9f9d4a831365b0c210c6ca863020aa04d438"
+      },
+      "target_snapshot_revision": "80e22df10cc63426b21a1619fe693cd522ea78e0",
+      "target_snapshot_tree": "c02373baf65928956538dd1ebf13c17c4ea7cf5f"
     },
     {
       "path": "frameworks/base",
