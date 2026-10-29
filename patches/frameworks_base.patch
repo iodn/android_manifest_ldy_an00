@@ -6236,34 +6236,32 @@ index 35659018cd67b058368cd9d8c379f772df88eb58..60803fd051c044c7dc64f8d73486f8bb
       * Returns lockout mode of this sensor.
       */
 diff --git a/services/core/java/com/android/server/display/BrightnessRangeController.java b/services/core/java/com/android/server/display/BrightnessRangeController.java
-index e504b7b2008ba851bb8dff50a4ae9a1b0016511b..7fd4ec7d1d5a910f9fc29e9809886ff791de8ce0 100644
+index e504b7b2008ba851bb8dff50a4ae9a1b0016511b..57c33c7ad944b570b6dee64df0d15199a814c621 100644
 --- a/services/core/java/com/android/server/display/BrightnessRangeController.java
 +++ b/services/core/java/com/android/server/display/BrightnessRangeController.java
-@@ -124,6 +124,23 @@ class BrightnessRangeController {
+@@ -124,6 +124,21 @@ class BrightnessRangeController {
                  state.getBrightnessMaxReason());
      }
  
 +    void onBrightnessChanged(float brightness, float unthrottledBrightness,
-+            DisplayBrightnessState state, float outputBrightness) {
-+        mHbmController.onHdrBoostApplied(
-+                state.getHdrBrightness() != DisplayBrightnessState.BRIGHTNESS_NOT_SET);
++            DisplayBrightnessState state, float outputBrightness, boolean newOutputSelected) {
++        if (newOutputSelected) {
++            mHbmController.onHdrBoostApplied(
++                    state.getHdrBrightness() != DisplayBrightnessState.BRIGHTNESS_NOT_SET);
++        }
 +        mHbmController.onBrightnessChanged(brightness, unthrottledBrightness,
 +                state.getBrightnessMaxReason(), outputBrightness);
 +    }
 +
-+    void onHdrBoostApplied(DisplayBrightnessState state) {
-+        mHbmController.onHdrBoostApplied(
++    boolean isHdrBrightnessMode(DisplayBrightnessState state) {
++        return mHbmController.isHdrBrightnessMode(
 +                state.getHdrBrightness() != DisplayBrightnessState.BRIGHTNESS_NOT_SET);
-+    }
-+
-+    boolean isHdrBrightnessMode() {
-+        return mHbmController.isHdrBrightnessMode();
 +    }
 +
      float getCurrentBrightnessMin() {
          return mHbmController.getCurrentBrightnessMin();
      }
-@@ -149,6 +166,10 @@ class BrightnessRangeController {
+@@ -149,6 +164,10 @@ class BrightnessRangeController {
          return  mHbmController.getHdrBrightnessValue();
      }
  
@@ -6275,7 +6273,7 @@ index e504b7b2008ba851bb8dff50a4ae9a1b0016511b..7fd4ec7d1d5a910f9fc29e9809886ff7
          return mHbmController.getTransitionPoint();
      }
 diff --git a/services/core/java/com/android/server/display/DisplayPowerController.java b/services/core/java/com/android/server/display/DisplayPowerController.java
-index f839a319dbc7f9c4ef1ee3bd9907f46a7936b7ab..60e92c58cf806134ac97f879f4ad221a28bbd83c 100644
+index f839a319dbc7f9c4ef1ee3bd9907f46a7936b7ab..f8c0e8cd505048070e86def861d6ee3ddd2ee319 100644
 --- a/services/core/java/com/android/server/display/DisplayPowerController.java
 +++ b/services/core/java/com/android/server/display/DisplayPowerController.java
 @@ -391,6 +391,7 @@ final class DisplayPowerController implements AutomaticBrightnessController.Call
@@ -6366,15 +6364,12 @@ index f839a319dbc7f9c4ef1ee3bd9907f46a7936b7ab..60e92c58cf806134ac97f879f4ad221a
  
          // Initial HDR value to be replaced with calculated HDR value if one exists.
          float hdrBrightness = brightnessState;
-@@ -1538,25 +1554,60 @@ final class DisplayPowerController implements AutomaticBrightnessController.Call
+@@ -1538,25 +1554,56 @@ final class DisplayPowerController implements AutomaticBrightnessController.Call
              // use instead. We still preserve the calculated brightness for Standard Dynamic Range
              // (SDR) layers, but the main brightness value will be the one for HDR.
              float sdrAnimateValue = animateValue;
+-
 +            boolean hdrSelected = false;
-+            if (capFrame.active()) {
-+                mBrightnessRangeController.onHdrBoostApplied(clampedState);
-+            }
- 
              if (clampedState.getHdrBrightness() != DisplayBrightnessState.BRIGHTNESS_NOT_SET) {
                  // TODO(b/343792639): The decision to prevent HBM for HDR in low power mode will be
                  // done in HdrBrightnessModifier.
@@ -6385,7 +6380,7 @@ index f839a319dbc7f9c4ef1ee3bd9907f46a7936b7ab..60e92c58cf806134ac97f879f4ad221a
 -            } else if (mBrightnessRangeController.getHighBrightnessMode()
 -                    == BrightnessInfo.HIGH_BRIGHTNESS_MODE_HDR
 +            } else if ((capFrame.active()
-+                    ? mBrightnessRangeController.isHdrBrightnessMode()
++                    ? mBrightnessRangeController.isHdrBrightnessMode(clampedState)
 +                    : mBrightnessRangeController.getHighBrightnessMode()
 +                            == BrightnessInfo.HIGH_BRIGHTNESS_MODE_HDR)
                      && (mBrightnessReasonTemp.getModifier() & BrightnessReason.MODIFIER_DIMMED) == 0
@@ -6424,13 +6419,13 @@ index f839a319dbc7f9c4ef1ee3bd9907f46a7936b7ab..60e92c58cf806134ac97f879f4ad221a
 +                mBrightnessRangeController.onBrightnessChanged(
 +                        validOutput ? brightnessState : mPowerState.getSdrScreenBrightness(),
 +                        unthrottledBrightnessState, clampedState,
-+                        validOutput ? animateValue : mPowerState.getScreenBrightness());
++                        validOutput ? animateValue : mPowerState.getScreenBrightness(), validOutput);
 +            }
 +
              // if doze or suspend state is requested, we want to finish brightnes animation fast
              // to allow state animation to start
              if (mPowerRequest.policy == POLICY_DOZE
-@@ -1620,6 +1671,12 @@ final class DisplayPowerController implements AutomaticBrightnessController.Call
+@@ -1620,6 +1667,12 @@ final class DisplayPowerController implements AutomaticBrightnessController.Call
              brightnessAdjusted = saveBrightnessInfo(getScreenBrightnessSetting(),
                      animateValue, clampedState);
          } else {
@@ -6438,13 +6433,13 @@ index f839a319dbc7f9c4ef1ee3bd9907f46a7936b7ab..60e92c58cf806134ac97f879f4ad221a
 +                // No new output was selected while animation is blocked.
 +                mBrightnessRangeController.onBrightnessChanged(
 +                        mPowerState.getSdrScreenBrightness(), unthrottledBrightnessState,
-+                        clampedState, mPowerState.getScreenBrightness());
++                        clampedState, mPowerState.getScreenBrightness(), false);
 +            }
              brightnessAdjusted = saveBrightnessInfo(getScreenBrightnessSetting(), clampedState);
          }
  
 diff --git a/services/core/java/com/android/server/display/HighBrightnessModeController.java b/services/core/java/com/android/server/display/HighBrightnessModeController.java
-index c742640be09e652e64ad39f3f72e2208d5b4e471..851a8add1426ed07e3167d64f300a44524b6ea1b 100644
+index c742640be09e652e64ad39f3f72e2208d5b4e471..b94d9961da901bbe7c5e4f8747c2ce8b78f0e4a2 100644
 --- a/services/core/java/com/android/server/display/HighBrightnessModeController.java
 +++ b/services/core/java/com/android/server/display/HighBrightnessModeController.java
 @@ -100,6 +100,8 @@ class HighBrightnessModeController {
@@ -6501,7 +6496,7 @@ index c742640be09e652e64ad39f3f72e2208d5b4e471..851a8add1426ed07e3167d64f300a445
          mUnthrottledBrightness = unthrottledBrightness;
          mThrottlingReason = throttlingReason;
  
-@@ -278,6 +292,11 @@ class HighBrightnessModeController {
+@@ -278,6 +292,17 @@ class HighBrightnessModeController {
          recalculateTimeAllowance();
      }
  
@@ -6510,10 +6505,16 @@ index c742640be09e652e64ad39f3f72e2208d5b4e471..851a8add1426ed07e3167d64f300a445
 +        return deviceSupportsHbm() && mIsHdrLayerPresent;
 +    }
 +
++    boolean isHdrBrightnessMode(boolean candidateHdrBoostApplied) {
++        // Predict eligibility without changing the last accepted output's accounting state.
++        return deviceSupportsHbm()
++                && (mHdrBoostDisabled ? candidateHdrBoostApplied : mIsHdrLayerPresent);
++    }
++
      int getHighBrightnessMode() {
          return mHbmMode;
      }
-@@ -291,6 +310,7 @@ class HighBrightnessModeController {
+@@ -291,6 +316,7 @@ class HighBrightnessModeController {
      }
  
      void stop() {
@@ -6521,7 +6522,7 @@ index c742640be09e652e64ad39f3f72e2208d5b4e471..851a8add1426ed07e3167d64f300a445
          registerHdrListener(null /*displayToken*/);
          mSettingsObserver.stopObserving();
      }
-@@ -301,6 +321,7 @@ class HighBrightnessModeController {
+@@ -301,6 +327,7 @@ class HighBrightnessModeController {
  
      void resetHbmData(int width, int height, IBinder displayToken, String displayUniqueId,
              HighBrightnessModeData hbmData, HdrBrightnessDeviceConfig hdrBrightnessCfg) {
@@ -6529,7 +6530,7 @@ index c742640be09e652e64ad39f3f72e2208d5b4e471..851a8add1426ed07e3167d64f300a445
          mWidth = width;
          mHeight = height;
          mHbmData = hbmData;
-@@ -332,6 +353,7 @@ class HighBrightnessModeController {
+@@ -332,6 +359,7 @@ class HighBrightnessModeController {
          pw.println("HighBrightnessModeController:");
          pw.println("  mHbmControllerIsEnabled=" + mHbmControllerIsEnabled);
          pw.println("  mBrightness=" + mBrightness);
@@ -6537,7 +6538,7 @@ index c742640be09e652e64ad39f3f72e2208d5b4e471..851a8add1426ed07e3167d64f300a445
          pw.println("  mUnthrottledBrightness=" + mUnthrottledBrightness);
          pw.println("  mThrottlingReason=" + BrightnessInfo.briMaxReasonToString(mThrottlingReason));
          pw.println("  mCurrentMin=" + getCurrentBrightnessMin());
-@@ -558,10 +580,15 @@ class HighBrightnessModeController {
+@@ -558,10 +586,15 @@ class HighBrightnessModeController {
          }
      }
  
@@ -6554,7 +6555,7 @@ index c742640be09e652e64ad39f3f72e2208d5b4e471..851a8add1426ed07e3167d64f300a445
              state = FrameworkStatsLog.DISPLAY_HBM_STATE_CHANGED__STATE__HBM_ON_HDR;
          } else if (newMode == BrightnessInfo.HIGH_BRIGHTNESS_MODE_SUNLIGHT
                  && mBrightness > mHbmData.transitionPoint) {
-@@ -695,7 +722,8 @@ class HighBrightnessModeController {
+@@ -695,7 +728,8 @@ class HighBrightnessModeController {
  
                  // Calling the brightness update so that we can recalculate
                  // brightness with HDR in mind.
@@ -7358,7 +7359,7 @@ index 0000000000000000000000000000000000000000..d3d897143747e9ac5f8f9cf4289155b9
 +        android:targetPackage="com.android.frameworks.coherentbrightnesstests" />
 +</manifest>
 diff --git a/services/tests/displayservicetests/src/com/android/server/display/DisplayPowerControllerTest.java b/services/tests/displayservicetests/src/com/android/server/display/DisplayPowerControllerTest.java
-index 9e9bfd42597475197f5f666e3d85373b0bb55b39..557e00c053519843858e21a5f81fbe6660ac25fc 100644
+index 9e9bfd42597475197f5f666e3d85373b0bb55b39..da018a405425a04ebd682dd5f92089b83430f0f2 100644
 --- a/services/tests/displayservicetests/src/com/android/server/display/DisplayPowerControllerTest.java
 +++ b/services/tests/displayservicetests/src/com/android/server/display/DisplayPowerControllerTest.java
 @@ -1057,7 +1057,8 @@ public final class DisplayPowerControllerTest {
@@ -7481,7 +7482,7 @@ index 9e9bfd42597475197f5f666e3d85373b0bb55b39..557e00c053519843858e21a5f81fbe66
          verify(mBrightnessTrackerMock, never()).notifyBrightnessChanged(
                  /* brightness= */ anyFloat(),
                  /* userInitiated= */ eq(true),
-@@ -2927,4 +2939,172 @@ public final class DisplayPowerControllerTest {
+@@ -2927,4 +2939,278 @@ public final class DisplayPowerControllerTest {
              return dpc.new ChargingStateReceiver(true);
          }
      }
@@ -7565,7 +7566,7 @@ index 9e9bfd42597475197f5f666e3d85373b0bb55b39..557e00c053519843858e21a5f81fbe66
 +    @Test
 +    public void testCoherentCaps_LegacyUsesExplicitOriginalMappingInput() {
 +        prepareCoherentCaps(true, false, false);
-+        when(mHolder.hbmController.isHdrBrightnessMode()).thenReturn(true);
++        when(mHolder.hbmController.isHdrBrightnessMode(anyBoolean())).thenReturn(true);
 +        when(mHolder.hbmController.getHdrBrightnessValue(.8f)).thenReturn(.9f);
 +        mHolder.dpc.requestPowerState(new DisplayPowerRequest(), false);
 +        advanceTime(1);
@@ -7618,16 +7619,16 @@ index 9e9bfd42597475197f5f666e3d85373b0bb55b39..557e00c053519843858e21a5f81fbe66
 +    }
 +
 +    @Test
-+    public void testCoherentCaps_UpdatesHdrPresenceBeforeLegacyEligibility() {
++    public void testCoherentCaps_QueriesCandidateHdrPresenceWithoutMutatingAccounting() {
 +        prepareCoherentCaps(true, false, false);
 +        when(mHolder.hbmController.getHighBrightnessMode()).thenReturn(
 +                BrightnessInfo.HIGH_BRIGHTNESS_MODE_HDR);
-+        when(mHolder.hbmController.isHdrBrightnessMode()).thenReturn(false);
++        when(mHolder.hbmController.isHdrBrightnessMode(anyBoolean())).thenReturn(false);
 +        mHolder.dpc.requestPowerState(new DisplayPowerRequest(), false);
 +        advanceTime(1);
 +        InOrder order = inOrder(mHolder.hbmController);
++        order.verify(mHolder.hbmController).isHdrBrightnessMode(false);
 +        order.verify(mHolder.hbmController).onHdrBoostApplied(false);
-+        order.verify(mHolder.hbmController).isHdrBrightnessMode();
 +        verify(mHolder.hbmController, never()).getHdrBrightnessValue(anyFloat());
 +    }
 +
@@ -7651,6 +7652,112 @@ index 9e9bfd42597475197f5f666e3d85373b0bb55b39..557e00c053519843858e21a5f81fbe66
 +        assertEquals(.7f, event.getHdrBrightness(), 0f);
 +        assertTrue((event.getReason().getModifier()
 +                & BrightnessReason.MODIFIER_THROTTLED) != 0);
++    }
++
++    // Keep the existing DPC fixture, but route its real range-controller calls into a
++    // real HBM controller so rejected output cannot silently change budget ownership.
++    private HighBrightnessModeController attachRealCoherentHbmAccounting(
++            HighBrightnessModeMetadata metadata) {
++        HighBrightnessModeController.Injector injector =
++                mock(HighBrightnessModeController.Injector.class);
++        when(injector.getClock()).thenReturn(mClock::now);
++        HighBrightnessModeData data = new HighBrightnessModeData(
++                1f, .5f, 100_000L, 100_000L, 1_000L, true, .5f, null, null, true);
++        HighBrightnessModeController real = new HighBrightnessModeController(
++                injector, mHandler, 100, 100, null, UNIQUE_ID, 0f, 1f, data, null,
++                () -> { }, metadata, mContext);
++        real.disableHdrBoost();
++        real.setAutoBrightnessEnabled(AutomaticBrightnessController.AUTO_BRIGHTNESS_ENABLED);
++        real.onAmbientLuxChange(100f);
++        real.onHdrBoostApplied(false);
++        real.onBrightnessChanged(.8f, .8f, BrightnessInfo.BRIGHTNESS_MAX_REASON_NONE, .8f);
++        assertTrue(metadata.getRunningStartTimeMillis() >= 0);
++        doAnswer(invocation -> {
++            real.onHdrBoostApplied(invocation.getArgument(0));
++            return null;
++        }).when(mHolder.hbmController).onHdrBoostApplied(anyBoolean());
++        doAnswer(invocation -> {
++            real.onBrightnessChanged(invocation.getArgument(0), invocation.getArgument(1),
++                    invocation.getArgument(2), invocation.getArgument(3));
++            return null;
++        }).when(mHolder.hbmController).onBrightnessChanged(
++                anyFloat(), anyFloat(), anyInt(), anyFloat());
++        doAnswer(invocation -> real.isHdrBrightnessMode(invocation.getArgument(0)))
++                .when(mHolder.hbmController).isHdrBrightnessMode(anyBoolean());
++        return real;
++    }
++
++    @Test
++    public void testCoherentCaps_RejectedHdrPreservesRealSunlightBudget() {
++        prepareCoherentCaps(true, false, true);
++        when(mHolder.displayPowerState.getSdrScreenBrightness()).thenReturn(.8f);
++        when(mHolder.displayPowerState.getScreenBrightness()).thenReturn(.8f);
++        when(mHolder.clamperController.clamp(any(), any(), anyFloat(), anyBoolean(), anyInt()))
++                .thenAnswer(invocation -> DisplayBrightnessState.Builder.from(
++                        (DisplayBrightnessState) invocation.getArgument(0))
++                        .setBrightness(invocation.getArgument(2))
++                        .setHdrBrightness(Float.NaN).build());
++        HighBrightnessModeMetadata metadata = new HighBrightnessModeMetadata();
++        HighBrightnessModeController real = attachRealCoherentHbmAccounting(metadata);
++        long start = metadata.getRunningStartTimeMillis();
++        mHolder.dpc.requestPowerState(new DisplayPowerRequest(), false);
++        advanceTime(1);
++        assertEquals(start, metadata.getRunningStartTimeMillis());
++        assertEquals(0, metadata.getHbmEventQueue().size());
++        assertEquals(BrightnessInfo.HIGH_BRIGHTNESS_MODE_SUNLIGHT,
++                real.getHighBrightnessMode());
++        verify(mHolder.hbmController, never()).onHdrBoostApplied(anyBoolean());
++        real.stop();
++    }
++
++    @Test
++    public void testCoherentCaps_BlockedHdrPreservesRealSunlightBudget() {
++        prepareCoherentCaps(true, false, true);
++        mHolder.dpc.setDisplayOffloadSession(mDisplayOffloadSession);
++        when(mDisplayOffloadSession.blockScreenOn(any())).thenReturn(true);
++        when(mHolder.displayPowerState.getScreenState()).thenReturn(Display.STATE_OFF);
++        DisplayPowerRequest request = new DisplayPowerRequest();
++        request.policy = DisplayPowerRequest.POLICY_OFF;
++        mHolder.dpc.requestPowerState(request, false);
++        advanceTime(1);
++        request.policy = DisplayPowerRequest.POLICY_BRIGHT;
++        mHolder.dpc.requestPowerState(request, false);
++        advanceTime(1);
++        when(mHolder.displayPowerState.getScreenState()).thenReturn(Display.STATE_ON);
++        when(mHolder.displayPowerState.getSdrScreenBrightness()).thenReturn(.8f);
++        when(mHolder.displayPowerState.getScreenBrightness()).thenReturn(.8f);
++        clearInvocations(mHolder.animator, mHolder.hbmController);
++        HighBrightnessModeMetadata metadata = new HighBrightnessModeMetadata();
++        HighBrightnessModeController real = attachRealCoherentHbmAccounting(metadata);
++        long start = metadata.getRunningStartTimeMillis();
++        mHolder.dpc.updateBrightness();
++        advanceTime(1);
++        assertEquals(start, metadata.getRunningStartTimeMillis());
++        assertEquals(0, metadata.getHbmEventQueue().size());
++        assertEquals(BrightnessInfo.HIGH_BRIGHTNESS_MODE_SUNLIGHT,
++                real.getHighBrightnessMode());
++        verify(mHolder.hbmController, never()).onHdrBoostApplied(anyBoolean());
++        real.stop();
++    }
++
++    @Test
++    public void testCoherentCaps_ValidHdrCommitsRealHdrAccounting() {
++        prepareCoherentCaps(true, false, true);
++        mCoherentStorage.storage.updateValue(
++                com.android.server.display.plugin.PluginType.SDR_HDR_BRIGHTNESS_CAPS, UNIQUE_ID,
++                new com.android.server.display.plugin.types.SdrHdrBrightnessCaps(
++                        1f, 1f, 1f, true, true, -1f, BrightnessReason.MODIFIER_NONE));
++        advanceTime(1);
++        clearInvocations(mHolder.hbmController);
++        HighBrightnessModeMetadata metadata = new HighBrightnessModeMetadata();
++        HighBrightnessModeController real = attachRealCoherentHbmAccounting(metadata);
++        mHolder.dpc.updateBrightness();
++        advanceTime(1);
++        assertEquals(-1, metadata.getRunningStartTimeMillis());
++        assertEquals(1, metadata.getHbmEventQueue().size());
++        assertEquals(BrightnessInfo.HIGH_BRIGHTNESS_MODE_HDR, real.getHighBrightnessMode());
++        verify(mHolder.hbmController, atLeastOnce()).onHdrBoostApplied(true);
++        real.stop();
 +    }
 +
  }
