@@ -55,15 +55,15 @@
     },
     {
       "path": "frameworks/native",
-      "revision": "734a4419945e75840cdbcbf669aba8453120e40f",
-      "tree": "d219c38978fc06fee2b8276cd657efbf98297c41",
+      "revision": "bc1c3b8b8ee3babb743f9657879a7d037f626c4e",
+      "tree": "faf933cdab8da214b0563fb580e2a8619f874b48",
       "base_revision": "46018f54b42489de960c62c3db9de131abce43ea",
       "patch": "frameworks_native.patch",
-      "patch_sha256": "75615c41f9e11217e4a48bb747368cc28e754f0beec6e5a20660d59fe0939d1e",
+      "patch_sha256": "635ea4ea7e25b8da473b690950c0764a764877e47d6a490fc6e30413f9f189fc",
       "patch_tree_verified": true,
       "remote_url": "https://github.com/LineageOS/android_frameworks_native",
-      "target_snapshot_revision": "734a4419945e75840cdbcbf669aba8453120e40f",
-      "target_snapshot_tree": "d219c38978fc06fee2b8276cd657efbf98297c41",
+      "target_snapshot_revision": "bc1c3b8b8ee3babb743f9657879a7d037f626c4e",
+      "target_snapshot_tree": "faf933cdab8da214b0563fb580e2a8619f874b48",
       "historical_public_snapshot": {
         "revision": "fa30b1c04f7a434bcb44f7756ad0041c2be25110",
         "tree": "1e9435998a7d6dcd50dbc97113dfd01c7607ca7a"
