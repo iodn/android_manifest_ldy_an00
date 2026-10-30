@@ -1,0 +1,40 @@
+diff --git a/src/org/lineageos/audiofx/service/SessionManager.java b/src/org/lineageos/audiofx/service/SessionManager.java
+index b9df98791d378395de74d9729d2905763955548f..8676fc7ebb4b1589e7b717cc31d958ea87bdcd92 100644
+--- a/src/org/lineageos/audiofx/service/SessionManager.java
++++ b/src/org/lineageos/audiofx/service/SessionManager.java
+@@ -24,7 +24,7 @@ import static org.lineageos.audiofx.service.AudioFxService.VIRTUALIZER_CHANGED;
+ import android.content.Context;
+ import android.content.SharedPreferences;
+ import android.media.AudioDeviceInfo;
+-import android.media.AudioSystem;
++import android.media.AudioManager;
+ import android.media.audiofx.PresetReverb;
+ import android.os.Handler;
+ import android.os.Looper;
+@@ -90,12 +90,24 @@ class SessionManager implements AudioOutputChangeListener.AudioOutputChangedCall
+         }
+     }
+ 
++    private boolean shouldSuppressAutoAttach() {
++        try {
++            final AudioManager audioManager = mContext.getSystemService(AudioManager.class);
++            if (audioManager == null) {
++                throw new IllegalStateException("Audio service unavailable");
++            }
++            return audioManager.isAudioEffectAutoAttachSuppressed();
++        } catch (RuntimeException e) {
++            Log.w(TAG, "Recording state unavailable, not performing auto-attach", e);
++            return true;
++        }
++    }
++
+     public void addSession(int stream) {
+         synchronized (mAudioSessionsL) {
+             // Never auto-attach is someone is recording! We don't want to interfere
+             // with any sort of loopback mechanisms.
+-            final boolean recording = AudioSystem.isSourceActive(0) || AudioSystem.isSourceActive(
+-                    6);
++            final boolean recording = shouldSuppressAutoAttach();
+             if (recording) {
+                 Log.w(TAG, "Recording in progress, not performing auto-attach!");
+                 return;

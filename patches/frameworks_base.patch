@@ -3083,6 +3083,45 @@ index c94e6998867525f7b4d910f46cfbf1fe9fa3e0d3..786411bd4fa25f445af2a1698c5a8756
      /**
       * Notify the SurfaceFlinger to capture transaction traces when shutdown.
       * @hide
+diff --git a/core/jni/android_media_AudioSystem.cpp b/core/jni/android_media_AudioSystem.cpp
+index 6401b3e4e3c6c5ad2f1212e4209572689f5afe23..9c3db5698fe34f22cdb52732c23efedec47b8db9 100644
+--- a/core/jni/android_media_AudioSystem.cpp
++++ b/core/jni/android_media_AudioSystem.cpp
+@@ -496,6 +496,26 @@ android_media_AudioSystem_isSourceActive(JNIEnv *env, jobject thiz, jint source)
+     return state;
+ }
+ 
++static jboolean
++android_media_AudioSystem_isAudioEffectAutoAttachSuppressed(JNIEnv *env, jobject thiz)
++{
++    bool active = false;
++    status_t status = AudioSystem::isSourceActive(AUDIO_SOURCE_DEFAULT, &active);
++    if (status != NO_ERROR) {
++        jniThrowException(env, "java/lang/IllegalStateException",
++                "Audio recording state unavailable");
++        return JNI_TRUE;
++    }
++    if (active) return JNI_TRUE;
++    status = AudioSystem::isSourceActive(AUDIO_SOURCE_VOICE_RECOGNITION, &active);
++    if (status != NO_ERROR) {
++        jniThrowException(env, "java/lang/IllegalStateException",
++                "Audio recording state unavailable");
++        return JNI_TRUE;
++    }
++    return active;
++}
++
+ static jint
+ android_media_AudioSystem_newAudioSessionId(JNIEnv *env, jobject thiz)
+ {
+@@ -3438,6 +3458,7 @@ static const JNINativeMethod gMethods[] = {
+         MAKE_AUDIO_SYSTEM_METHOD(isStreamActive),
+         MAKE_AUDIO_SYSTEM_METHOD(isStreamActiveRemotely),
+         MAKE_AUDIO_SYSTEM_METHOD(isSourceActive),
++        MAKE_AUDIO_SYSTEM_METHOD(isAudioEffectAutoAttachSuppressed),
+         MAKE_AUDIO_SYSTEM_METHOD(newAudioSessionId),
+         MAKE_AUDIO_SYSTEM_METHOD(newAudioPlayerId),
+         MAKE_AUDIO_SYSTEM_METHOD(newAudioRecorderId),
 diff --git a/core/jni/android_view_SurfaceControl.cpp b/core/jni/android_view_SurfaceControl.cpp
 index cf3c012bb1bffa1ac2360361476084de45b2e571..0679154b060fec8ae1afc0a5add42a094d63ed3b 100644
 --- a/core/jni/android_view_SurfaceControl.cpp
@@ -6036,6 +6075,85 @@ index 0000000000000000000000000000000000000000..f48b80a5aa4dfdf7040a5e566ef66649
 +        System.out.println("TOUCH_MODE_HOST_PASS checks=" + checks);
 +    }
 +}
+diff --git a/media/java/android/media/AudioManager.java b/media/java/android/media/AudioManager.java
+index 5a7d9a4316bba8add166977ee0b3aeb01f4cf72b..9c23fd43b1616499034e35c0f75c723537e79256 100644
+--- a/media/java/android/media/AudioManager.java
++++ b/media/java/android/media/AudioManager.java
+@@ -6473,6 +6473,22 @@ public class AudioManager {
+         }
+     }
+ 
++    /**
++     * Whether the legacy audio-effects auto-attach recording guard is active.
++     *
++     * @throws IllegalStateException if the recording state cannot be queried
++     * @hide
++     */
++    @RequiresPermission(android.Manifest.permission.MODIFY_AUDIO_ROUTING)
++    public boolean isAudioEffectAutoAttachSuppressed() {
++        final IAudioService service = getService();
++        try {
++            return service.isAudioEffectAutoAttachSuppressed();
++        } catch (RemoteException e) {
++            throw e.rethrowFromSystemServer();
++        }
++    }
++
+     /**
+      * constants for the recording events, to keep in sync
+      * with frameworks/av/include/media/AudioPolicy.h
+diff --git a/media/java/android/media/AudioSystem.java b/media/java/android/media/AudioSystem.java
+index 752ade8c06356412b73aa5bab7aa1679fe98df1b..a2870476eef19b0a7a2b8c8ecd0d609b7fdeff4e 100644
+--- a/media/java/android/media/AudioSystem.java
++++ b/media/java/android/media/AudioSystem.java
+@@ -726,6 +726,13 @@ public class AudioSystem
+     @UnsupportedAppUsage
+     public static native boolean isSourceActive(int source);
+ 
++    /**
++     * Queries DEFAULT and VOICE_RECOGNITION, preserving the SoundTrigger alias.
++     * Throws if either required native query fails.
++     * @hide
++     */
++    public static native boolean isAudioEffectAutoAttachSuppressed();
++
+     /**
+      * @hide
+      * Returns a new unused audio session ID
+diff --git a/media/java/android/media/IAudioService.aidl b/media/java/android/media/IAudioService.aidl
+index fbed45d0b35c827a2d56ecabde5bece12559ac38..c338b0d68ffd93bd907b0b59ef7ce50b2c52c3cc 100644
+--- a/media/java/android/media/IAudioService.aidl
++++ b/media/java/android/media/IAudioService.aidl
+@@ -892,4 +892,6 @@ interface IAudioService {
+     @EnforcePermission("MODIFY_PHONE_STATE")
+     IAudioModeSession createAudioModeSession(in AudioModeSessionRequest request,
+             in IAudioModeSessionCallback callback);
++    @EnforcePermission("MODIFY_AUDIO_ROUTING")
++    boolean isAudioEffectAutoAttachSuppressed();
+ }
+diff --git a/services/core/java/com/android/server/audio/AudioService.java b/services/core/java/com/android/server/audio/AudioService.java
+index 7f9555c7713cf23cfe9bf21a1ed0d0985b9bde2b..0b808c324953113245da076812d5a5be606c710b 100644
+--- a/services/core/java/com/android/server/audio/AudioService.java
++++ b/services/core/java/com/android/server/audio/AudioService.java
+@@ -16069,6 +16069,18 @@ public class AudioService extends IAudioService.Stub
+         mRecordMonitor.unregisterRecordingCallback(rcdb);
+     }
+ 
++    @Override
++    @android.annotation.EnforcePermission(MODIFY_AUDIO_ROUTING)
++    public boolean isAudioEffectAutoAttachSuppressed() {
++        super.isAudioEffectAutoAttachSuppressed_enforcePermission();
++        final long identity = Binder.clearCallingIdentity();
++        try {
++            return AudioSystem.isAudioEffectAutoAttachSuppressed();
++        } finally {
++            Binder.restoreCallingIdentity(identity);
++        }
++    }
++
+     public List<AudioRecordingConfiguration> getActiveRecordingConfigurations() {
+         final boolean isPrivileged = Binder.getCallingUid() == Process.SYSTEM_UID
+                 || (PackageManager.PERMISSION_GRANTED == mContext.checkCallingPermission(
 diff --git a/services/core/java/com/android/server/biometrics/sensors/AuthenticationClient.java b/services/core/java/com/android/server/biometrics/sensors/AuthenticationClient.java
 index 090353b8f7c57c8f3af1a614715d3f83b6c54bc5..8f62aeb1a9bae1e59ba01d399e0ba7ad4c6e4dae 100644
 --- a/services/core/java/com/android/server/biometrics/sensors/AuthenticationClient.java
@@ -8623,6 +8741,20 @@ index b0d81fbefcd6f5affc0232dbba5837b582ab3d09..4d960a410550437e6a5e80a3cd923849
          Slogf.i(TAG, "Changing lockscreen credential of user %d; newCredentialType=%s\n",
                  userId, LockPatternUtils.credentialTypeToString(credential.getType()));
          final int savedCredentialType = getCredentialTypeInternal(userId);
+diff --git a/services/proguard.flags b/services/proguard.flags
+index 36d0f05f86eed927d4c0cd17b676a6b8ac048c4c..cba49d9fda090e4d68a885750df514fc63f53ac1 100644
+--- a/services/proguard.flags
++++ b/services/proguard.flags
+@@ -148,3 +148,9 @@
+ -keep,allowoptimization,allowaccessmodification class lineageos.** { *; }
+ -keep,allowoptimization,allowaccessmodification class org.lineageos.** { *; }
+ -keep,allowoptimization,allowaccessmodification class vendor.lineage.** { *; }
++
++# Device brightness policies are implemented by a separately loaded plugin JAR.
++# Keep the complete cross-JAR ABI, including externally implemented nested interfaces.
++-keep interface com.android.server.display.plugin.types.BrightnessThermalPolicy { *; }
++-keep class com.android.server.display.plugin.types.BrightnessThermalPolicy$* { *; }
++-keep class com.android.server.display.plugin.types.HdrBrightnessMetadata { *; }
 diff --git a/services/tests/displayservicetests/Android.bp b/services/tests/displayservicetests/Android.bp
 index 02875613e509147c516d22e379dd6a11bbbe6bc3..556448d90c28fc6c3aa13d70b7c45b3e4fa4fb99 100644
 --- a/services/tests/displayservicetests/Android.bp

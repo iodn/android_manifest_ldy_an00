@@ -57,15 +57,15 @@
     },
     {
       "path": "frameworks/base",
-      "revision": "62d1c569499687525d8452a630b72ec50edd5b70",
-      "tree": "1505f6cd5feee4fb526fa27e938d23fe7a3ae3c9",
+      "revision": "2e11f9c0ce06004518c2e7c96f75b49123015abe",
+      "tree": "aa415a19df5cbab08e125c4adee37763a2b8080e",
       "base_revision": "d89e00a103772f803f760979aabf8145e7731e1b",
       "patch": "patches/frameworks_base.patch",
-      "patch_sha256": "fcaedd58216802b73b4f2e93e28f72ffa992463cf12e3e779cb9043b60ef1722",
+      "patch_sha256": "0abce8434b364f6c9ccd82bb9f13bdf0e6900d24e40b2467de3afc71c9d2b484",
       "patch_tree_verified": true,
       "remote_url": "https://github.com/LineageOS/android_frameworks_base",
-      "target_snapshot_revision": "62d1c569499687525d8452a630b72ec50edd5b70",
-      "target_snapshot_tree": "1505f6cd5feee4fb526fa27e938d23fe7a3ae3c9",
+      "target_snapshot_revision": "2e11f9c0ce06004518c2e7c96f75b49123015abe",
+      "target_snapshot_tree": "aa415a19df5cbab08e125c4adee37763a2b8080e",
       "historical_public_snapshot": {
         "revision": "193c50e5fb7e8278190f57048af9fab5a7098fb4",
         "tree": "5c28bc283ee9569918f5eba680041eedc509e857"
@@ -133,6 +133,18 @@
       "patch_sha256": "7e94c35633f25cd713ce26ebb4d70f454d324eea75aed35cac74042862c54dbc",
       "patch_tree_verified": true,
       "remote_url": "https://github.com/LineageOS/android_lineage-sdk"
+    },
+    {
+      "path": "packages/apps/AudioFX",
+      "revision": "9a210d0955c98d74d200c9e1f589b3a0227f2434",
+      "tree": "3827185080736b62f27d1a94a0cfb1ec07e26ff6",
+      "base_revision": "2fc3a5405fb9d7330ad787e106af8229c7a72830",
+      "patch": "patches/packages_apps_AudioFX.patch",
+      "patch_sha256": "93c56eb5799fd5a5422d3cb1f5a1d11a46a4f840f5260f12b6d842175d21a814",
+      "patch_tree_verified": true,
+      "remote_url": "https://github.com/LineageOS/android_packages_apps_AudioFX",
+      "target_snapshot_revision": "9a210d0955c98d74d200c9e1f589b3a0227f2434",
+      "target_snapshot_tree": "3827185080736b62f27d1a94a0cfb1ec07e26ff6"
     },
     {
       "path": "packages/apps/CarrierConfig",
