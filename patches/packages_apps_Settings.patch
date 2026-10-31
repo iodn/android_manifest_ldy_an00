@@ -1,11 +1,16 @@
 diff --git a/AndroidManifest.xml b/AndroidManifest.xml
-index 051cd2e35bb9ac7b3c5626b3f5cb4c12ed8766e0..6a4394516476f8d62f0ae89ea6131408329ac8c7 100644
+index 051cd2e35bb9ac7b3c5626b3f5cb4c12ed8766e0..ff3ce42d63be1ef43c3887820bef73bbea36d772 100644
 --- a/AndroidManifest.xml
 +++ b/AndroidManifest.xml
-@@ -928,6 +928,11 @@
+@@ -928,6 +928,16 @@
              </intent-filter>
          </activity>
  
++        <activity android:name=".network.HonorLdyAn00EsimManagementActivity"
++            android:exported="true"
++            android:permission="com.android.phone.permission.HONOR_LDY_AN00_LPA_LEASE"
++            android:theme="@style/Theme.AlertDialog.SimConfirmDialog" />
++
 +        <activity android:name=".network.HonorLdyAn00EsimSetupActivity"
 +            android:exported="false"
 +            android:permission="android.permission.MODIFY_PHONE_STATE"
@@ -41,7 +46,7 @@ index 0000000000000000000000000000000000000000..932254580e35e3309eca66f4327072cf
 +</resources>
 diff --git a/res/values/honor_ldy_an00_esim_flow.xml b/res/values/honor_ldy_an00_esim_flow.xml
 new file mode 100644
-index 0000000000000000000000000000000000000000..8831f8e47f789a23783bd47e6df6b7bff4c9899c
+index 0000000000000000000000000000000000000000..04ca0fbbde828041615b73ffbf7b1723da644c3d
 --- /dev/null
 +++ b/res/values/honor_ldy_an00_esim_flow.xml
 @@ -0,0 +1,20 @@
@@ -61,7 +66,7 @@ index 0000000000000000000000000000000000000000..8831f8e47f789a23783bd47e6df6b7bf
 +    <string name="honor_esim_delete_partial">Some profiles were deleted. The remaining deletions could not be confirmed.</string>
 +    <string name="honor_esim_manage">Manage eSIMs</string>
 +    <string name="honor_esim_manage_title">Connect to manage eSIMs?</string>
-+    <string name="honor_esim_manage_message">eSIM and SIM2 share a connection. SIM2 will lose service while you manage eSIMs. SIM1 stays available. You can return to physical SIM2 in SIM settings when you finish.</string>
++    <string name="honor_esim_manage_message">If physical SIM2 is active, it will temporarily lose service while you manage eSIMs. It will reconnect when you finish unless you choose to use an eSIM.</string>
 +    <string name="honor_esim_management_recovery">Open eSIM management to check the connection and restore access. Your downloaded profiles will not be erased.</string>
 +    <string name="honor_esim_call_busy">End your call before switching between eSIM and physical SIM2. No SIM change was started.</string>
 +</resources>
@@ -177,6 +182,31 @@ index ee1f6b34289086e89a173af4208a56939a24f14d..031529055f6816d8bacf70b5f96d5edf
      </com.android.settingslib.RestrictedPreference>
 +
  </PreferenceScreen>
+diff --git a/src/com/android/settings/Settings.java b/src/com/android/settings/Settings.java
+index 5562158557e9ab4ac94536d6759e2dda7f77f785..1b378c1579ea4ac37c94b4de413d68314c084e77 100644
+--- a/src/com/android/settings/Settings.java
++++ b/src/com/android/settings/Settings.java
+@@ -535,13 +535,17 @@ public class Settings extends SettingsActivity {
+         @Override
+         protected void onNewIntent(Intent intent) {
+             super.onNewIntent(intent);
+-            if (!isTargetIsMobileNetwork(intent)) {
++            final Intent convertedIntent = convertIntent(intent);
++            if (!isTargetIsMobileNetwork(convertedIntent)
++                    || (intent.hasExtra(SettingsActivity.EXTRA_SHOW_FRAGMENT)
++                        && !isTargetIsMobileNetwork(intent))) {
+                 finish();
+                 return;
+             }
+             Log.d(TAG, "Starting onNewIntent");
+-            setIntent(intent);
+-            createUiFromIntent(null /* savedState */, convertIntent(intent));
++            setIntent(convertedIntent);
++            mCachedIntent = convertedIntent;
++            createUiFromIntent(null /* savedState */, convertedIntent);
+         }
+ 
+         @Override
 diff --git a/src/com/android/settings/biometrics/face/FaceEnrollChallengeOwnership.java b/src/com/android/settings/biometrics/face/FaceEnrollChallengeOwnership.java
 new file mode 100644
 index 0000000000000000000000000000000000000000..0a74c60b157322d952eeeee74ed0960158bb62b6
@@ -1340,10 +1370,10 @@ index 0000000000000000000000000000000000000000..af06a58a4bb5cc6c3c61cf14b8a1ee74
 +}
 diff --git a/src/com/android/settings/network/HonorLdyAn00EsimEntry.kt b/src/com/android/settings/network/HonorLdyAn00EsimEntry.kt
 new file mode 100644
-index 0000000000000000000000000000000000000000..ce425da80949f779e6074d0f641b5553e1e95bcd
+index 0000000000000000000000000000000000000000..a34d9d57b890a9021b7bc06e83350444d51a0f7d
 --- /dev/null
 +++ b/src/com/android/settings/network/HonorLdyAn00EsimEntry.kt
-@@ -0,0 +1,120 @@
+@@ -0,0 +1,121 @@
 +/*
 + * Copyright (C) 2026 The LineageOS Project
 + * SPDX-License-Identifier: Apache-2.0
@@ -1368,10 +1398,11 @@ index 0000000000000000000000000000000000000000..ce425da80949f779e6074d0f641b5553
 +import android.widget.Toast
 +import com.android.settings.R
 +
-+/** Opens native Settings SIM consent. Availability checks never query or select the SIM hardware path. */
++/** Opens native eSIM management or explicit SIM consent without probing the hardware path. */
 +internal object HonorLdyAn00EsimEntry {
 +    private const val ENABLE_PROPERTY = "ro.lineage.ldy_an00.esim_bridge"
 +    const val EXTRA_MANAGE_ESIMS = "manage_esims"
++    const val ACTION_MANAGEMENT = "com.android.settings.action.HONOR_LDY_AN00_MANAGE_ESIM"
 +    private const val ACTION = "com.android.settings.action.HONOR_LDY_AN00_ADD_ESIM"
 +    private val component =
 +        ComponentName("com.android.settings", "com.android.settings.network.HonorLdyAn00EsimSetupActivity")
@@ -1389,7 +1420,7 @@ index 0000000000000000000000000000000000000000..ce425da80949f779e6074d0f641b5553
 +        intent.action == ACTION && !(intent.getBooleanExtra(EXTRA_MANAGE_ESIMS, false) &&
 +            intent.getBooleanExtra("return_physical_sim2", false))
 +
-+    /** Only called after this Settings flow observes its verified ready state. */
++    /** The coordinator alone grants a temporary management route; this Intent grants nothing. */
 +    fun lpaIntent(manage: Boolean): Intent =
 +        Intent(if (manage) EuiccManager.ACTION_MANAGE_EMBEDDED_SUBSCRIPTIONS
 +            else EuiccManager.ACTION_PROVISION_EMBEDDED_SUBSCRIPTION)
@@ -1464,12 +1495,94 @@ index 0000000000000000000000000000000000000000..ce425da80949f779e6074d0f641b5553
 +        Toast.makeText(context, R.string.honor_ldy_an00_esim_unavailable, Toast.LENGTH_SHORT).show()
 +    }
 +}
+diff --git a/src/com/android/settings/network/HonorLdyAn00EsimManagementActivity.java b/src/com/android/settings/network/HonorLdyAn00EsimManagementActivity.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..fd71479254dcc981a9f53bd92f591e988cc3a7e7
+--- /dev/null
++++ b/src/com/android/settings/network/HonorLdyAn00EsimManagementActivity.java
+@@ -0,0 +1,76 @@
++/*
++ * Copyright (C) 2026 The LineageOS Project
++ * SPDX-License-Identifier: Apache-2.0
++ */
++package com.android.settings.network;
++
++import android.app.Activity;
++import android.content.ActivityNotFoundException;
++import android.content.ComponentName;
++import android.content.Intent;
++import android.content.pm.ActivityInfo;
++import android.content.pm.ApplicationInfo;
++import android.content.pm.PackageManager;
++import android.os.Build;
++import android.os.Bundle;
++import android.os.UserHandle;
++import android.os.UserManager;
++import android.service.euicc.EuiccService;
++
++import com.android.internal.telephony.euicc.EuiccConnector;
++
++/** Signature-protected entry for the selected LPA; route ownership stays in private Settings. */
++public class HonorLdyAn00EsimManagementActivity extends Activity {
++    private static final String LPA_PACKAGE = "im.angry.openeuicc";
++
++    @Override protected void onCreate(Bundle savedInstanceState) {
++        super.onCreate(savedInstanceState);
++        if (savedInstanceState != null || !isCallerAllowed()) { finish(); return; }
++        // Construct a new private request: no caller-supplied result, origin or route extras.
++        Intent setup = privateSetupIntent();
++        try {
++            startActivity(setup);
++        } catch (ActivityNotFoundException | SecurityException unavailable) {
++            setResult(RESULT_CANCELED);
++        }
++        finish();
++    }
++
++    Intent privateSetupIntent() {
++        return HonorLdyAn00EsimEntry.INSTANCE.managementIntent()
++                .putExtra(HonorLdyAn00EsimSetupActivity.EXTRA_CONFIRM_MANAGEMENT, true)
++                .addFlags(Intent.FLAG_ACTIVITY_FORWARD_RESULT);
++    }
++
++    boolean isCallerAllowed() {
++        if (!HonorLdyAn00EsimEntry.ACTION_MANAGEMENT.equals(getIntent().getAction())
++                || !HonorLdyAn00EsimEntry.INSTANCE.isAvailable(this)
++                || !"mt6993".equals(Build.HARDWARE)) return false;
++        UserManager users = getSystemService(UserManager.class);
++        if (users == null || !users.isAdminUser()) return false;
++        String caller = getCallingPackage();
++        ComponentName callingActivity = getCallingActivity();
++        int uid = getLaunchedFromUid();
++        if (!LPA_PACKAGE.equals(caller) || callingActivity == null
++                || !caller.equals(callingActivity.getPackageName())
++                || uid < 0 || UserHandle.getUserId(uid) != 0) return false;
++        PackageManager pm = getPackageManager();
++        ActivityInfo selected = selectedLpa();
++        if (selected == null || !selected.enabled || !caller.equals(selected.packageName)
++                || selected.applicationInfo == null || !selected.applicationInfo.enabled
++                || selected.applicationInfo.uid != uid
++                || (selected.applicationInfo.flags & ApplicationInfo.FLAG_SYSTEM) == 0
++                || pm.checkSignatures("android", caller) != PackageManager.SIGNATURE_MATCH)
++            return false;
++        try {
++            return pm.getApplicationInfo(caller, 0).uid == uid;
++        } catch (PackageManager.NameNotFoundException unavailable) {
++            return false;
++        }
++    }
++
++    ActivityInfo selectedLpa() {
++        return EuiccConnector.findBestActivity(getPackageManager(),
++                new Intent(EuiccService.ACTION_MANAGE_EMBEDDED_SUBSCRIPTIONS));
++    }
++}
 diff --git a/src/com/android/settings/network/HonorLdyAn00EsimSetupActivity.java b/src/com/android/settings/network/HonorLdyAn00EsimSetupActivity.java
 new file mode 100644
-index 0000000000000000000000000000000000000000..6c62544dc5f8bdf4e319c16bd186c3c19b1c6b86
+index 0000000000000000000000000000000000000000..80151eca4ef1cb0b474e23f1f57e123343cb910e
 --- /dev/null
 +++ b/src/com/android/settings/network/HonorLdyAn00EsimSetupActivity.java
-@@ -0,0 +1,160 @@
+@@ -0,0 +1,246 @@
 +/*
 + * Copyright (C) 2026 The LineageOS Project
 + * SPDX-License-Identifier: Apache-2.0
@@ -1477,6 +1590,7 @@ index 0000000000000000000000000000000000000000..6c62544dc5f8bdf4e319c16bd186c3c1
 +package com.android.settings.network;
 +
 +import android.content.ActivityNotFoundException;
++import android.content.Intent;
 +import android.os.Bundle;
 +
 +import androidx.lifecycle.ViewModelProvider;
@@ -1489,9 +1603,12 @@ index 0000000000000000000000000000000000000000..6c62544dc5f8bdf4e319c16bd186c3c1
 +public final class HonorLdyAn00EsimSetupActivity extends SubscriptionActionDialogActivity
 +        implements ConfirmDialogFragment.OnConfirmListener {
 +    private static final int SELECT_EUICC = 1, SELECT_PHYSICAL = 2, OPEN_MANAGEMENT = 3;
++    private static final int MANAGEMENT_REQUEST = 4, CONFIRM_MANAGEMENT = 5;
++    static final String EXTRA_CONFIRM_MANAGEMENT = "confirm_management";
 +    private HonorLdyAn00EsimSetupViewModel mModel;
 +    private int mDialogPhaseSerial = -1;
 +    private boolean mTestImage, mDialogShown, mErrorShown, mReturnPhysical, mManageEsims;
++    private boolean mManagementDebugConsent, mManagementEntryConsent;
 +
 +    @Override protected void onCreate(Bundle savedInstanceState) {
 +        super.onCreate(savedInstanceState);
@@ -1505,7 +1622,30 @@ index 0000000000000000000000000000000000000000..6c62544dc5f8bdf4e319c16bd186c3c1
 +        mDialogShown = savedInstanceState != null && savedInstanceState.getBoolean("dialog");
 +        mErrorShown = savedInstanceState != null && savedInstanceState.getBoolean("error");
 +        mDialogPhaseSerial = savedInstanceState == null ? -1 : savedInstanceState.getInt("phase_serial", -1);
++        mManagementDebugConsent = savedInstanceState != null
++                && savedInstanceState.getBoolean("management_debug_consent");
++        mManagementEntryConsent = savedInstanceState != null
++                && savedInstanceState.getBoolean("management_entry_consent");
++        if (mManageEsims && getIntent().getBooleanExtra(EXTRA_CONFIRM_MANAGEMENT, false)
++                && !mManagementEntryConsent) {
++            if (!mDialogShown) {
++                mDialogShown = true;
++                ConfirmDialogFragment.show(this, ConfirmDialogFragment.OnConfirmListener.class,
++                        CONFIRM_MANAGEMENT, getString(R.string.honor_esim_manage),
++                        getString(R.string.honor_esim_manage_message),
++                        getString(R.string.honor_esim_manage), getString(R.string.sim_action_cancel));
++            }
++            return; // No ViewModel, Phone bind or selection before a real visible confirmation.
++        }
++        startSetup(savedInstanceState);
++    }
++
++    private void startSetup(Bundle savedInstanceState) {
 +        mModel = new ViewModelProvider(this).get(HonorLdyAn00EsimSetupViewModel.class);
++        if (mManageEsims && (savedInstanceState != null && !mModel.isManagementSession()
++                || !mModel.beginManagement())) {
++            error(R.string.honor_esim_change_unconfirmed); return;
++        }
 +        showProgressDialog(getString(R.string.honor_esim_connecting));
 +        mModel.state().observe(this, this::render);
 +    }
@@ -1514,12 +1654,15 @@ index 0000000000000000000000000000000000000000..6c62544dc5f8bdf4e319c16bd186c3c1
 +        out.putBoolean("dialog", mDialogShown);
 +        out.putBoolean("error", mErrorShown);
 +        out.putInt("phase_serial", mDialogPhaseSerial);
++        out.putBoolean("management_debug_consent", mManagementDebugConsent);
++        out.putBoolean("management_entry_consent", mManagementEntryConsent);
 +        super.onSaveInstanceState(out);
 +    }
 +
 +    private void render(Bundle state) {
 +        if (isFinishing() || isDestroyed()) return;
 +        mTestImage = state.getBoolean("test_image", false);
++        if (mManageEsims) { renderManagement(state); return; }
 +        switch (state.getString("state", "UNKNOWN")) {
 +            case "WORKING" ->
 +                    showProgressDialog(getString(R.string.honor_esim_connecting));
@@ -1575,6 +1718,48 @@ index 0000000000000000000000000000000000000000..6c62544dc5f8bdf4e319c16bd186c3c1
 +        }
 +    }
 +
++    private void renderManagement(Bundle state) {
++        switch (state.getString("management_stage", "UNAVAILABLE")) {
++            case "PREPARING" -> {
++                if (mTestImage && !mManagementDebugConsent) {
++                    confirm(false, state.getInt("phase_serial", -1));
++                } else {
++                    showProgressDialog(getString(R.string.honor_esim_connecting));
++                    mModel.continueManagement(mManagementDebugConsent);
++                }
++            }
++            case "READY" -> {
++                Bundle session = mModel.takeManagementLaunch();
++                if (session == null) return;
++                dismissProgressDialog();
++                try {
++                    startActivityForResult(HonorLdyAn00EsimEntry.INSTANCE.lpaIntent(true)
++                            .putExtras(session), MANAGEMENT_REQUEST);
++                } catch (ActivityNotFoundException | SecurityException unavailable) {
++                    mModel.completeManagement(RESULT_CANCELED, null);
++                }
++            }
++            case "WAITING_LPA" -> dismissProgressDialog();
++            case "RESTORING" -> {
++                showProgressDialog(getString(R.string.honor_esim_connecting));
++                mModel.continueManagement(mManagementDebugConsent);
++            }
++            case "DONE" -> {
++                dismissProgressDialog();
++                setResult(RESULT_OK);
++                finish();
++            }
++            default -> error("CALL_BUSY".equals(state.getString("state"))
++                    ? R.string.honor_esim_call_busy : R.string.honor_esim_change_unconfirmed);
++        }
++    }
++
++    @Override protected void onActivityResult(int requestCode, int resultCode, Intent data) {
++        super.onActivityResult(requestCode, resultCode, data);
++        if (requestCode == MANAGEMENT_REQUEST && mManageEsims)
++            mModel.completeManagement(resultCode, data == null ? null : data.getExtras());
++    }
++
 +    private void confirm(boolean physical, int phaseSerial) {
 +        dismissProgressDialog();
 +        if (mDialogShown) return;
@@ -1591,12 +1776,26 @@ index 0000000000000000000000000000000000000000..6c62544dc5f8bdf4e319c16bd186c3c1
 +                        getString(R.string.honor_esim_physical_slot2))
 +                        : getString(mManageEsims ? R.string.honor_esim_manage_title
 +                                : R.string.honor_esim_sim2_title),
-+                message, getString(R.string.sim_switch_button), getString(R.string.sim_action_cancel));
++                message, getString(mManageEsims ? R.string.honor_esim_manage
++                        : R.string.sim_switch_button), getString(R.string.sim_action_cancel));
 +    }
 +
 +    @Override public void onConfirm(int tag, boolean confirmed, int ignored) {
 +        mDialogShown = false;
 +        if (!confirmed) { finish(); return; }
++        if (tag == CONFIRM_MANAGEMENT) {
++            if (!mManageEsims || !getIntent().getBooleanExtra(EXTRA_CONFIRM_MANAGEMENT, false)
++                    || mManagementEntryConsent || mModel != null) return;
++            mManagementEntryConsent = true;
++            startSetup(null); // A new positive gesture, never an automatic retry.
++            return;
++        }
++        if (mManageEsims) {
++            if (tag != SELECT_EUICC) { finish(); return; }
++            mManagementDebugConsent = mTestImage;
++            mModel.continueManagement(mManagementDebugConsent);
++            return;
++        }
 +        if (tag == OPEN_MANAGEMENT) {
 +            try {
 +                startActivity(HonorLdyAn00EsimEntry.INSTANCE.lpaIntent(true));
@@ -1620,8 +1819,8 @@ index 0000000000000000000000000000000000000000..6c62544dc5f8bdf4e319c16bd186c3c1
 +            if (fragment instanceof ConfirmDialogFragment dialog) dialog.dismiss();
 +        }
 +        mDialogShown = false;
-+        if (message == R.string.honor_esim_change_unconfirmed
-+                || message == R.string.honor_esim_still_pending) {
++        if (!mManageEsims && (message == R.string.honor_esim_change_unconfirmed
++                || message == R.string.honor_esim_still_pending)) {
 +            mDialogShown = true;
 +            ConfirmDialogFragment.show(this, ConfirmDialogFragment.OnConfirmListener.class,
 +                    OPEN_MANAGEMENT, getString(R.string.honor_esim_error_title),
@@ -1632,10 +1831,10 @@ index 0000000000000000000000000000000000000000..6c62544dc5f8bdf4e319c16bd186c3c1
 +}
 diff --git a/src/com/android/settings/network/HonorLdyAn00EsimSetupViewModel.java b/src/com/android/settings/network/HonorLdyAn00EsimSetupViewModel.java
 new file mode 100644
-index 0000000000000000000000000000000000000000..b219c3013e4a77e373bcbcbcc1c67605fd942907
+index 0000000000000000000000000000000000000000..b1a6bb42ad5da4c0fdf491ddefdef83dbcf24699
 --- /dev/null
 +++ b/src/com/android/settings/network/HonorLdyAn00EsimSetupViewModel.java
-@@ -0,0 +1,373 @@
+@@ -0,0 +1,503 @@
 +/*
 + * Copyright (C) 2026 The LineageOS Project
 + * SPDX-License-Identifier: Apache-2.0
@@ -1643,6 +1842,7 @@ index 0000000000000000000000000000000000000000..b219c3013e4a77e373bcbcbcc1c67605
 +package com.android.settings.network;
 +
 +import android.app.Application;
++import android.app.Activity;
 +import android.content.ComponentName;
 +import android.content.Context;
 +import android.content.Intent;
@@ -1658,6 +1858,7 @@ index 0000000000000000000000000000000000000000..b219c3013e4a77e373bcbcbcc1c67605
 +import android.os.Process;
 +import android.os.ParcelUuid;
 +import android.os.RemoteException;
++import android.os.ResultReceiver;
 +import android.os.SystemClock;
 +import android.telephony.SubscriptionInfo;
 +import android.text.TextUtils;
@@ -1701,6 +1902,7 @@ index 0000000000000000000000000000000000000000..b219c3013e4a77e373bcbcbcc1c67605
 +                || state.getBoolean("target_physical") != mSelectedPhysical)) return true;
 +        mPhaseSerial = phaseSerial;
 +        if (confirmationRequired) {
++            if (isManagementSession()) { stop(); return true; }
 +            if (!mChoiceSubmitted || msg.arg1 != mSelectionRequestId) return true;
 +            if (state.getBoolean("target_physical", !mSelectedPhysical) != mSelectedPhysical
 +                    || phaseSerial == mConsentPhaseSerial) { stop(); return true; }
@@ -1723,7 +1925,8 @@ index 0000000000000000000000000000000000000000..b219c3013e4a77e373bcbcbcc1c67605
 +                    || state.getInt("consent_phase_serial", -1) != mConsentPhaseSerial
 +                    || state.getInt("profile_route_protocol", 0) != 1) { stop(); return true; }
 +            // This exact cold request proved current readiness without a setter or fake +1.
-+        } else if (mProfileOperation != null && mProfileRouteRequested && mChoiceSubmitted
++        } else if ((mProfileOperation != null && mProfileRouteRequested
++                || mManagementOutbound) && mChoiceSubmitted
 +                && !mSelectedPhysical && value.equals("EUICC_READY")) {
 +            if (mConsentPhaseSerial == Integer.MAX_VALUE || phaseSerial > mConsentPhaseSerial + 1) {
 +                stop(); return true; // A later unrelated cycle is not this profile consent.
@@ -1773,10 +1976,17 @@ index 0000000000000000000000000000000000000000..b219c3013e4a77e373bcbcbcc1c67605
 +        if (mProfileOperation != null) mProfileReadySnapshot = !mProfileForeignWork
 +                && (value.equals("EUICC_READY") || value.equals("KNOWN_BLANK") && !mProfileRouteRequested)
 +                    ? state : null;
++        if (!managementSnapshot(msg, state, value, noSelection, phaseSerial)) return true;
++        mManagementPublishing = true; // Synchronous observers cannot dispatch before timer bookkeeping.
 +        mState.setValue(state);
 +        if (value.equals("WORKING") || value.equals("EUICC_WAITING")) {
 +            mMain.postDelayed(mPoll, 1000);
 +        } else mMain.removeCallbacks(mExpiry);
++        mManagementPublishing = false;
++        if (mManagementContinuePending || "RESTORING".equals(mManagementStage)) {
++            mManagementContinuePending = false;
++            continueManagement(mManagementDebugConsent);
++        }
 +        return true;
 +    }
 +    private Messenger mRemote;
@@ -1785,6 +1995,121 @@ index 0000000000000000000000000000000000000000..b219c3013e4a77e373bcbcbcc1c67605
 +    private boolean mObservationExpired;
 +    private int mRequestId, mSelectionRequestId, mPhaseSerial = -1, mConsentPhaseSerial = -1;
 +    private long mDeadline;
++
++    private String mManagementStage, mManagementNonce;
++    private int mManagementOrigin = -1, mManagementPhase = -1, mManagementReturnRequest = -1;
++    private boolean mManagementOutbound, mManagementReturnReady, mManagementDebugConsent;
++    private boolean mManagementPublishing, mManagementContinuePending;
++    private final ResultReceiver mManagementResult = new ResultReceiver(mMain) {
++        @Override protected void onReceiveResult(int code, Bundle data) { completeManagement(code, data); }
++    };
++
++    public boolean beginManagement() {
++        if (mManagementStage != null) return !mManagementStage.equals("UNAVAILABLE");
++        if (mStopped || mProfileOperation != null || mChoiceSubmitted) return false;
++        mManagementNonce = java.util.UUID.randomUUID().toString().replace("-", "");
++        mManagementStage = "PREPARING";
++        publishManagement();
++        return true;
++    }
++
++    public boolean isManagementSession() { return mManagementStage != null; }
++
++    public void continueManagement(boolean trustedDebugConsent) {
++        if (mManagementPublishing) {
++            if ("PREPARING".equals(mManagementStage) && !mManagementOutbound && !mChoiceSubmitted)
++                mManagementDebugConsent = trustedDebugConsent;
++            mManagementContinuePending = true;
++            return;
++        }
++        Bundle state = mState.getValue();
++        if (mStopped || state == null || !mHasSnapshot) return;
++        String value = state.getString("state", "UNKNOWN");
++        if ("PREPARING".equals(mManagementStage)) {
++            if (mManagementOutbound || mChoiceSubmitted) return;
++            mManagementDebugConsent = trustedDebugConsent;
++            if (state.getInt("profile_route_protocol", 0) != 1) { stop(); return; }
++            if (value.equals("EUICC_READY") || value.equals("KNOWN_BLANK")) {
++                mManagementOrigin = 1; mManagementPhase = mPhaseSerial;
++                mManagementStage = "READY"; publishManagement();
++            } else if (value.equals("IDLE") || value.equals("PHYSICAL_READY")) {
++                mManagementOutbound = true;
++                choose(false, trustedDebugConsent, mPhaseSerial);
++            }
++        } else if ("RESTORING".equals(mManagementStage) && mManagementReturnReady && !mChoiceSubmitted) {
++            mManagementReturnReady = false;
++            choose(true, mManagementDebugConsent, mPhaseSerial);
++        }
++    }
++
++    public Bundle takeManagementLaunch() {
++        if (mStopped || !"READY".equals(mManagementStage)) return null;
++        mManagementStage = "WAITING_LPA";
++        Bundle extras = new Bundle();
++        extras.putInt("honor_management_version", 1);
++        extras.putString("honor_management_nonce", mManagementNonce);
++        extras.putParcelable("honor_management_result", mManagementResult);
++        mMain.removeCallbacks(mExpiry);
++        publishManagement();
++        return extras;
++    }
++
++    public void completeManagement(int code, Bundle data) {
++        if (!"WAITING_LPA".equals(mManagementStage)) return; // Receiver and activity result are one completion.
++        if (mStopped || code != Activity.RESULT_OK || data == null
++                || data.getInt("honor_management_version", 0) != 1
++                || !Objects.equals(mManagementNonce, data.getString("honor_management_nonce"))
++                || !Boolean.TRUE.equals(data.get("honor_management_done"))
++                || !Boolean.TRUE.equals(data.get("honor_management_drained"))
++                || !(data.get("honor_management_keep_esim") instanceof Boolean)
++                || mManagementOrigin < 0) { stop(); return; }
++        if ((Boolean) data.get("honor_management_keep_esim") || mManagementOrigin == 1) {
++            mManagementStage = "DONE"; publishManagement(); return;
++        }
++        if (mRemote == null || !mRemote.getBinder().isBinderAlive() || mChoiceSubmitted) { stop(); return; }
++        mManagementStage = "RESTORING";
++        mManagementReturnReady = false;
++        refreshSnapshotOnce(); // A new reply, never the old pre-LPA snapshot, authorizes return.
++        mManagementReturnRequest = mRequestId;
++        publishManagement();
++    }
++
++    private boolean managementSnapshot(Message msg, Bundle state, String value, boolean noSelection, int phase) {
++        if (mManagementStage == null) return true;
++        if ("PREPARING".equals(mManagementStage) && mManagementOutbound
++                && mChoiceSubmitted && !mSelectedPhysical && value.equals("EUICC_READY")) {
++            if (noSelection) mManagementOrigin = 1; // Existing exact cold GET1 validation ran above.
++            else if (state.getInt("management_origin_protocol", 0) == 1
++                    && state.getInt("management_origin_mode", -1) == 0
++                    && state.getInt("management_origin_phase", -1) == mConsentPhaseSerial
++                    && state.getInt("management_origin_request", -1) == mSelectionRequestId
++                    && state.getLong("management_origin_generation", 0) > 0
++                    && mConsentPhaseSerial < Integer.MAX_VALUE && phase == mConsentPhaseSerial + 1)
++                mManagementOrigin = 0;
++            else { stop(); return false; }
++            mChoiceSubmitted = false; // Retire only this positively completed outbound choice.
++            mManagementPhase = phase; mManagementStage = "READY";
++        } else if ("RESTORING".equals(mManagementStage)) {
++            if (msg.arg1 == mManagementReturnRequest && !mChoiceSubmitted) {
++                if (phase != mManagementPhase || !canReturnPhysical(state)
++                        || state.getInt("route_observation_protocol", 0) != 1) { stop(); return false; }
++                mManagementReturnRequest = -1;
++                mManagementReturnReady = true;
++            } else if (value.equals("PHYSICAL_READY") && !mChoiceSubmitted
++                    && mSelectedPhysical && mConsentPhaseSerial < Integer.MAX_VALUE
++                    && phase == mConsentPhaseSerial + 1) mManagementStage = "DONE";
++        }
++        state.putString("management_stage", mManagementStage);
++        return true;
++    }
++
++    private void publishManagement() {
++        Bundle previous = mState.getValue();
++        if (previous == null) return;
++        Bundle state = new Bundle(previous);
++        state.putString("management_stage", mManagementStage);
++        mState.setValue(state);
++    }
 +
 +    /** The two native confirmed operations share one retained route/readiness handoff. */
 +    public enum ProfileAction { ENABLE, DELETE }
@@ -1998,6 +2323,10 @@ index 0000000000000000000000000000000000000000..b219c3013e4a77e373bcbcbcc1c67605
 +        mMain.removeCallbacks(mExpiry);
 +        Bundle unknown = new Bundle();
 +        unknown.putString("state", reason);
++        if (mManagementStage != null) {
++            mManagementStage = "UNAVAILABLE";
++            unknown.putString("management_stage", mManagementStage);
++        }
 +        mState.setValue(unknown);
 +        // Timeout/disconnect is observational only. No rollback, reset or second setter.
 +    }
@@ -3312,6 +3641,113 @@ index 33f151d665101d5d6d5fdb51b09ce9b3ad1431b7..d90f26361b0547eabc0c3c0bd0902d82
 +    ) {
 +        if (activationAllowed) HonorLdyAn00EsimEntry.launchPhysicalReturn(context)
 +    }
++}
+diff --git a/tests/robotests/src/com/android/settings/MobileNetworkActivityTest.kt b/tests/robotests/src/com/android/settings/MobileNetworkActivityTest.kt
+new file mode 100644
+index 0000000000000000000000000000000000000000..b55c6c80cfa65eaefd3339deb9bebf9c56db4063
+--- /dev/null
++++ b/tests/robotests/src/com/android/settings/MobileNetworkActivityTest.kt
+@@ -0,0 +1,101 @@
++/*
++ * Copyright (C) 2026 The LineageOS Project
++ * SPDX-License-Identifier: Apache-2.0
++ */
++package com.android.settings
++
++import android.content.Intent
++import android.provider.Settings.ACTION_NETWORK_OPERATOR_SETTINGS
++import android.provider.Settings.EXTRA_SUB_ID
++import androidx.test.ext.junit.runners.AndroidJUnit4
++import com.android.settings.network.MobileNetworkIntentConverter
++import com.google.common.truth.Truth.assertThat
++import org.junit.Before
++import org.junit.Test
++import org.junit.runner.RunWith
++import org.mockito.kotlin.any
++import org.mockito.kotlin.anyOrNull
++import org.mockito.kotlin.doNothing
++import org.mockito.kotlin.mock
++import org.mockito.kotlin.never
++import org.mockito.kotlin.spy
++import org.mockito.kotlin.verify
++import org.mockito.kotlin.whenever
++import org.robolectric.Robolectric
++import org.robolectric.util.ReflectionHelpers
++
++@RunWith(AndroidJUnit4::class)
++class MobileNetworkActivityTest {
++    private lateinit var activity: Settings.MobileNetworkActivity
++    private val converter = mock<MobileNetworkIntentConverter>()
++
++    @Before
++    fun setUp() {
++        activity = spy(Robolectric.buildActivity(Settings.MobileNetworkActivity::class.java).get())
++        ReflectionHelpers.setField(activity, "mIntentConverter", converter)
++        doNothing().whenever(activity).createUiFromIntent(anyOrNull(), any())
++    }
++
++    @Test
++    fun onNewIntent_publicNetworkSettings_createsConvertedUi() {
++        val incoming = Intent(ACTION_NETWORK_OPERATOR_SETTINGS).putExtra(EXTRA_SUB_ID, 7)
++        val converted = mobileIntent(7)
++        whenever(converter.apply(incoming)).thenReturn(converted)
++
++        activity.onNewIntent(incoming)
++
++        assertThat(activity.isFinishing).isFalse()
++        assertThat(activity.intent).isSameInstanceAs(converted)
++        verify(activity).createUiFromIntent(null, converted)
++    }
++
++    @Test
++    fun onNewIntent_sameSubscription_replacesCachedExtras() {
++        val previous = mobileIntent(7).putExtra("marker", "old")
++        activity.intent = previous
++        ReflectionHelpers.setField(activity, "mCachedIntent", previous)
++        val incoming = Intent(ACTION_NETWORK_OPERATOR_SETTINGS)
++            .putExtra(EXTRA_SUB_ID, 7).putExtra("marker", "new")
++        val converted = mobileIntent(7).putExtra("marker", "new")
++        whenever(converter.apply(incoming)).thenReturn(converted)
++
++        activity.onNewIntent(incoming)
++
++        assertThat(activity.intent).isSameInstanceAs(converted)
++        assertThat(activity.intent.getStringExtra("marker")).isEqualTo("new")
++        verify(activity).createUiFromIntent(null, converted)
++    }
++
++    @Test
++    fun onNewIntent_explicitOtherFragment_refusesEvenIfConverterRewritesIt() {
++        val incoming = Intent(ACTION_NETWORK_OPERATOR_SETTINGS)
++            .putExtra(EXTRA_SUB_ID, 7)
++            .putExtra(SettingsActivity.EXTRA_SHOW_FRAGMENT, "com.android.settings.OtherFragment")
++        whenever(converter.apply(incoming)).thenReturn(mobileIntent(7))
++
++        activity.onNewIntent(incoming)
++
++        assertThat(activity.isFinishing).isTrue()
++        verify(activity, never()).createUiFromIntent(anyOrNull(), any())
++    }
++
++    @Test
++    fun onNewIntent_unrecognizedActionWithoutFragment_refuses() {
++        val incoming = Intent("unsupported.action").putExtra(EXTRA_SUB_ID, 7)
++        whenever(converter.apply(incoming)).thenReturn(null)
++
++        activity.onNewIntent(incoming)
++
++        assertThat(activity.isFinishing).isTrue()
++        verify(activity, never()).createUiFromIntent(anyOrNull(), any())
++    }
++
++    private fun mobileIntent(subId: Int) =
++        Intent(ACTION_NETWORK_OPERATOR_SETTINGS)
++            .setClassName("com.android.settings", Settings.MobileNetworkActivity::class.java.name)
++            .putExtra(EXTRA_SUB_ID, subId)
++            .putExtra(
++                SettingsActivity.EXTRA_SHOW_FRAGMENT,
++                "com.android.settings.network.telephony.MobileNetworkSettings",
++            )
 +}
 diff --git a/tests/robotests/src/com/android/settings/biometrics/face/FaceEnrollChallengeOwnershipTest.java b/tests/robotests/src/com/android/settings/biometrics/face/FaceEnrollChallengeOwnershipTest.java
 new file mode 100644
@@ -4650,6 +5086,155 @@ index 0000000000000000000000000000000000000000..b28395b320912b74b8653c9c1444664b
 +        assertThat(HonorLdyAn00EsimEntry.isSetupIntent(Intent())).isFalse()
 +        assertThat(HonorLdyAn00EsimEntry.isSetupIntent(
 +            HonorLdyAn00EsimEntry.managementIntent().setAction("unknown"))).isFalse()
++    }
++}
+diff --git a/tests/robotests/src/com/android/settings/network/HonorLdyAn00EsimManagementActivityTest.kt b/tests/robotests/src/com/android/settings/network/HonorLdyAn00EsimManagementActivityTest.kt
+new file mode 100644
+index 0000000000000000000000000000000000000000..43d17814fd57de065bc8df1ddfa9c5dc4e12330e
+--- /dev/null
++++ b/tests/robotests/src/com/android/settings/network/HonorLdyAn00EsimManagementActivityTest.kt
+@@ -0,0 +1,143 @@
++/*
++ * Copyright (C) 2026 The LineageOS Project
++ * SPDX-License-Identifier: Apache-2.0
++ */
++package com.android.settings.network
++
++import android.Manifest
++import android.content.ComponentName
++import android.content.Context
++import android.content.Intent
++import android.content.pm.ActivityInfo
++import android.content.pm.ApplicationInfo
++import android.content.pm.PackageManager
++import android.os.Build
++import android.os.UserManager
++import com.google.common.truth.Truth.assertThat
++import org.junit.Before
++import org.junit.Test
++import org.junit.runner.RunWith
++import org.mockito.Mockito.doReturn
++import org.mockito.Mockito.mock
++import org.mockito.Mockito.spy
++import org.mockito.Mockito.`when`
++import org.robolectric.Robolectric
++import org.robolectric.RobolectricTestRunner
++import org.robolectric.shadows.ShadowBuild
++import org.robolectric.shadows.ShadowProcess
++import org.robolectric.shadows.ShadowSystemProperties
++import org.robolectric.util.ReflectionHelpers
++
++@RunWith(RobolectricTestRunner::class)
++class HonorLdyAn00EsimManagementActivityTest {
++    private lateinit var activity: HonorLdyAn00EsimManagementActivity
++    private lateinit var pm: PackageManager
++    private lateinit var selected: ActivityInfo
++    private val lpa = "im.angry.openeuicc"
++
++    @Before
++    fun setUp() {
++        activity = spy(Robolectric.buildActivity(HonorLdyAn00EsimManagementActivity::class.java).get())
++        pm = mock(PackageManager::class.java)
++        val users = mock(UserManager::class.java)
++        `when`(users.isAdminUser).thenReturn(true)
++        doReturn(pm).`when`(activity).packageManager
++        doReturn(Context.USER_SERVICE).`when`(activity).getSystemServiceName(UserManager::class.java)
++        doReturn(users).`when`(activity).getSystemService(Context.USER_SERVICE)
++        doReturn(PackageManager.PERMISSION_GRANTED).`when`(activity)
++            .checkSelfPermission(Manifest.permission.MODIFY_PHONE_STATE)
++        ShadowBuild.setDevice("ldy_an00")
++        ShadowBuild.setModel("LDY-AN00")
++        ReflectionHelpers.setStaticField(Build::class.java, "HARDWARE", "mt6993")
++        ShadowProcess.setUid(1000)
++        ShadowSystemProperties.override("ro.lineage.ldy_an00.esim_bridge", "true")
++        val setup = ComponentName(
++            "com.android.settings", "com.android.settings.network.HonorLdyAn00EsimSetupActivity")
++        val setupInfo = ActivityInfo().apply {
++            enabled = true
++            permission = Manifest.permission.MODIFY_PHONE_STATE
++            applicationInfo = ApplicationInfo().apply { enabled = true; flags = ApplicationInfo.FLAG_SYSTEM }
++        }
++        `when`(pm.getActivityInfo(setup, 0)).thenReturn(setupInfo)
++        `when`(pm.checkSignatures("android", "com.android.settings")).thenReturn(PackageManager.SIGNATURE_MATCH)
++        selected = ActivityInfo().apply {
++            packageName = lpa
++            enabled = true
++            applicationInfo = ApplicationInfo().apply {
++                enabled = true; uid = 10115; flags = ApplicationInfo.FLAG_SYSTEM
++            }
++        }
++        doReturn(selected).`when`(activity).selectedLpa()
++        doReturn(lpa).`when`(activity).callingPackage
++        doReturn(ComponentName(lpa, "$lpa.ui.PrivilegedMainActivity")).`when`(activity).callingActivity
++        doReturn(10115).`when`(activity).launchedFromUid
++        `when`(pm.getApplicationInfo(lpa, 0)).thenReturn(selected.applicationInfo)
++        `when`(pm.checkSignatures("android", lpa)).thenReturn(PackageManager.SIGNATURE_MATCH)
++        activity.intent = Intent(HonorLdyAn00EsimEntry.ACTION_MANAGEMENT)
++    }
++
++    @Test fun selectedPlatformSystemLpa_exactCallerAccepted() {
++        assertThat(activity.isCallerAllowed()).isTrue()
++    }
++
++    @Test fun noResultCaller_refused() {
++        doReturn(null).`when`(activity).callingPackage
++        assertThat(activity.isCallerAllowed()).isFalse()
++    }
++
++    @Test fun wrongActualUid_refused() {
++        doReturn(10116).`when`(activity).launchedFromUid
++        assertThat(activity.isCallerAllowed()).isFalse()
++    }
++
++    @Test fun differentSelectedLpa_refused() {
++        selected.packageName = "other.lpa"
++        assertThat(activity.isCallerAllowed()).isFalse()
++    }
++
++    @Test fun matchingPackageWithoutPlatformSignature_refused() {
++        `when`(pm.checkSignatures("android", lpa)).thenReturn(PackageManager.SIGNATURE_NO_MATCH)
++        assertThat(activity.isCallerAllowed()).isFalse()
++    }
++
++    @Test fun nonSystemLpa_refused() {
++        selected.applicationInfo.flags = 0
++        assertThat(activity.isCallerAllowed()).isFalse()
++    }
++
++    @Test fun secondaryUserCaller_refused() {
++        doReturn(110115).`when`(activity).launchedFromUid
++        assertThat(activity.isCallerAllowed()).isFalse()
++    }
++
++    @Test fun nonAdmin_refused() {
++        `when`(activity.getSystemService(UserManager::class.java)!!.isAdminUser).thenReturn(false)
++        assertThat(activity.isCallerAllowed()).isFalse()
++    }
++
++    @Test fun privateForwarding_requiresNativeManageConsent() {
++        val forwarded = activity.privateSetupIntent()
++        assertThat(forwarded.component).isEqualTo(ComponentName(
++            "com.android.settings", "com.android.settings.network.HonorLdyAn00EsimSetupActivity"))
++        assertThat(forwarded.getBooleanExtra(HonorLdyAn00EsimEntry.EXTRA_MANAGE_ESIMS, false)).isTrue()
++        assertThat(forwarded.getBooleanExtra(
++            HonorLdyAn00EsimSetupActivity.EXTRA_CONFIRM_MANAGEMENT, false)).isTrue()
++        assertThat(forwarded.flags and Intent.FLAG_ACTIVITY_FORWARD_RESULT).isNotEqualTo(0)
++    }
++
++    @Test fun privateForwarding_doesNotTrustIncomingConsentOrSession() {
++        activity.intent.putExtra(HonorLdyAn00EsimSetupActivity.EXTRA_CONFIRM_MANAGEMENT, false)
++            .putExtra("honor_management_nonce", "attacker")
++            .putExtra("return_physical_sim2", true)
++        val forwarded = activity.privateSetupIntent()
++        assertThat(forwarded.getBooleanExtra(
++            HonorLdyAn00EsimSetupActivity.EXTRA_CONFIRM_MANAGEMENT, false)).isTrue()
++        assertThat(forwarded.hasExtra("honor_management_nonce")).isFalse()
++        assertThat(forwarded.hasExtra("return_physical_sim2")).isFalse()
++    }
++
++    @Test fun wrongAction_refused() {
++        activity.intent = Intent(Intent.ACTION_MAIN)
++        assertThat(activity.isCallerAllowed()).isFalse()
 +    }
 +}
 diff --git a/tests/robotests/src/com/android/settings/network/HonorPhysicalSlotRoutingTest.java b/tests/robotests/src/com/android/settings/network/HonorPhysicalSlotRoutingTest.java

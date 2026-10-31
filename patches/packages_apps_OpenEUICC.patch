@@ -285,7 +285,7 @@ index e47d403b669174529da2097535f1f4ed08702117..9a1ff68cd2f1ba60b08e9f4f2a070d3e
      override val valid: Boolean
 diff --git a/app-common/src/main/java/im/angry/openeuicc/core/HonorLpaChannelAccess.kt b/app-common/src/main/java/im/angry/openeuicc/core/HonorLpaChannelAccess.kt
 new file mode 100644
-index 0000000000000000000000000000000000000000..9c18c3d96a1869ad878a7dc25ab9ff9f3bc33a54
+index 0000000000000000000000000000000000000000..6d3a9dbea7a8c9feb36a9289301444f6b2ce5c16
 --- /dev/null
 +++ b/app-common/src/main/java/im/angry/openeuicc/core/HonorLpaChannelAccess.kt
 @@ -0,0 +1,38 @@
@@ -306,8 +306,8 @@ index 0000000000000000000000000000000000000000..9c18c3d96a1869ad878a7dc25ab9ff9f
 +    fun isConfirmedProfileRejection(failure: Throwable) = failure is HonorLpaLeaseClient.ProfileRejected
 +    fun enabled() = HonorLpaLeaseClient.requiresCloseProof()
 +    data class RecoveryState(val status: Int,val localMarker: Boolean,val unavailable: Boolean)
-+    suspend fun recoveryState(context: android.content.Context): RecoveryState {
-+        val state=HonorLpaLeaseClient.recoveryState(context)
++    suspend fun recoveryState(context: android.content.Context, waitForOperation: Boolean = true): RecoveryState {
++        val state=HonorLpaLeaseClient.recoveryState(context,waitForOperation)
 +        return RecoveryState(state.status,state.localMarker,state.unavailable)
 +    }
 +    suspend fun armRecovery(context: android.content.Context,manager: EuiccChannelManager) =
@@ -355,10 +355,10 @@ index 0000000000000000000000000000000000000000..a290e1ac69d4784b25931ddd60bdeb6f
 +}
 diff --git a/app-common/src/main/java/im/angry/openeuicc/core/HonorLpaLeaseClient.kt b/app-common/src/main/java/im/angry/openeuicc/core/HonorLpaLeaseClient.kt
 new file mode 100644
-index 0000000000000000000000000000000000000000..1db98b60dea9fcefeb914ce7005f188ef6e7f891
+index 0000000000000000000000000000000000000000..64551440307c3c8165cdc8849be54107c46100b5
 --- /dev/null
 +++ b/app-common/src/main/java/im/angry/openeuicc/core/HonorLpaLeaseClient.kt
-@@ -0,0 +1,529 @@
+@@ -0,0 +1,624 @@
 +package im.angry.openeuicc.core
 +
 +import android.content.ComponentName
@@ -390,7 +390,13 @@ index 0000000000000000000000000000000000000000..1db98b60dea9fcefeb914ce7005f188e
 +    class KnownBlankRoute : IllegalStateException("No active eSIM endpoint; return through SIM settings")
 +    class ProfileRejected(val rejection: net.typeblog.lpac_jni.ProfileOperationRejectedException) :
 +        Exception("The eSIM rejected this change", rejection)
-+    class EndpointNotReady : IllegalStateException("No eSIM endpoint is ready")
++    class EndpointNotReady(cause: Throwable? = null) : IllegalStateException("No eSIM endpoint is ready",cause)
++    private inline fun <T> endpointReadRpc(call: () -> T): T = try { call() }
++        catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled }
++        catch (failure: android.os.RemoteException) { throw EndpointNotReady(failure) }
++        catch (failure: IllegalStateException) { throw EndpointNotReady(failure) }
++        catch (failure: SecurityException) { throw EndpointNotReady(failure) }
++
 +    private val identity = ThreadLocal<Any?>()
 +    private var journal: HonorLpaOperationJournal? = null
 +    data class Target(val operation: Int, val slot: Int, val port: Int, val cardId: Int)
@@ -421,8 +427,10 @@ index 0000000000000000000000000000000000000000..1db98b60dea9fcefeb914ce7005f188e
 +        check(android.os.UserHandle.myUserId() == 0)
 +        check(context.packageManager.checkSignatures("android","com.android.phone") ==
 +            android.content.pm.PackageManager.SIGNATURE_MATCH)
++        val managementWork=HonorManagementSession.captureWork()
 +        withContext(Dispatchers.IO) {
 +            sessionLock.withLock {
++                HonorManagementSession.requireWork(managementWork)
 +                initialize(context)
 +                val localOwner = Any()
 +                admission.reserve(localOwner) // Existing UNKNOWN and active JNI readers remain blocked.
@@ -433,23 +441,24 @@ index 0000000000000000000000000000000000000000..1db98b60dea9fcefeb914ce7005f188e
 +                        connected.complete(IHonorLpaLease.Stub.asInterface(service))
 +                    }
 +                    override fun onServiceDisconnected(name: ComponentName) {
-+                        connected.completeExceptionally(IllegalStateException("Preparation disconnected"))
++                        connected.completeExceptionally(EndpointNotReady())
 +                    }
 +                    override fun onBindingDied(name: ComponentName) {
-+                        connected.completeExceptionally(IllegalStateException("Preparation binding died"))
++                        connected.completeExceptionally(EndpointNotReady())
 +                    }
 +                    override fun onNullBinding(name: ComponentName) {
-+                        connected.completeExceptionally(IllegalStateException("Preparation unavailable"))
++                        connected.completeExceptionally(EndpointNotReady())
 +                    }
 +                }
 +                try {
 +                    bound = context.bindService(Intent().setComponent(ComponentName("com.android.phone",
 +                        "com.android.internal.telephony.honor.HonorLpaLeaseService")),connection,Context.BIND_AUTO_CREATE)
-+                    check(bound) { "Preparation service unavailable" }
-+                    val api = withTimeout(10_000) { connected.await() }
++                    if (!bound) throw EndpointNotReady()
++                    val api = kotlinx.coroutines.withTimeoutOrNull(10_000) { connected.await() }
++                        ?: throw EndpointNotReady()
 +                    // Never send the new transaction to a protocol-2 Phone.
-+                    check(api.protocolVersion() == 6) { "Phone/LPA lease protocol version mismatch" }
-+                    when (api.prepareKnownBlankEndpoint(slot,port,expectedCardId,Binder())) {
++                    if (endpointReadRpc { api.protocolVersion() } != 6) throw EndpointNotReady()
++                    when (endpointReadRpc { api.prepareKnownBlankEndpoint(slot,port,expectedCardId,Binder()) }) {
 +                        IHonorLpaLease.PREPARE_NOT_NEEDED, IHonorLpaLease.PREPARE_READY -> {
 +                            if (expectedCardId >= 0) {
 +                                // A no-op is not a card certificate. Validate a real explicit target
@@ -458,15 +467,14 @@ index 0000000000000000000000000000000000000000..1db98b60dea9fcefeb914ce7005f188e
 +                                val card = tm.uiccCardsInfo.singleOrNull {
 +                                    it.cardId == expectedCardId && it.isEuicc && it.physicalSlotIndex == slot
 +                                }
-+                                check(card != null && tm.cardIdForDefaultEuicc == expectedCardId
++                                if (!(card != null && tm.cardIdForDefaultEuicc == expectedCardId
 +                                    && card.eid?.matches(Regex("[0-9]{32}")) == true
-+                                    && card.ports.any { it.portIndex == port && it.isActive && it.logicalSlotIndex == 1 }) {
-+                                    "Requested eUICC target is unavailable"
-+                                }
++                                    && card.ports.any { it.portIndex == port && it.isActive && it.logicalSlotIndex == 1 }))
++                                    throw EndpointNotReady()
 +                                knownBlankForUi = false
 +                            }
 +                        }
-+                        IHonorLpaLease.PREPARE_NOT_READY -> throw EndpointNotReady()
++                        IHonorLpaLease.PREPARE_NOT_READY, IHonorLpaLease.PREPARE_REFUSED -> throw EndpointNotReady()
 +                        else -> error("Known-blank endpoint preparation refused")
 +                    }
 +                } finally {
@@ -485,6 +493,15 @@ index 0000000000000000000000000000000000000000..1db98b60dea9fcefeb914ce7005f188e
 +            ?: error("A Phone-owned eSIM operation lease is required")
 +        check(session.target.slot == slot && session.target.port == port && session.target.cardId == cardId)
 +    }
++    /** Called only after this exact live READ verified the chosen enabled profile. */
++    fun stageManagementCurrent(cardId: Int,iccid: String) {
++        val session=NativeMutationBoundary.observer.get() as? Session
++            ?: error("Use eSIM requires an owned READ")
++        check(session.lease.operation == 0 && session.lease.cardId == cardId)
++        check(iccid.matches(Regex("[0-9]{18,22}")))
++        session.managementKind=2
++        session.managementTarget=iccid
++    }
 +    private class Session(val api: IHonorLpaLease, val lease: HonorLpaLease,
 +        val client: IBinder, val target: Target, val localOwner: Any) : NativeMutationBoundary.Observer {
 +        var uncertain = false
@@ -494,16 +511,23 @@ index 0000000000000000000000000000000000000000..1db98b60dea9fcefeb914ce7005f188e
 +        var lastKind = 0
 +        var lastProfileBefore = false
 +        var completedKnownBlank = false
++        private var nativeTarget: String? = null
++        val managementStamp=HonorManagementSession.scopeGranted()
++        var managementKind = 0
++        var managementTarget: String? = null
 +        override fun before(kind: Int,lastProfileBefore: Boolean,targetIccid: String?) {
 +            check(!uncertain && !nativeInFlight && !resetPending && !rejectedConfirmed)
 +            if (!api.beginNativeTarget(lease, client, kind,lastProfileBefore,targetIccid)) { uncertain = true; error("Operation lease unavailable") }
-+            lastKind=kind;this.lastProfileBefore=lastProfileBefore;nativeInFlight = true
++            lastKind=kind;this.lastProfileBefore=lastProfileBefore;nativeTarget=targetIccid;nativeInFlight = true
 +        }
 +        override fun returned(kind: Int) {
 +            check(nativeInFlight)
 +            nativeInFlight = false
 +            if (!api.nativeReturned(lease, client, true)) { uncertain = true; error("Native completion unavailable") }
 +            resetPending = kind <= 4 || kind == 8
++            if (kind == 2 || kind == 3 || kind == 4 || kind == 8) {
++                managementKind=kind;managementTarget=nativeTarget
++            }
 +        }
 +        override fun rejected(kind: Int, code: Int) {
 +            check(nativeInFlight && lastKind == kind && !uncertain)
@@ -587,10 +611,15 @@ index 0000000000000000000000000000000000000000..1db98b60dea9fcefeb914ce7005f188e
 +        return run(context,manager,target.copy(operation = 0),operation=operation)
 +    }
 +    suspend fun <T> run(context: Context,manager: EuiccChannelManager,requestedTarget: Target,
-+        onKnownBlankCompleted: () -> Unit = {},operation: suspend () -> T): T =
-+        withContext(Dispatchers.IO) {
-+            sessionLock.withLock { runOnIo(context,manager,requestedTarget,onKnownBlankCompleted,operation) }
++        onKnownBlankCompleted: () -> Unit = {},operation: suspend () -> T): T {
++        val managementWork=HonorManagementSession.captureWork()
++        return withContext(Dispatchers.IO) {
++            sessionLock.withLock {
++                HonorManagementSession.requireWork(managementWork,requestedTarget.operation)
++                runOnIo(context,manager,requestedTarget,onKnownBlankCompleted,operation)
++            }
 +        }
++    }
 +    private suspend fun <T> runOnIo(context: Context, manager: EuiccChannelManager, requestedTarget: Target,
 +        onKnownBlankCompleted: () -> Unit,operation: suspend () -> T): T {
 +        check(CLIENT_RUNTIME_QUALIFIED && isHonorBuild()) { "Operation leases are not qualified" }
@@ -613,9 +642,18 @@ index 0000000000000000000000000000000000000000..1db98b60dea9fcefeb914ce7005f188e
 +            override fun onServiceConnected(name: ComponentName, service: IBinder) {
 +                connected.complete(IHonorLpaLease.Stub.asInterface(service))
 +            }
-+            override fun onServiceDisconnected(name: ComponentName) { admission.unknownIfOwned(localOwner) }
-+            override fun onBindingDied(name: ComponentName) { admission.unknownIfOwned(localOwner) }
-+            override fun onNullBinding(name: ComponentName) { connected.completeExceptionally(IllegalStateException("Lease service unavailable")) }
++            override fun onServiceDisconnected(name: ComponentName) {
++                admission.unknownIfOwned(localOwner)
++                if (target.operation == 0) connected.completeExceptionally(EndpointNotReady())
++            }
++            override fun onBindingDied(name: ComponentName) {
++                admission.unknownIfOwned(localOwner)
++                if (target.operation == 0) connected.completeExceptionally(EndpointNotReady())
++            }
++            override fun onNullBinding(name: ComponentName) {
++                connected.completeExceptionally(if (target.operation == 0) EndpointNotReady()
++                    else IllegalStateException("Lease service unavailable"))
++            }
 +        }
 +        var session: Session? = null
 +        var knownNoGrant = false
@@ -626,16 +664,25 @@ index 0000000000000000000000000000000000000000..1db98b60dea9fcefeb914ce7005f188e
 +                manager.invalidate() // No other admitted reader or open attempt can race this close.
 +                val intent = Intent().setComponent(ComponentName("com.android.phone",
 +                    "com.android.internal.telephony.honor.HonorLpaLeaseService"))
-+                bound = context.bindService(intent, connection, Context.BIND_AUTO_CREATE)
++                bound = if (target.operation == 0)
++                    endpointReadRpc { context.bindService(intent, connection, Context.BIND_AUTO_CREATE) }
++                else context.bindService(intent, connection, Context.BIND_AUTO_CREATE)
++                if (target.operation == 0 && !bound) throw EndpointNotReady()
 +                check(bound) { "Lease service unavailable" }
-+                val api = withTimeout(10_000) { connected.await() }
-+                val protocol=try { api.protocolVersion() }
++                val api = if (target.operation == 0)
++                    kotlinx.coroutines.withTimeoutOrNull(10_000) { connected.await() } ?: throw EndpointNotReady()
++                else withTimeout(10_000) { connected.await() }
++                val protocol=if (target.operation == 0) endpointReadRpc { api.protocolVersion() }
++                    else try { api.protocolVersion() }
 +                    catch(failure: android.os.RemoteException) {
 +                        throw IllegalStateException("Phone/LPA lease protocol version mismatch",failure)
 +                    }
++                if (target.operation == 0 && protocol != 6) throw EndpointNotReady()
 +                check(protocol==6) { "Phone/LPA lease protocol version mismatch" }
 +                val client = Binder()
-+                val grant = api.acquireV2(target.operation, target.slot, target.port, target.cardId, client)
++                val grant = if (target.operation == 0)
++                    endpointReadRpc { api.acquireV2(target.operation, target.slot, target.port, target.cardId, client) }
++                else api.acquireV2(target.operation, target.slot, target.port, target.cardId, client)
 +                check(grant != null)
 +                if((grant.code==2 || grant.code==3) && grant.lease==null) {
 +                    knownNoGrant=true
@@ -655,9 +702,17 @@ index 0000000000000000000000000000000000000000..1db98b60dea9fcefeb914ce7005f188e
 +                    if(!granted.completedKnownBlank) manager.invalidate()
 +                    admission.requireDrained(localOwner)
 +                    check(!granted.uncertain && !granted.nativeInFlight && !granted.resetPending) { "Operation drain not confirmed" }
-+                    if(!granted.completedKnownBlank) check(api.finish(lease, client, true)) { "Operation drain not confirmed" }
++                    if(!granted.completedKnownBlank) {
++                        val finished = if (target.operation == 0)
++                            endpointReadRpc { api.finish(lease, client, true) }
++                        else api.finish(lease, client, true)
++                        if (target.operation == 0 && !finished) throw EndpointNotReady()
++                        check(finished) { "Operation drain not confirmed" }
++                    }
 +                    journal!!.write(active = false)
 +                    admission.complete(localOwner)
++                    HonorManagementSession.scopeCompleted(granted.managementStamp,granted.lease,
++                        granted.completedKnownBlank,granted.managementKind,granted.managementTarget)
 +                    if(granted.completedKnownBlank) {knownBlankForUi=true;onKnownBlankCompleted()}
 +                    result
 +                }
@@ -690,6 +745,8 @@ index 0000000000000000000000000000000000000000..1db98b60dea9fcefeb914ce7005f188e
 +                }
 +            }
 +            if (!drained) {
++                session?.let { HonorManagementSession.scopeUncertain(it.managementStamp,
++                    it.lastKind > 0 && !it.rejectedConfirmed) }
 +                admission.unknown()
 +                // No inferred drain on transport loss, native false or an unconfirmed close.
 +                withContext(NonCancellable) {
@@ -757,8 +814,12 @@ index 0000000000000000000000000000000000000000..1db98b60dea9fcefeb914ce7005f188e
 +    }
 +
 +    /** Passive status is checked before ordinary endpoint discovery, including after an app crash. */
-+    suspend fun recoveryState(context: Context): RecoveryState = withContext(Dispatchers.IO) {
-+        sessionLock.withLock {
++    suspend fun recoveryState(context: Context, waitForOperation: Boolean = true): RecoveryState =
++        withContext(Dispatchers.IO) {
++        if (waitForOperation) sessionLock.lock()
++        else if (!sessionLock.tryLock()) return@withContext RecoveryState(
++            IHonorLpaLease.RECOVERY_IN_PROGRESS,false,true)
++        try {
 +            initialize(context)
 +            val hash=journal!!.recoveryHash()
 +            withRecoveryApi(context) { api ->
@@ -772,12 +833,40 @@ index 0000000000000000000000000000000000000000..1db98b60dea9fcefeb914ce7005f188e
 +                }
 +                RecoveryState(status,hash != null && status != IHonorLpaLease.RECOVERY_DONE,admission.isUnknown())
 +            }
-+        }
++        } finally { sessionLock.unlock() }
 +    }
 +
++    /** Positive management completion only; never writes a clean journal or selects a route. */
++    suspend fun managementDone(context: Context,manager: EuiccChannelManager,
++        closedBlankReceipt: () -> Boolean,freezeWork: () -> Unit): Boolean = try {
++        withContext(Dispatchers.IO) {
++            sessionLock.withLock {
++                initialize(context)
++                admission.requireIdle()
++                manager.invalidate()
++                admission.requireIdle()
++                val done = if (!journal!!.isClean()) false
++                    // Exact active-session result2+local completion, not historical UI state.
++                    else if (closedBlankReceipt()) true
++                    else withRecoveryApi(context) { api ->
++                        recoveryRpc { api.recoveryStatus(recoveryHash) } == IHonorLpaLease.RECOVERY_DONE
++                    }
++                // Same mutex as acquisition: already-queued session work cannot grant after Done.
++                if (done) freezeWork()
++                done
++            }
++        }
++    } catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled }
++      catch (_: LpaChannelAdmission.Unavailable) { false }
++      catch (_: HonorLpaOperationJournal.Unavailable) { false }
++      catch (_: RecoveryUnavailable) { false }
++
 +    /** Explicit user action only. Arming never starts recovery or reboots the device. */
-+    suspend fun armRecovery(context: Context,manager: EuiccChannelManager): Int = withContext(Dispatchers.IO) {
++    suspend fun armRecovery(context: Context,manager: EuiccChannelManager): Int {
++        val managementWork=HonorManagementSession.captureWork()
++        return withContext(Dispatchers.IO) {
 +        sessionLock.withLock {
++            HonorManagementSession.requireWork(managementWork)
 +            initialize(context)
 +            withRecoveryApi(context) { api ->
 +                if (recoveryRpc { api.recoveryStatus(recoveryHash) } != IHonorLpaLease.RECOVERY_REQUIRED)
@@ -803,8 +892,13 @@ index 0000000000000000000000000000000000000000..1db98b60dea9fcefeb914ce7005f188e
 +    }
 +
 +    /** New op-7 context only: no old handle, constructor, notification, reset or mutation replay. */
-+    suspend fun recoverAccess(context: Context) = withContext(Dispatchers.IO) {
++    }
++
++    suspend fun recoverAccess(context: Context) {
++        val managementWork=HonorManagementSession.captureWork()
++        return withContext(Dispatchers.IO) {
 +        sessionLock.withLock {
++            HonorManagementSession.requireWork(managementWork)
 +            initialize(context)
 +            val hash=journal!!.recoveryHash() ?: throw RecoveryUnavailable()
 +            withRecoveryApi(context) { api ->
@@ -886,6 +980,7 @@ index 0000000000000000000000000000000000000000..1db98b60dea9fcefeb914ce7005f188e
 +            }
 +        }
 +    }
++    }
 +
 +}
 diff --git a/app-common/src/main/java/im/angry/openeuicc/core/HonorLpaOperationJournal.kt b/app-common/src/main/java/im/angry/openeuicc/core/HonorLpaOperationJournal.kt
@@ -965,6 +1060,226 @@ index 0000000000000000000000000000000000000000..cddde0b2353b7258dc56ce315ab3af27
 +            noInterruptedWrite()
 +            check(file.openRead().use { it.readNBytes(3).contentEquals(if (active) byteArrayOf(65,10) else byteArrayOf(67,10)) })
 +        } finally { stream?.let { file.failWrite(it) } }
++    }
++}
+diff --git a/app-common/src/main/java/im/angry/openeuicc/core/HonorManagementSession.kt b/app-common/src/main/java/im/angry/openeuicc/core/HonorManagementSession.kt
+new file mode 100644
+index 0000000000000000000000000000000000000000..f0d64bbd9f5275225ec5db72a8eaaa1ce2649e41
+--- /dev/null
++++ b/app-common/src/main/java/im/angry/openeuicc/core/HonorManagementSession.kt
+@@ -0,0 +1,214 @@
++package im.angry.openeuicc.core
++
++import android.app.Activity
++import android.app.Application
++import android.content.ComponentName
++import android.content.Intent
++import android.content.pm.PackageManager
++import android.os.Bundle
++import android.os.Handler
++import android.os.Looper
++import android.os.ResultReceiver
++import android.service.euicc.EuiccService
++import im.angry.openeuicc.service.EuiccChannelManagerService
++import kotlinx.coroutines.*
++import java.lang.ref.WeakReference
++import java.util.Collections
++import java.util.IdentityHashMap
++
++/** A single nonpersistent Settings-owned management session. No route commands live here. */
++internal object HonorManagementSession {
++    const val VERSION = "honor_management_version"
++    const val NONCE = "honor_management_nonce"
++    const val RECEIVER = "honor_management_result"
++    const val DONE = "honor_management_done"
++    const val DRAINED = "honor_management_drained"
++    const val KEEP = "honor_management_keep_esim"
++    const val FACADE_ACTION = "com.android.settings.action.HONOR_LDY_AN00_MANAGE_ESIM"
++    val FACADE = ComponentName("com.android.settings",
++        "com.android.settings.network.HonorLdyAn00EsimManagementActivity")
++    private val main=Handler(Looper.getMainLooper())
++    private class Active(val nonce: String,var receiver: ResultReceiver?,activity: Activity) {
++        var root=WeakReference(activity)
++        val outcome=ManagementSessionOutcome(nonce)
++        val scope=CoroutineScope(SupervisorJob()+Dispatchers.Main.immediate)
++        val activities=Collections.newSetFromMap(IdentityHashMap<Activity,Boolean>())
++        val started=Collections.newSetFromMap(IdentityHashMap<Activity,Boolean>())
++        val external=mutableSetOf<Pair<Activity,Int>>()
++        var service: EuiccChannelManagerService?=null
++        @Volatile var closing=false
++        @Volatile var sent=false
++        var finishJob: Job?=null
++        var callbacks: Application.ActivityLifecycleCallbacks?=null
++    }
++    @Volatile private var active: Active?=null
++    fun hasEnvelope(intent: Intent) = intent.hasExtra(VERSION) || intent.hasExtra(NONCE) || intent.hasExtra(RECEIVER)
++
++    @Suppress("DEPRECATION")
++    fun attach(activity: Activity,restored: Boolean): Boolean {
++        if (!HonorLpaLeaseClient.requiresCloseProof()
++            || activity.intent.action != EuiccService.ACTION_MANAGE_EMBEDDED_SUBSCRIPTIONS) return false
++        val caller=activity.callingActivity ?: return false
++        if (caller.packageName != "com.android.settings"
++            || caller.className != "com.android.settings.network.HonorLdyAn00EsimSetupActivity"
++            || activity.packageManager.checkSignatures("android","com.android.settings")
++                != PackageManager.SIGNATURE_MATCH) return false
++        val extras=activity.intent.extras ?: return false
++        val nonce=extras.get(NONCE) as? String ?: return false
++        if (extras.get(VERSION) != 1 || !nonce.matches(Regex("[0-9a-f]{32}"))) return false
++        val receiver=extras.getParcelable<ResultReceiver>(RECEIVER) ?: return false
++        val previous=active
++        if (previous != null && !previous.sent) {
++            if (previous.nonce != nonce) return false
++            previous.root=WeakReference(activity)
++            previous.activities.add(activity)
++            return true
++        }
++        // A recreated Intent cannot reconstruct accepted intent or native closure after process death.
++        if (restored) return false
++        previous?.scope?.cancel()
++        val record=Active(nonce,receiver,activity)
++        record.activities.add(activity)
++        active=record
++        val callbacks=object : Application.ActivityLifecycleCallbacks {
++            override fun onActivityCreated(a: Activity,b: Bundle?) {
++                if (active === record && !record.sent && a.intent.action != Intent.ACTION_MAIN) record.activities.add(a)
++            }
++            override fun onActivityStarted(a: Activity) {
++                if (record.activities.contains(a)) record.started.add(a)
++            }
++            override fun onActivityStopped(a: Activity) {
++                if (!record.activities.contains(a)) return
++                record.started.remove(a)
++                if (!a.isChangingConfigurations) main.post {
++                    if (active === record && !record.sent && record.started.isEmpty()
++                        && record.external.isEmpty()) requestFinish()
++                }
++            }
++            override fun onActivityDestroyed(a: Activity) {
++                record.started.remove(a);record.activities.remove(a)
++                if (a === record.root.get() && !a.isChangingConfigurations && !record.sent) {
++                    record.outcome.interrupted()
++                    deliver(record,null)
++                }
++            }
++            override fun onActivityResumed(a: Activity) {}
++            override fun onActivityPaused(a: Activity) {}
++            override fun onActivitySaveInstanceState(a: Activity,b: Bundle) {}
++        }
++        record.callbacks=callbacks
++        activity.application.registerActivityLifecycleCallbacks(callbacks)
++        return true
++    }
++    fun attachService(service: EuiccChannelManagerService) {
++        active?.takeUnless { it.sent }?.let {
++            it.service=service
++            if (it.closing) startFinish(it)
++        }
++    }
++    fun isActive()=active?.sent == false
++    fun isClosing()=active?.closing == true
++    fun isActiveFor(activity: Activity?)=active?.let {
++        !it.sent && activity != null && it.activities.contains(activity)
++    } == true
++    fun isClosingFor(activity: Activity?)=active?.let {
++        activity != null && activity.intent.getStringExtra(NONCE) == it.nonce && it.closing
++    } == true
++    private val foregroundWork=ThreadLocal<ManagementSessionOutcome.Work?>()
++    private val finalRead=ThreadLocal<Boolean>()
++    fun captureWork(): ManagementSessionOutcome.Work? = foregroundWork.get()
++        ?: active?.takeUnless {it.sent}?.outcome?.work(finalRead.get() == true,finalRead.get() == true)
++    fun requireWork(work: ManagementSessionOutcome.Work?,operation: Int = 0) {
++        if (work != null && !work.allowed(operation)) throw HonorLpaLeaseClient.EndpointNotReady()
++    }
++    /** Capture before the service queues its asynchronous foreground-start wait. */
++    fun enqueueForegroundWork(): ManagementSessionOutcome.Work? {
++        val record=active?.takeUnless {it.sent} ?: return null
++        return record.outcome.enqueueWork() ?: throw HonorLpaLeaseClient.EndpointNotReady()
++    }
++    fun foregroundContext(work: ManagementSessionOutcome.Work?) = foregroundWork.asContextElement(work)
++    fun scopeGranted(): ManagementSessionOutcome.Grant? =
++        active?.takeUnless {it.sent}?.outcome?.granted()
++    fun scopeCompleted(stamp: ManagementSessionOutcome.Grant?,lease: com.honor.ldy_an00.lease.HonorLpaLease,
++        knownBlank: Boolean,kind: Int,target: String?) {
++        if (stamp == null) return
++        active?.takeUnless {it.sent || it.nonce != stamp.nonce}?.outcome?.scopeCompleted(stamp,
++            ManagementSessionOutcome.Scope(lease.cardId,lease.operation,lease.token,lease.generation.toLong(),
++                lease.routeSerial.toInt(),lease.observationSerial.toInt()),knownBlank,kind,target)
++    }
++    fun scopeUncertain(stamp: ManagementSessionOutcome.Grant?,native: Boolean) {
++        if (stamp == null) return
++        active?.takeUnless {it.sent || it.nonce != stamp.nonce}?.outcome?.interrupted(stamp,native)
++    }
++    fun childStarting(activity: Activity,intent: Intent,request: Int): Boolean {
++        val record=active ?: return false
++        if (record.sent || request < 0 || !record.activities.contains(activity)) return false
++        val target=intent.component?.packageName ?: intent.getPackage()
++            ?: activity.packageManager.resolveActivity(intent,PackageManager.MATCH_DEFAULT_ONLY)?.activityInfo?.packageName
++        if (target == activity.packageName) return false
++        record.external.add(activity to request)
++        return true
++    }
++    fun childReturned(activity: Activity,request: Int) { active?.external?.remove(activity to request) }
++    fun childFailed(activity: Activity,request: Int) = childReturned(activity,request)
++    fun requestFinish() {
++        val record=active ?: return
++        if (record.sent) return
++        record.outcome.beginClosing()
++        record.closing=true
++        startFinish(record)
++    }
++    private fun startFinish(record: Active) {
++        if (record.sent || record.finishJob?.isActive == true) return
++        val service=record.service ?: return
++        record.finishJob=record.scope.launch {
++            service.waitForForegroundTask() // Never cancels a foreground/native operation.
++            var verified=true
++            val choice=record.outcome.choice()
++            if (choice != null) {
++                verified=try {
++                    withContext(finalRead.asContextElement(true)) {
++                    service.euiccChannelManager.withEuiccChannel(1,0,EuiccChannel.SecureElementId.DEFAULT) { channel ->
++                        channel.port.card.cardId == choice.cardId
++                            && (channel.lpa.profiles.singleOrNull {it.iccid == choice.iccid}?.state
++                                == net.typeblog.lpac_jni.LocalProfileInfo.State.Enabled)
++                    }
++                    }
++                } catch (cancelled: CancellationException) { throw cancelled }
++                  catch (failure: Exception) {
++                    if (!expected(failure)) throw failure
++                    false
++                  }
++            }
++            val drained=verified && HonorLpaLeaseClient.managementDone(
++                service.applicationContext,service.euiccChannelManager,
++                { record.outcome.hasClosedBlank() }, { record.outcome.freezeWork() })
++            deliver(record,record.outcome.complete(drained))
++        }
++    }
++    private fun expected(failure: Exception): Boolean =
++        failure is LpaChannelAdmission.Unavailable || failure is HonorLpaOperationJournal.Unavailable
++            || failure is HonorLpaLeaseClient.EndpointNotReady || failure is HonorLpaLeaseClient.KnownBlankRoute
++            || failure is EuiccChannelManager.EuiccChannelNotFoundException
++            || failure is net.typeblog.lpac_jni.ProfileListReadException
++            || failure is android.os.RemoteException || failure is SecurityException
++    private fun deliver(record: Active,keep: Boolean?) {
++        if (record.sent) return
++        record.outcome.freezeWork()
++        record.sent=true;record.closing=true
++        val positive=keep != null
++        val data=Bundle().apply {
++            putInt(VERSION,1);putString(NONCE,record.nonce)
++            putBoolean(DONE,positive);putBoolean(DRAINED,positive);putBoolean(KEEP,keep == true)
++        }
++        val result=if(positive) Activity.RESULT_OK else Activity.RESULT_CANCELED
++        record.root.get()?.setResult(result,Intent().putExtras(data))
++        record.receiver?.send(result,data)
++        record.receiver=null
++        val application=record.root.get()?.application
++        record.callbacks?.let {application?.unregisterActivityLifecycleCallbacks(it)}
++        record.callbacks=null
++        record.activities.toList().asReversed().forEach {it.finish()}
++        record.activities.clear();record.started.clear();record.external.clear();record.service=null
 +    }
 +}
 diff --git a/app-common/src/main/java/im/angry/openeuicc/core/HonorProfileInventory.kt b/app-common/src/main/java/im/angry/openeuicc/core/HonorProfileInventory.kt
@@ -1136,10 +1451,10 @@ index 0000000000000000000000000000000000000000..10ed98f78a5069855b77c725874284fb
 +}
 diff --git a/app-common/src/main/java/im/angry/openeuicc/core/LpaChannelAdmission.kt b/app-common/src/main/java/im/angry/openeuicc/core/LpaChannelAdmission.kt
 new file mode 100644
-index 0000000000000000000000000000000000000000..ec7437c17106fd97ce6f0fd9e790bbe2c9430a65
+index 0000000000000000000000000000000000000000..df8b9fec56d56d6a756e9454b63db69479267590
 --- /dev/null
 +++ b/app-common/src/main/java/im/angry/openeuicc/core/LpaChannelAdmission.kt
-@@ -0,0 +1,64 @@
+@@ -0,0 +1,71 @@
 +package im.angry.openeuicc.core
 +
 +/** Process-local admission. UNKNOWN cannot be released by cancellation or a timeout. */
@@ -1160,6 +1475,7 @@ index 0000000000000000000000000000000000000000..ec7437c17106fd97ce6f0fd9e790bbe2
 +        state = State.RESERVED; owner = token
 +    }
 +    @Synchronized fun complete(token: Any) {
++        if (state == State.UNKNOWN && token === owner && readers == 0) throw Unavailable(true)
 +        check(state == State.RESERVED && token === owner && readers == 0)
 +        state = State.IDLE; owner = null
 +    }
@@ -1177,6 +1493,9 @@ index 0000000000000000000000000000000000000000..ec7437c17106fd97ce6f0fd9e790bbe2
 +        state=State.RESERVED;owner=token
 +    }
 +    @Synchronized fun isUnknown() = state == State.UNKNOWN
++    @Synchronized fun requireIdle() {
++        if (state != State.IDLE || owner != null || readers != 0) throw Unavailable(state == State.UNKNOWN)
++    }
 +    @Synchronized fun recoveryRefused(token: Any) {
 +        check(state == State.RESERVED && owner === token && readers == 0)
 +        state=State.UNKNOWN;owner=null
@@ -1202,7 +1521,86 @@ index 0000000000000000000000000000000000000000..ec7437c17106fd97ce6f0fd9e790bbe2
 +        return true
 +    }
 +    @Synchronized fun unknown() { state = State.UNKNOWN }
-+    @Synchronized fun requireDrained(token: Any) { check(state == State.RESERVED && token === owner && readers == 0) }
++    @Synchronized fun requireDrained(token: Any) {
++        if (state == State.UNKNOWN && token === owner && readers == 0) throw Unavailable(true)
++        check(state == State.RESERVED && token === owner && readers == 0)
++    }
++}
+diff --git a/app-common/src/main/java/im/angry/openeuicc/core/ManagementSessionOutcome.kt b/app-common/src/main/java/im/angry/openeuicc/core/ManagementSessionOutcome.kt
+new file mode 100644
+index 0000000000000000000000000000000000000000..7f3be9b71887533cbe60cb31104def63c7b7dfc8
+--- /dev/null
++++ b/app-common/src/main/java/im/angry/openeuicc/core/ManagementSessionOutcome.kt
+@@ -0,0 +1,70 @@
++package im.angry.openeuicc.core
++
++/** One active UI session's explicit intent and exact closed-blank receipt; never durable history. */
++internal class ManagementSessionOutcome(private val nonce: String) {
++    data class Choice(val cardId: Int, val iccid: String)
++    data class Grant(val nonce: String,val sequence: Long)
++    data class Scope(val cardId: Int,val operation: Int,val token: String,
++        val generation: Long,val routeSerial: Int,val observationSerial: Int)
++    private var keep: Choice? = null
++    private var uncertain = false
++    private var completed = false
++    private var sequence = 0L
++    private var workClosing = false
++    private var workFrozen = false
++    class Work internal constructor(private val session: ManagementSessionOutcome,
++        private val allowClosing: Boolean,private val readOnly: Boolean) {
++        fun allowed(operation: Int = 0) = session.workAllowed(allowClosing,readOnly,operation)
++    }
++    @Synchronized private fun workAllowed(allowClosing: Boolean,readOnly: Boolean,operation: Int) =
++        !workFrozen && (!workClosing || allowClosing) && (!readOnly || operation == 0)
++    @Synchronized fun work(allowClosing: Boolean = false,readOnly: Boolean = false) =
++        Work(this,allowClosing,readOnly)
++    @Synchronized fun enqueueWork(): Work? = if (workClosing || workFrozen) null else Work(this,true,false)
++    @Synchronized fun beginClosing() { workClosing = true }
++    @Synchronized fun freezeWork() { workFrozen = true }
++    private var blank: Pair<Grant,Scope>? = null
++    @Synchronized fun granted(): Grant {
++        blank=null
++        return Grant(nonce,++sequence)
++    }
++    @Synchronized fun scopeCompleted(grant: Grant,scope: Scope,knownBlank: Boolean,kind: Int,iccid: String?) {
++        if (completed || uncertain || grant.nonce != nonce || grant.sequence != sequence) return
++        blank=null
++        if (knownBlank) {
++            if (!(scope.operation == 2 && kind == 3 || scope.operation == 3 && kind == 4) || scope.cardId < 0
++                || !scope.token.matches(Regex("[0-9a-f]{32}")) || scope.generation <= 0
++                || !(scope.routeSerial > 0 && scope.observationSerial == -1
++                    || scope.routeSerial == 0 && scope.observationSerial > 0)) {
++                uncertain=true
++                return
++            }
++            blank=grant to scope
++        }
++        accepted(kind,scope.cardId,iccid)
++    }
++    @Synchronized fun accepted(kind: Int,cardId: Int,iccid: String?) {
++        if (completed || uncertain) return
++        if (kind == 2) {
++            if (cardId < 0 || iccid?.matches(Regex("[0-9]{18,22}")) != true) {
++                uncertain=true
++                return
++            }
++            keep=Choice(cardId,iccid)
++        } else if ((kind == 3 || kind == 4) && keep == Choice(cardId,iccid ?: "")) keep=null
++        else if (kind == 8 && keep?.cardId == cardId) keep=null
++    }
++    @Synchronized fun interrupted(grant: Grant? = null,native: Boolean = true) {
++        if (completed || grant != null && (grant.nonce != nonce || grant.sequence != sequence)) return
++        blank=null
++        if (native) uncertain=true
++    }
++    @Synchronized fun hasClosedBlank() = !completed && !uncertain && blank?.first == Grant(nonce,sequence)
++    @Synchronized fun choice(): Choice? = keep
++    /** null is interrupted/duplicate, never authority to restore. */
++    @Synchronized fun complete(drained: Boolean): Boolean? {
++        if (completed) return null
++        completed=true
++        return if (drained && !uncertain) keep != null else null
++    }
 +}
 diff --git a/app-common/src/main/java/im/angry/openeuicc/core/NativeMutationBoundary.kt b/app-common/src/main/java/im/angry/openeuicc/core/NativeMutationBoundary.kt
 new file mode 100644
@@ -1459,20 +1857,21 @@ index 0000000000000000000000000000000000000000..269955c2575a72d6de2a20539dc6b788
 +    }
 +}
 diff --git a/app-common/src/main/java/im/angry/openeuicc/service/EuiccChannelManagerService.kt b/app-common/src/main/java/im/angry/openeuicc/service/EuiccChannelManagerService.kt
-index bce9efcd89f0722a1eb2dba5a485a1919aa45be3..0c5ac85d2d00a0fbfff19edd9ee52b2dd573568b 100644
+index bce9efcd89f0722a1eb2dba5a485a1919aa45be3..50c940ff9656bf54e19a9646924665f5fb6805bc 100644
 --- a/app-common/src/main/java/im/angry/openeuicc/service/EuiccChannelManagerService.kt
 +++ b/app-common/src/main/java/im/angry/openeuicc/service/EuiccChannelManagerService.kt
-@@ -14,6 +14,9 @@ import androidx.lifecycle.lifecycleScope
+@@ -14,6 +14,10 @@ import androidx.lifecycle.lifecycleScope
  import im.angry.openeuicc.common.R
  import im.angry.openeuicc.core.EuiccChannel
  import im.angry.openeuicc.core.EuiccChannelManager
 +import im.angry.openeuicc.core.HonorLpaChannelAccess
++import im.angry.openeuicc.core.HonorManagementSession
 +import im.angry.openeuicc.core.HonorLpaLeaseClient
 +import im.angry.openeuicc.core.SharedSlotOperationGate
  import im.angry.openeuicc.util.*
  import kotlinx.coroutines.Dispatchers
  import kotlinx.coroutines.NonCancellable
-@@ -75,7 +78,10 @@ open class EuiccChannelManagerService : LifecycleService(), OpenEuiccContextMark
+@@ -75,7 +79,10 @@ open class EuiccChannelManagerService : LifecycleService(), OpenEuiccContextMark
           * error if any, or null on success.
           */
          suspend fun Flow<ForegroundTaskState>.waitDone(): Throwable? =
@@ -1484,7 +1883,7 @@ index bce9efcd89f0722a1eb2dba5a485a1919aa45be3..0c5ac85d2d00a0fbfff19edd9ee52b2d
  
          /**
           * Apply transform to a ForegroundTaskState flow so that it completes when a Done is seen.
-@@ -111,7 +117,7 @@ open class EuiccChannelManagerService : LifecycleService(), OpenEuiccContextMark
+@@ -111,7 +118,7 @@ open class EuiccChannelManagerService : LifecycleService(), OpenEuiccContextMark
      sealed interface ForegroundTaskState {
          data object Idle : ForegroundTaskState
          data class InProgress(val progress: Int, val context: Any? = null) : ForegroundTaskState
@@ -1493,7 +1892,7 @@ index bce9efcd89f0722a1eb2dba5a485a1919aa45be3..0c5ac85d2d00a0fbfff19edd9ee52b2d
      }
  
      /**
-@@ -168,7 +174,7 @@ open class EuiccChannelManagerService : LifecycleService(), OpenEuiccContextMark
+@@ -168,7 +175,7 @@ open class EuiccChannelManagerService : LifecycleService(), OpenEuiccContextMark
      override fun onDestroy() {
          super.onDestroy()
          if (euiccChannelManagerDelegate.isInitialized()) {
@@ -1502,7 +1901,7 @@ index bce9efcd89f0722a1eb2dba5a485a1919aa45be3..0c5ac85d2d00a0fbfff19edd9ee52b2d
          }
      }
  
-@@ -269,12 +275,24 @@ open class EuiccChannelManagerService : LifecycleService(), OpenEuiccContextMark
+@@ -269,12 +276,30 @@ open class EuiccChannelManagerService : LifecycleService(), OpenEuiccContextMark
          title: String,
          failureTitle: String,
          iconRes: Int,
@@ -1524,10 +1923,25 @@ index bce9efcd89f0722a1eb2dba5a485a1919aa45be3..0c5ac85d2d00a0fbfff19edd9ee52b2d
 +                flow { emit(ForegroundTaskState.Done(
 +                    IllegalStateException("eSIM changes are not available yet"))) }, backChannel)
 +        }
++        val managementWork = try {
++            HonorManagementSession.enqueueForegroundWork()
++        } catch (e: HonorLpaLeaseClient.EndpointNotReady) {
++            return ForegroundTaskHandle(taskID,
++                flow { emit(ForegroundTaskState.Done(e)) },backChannel)
++        }
          // Atomically set the state to InProgress. If this returns true, we are
          // the only task currently in progress.
          if (!foregroundTaskState.compareAndSet(
-@@ -296,11 +314,10 @@ open class EuiccChannelManagerService : LifecycleService(), OpenEuiccContextMark
+@@ -288,7 +313,7 @@ open class EuiccChannelManagerService : LifecycleService(), OpenEuiccContextMark
+                 backChannel)
+         }
+ 
+-        lifecycleScope.launch(Dispatchers.Main) {
++        lifecycleScope.launch(Dispatchers.Main + HonorManagementSession.foregroundContext(managementWork)) {
+             // Wait until our self-start command has succeeded.
+             // We can only call startForeground() after that
+             val res = withTimeoutOrNull(30 * 1000) {
+@@ -296,11 +321,10 @@ open class EuiccChannelManagerService : LifecycleService(), OpenEuiccContextMark
              }
  
              if (res == null) {
@@ -1543,7 +1957,7 @@ index bce9efcd89f0722a1eb2dba5a485a1919aa45be3..0c5ac85d2d00a0fbfff19edd9ee52b2d
                  return@launch
              }
  
-@@ -308,15 +325,28 @@ open class EuiccChannelManagerService : LifecycleService(), OpenEuiccContextMark
+@@ -308,15 +332,28 @@ open class EuiccChannelManagerService : LifecycleService(), OpenEuiccContextMark
  
              wakeLock.acquire(10 * 60 * 1000L /*10 minutes*/)
  
@@ -1575,7 +1989,14 @@ index bce9efcd89f0722a1eb2dba5a485a1919aa45be3..0c5ac85d2d00a0fbfff19edd9ee52b2d
                  foregroundTaskState.value = ForegroundTaskState.Done(t)
  
                  if (isActive) {
-@@ -403,14 +433,34 @@ open class EuiccChannelManagerService : LifecycleService(), OpenEuiccContextMark
+@@ -398,19 +435,41 @@ open class EuiccChannelManagerService : LifecycleService(), OpenEuiccContextMark
+         )
+     }
+ 
++    fun isForegroundTaskIdle(): Boolean = foregroundTaskState.value == ForegroundTaskState.Idle
++
+     open suspend fun waitForForegroundTask() {
+         foregroundTaskState.takeWhile { it != ForegroundTaskState.Idle }
              .collect()
      }
  
@@ -1612,7 +2033,7 @@ index bce9efcd89f0722a1eb2dba5a485a1919aa45be3..0c5ac85d2d00a0fbfff19edd9ee52b2d
          ) { backChannel ->
              euiccChannelManager.beginTrackedOperation(slotId, portId, seId) {
                  euiccChannelManager.withEuiccChannel(slotId, portId, seId) { channel ->
-@@ -422,12 +472,8 @@ open class EuiccChannelManagerService : LifecycleService(), OpenEuiccContextMark
+@@ -422,12 +481,8 @@ open class EuiccChannelManagerService : LifecycleService(), OpenEuiccContextMark
                          )
  
                          if (state is ProfileDownloadState.ConfirmingDownload) {
@@ -1627,7 +2048,7 @@ index bce9efcd89f0722a1eb2dba5a485a1919aa45be3..0c5ac85d2d00a0fbfff19edd9ee52b2d
                              }
  
                              // Try to receive a signal for confirmation while blocking this thread
-@@ -454,6 +500,67 @@ open class EuiccChannelManagerService : LifecycleService(), OpenEuiccContextMark
+@@ -454,6 +509,67 @@ open class EuiccChannelManagerService : LifecycleService(), OpenEuiccContextMark
              }
          }
  
@@ -1695,7 +2116,7 @@ index bce9efcd89f0722a1eb2dba5a485a1919aa45be3..0c5ac85d2d00a0fbfff19edd9ee52b2d
      fun launchProfileRenameTask(
          slotId: Int,
          portId: Int,
-@@ -464,7 +571,8 @@ open class EuiccChannelManagerService : LifecycleService(), OpenEuiccContextMark
+@@ -464,7 +580,8 @@ open class EuiccChannelManagerService : LifecycleService(), OpenEuiccContextMark
          launchForegroundTask(
              getString(R.string.task_profile_rename),
              getString(R.string.task_profile_rename_failure),
@@ -1705,7 +2126,7 @@ index bce9efcd89f0722a1eb2dba5a485a1919aa45be3..0c5ac85d2d00a0fbfff19edd9ee52b2d
          ) { _ ->
              euiccChannelManager.withEuiccChannel(slotId, portId, seId) { channel ->
                  channel.lpa.setNickname(
-@@ -472,6 +580,9 @@ open class EuiccChannelManagerService : LifecycleService(), OpenEuiccContextMark
+@@ -472,6 +589,9 @@ open class EuiccChannelManagerService : LifecycleService(), OpenEuiccContextMark
                      name
                  )
              }
@@ -1715,7 +2136,7 @@ index bce9efcd89f0722a1eb2dba5a485a1919aa45be3..0c5ac85d2d00a0fbfff19edd9ee52b2d
          }
  
      fun launchProfileDeleteTask(
-@@ -483,17 +594,93 @@ open class EuiccChannelManagerService : LifecycleService(), OpenEuiccContextMark
+@@ -483,17 +603,93 @@ open class EuiccChannelManagerService : LifecycleService(), OpenEuiccContextMark
          launchForegroundTask(
              getString(R.string.task_profile_delete),
              getString(R.string.task_profile_delete_failure),
@@ -1810,7 +2231,7 @@ index bce9efcd89f0722a1eb2dba5a485a1919aa45be3..0c5ac85d2d00a0fbfff19edd9ee52b2d
      class SwitchingProfilesRefreshException : Exception()
  
      fun launchProfileSwitchTask(
-@@ -507,15 +694,23 @@ open class EuiccChannelManagerService : LifecycleService(), OpenEuiccContextMark
+@@ -507,15 +703,23 @@ open class EuiccChannelManagerService : LifecycleService(), OpenEuiccContextMark
          launchForegroundTask(
              getString(R.string.task_profile_switch),
              getString(R.string.task_profile_switch_failure),
@@ -1835,10 +2256,11 @@ index bce9efcd89f0722a1eb2dba5a485a1919aa45be3..0c5ac85d2d00a0fbfff19edd9ee52b2d
                          } else {
                              // refresh failed, but refresh was requested
                              // Sometimes, we *can* enable or disable the profile, but we cannot
-@@ -534,6 +729,16 @@ open class EuiccChannelManagerService : LifecycleService(), OpenEuiccContextMark
+@@ -534,13 +738,23 @@ open class EuiccChannelManagerService : LifecycleService(), OpenEuiccContextMark
                      throw RuntimeException("Could not switch profile")
                  }
  
+-                if (!refreshed && slotId != EuiccChannelManager.USB_CHANNEL_ID) {
 +                if (HonorLpaLeaseClient.isHonorBuild()) {
 +                    if(HonorLpaLeaseClient.closeAndRebindKnownNativeStep(euiccChannelManager)==HonorLpaLeaseClient.ResetOutcome.KNOWN_BLANK)
 +                        return@beginTrackedOperation false
@@ -1849,10 +2271,18 @@ index bce9efcd89f0722a1eb2dba5a485a1919aa45be3..0c5ac85d2d00a0fbfff19edd9ee52b2d
 +                            iccid,enable)
 +                    }
 +                }
-                 if (!refreshed && slotId != EuiccChannelManager.USB_CHANNEL_ID) {
++                if (!HonorLpaLeaseClient.isHonorBuild() && !refreshed && slotId != EuiccChannelManager.USB_CHANNEL_ID) {
                      // We may have switched the profile, but we could not refresh. Tell the caller about this
                      // but only if we are talking to a modem and not a USB reader
-@@ -557,6 +762,19 @@ open class EuiccChannelManagerService : LifecycleService(), OpenEuiccContextMark
+                     throw SwitchingProfilesRefreshException()
+                 }
+ 
+-                if (reconnectTimeoutMillis > 0) {
++                if (!HonorLpaLeaseClient.isHonorBuild() && reconnectTimeoutMillis > 0) {
+                     // Add an unconditional delay first to account for any race condition between
+                     // the card sending the refresh command and the modem actually refreshing
+                     delay(reconnectTimeoutMillis / 10)
+@@ -557,6 +771,19 @@ open class EuiccChannelManagerService : LifecycleService(), OpenEuiccContextMark
              }
          }
  
@@ -1872,7 +2302,7 @@ index bce9efcd89f0722a1eb2dba5a485a1919aa45be3..0c5ac85d2d00a0fbfff19edd9ee52b2d
      fun launchMemoryReset(
          slotId: Int,
          portId: Int,
-@@ -565,13 +783,20 @@ open class EuiccChannelManagerService : LifecycleService(), OpenEuiccContextMark
+@@ -565,13 +792,20 @@ open class EuiccChannelManagerService : LifecycleService(), OpenEuiccContextMark
          launchForegroundTask(
              getString(R.string.task_euicc_memory_reset),
              getString(R.string.task_euicc_memory_reset_failure),
@@ -2022,6 +2452,33 @@ index 0000000000000000000000000000000000000000..566ecd7cd5a897257e87cd5720f89287
 +        }) { "Another profile state changed unexpectedly" }
 +    }
 +}
+diff --git a/app-common/src/main/java/im/angry/openeuicc/ui/BaseEuiccAccessActivity.kt b/app-common/src/main/java/im/angry/openeuicc/ui/BaseEuiccAccessActivity.kt
+index a58bfcc80050ea8b0bc81040dda1fd021d1de328..673a20aa0ecca1612450730d84898ac22898a549 100644
+--- a/app-common/src/main/java/im/angry/openeuicc/ui/BaseEuiccAccessActivity.kt
++++ b/app-common/src/main/java/im/angry/openeuicc/ui/BaseEuiccAccessActivity.kt
+@@ -39,6 +39,22 @@ abstract class BaseEuiccAccessActivity : AppCompatActivity() {
+         )
+     }
+ 
++    @Suppress("DEPRECATION")
++    override fun startActivityForResult(intent: Intent, requestCode: Int, options: Bundle?) {
++        val tracked=im.angry.openeuicc.core.HonorManagementSession.childStarting(this,intent,requestCode)
++        try { super.startActivityForResult(intent,requestCode,options) }
++        catch (failure: RuntimeException) {
++            if (tracked) im.angry.openeuicc.core.HonorManagementSession.childFailed(this,requestCode)
++            throw failure
++        }
++    }
++
++    @Deprecated("Activity result forwarding")
++    override fun onActivityResult(requestCode: Int,resultCode: Int,data: Intent?) {
++        im.angry.openeuicc.core.HonorManagementSession.childReturned(this,requestCode)
++        super.onActivityResult(requestCode,resultCode,data)
++    }
++
+     override fun onDestroy() {
+         super.onDestroy()
+         unbindService(euiccChannelManagerServiceConnection)
 diff --git a/app-common/src/main/java/im/angry/openeuicc/ui/EuiccInfoActivity.kt b/app-common/src/main/java/im/angry/openeuicc/ui/EuiccInfoActivity.kt
 index 157ab42d0f6ad2aa3240c754067fd3faf1843eaa..38a5dc0a657a652e7eef241d94ad92df94bc8695 100644
 --- a/app-common/src/main/java/im/angry/openeuicc/ui/EuiccInfoActivity.kt
@@ -2048,20 +2505,129 @@ index 157ab42d0f6ad2aa3240c754067fd3faf1843eaa..38a5dc0a657a652e7eef241d94ad92df
      }
  
 diff --git a/app-common/src/main/java/im/angry/openeuicc/ui/EuiccManagementFragment.kt b/app-common/src/main/java/im/angry/openeuicc/ui/EuiccManagementFragment.kt
-index 49006a78bbcf83e521bf8e3039f5bae2f0576db2..b5d9fc6b1f07f640e0c0f4aac4ad80a8e5de0279 100644
+index 49006a78bbcf83e521bf8e3039f5bae2f0576db2..91ea115d603d61c1207cf72016d47c1ff4b7b332 100644
 --- a/app-common/src/main/java/im/angry/openeuicc/ui/EuiccManagementFragment.kt
 +++ b/app-common/src/main/java/im/angry/openeuicc/ui/EuiccManagementFragment.kt
-@@ -30,7 +30,8 @@ import com.google.android.material.floatingactionbutton.FloatingActionButton
+@@ -28,9 +28,12 @@ import androidx.recyclerview.widget.RecyclerView
+ import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
+ import com.google.android.material.floatingactionbutton.FloatingActionButton
  import im.angry.openeuicc.common.R
++import im.angry.openeuicc.core.HonorLpaLeaseClient
  import im.angry.openeuicc.core.EuiccChannel
  import im.angry.openeuicc.service.EuiccChannelManagerService
 -import im.angry.openeuicc.service.EuiccChannelManagerService.Companion.waitDone
 +import im.angry.openeuicc.service.EuiccChannelManagerService.Companion.waitOutcome
 +import im.angry.openeuicc.core.HonorLpaChannelAccess
++import im.angry.openeuicc.core.HonorManagementSession
  import im.angry.openeuicc.ui.wizard.DownloadWizardActivity
  import im.angry.openeuicc.util.*
  import kotlinx.coroutines.Dispatchers
-@@ -193,7 +194,31 @@ open class EuiccManagementFragment : Fragment(), EuiccProfilesChangedListener,
+@@ -46,6 +49,16 @@ open class EuiccManagementFragment : Fragment(), EuiccProfilesChangedListener,
+     EuiccChannelFragmentMarker {
+     companion object {
+         const val TAG = "EuiccManagementFragment"
++        private const val SAVED = "savedInventory"
++        private const val SAVED_EID = "savedInventoryEid"
++
++        fun newSavedInstance(eid: String?): EuiccManagementFragment =
++            EuiccManagementFragment().apply {
++                arguments = Bundle().apply {
++                    putBoolean(SAVED, true)
++                    putString(SAVED_EID, eid)
++                }
++            }
+ 
+         fun newInstance(
+             slotId: Int,
+@@ -55,6 +68,8 @@ open class EuiccManagementFragment : Fragment(), EuiccProfilesChangedListener,
+             newInstanceEuicc(EuiccManagementFragment::class.java, slotId, portId, seId)
+     }
+ 
++    private val savedInventoryMode: Boolean get() = arguments?.getBoolean(SAVED) == true
++
+     private lateinit var swipeRefresh: SwipeRefreshLayout
+     private lateinit var fab: FloatingActionButton
+     private lateinit var profileList: RecyclerView
+@@ -67,6 +82,8 @@ open class EuiccManagementFragment : Fragment(), EuiccProfilesChangedListener,
+     // Marker for when this fragment might enter an invalid state
+     // e.g. after a failed enable / disable operation
+     private var invalid = false
++    private fun sessionClosing() = activity?.isFinishing == true || HonorManagementSession.isClosingFor(activity)
++
+ 
+     // Subscribe to settings we care about outside of coroutine contexts while initializing
+     // This gives us access to the "latest" state without having to launch coroutines
+@@ -76,7 +93,7 @@ open class EuiccManagementFragment : Fragment(), EuiccProfilesChangedListener,
+ 
+     override fun onCreate(savedInstanceState: Bundle?) {
+         super.onCreate(savedInstanceState)
+-        setHasOptionsMenu(true)
++        setHasOptionsMenu(!savedInventoryMode)
+     }
+ 
+     override fun onCreateView(
+@@ -105,8 +122,13 @@ open class EuiccManagementFragment : Fragment(), EuiccProfilesChangedListener,
+             ))
+ 
+         profileList.addOnScrollListener(object : RecyclerView.OnScrollListener() {
+-            override fun onScrollStateChanged(view: RecyclerView, newState: Int) =
++            override fun onScrollStateChanged(view: RecyclerView, newState: Int) {
++                if (savedInventoryMode) {
++                    fab.hide()
++                    return
++                }
+                 if (newState == RecyclerView.SCROLL_STATE_IDLE) fab.show() else fab.hide()
++            }
+         })
+ 
+         return view
+@@ -119,7 +141,12 @@ open class EuiccManagementFragment : Fragment(), EuiccProfilesChangedListener,
+         profileList.layoutManager =
+             LinearLayoutManager(view.context, LinearLayoutManager.VERTICAL, false)
+ 
++        if (savedInventoryMode) {
++            fab.isVisible = false
++            return
++        }
+         fab.setOnClickListener {
++            if (sessionClosing()) return@setOnClickListener
+             val intent = DownloadWizardActivity.newIntent(requireContext(), logicalSlotId, seId)
+             startActivity(intent)
+         }
+@@ -131,15 +158,18 @@ open class EuiccManagementFragment : Fragment(), EuiccProfilesChangedListener,
+     }
+ 
+     override fun onEuiccProfilesChanged() {
++        if (savedInventoryMode) return
+         refresh()
+     }
+ 
+     override fun onCreateOptionsMenu(menu: Menu, inflater: MenuInflater) {
++        if (savedInventoryMode) return
+         super.onCreateOptionsMenu(menu, inflater)
+         inflater.inflate(R.menu.fragment_euicc, menu)
+     }
+ 
+     override fun onPrepareOptionsMenu(menu: Menu) {
++        if (savedInventoryMode) return
+         super.onPrepareOptionsMenu(menu)
+         menu.findItem(R.id.show_notifications).isVisible =
+             logicalSlotId != -1
+@@ -149,7 +179,7 @@ open class EuiccManagementFragment : Fragment(), EuiccProfilesChangedListener,
+             enabledProfile == null
+     }
+ 
+-    override fun onOptionsItemSelected(item: MenuItem) = when (item.itemId) {
++    override fun onOptionsItemSelected(item: MenuItem) = if (savedInventoryMode || invalid || sessionClosing()) false else when (item.itemId) {
+         R.id.show_notifications -> {
+             Intent(requireContext(), NotificationsActivity::class.java).apply {
+                 putExtra("logicalSlotId", logicalSlotId)
+@@ -189,16 +219,81 @@ open class EuiccManagementFragment : Fragment(), EuiccProfilesChangedListener,
+         }
+ 
+     private fun refresh() {
+-        if (invalid) return
++        if (sessionClosing() || invalid) return
          swipeRefresh.isRefreshing = true
  
          lifecycleScope.launch {
@@ -2070,6 +2636,13 @@ index 49006a78bbcf83e521bf8e3039f5bae2f0576db2..b5d9fc6b1f07f640e0c0f4aac4ad80a8
 +            catch (failure: Exception) {
 +                if (failure is kotlinx.coroutines.CancellationException) throw failure
 +                swipeRefresh.isRefreshing=false
++                if ((activity as? MainActivity)?.fallbackToSavedManagement(failure) == true) {
++                    invalid=true
++                    fab.isEnabled=false
++                    fab.hide()
++                    setHasOptionsMenu(false)
++                    return@launch
++                }
 +                if(HonorLpaChannelAccess.isKnownBlankFailure(failure)) {
 +                    invalid=true;requireActivity().finishForKnownBlank()
 +                } else if(HonorLpaChannelAccess.isEndpointNotReadyFailure(failure)) {
@@ -2094,7 +2667,46 @@ index 49006a78bbcf83e521bf8e3039f5bae2f0576db2..b5d9fc6b1f07f640e0c0f4aac4ad80a8
          }
      }
  
-@@ -211,20 +236,44 @@ open class EuiccManagementFragment : Fragment(), EuiccProfilesChangedListener,
+     @SuppressLint("NotifyDataSetChanged")
++    private suspend fun refreshSavedProfiles() {
++        val eid = arguments?.getString(SAVED_EID)
++        val appContext = requireContext().applicationContext
++        val saved = withContext(Dispatchers.IO) {
++            if (eid == null) im.angry.openeuicc.core.ProfileInventory.State.Unavailable
++            else im.angry.openeuicc.core.HonorProfileInventory.store(appContext).load(eid)
++        }
++        val snapshot = when (saved) {
++            is im.angry.openeuicc.core.ProfileInventory.State.Verified -> saved.snapshot
++            is im.angry.openeuicc.core.ProfileInventory.State.VerifiedEmpty -> saved.snapshot
++            im.angry.openeuicc.core.ProfileInventory.State.Unavailable -> null
++        }
++        adapter.savedProfiles = snapshot?.profiles ?: emptyList()
++        val message = when (saved) {
++            im.angry.openeuicc.core.ProfileInventory.State.Unavailable -> getString(R.string.saved_esim_unavailable)
++            else -> {
++                val observed = checkNotNull(snapshot)
++                val time = java.text.DateFormat.getDateTimeInstance().format(
++                    java.util.Date(observed.verifiedAtMillis))
++                val updated = getString(R.string.saved_esim_last_verified, time)
++                if (saved is im.angry.openeuicc.core.ProfileInventory.State.VerifiedEmpty)
++                    getString(R.string.saved_esim_empty) + "\n" + updated
++                else updated
++            }
++        }
++        adapter.footerViews = listOf(TextView(requireContext()).apply { text = message })
++        adapter.notifyDataSetChanged()
++        swipeRefresh.isRefreshing = false
++    }
++
+     protected open suspend fun doRefresh() {
++        if (savedInventoryMode) {
++            refreshSavedProfiles()
++            return
++        }
+         ensureEuiccChannelManager()
+         euiccChannelManagerService.waitForForegroundTask()
+ 
+@@ -211,20 +306,44 @@ open class EuiccManagementFragment : Fragment(), EuiccProfilesChangedListener,
                  preferenceRepository.unfilteredProfileListFlow.stateIn(lifecycleScope)
          }
  
@@ -2147,15 +2759,16 @@ index 49006a78bbcf83e521bf8e3039f5bae2f0576db2..b5d9fc6b1f07f640e0c0f4aac4ad80a8
              adapter.notifyDataSetChanged()
              swipeRefresh.isRefreshing = false
          }
-@@ -236,6 +285,7 @@ open class EuiccManagementFragment : Fragment(), EuiccProfilesChangedListener,
+@@ -236,6 +355,8 @@ open class EuiccManagementFragment : Fragment(), EuiccProfilesChangedListener,
      }
  
      private fun enableOrDisableProfile(iccid: String, enable: Boolean) {
++        if (savedInventoryMode || sessionClosing()) return
 +        if(invalid) return
          swipeRefresh.isRefreshing = true
          fab.isEnabled = false
  
-@@ -243,13 +293,17 @@ open class EuiccManagementFragment : Fragment(), EuiccProfilesChangedListener,
+@@ -243,13 +364,17 @@ open class EuiccManagementFragment : Fragment(), EuiccProfilesChangedListener,
              ensureEuiccChannelManager()
              euiccChannelManagerService.waitForForegroundTask()
  
@@ -2176,7 +2789,7 @@ index 49006a78bbcf83e521bf8e3039f5bae2f0576db2..b5d9fc6b1f07f640e0c0f4aac4ad80a8
              when (err) {
                  null -> {}
                  is EuiccChannelManagerService.SwitchingProfilesRefreshException -> {
-@@ -278,9 +332,18 @@ open class EuiccManagementFragment : Fragment(), EuiccProfilesChangedListener,
+@@ -278,21 +403,66 @@ open class EuiccManagementFragment : Fragment(), EuiccProfilesChangedListener,
                      }
                  }
  
@@ -2196,12 +2809,162 @@ index 49006a78bbcf83e521bf8e3039f5bae2f0576db2..b5d9fc6b1f07f640e0c0f4aac4ad80a8
              refresh()
              fab.isEnabled = true
          }
+     }
+ 
++    private fun useEnabledProfile(iccid: String) {
++        if (sessionClosing() || !HonorManagementSession.isActiveFor(activity)) return
++        lifecycleScope.launch {
++            swipeRefresh.isRefreshing=true
++            fab.isEnabled=false
++            try {
++                ensureEuiccChannelManager()
++                euiccChannelManagerService.waitForForegroundTask()
++                val expectedEid=eid
++                val card=withEuiccChannel { channel ->
++                    val profiles=channel.lpa.profiles
++                    if (channel.lpa.eID == expectedEid
++                        && profiles.singleOrNull {it.iccid == iccid}?.isEnabled == true)
++                        channel.port.card.cardId.also {
++                            HonorLpaLeaseClient.stageManagementCurrent(it,iccid)
++                        } else -1
++                }
++                if (card < 0 && !sessionClosing())
++                    Toast.makeText(context,R.string.esim_management_profile_changed,Toast.LENGTH_LONG).show()
++            } catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled }
++              catch (failure: Exception) {
++                if ((activity as? MainActivity)?.fallbackToSavedManagement(failure) != true) {
++                    val text=euiccAccessFailureMessage(failure) ?: throw failure
++                    Toast.makeText(context,text,Toast.LENGTH_LONG).show()
++                }
++              }
++            finally {
++                swipeRefresh.isRefreshing=false
++                fab.isEnabled=!invalid && !sessionClosing()
++            }
++        }
++    }
++
+     protected open fun populatePopupWithProfileActions(
+         popup: PopupMenu,
+         profile: LocalProfileInfo
+     ) {
+         popup.inflate(R.menu.profile_options)
+         if (!profile.isEnabled) return
+-        popup.menu.findItem(R.id.enable).isVisible = false
++        popup.menu.findItem(R.id.enable).apply {
++            isVisible = HonorManagementSession.isActiveFor(activity)
++            if (isVisible) setTitle(R.string.esim_management_use)
++        }
+         popup.menu.findItem(R.id.delete).isVisible = false
+ 
+         // We hide the disable option by default to avoid "bricking" some cards that won't get
+@@ -368,6 +538,23 @@ open class EuiccManagementFragment : Fragment(), EuiccProfilesChangedListener,
+         private lateinit var profile: LocalProfileInfo
+         private var canEnable: Boolean = false
+ 
++        internal fun setSavedProfile(row: im.angry.openeuicc.core.ProfileInventory.Row) {
++            profileMenu.isVisible = false
++            name.text = row.nickname.ifEmpty { row.name }
++            provider.text = row.provider
++            iccid.text = row.iccid
++            iccid.transformationMethod = PasswordTransformationMethod.getInstance()
++            state.setText(if (row.enabledWhenRead) R.string.saved_esim_last_enabled
++                else R.string.saved_esim_last_disabled)
++            profileClassLabel.isVisible = true
++            profileClass.isVisible = true
++            profileClass.setText(when (row.profileClass) {
++                "Testing" -> R.string.profile_class_testing
++                "Provisioning" -> R.string.profile_class_provisioning
++                else -> R.string.profile_class_operational
++            })
++        }
++
+         fun setProfile(profile: LocalProfileInfo) {
+             this.profile = profile
+             name.text = profile.displayName
+@@ -408,8 +595,9 @@ open class EuiccManagementFragment : Fragment(), EuiccProfilesChangedListener,
+         }
+ 
+         private fun showOptionsMenu() {
++            if (savedInventoryMode) return
+             // Prevent users from doing multiple things at once
+-            if (invalid || swipeRefresh.isRefreshing) return
++            if (sessionClosing() || invalid || swipeRefresh.isRefreshing) return
+ 
+             PopupMenu(root.context, profileMenu).apply {
+                 setOnMenuItemClickListener(::onMenuItemClicked)
+@@ -419,9 +607,11 @@ open class EuiccManagementFragment : Fragment(), EuiccProfilesChangedListener,
+         }
+ 
+         private fun onMenuItemClicked(item: MenuItem): Boolean =
+-            when (item.itemId) {
++            if (savedInventoryMode) true else when (item.itemId) {
+                 R.id.enable -> {
+-                    if (canEnable) {
++                    if (profile.isEnabled && HonorManagementSession.isActiveFor(activity)) {
++                        useEnabledProfile(profile.iccid)
++                    } else if (canEnable) {
+                         enableOrDisableProfile(profile.iccid, true)
+                     } else {
+                         val resId = R.string.toast_profile_enable_cross_class
+@@ -466,6 +656,8 @@ open class EuiccManagementFragment : Fragment(), EuiccProfilesChangedListener,
+ 
+     inner class EuiccProfileAdapter : RecyclerView.Adapter<ViewHolder>() {
+         var profiles: List<LocalProfileInfo> = listOf()
++        internal var savedProfiles: List<im.angry.openeuicc.core.ProfileInventory.Row>? = null
++        private val rowCount get() = savedProfiles?.size ?: profiles.size
+         var footerViews: List<View> = listOf()
+ 
+         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder =
+@@ -483,11 +675,11 @@ open class EuiccManagementFragment : Fragment(), EuiccProfilesChangedListener,
+ 
+         override fun getItemViewType(position: Int): Int =
+             when {
+-                position < profiles.size -> {
++                position < rowCount -> {
+                     ViewHolder.Type.PROFILE.value
+                 }
+ 
+-                position >= profiles.size && position < profiles.size + footerViews.size -> {
++                position >= rowCount && position < rowCount + footerViews.size -> {
+                     ViewHolder.Type.FOOTER.value
+                 }
+ 
+@@ -497,13 +689,17 @@ open class EuiccManagementFragment : Fragment(), EuiccProfilesChangedListener,
+         override fun onBindViewHolder(holder: ViewHolder, position: Int) {
+             when (holder) {
+                 is ProfileViewHolder -> {
+-                    holder.setProfile(profiles[position])
+-                    holder.setEnabledProfile(profiles.enabled)
++                    val saved = savedProfiles
++                    if (saved != null) holder.setSavedProfile(saved[position])
++                    else {
++                        holder.setProfile(profiles[position])
++                        holder.setEnabledProfile(profiles.enabled)
++                    }
+                     holder.setProfileSequenceNumber(position + 1)
+                 }
+ 
+                 is FooterViewHolder -> {
+-                    holder.attach(footerViews[position - profiles.size])
++                    holder.attach(footerViews[position - rowCount])
+                 }
+             }
+         }
+@@ -514,6 +710,6 @@ open class EuiccManagementFragment : Fragment(), EuiccProfilesChangedListener,
+             }
+         }
+ 
+-        override fun getItemCount(): Int = profiles.size + footerViews.size
++        override fun getItemCount(): Int = rowCount + footerViews.size
+     }
+ }
 diff --git a/app-common/src/main/java/im/angry/openeuicc/ui/KnownBlankUi.kt b/app-common/src/main/java/im/angry/openeuicc/ui/KnownBlankUi.kt
 new file mode 100644
-index 0000000000000000000000000000000000000000..7c2160d2ffec8c3367e48875f1c8d9cf3f432df0
+index 0000000000000000000000000000000000000000..4610c33886432ce28b72dc9ee45e63605bb768d2
 --- /dev/null
 +++ b/app-common/src/main/java/im/angry/openeuicc/ui/KnownBlankUi.kt
-@@ -0,0 +1,11 @@
+@@ -0,0 +1,15 @@
 +package im.angry.openeuicc.ui
 +
 +import android.app.Activity
@@ -2210,14 +2973,27 @@ index 0000000000000000000000000000000000000000..7c2160d2ffec8c3367e48875f1c8d9cf
 +
 +/** A completed blank route has no further LPA reads. Physical return stays an explicit Phone action. */
 +internal fun Activity.finishForKnownBlank() {
++    if (im.angry.openeuicc.core.HonorManagementSession.isActiveFor(this)) {
++        (this as? MainActivity)?.refreshAfterKnownBlank()
++        return
++    }
 +    Toast.makeText(this,R.string.esim_known_blank_return_guidance,Toast.LENGTH_LONG).show()
 +    finishAffinity()
 +}
 diff --git a/app-common/src/main/java/im/angry/openeuicc/ui/MainActivity.kt b/app-common/src/main/java/im/angry/openeuicc/ui/MainActivity.kt
-index 6dd7de88f9f26004bf8c466531e22a999146bcc9..bd7051b35a35f22dea13bc471cc8cd6f2d9accbc 100644
+index 6dd7de88f9f26004bf8c466531e22a999146bcc9..f90e10f26544ec98c17cd5cac50fa8777e677dc2 100644
 --- a/app-common/src/main/java/im/angry/openeuicc/ui/MainActivity.kt
 +++ b/app-common/src/main/java/im/angry/openeuicc/ui/MainActivity.kt
-@@ -28,6 +28,7 @@ import com.google.android.material.tabs.TabLayoutMediator
+@@ -16,6 +16,8 @@ import android.view.MenuItem
+ import android.view.View
+ import android.widget.ProgressBar
+ import androidx.activity.enableEdgeToEdge
++import androidx.activity.OnBackPressedCallback
++import im.angry.openeuicc.core.HonorManagementSession
+ import androidx.core.content.pm.ShortcutInfoCompat
+ import androidx.core.content.pm.ShortcutManagerCompat
+ import androidx.core.graphics.drawable.IconCompat
+@@ -28,6 +30,7 @@ import com.google.android.material.tabs.TabLayoutMediator
  import im.angry.openeuicc.common.R
  import im.angry.openeuicc.core.EuiccChannel
  import im.angry.openeuicc.core.EuiccChannelManager
@@ -2225,18 +3001,35 @@ index 6dd7de88f9f26004bf8c466531e22a999146bcc9..bd7051b35a35f22dea13bc471cc8cd6f
  import im.angry.openeuicc.ui.wizard.DownloadWizardActivity
  import im.angry.openeuicc.util.*
  import kotlinx.coroutines.Dispatchers
-@@ -50,6 +51,7 @@ open class MainActivity : BaseEuiccAccessActivity(), OpenEuiccContextMarker {
+@@ -43,6 +46,9 @@ open class MainActivity : BaseEuiccAccessActivity(), OpenEuiccContextMarker {
+         const val TAG = "MainActivity"
+ 
+         const val PERMISSION_REQUEST_CODE = 1000
++        private const val MANAGEMENT_FACADE_REQUEST = 0x4c50
++        private const val MANAGEMENT_MENU = 0x4c51
++        private const val MANAGEMENT_DONE_MENU = 0x4c52
+     }
+ 
+     private lateinit var loadingProgress: ProgressBar
+@@ -50,6 +56,10 @@ open class MainActivity : BaseEuiccAccessActivity(), OpenEuiccContextMarker {
      private lateinit var viewPager: ViewPager2
  
      private var refreshing = false
++    private var managementSession = false
++    private var managementLauncher = false
++    private var facadeInFlight = false
 +    private var recoveryDialog: androidx.appcompat.app.AlertDialog? = null
  
      private data class Page(
          val id: Long,
-@@ -81,6 +83,10 @@ open class MainActivity : BaseEuiccAccessActivity(), OpenEuiccContextMarker {
+@@ -81,10 +91,18 @@ open class MainActivity : BaseEuiccAccessActivity(), OpenEuiccContextMarker {
  
      protected lateinit var tm: TelephonyManager
  
++    protected open val passiveManagement: Boolean = false
++    protected open val savedProfilesManagement: Boolean = false
++    protected open fun chooseSavedManagementFallback(): Boolean = false
++    protected open fun observeManagementPorts(): Boolean = false
 +    protected open val includeUsbReaders: Boolean = true
 +
 +    protected open fun internalEuiccPorts() = euiccChannelManager.flowInternalEuiccPorts()
@@ -2244,7 +3037,77 @@ index 6dd7de88f9f26004bf8c466531e22a999146bcc9..bd7051b35a35f22dea13bc471cc8cd6f
      private val usbReceiver = object : BroadcastReceiver() {
          override fun onReceive(context: Context?, intent: Intent?) {
              if (intent?.action == UsbManager.ACTION_USB_DEVICE_ATTACHED || intent?.action == UsbManager.ACTION_USB_DEVICE_DETACHED) {
-@@ -119,6 +125,8 @@ open class MainActivity : BaseEuiccAccessActivity(), OpenEuiccContextMarker {
+-                refresh(true)
++                if (!passiveManagement && !savedProfilesManagement) refresh(true)
+             }
+         }
+     }
+@@ -92,6 +110,11 @@ open class MainActivity : BaseEuiccAccessActivity(), OpenEuiccContextMarker {
+     @SuppressLint("WrongConstant", "UnspecifiedRegisterReceiverFlag")
+     override fun onCreate(savedInstanceState: Bundle?) {
+         enableEdgeToEdge()
++        managementSession = HonorManagementSession.attach(this,savedInstanceState != null)
++        managementLauncher = im.angry.openeuicc.core.HonorLpaChannelAccess.enabled() && !managementSession
++            && (intent.action == Intent.ACTION_MAIN
++                || intent.action == android.service.euicc.EuiccService.ACTION_MANAGE_EMBEDDED_SUBSCRIPTIONS)
++        facadeInFlight = savedInstanceState?.getBoolean("management_facade_pending") == true
+         super.onCreate(savedInstanceState)
+         setContentView(R.layout.activity_main)
+         setSupportActionBar(requireViewById(R.id.toolbar))
+@@ -116,20 +139,76 @@ open class MainActivity : BaseEuiccAccessActivity(), OpenEuiccContextMarker {
+                 this::activityToolbarInsetHandler
+             ), consume = false
+         )
++        if (managementSession) {
++            onBackPressedDispatcher.addCallback(this,object : OnBackPressedCallback(true) {
++                override fun handleOnBackPressed() {
++                    loadingProgress.visibility=View.VISIBLE
++                    HonorManagementSession.requestFinish()
++                }
++            })
++        } else if (managementLauncher) {
++            if (HonorManagementSession.hasEnvelope(intent)) {
++                setResult(RESULT_CANCELED);finish()
++            } else if (!facadeInFlight) launchManagementFacade()
++        }
++    }
++
++    override fun onSaveInstanceState(outState: Bundle) {
++        outState.putBoolean("management_facade_pending",facadeInFlight)
++        super.onSaveInstanceState(outState)
++    }
++
++    private fun launchManagementFacade() {
++        if (facadeInFlight) return
++        try {
++            val info=packageManager.getActivityInfo(HonorManagementSession.FACADE,0)
++            if (!info.exported || !info.enabled || !info.applicationInfo.enabled
++                || info.permission != "com.android.phone.permission.HONOR_LDY_AN00_LPA_LEASE"
++                || packageManager.checkSignatures("android","com.android.settings")
++                    != PackageManager.SIGNATURE_MATCH) throw SecurityException("Management unavailable")
++            facadeInFlight=true
++            startActivityForResult(Intent(HonorManagementSession.FACADE_ACTION)
++                .setComponent(HonorManagementSession.FACADE),MANAGEMENT_FACADE_REQUEST)
++        } catch (_: PackageManager.NameNotFoundException) { managementLaunchUnavailable() }
++          catch (_: android.content.ActivityNotFoundException) { managementLaunchUnavailable() }
++          catch (_: SecurityException) { managementLaunchUnavailable() }
++    }
++
++    private fun managementLaunchUnavailable() {
++        facadeInFlight=false
++        android.widget.Toast.makeText(this,R.string.esim_management_unavailable,android.widget.Toast.LENGTH_LONG).show()
++        lifecycleScope.launch { showSavedProfiles() }
++    }
++
++    @Deprecated("Activity result forwarding")
++    override fun onActivityResult(requestCode: Int,resultCode: Int,data: Intent?) {
++        super.onActivityResult(requestCode,resultCode,data)
++        if (requestCode != MANAGEMENT_FACADE_REQUEST) return
++        facadeInFlight=false
++        if (resultCode == RESULT_OK) {
++            setResult(resultCode,data)
++            finish()
++        } else lifecycleScope.launch { showSavedProfiles() }
      }
  
      override fun onDestroy() {
@@ -2253,26 +3116,60 @@ index 6dd7de88f9f26004bf8c466531e22a999146bcc9..bd7051b35a35f22dea13bc471cc8cd6f
          super.onDestroy()
          unregisterReceiver(usbReceiver)
      }
-@@ -157,6 +165,7 @@ open class MainActivity : BaseEuiccAccessActivity(), OpenEuiccContextMarker {
+ 
+     override fun onCreateOptionsMenu(menu: Menu): Boolean {
+         menuInflater.inflate(R.menu.activity_main, menu)
++        if (managementLauncher) menu.add(Menu.NONE,MANAGEMENT_MENU,Menu.NONE,R.string.esim_management_open)
++        if (managementSession) menu.add(Menu.NONE,MANAGEMENT_DONE_MENU,Menu.NONE,R.string.esim_management_done)
+         return true
+     }
+ 
+     override fun onOptionsItemSelected(item: MenuItem): Boolean =
+         when (item.itemId) {
++            MANAGEMENT_MENU -> { launchManagementFacade();true }
++            MANAGEMENT_DONE_MENU -> { HonorManagementSession.requestFinish();true }
+             R.id.settings -> {
+                 startActivity(Intent(this, SettingsActivity::class.java))
+                 true
+@@ -144,6 +223,8 @@ open class MainActivity : BaseEuiccAccessActivity(), OpenEuiccContextMarker {
+         }
+ 
+     override fun onInit() {
++        if (managementLauncher) return
++        if (managementSession) HonorManagementSession.attachService(euiccChannelManagerService)
+         lifecycleScope.launch {
+             init()
+         }
+@@ -157,20 +238,53 @@ open class MainActivity : BaseEuiccAccessActivity(), OpenEuiccContextMarker {
      }
  
      private suspend fun init(fromUsbEvent: Boolean = false) {
++        if (managementLauncher) { showSavedProfiles();return }
++        if (isFinishing || isDestroyed || managementSession && HonorManagementSession.isClosingFor(this)) return
 +        try {
          refreshing = true // We don't check this here -- the check happens in refresh()
          loadingProgress.visibility = View.VISIBLE
          viewPager.visibility = View.GONE
-@@ -164,13 +173,37 @@ open class MainActivity : BaseEuiccAccessActivity(), OpenEuiccContextMarker {
-         // Prevent concurrent access with any running foreground task
-         euiccChannelManagerService.waitForForegroundTask()
+         tabs.visibility = View.GONE
+-        // Prevent concurrent access with any running foreground task
+-        euiccChannelManagerService.waitForForegroundTask()
++        // Management may observe/read an existing route, never select or recover one.
++        if (passiveManagement) {
++            if (!euiccChannelManagerService.isForegroundTaskIdle() || !prepareManagementRead()) {
++                chooseSavedManagementFallback()
++                showSavedProfiles()
++                return
++            }
++        } else euiccChannelManagerService.waitForForegroundTask()
  
 -        val (usbDevice, _) = withContext(Dispatchers.IO) {
 -            euiccChannelManager.tryOpenUsbEuiccChannel()
-+        if (showRecoveryBeforeDiscovery()) {
++        if (!passiveManagement && showRecoveryBeforeDiscovery()) {
 +            refreshing=false;loadingProgress.visibility=View.GONE
 +            return
-+        }
-+
-+        if (im.angry.openeuicc.core.HonorLpaChannelAccess.enabled()) {
+         }
+ 
++        if (!passiveManagement && im.angry.openeuicc.core.HonorLpaChannelAccess.enabled()) {
 +            try {
 +                val cardId = im.angry.openeuicc.core.HonorLpaDiscoveryIntent.expectedCardId(intent)
 +                im.angry.openeuicc.core.HonorLpaChannelAccess.prepareKnownBlankForDiscovery(
@@ -2289,8 +3186,8 @@ index 6dd7de88f9f26004bf8c466531e22a999146bcc9..bd7051b35a35f22dea13bc471cc8cd6f
 +                finishAffinity()
 +                return
 +            }
-         }
- 
++        }
++
 +        val usbDevice = if (includeUsbReaders) withContext(Dispatchers.IO) {
 +            euiccChannelManager.tryOpenUsbEuiccChannel().first
 +        } else null
@@ -2302,13 +3199,28 @@ index 6dd7de88f9f26004bf8c466531e22a999146bcc9..bd7051b35a35f22dea13bc471cc8cd6f
              Log.d(TAG, "slot $slotId port $portId")
  
              euiccChannelManager.flowEuiccSecureElements(slotId, portId).onEach { seId ->
-@@ -246,6 +279,101 @@ open class MainActivity : BaseEuiccAccessActivity(), OpenEuiccContextMarker {
+@@ -209,6 +323,13 @@ open class MainActivity : BaseEuiccAccessActivity(), OpenEuiccContextMarker {
+                 UsbCcidReaderPermissionFragment()
+             })
+         }
++        // A missing channel/page is unavailable, not proof that a card has no profiles.
++        // A live channel with an empty profile vector still creates its normal page.
++        if (passiveManagement && newPages.isEmpty()) {
++            chooseSavedManagementFallback()
++            showSavedProfiles()
++            return
++        }
+         viewPager.visibility = View.VISIBLE
+ 
+         if (newPages.size > 1) {
+@@ -246,9 +367,165 @@ open class MainActivity : BaseEuiccAccessActivity(), OpenEuiccContextMarker {
          ShortcutManagerCompat.setDynamicShortcuts(this, buildShortcuts().take(4))
  
          refreshing = false
 +            } catch(failure: Exception) {
 +            if (failure is kotlinx.coroutines.CancellationException) throw failure
 +            refreshing=false;loadingProgress.visibility=View.GONE
++            if (fallbackToSavedManagement(failure)) return
 +            if(im.angry.openeuicc.core.HonorLpaChannelAccess.isKnownBlankFailure(failure)) finishForKnownBlank()
 +            else if(im.angry.openeuicc.core.HonorLpaChannelAccess.isEndpointNotReadyFailure(failure)) {
 +                android.widget.Toast.makeText(this,R.string.esim_endpoint_not_ready_guidance,android.widget.Toast.LENGTH_LONG).show()
@@ -2326,6 +3238,61 @@ index 6dd7de88f9f26004bf8c466531e22a999146bcc9..bd7051b35a35f22dea13bc471cc8cd6f
 +                    else R.string.esim_access_busy,android.widget.Toast.LENGTH_LONG).show()
 +                // No new discovery/APDU is authorized by a refused local reservation.
 +            } else throw failure
++        }
++    }
++
++    private suspend fun prepareManagementRead(): Boolean {
++        val access=im.angry.openeuicc.core.HonorLpaChannelAccess
++        val state=access.recoveryState(applicationContext,waitForOperation=false)
++        if (state.localMarker || state.unavailable) return false
++        if (state.status != com.honor.ldy_an00.lease.IHonorLpaLease.RECOVERY_DONE
++            && state.status != com.honor.ldy_an00.lease.IHonorLpaLease.RECOVERY_REFUSED) return false
++        val cardId=im.angry.openeuicc.core.HonorLpaDiscoveryIntent.expectedCardId(intent)
++        // This existing method only GETs an already-owned knownblank route/status; never SELECT.
++        access.prepareKnownBlankForDiscovery(applicationContext,1,0,cardId)
++        return observeManagementPorts() // One current framework observation after the bounded read.
++    }
++
++    internal fun fallbackToSavedManagement(failure: Exception): Boolean {
++        if (failure is kotlinx.coroutines.CancellationException) throw failure
++        if (!passiveManagement) return false
++        val access=im.angry.openeuicc.core.HonorLpaChannelAccess
++        val unavailable=access.isKnownBlankFailure(failure) || access.isEndpointNotReadyFailure(failure)
++            || access.isJournalUnavailableFailure(failure) || access.isAccessUnavailableFailure(failure)
++            || access.isProfileListReadFailure(failure) || access.isRecoveryUnavailableFailure(failure)
++            || failure is EuiccChannelManager.EuiccChannelNotFoundException
++            || failure is android.os.RemoteException || failure is SecurityException
++        if (!unavailable) return false
++        if (!chooseSavedManagementFallback()) return false
++        lifecycleScope.launch { showSavedProfiles() }
++        return true
++    }
++
++    private suspend fun showSavedProfiles() {
++        refreshing = true
++        loadingProgress.visibility = View.VISIBLE
++        try {
++            val states = withContext(Dispatchers.IO) {
++                im.angry.openeuicc.core.HonorProfileInventory.store(this@MainActivity).saved()
++            }
++            pages.clear()
++            states.forEachIndexed { index, state ->
++                val eid = when (state) {
++                    is im.angry.openeuicc.core.ProfileInventory.State.Verified -> state.snapshot.eid
++                    is im.angry.openeuicc.core.ProfileInventory.State.VerifiedEmpty -> state.snapshot.eid
++                    im.angry.openeuicc.core.ProfileInventory.State.Unavailable -> null
++                }
++                pages.add(newPage(-1, getString(R.string.saved_esim_card, index + 1)) {
++                    EuiccManagementFragment.newSavedInstance(eid)
++                })
++            }
++            pagerAdapter.notifyDataSetChanged()
++            viewPager.adapter = pagerAdapter
++            viewPager.visibility = View.VISIBLE
++            tabs.visibility = if (pages.size > 1) View.VISIBLE else View.GONE
++        } finally {
++            refreshing = false
++            loadingProgress.visibility = View.GONE
 +        }
 +    }
 +
@@ -2401,9 +3368,17 @@ index 6dd7de88f9f26004bf8c466531e22a999146bcc9..bd7051b35a35f22dea13bc471cc8cd6f
 +                refreshing=false;loadingProgress.visibility=View.GONE
 +            }
 +        }
++    }
++
++    internal fun refreshAfterKnownBlank() {
++        if (managementSession && !HonorManagementSession.isClosingFor(this)) refresh()
      }
  
      private fun refresh(fromUsbEvent: Boolean = false) {
++        if (isFinishing || isDestroyed || managementSession && HonorManagementSession.isClosingFor(this)) return
+         if (refreshing) return
+         lifecycleScope.launch {
+             refreshing = true
 diff --git a/app-common/src/main/java/im/angry/openeuicc/ui/NotificationsActivity.kt b/app-common/src/main/java/im/angry/openeuicc/ui/NotificationsActivity.kt
 index c7aaa8905492fcac02be6006fd6fa58a5ae620cd..3e31dfdbcbeca0d96807bbbb316c4d076158c3c0 100644
 --- a/app-common/src/main/java/im/angry/openeuicc/ui/NotificationsActivity.kt
@@ -3055,7 +4030,7 @@ index 423f258afabe15aca86c18326c89a2596bd5415a..fd3e96b8495ae6aea59e725c1bb7eee1
              app:layout_constrainedWidth="true"
              app:layout_constraintBottom_toBottomOf="parent"
 diff --git a/app-common/src/main/res/values/strings.xml b/app-common/src/main/res/values/strings.xml
-index 8d3ca7759948e745b4e97305c992b8b909787faa..41fd8dc5ff2e352a3f065f3e6e0ff5795702da66 100644
+index 8d3ca7759948e745b4e97305c992b8b909787faa..bfa46a8014614bbebe90195002dab68cfa552419 100644
 --- a/app-common/src/main/res/values/strings.xml
 +++ b/app-common/src/main/res/values/strings.xml
 @@ -26,6 +26,9 @@
@@ -3068,7 +4043,7 @@ index 8d3ca7759948e745b4e97305c992b8b909787faa..41fd8dc5ff2e352a3f065f3e6e0ff579
      <string name="profile_enable">Enable</string>
      <string name="profile_disable">Disable</string>
      <string name="profile_delete">Delete</string>
-@@ -250,4 +253,22 @@
+@@ -250,4 +253,33 @@
      <string name="pref_info_website">Official Website</string>
      <string name="pref_info_source_code">Source Code</string>
      <string name="pref_info_source_code_url" translatable="false">https://gitea.angry.im/PeterCxy/OpenEUICC</string>
@@ -3089,14 +4064,25 @@ index 8d3ca7759948e745b4e97305c992b8b909787faa..41fd8dc5ff2e352a3f065f3e6e0ff579
 +    <string name="esim_recovery_in_progress">Recovery is in progress. Check its status before continuing.</string>
 +    <string name="esim_recovery_check">Check status</string>
 +    <string name="esim_recovery_unavailable">eSIM access is unavailable. No recovery result has been confirmed.</string>
++    <string name="saved_esim_card">Saved eSIM card %1$d</string>
++    <string name="saved_esim_last_enabled">Enabled at last update</string>
++    <string name="saved_esim_last_disabled">Disabled at last update</string>
++    <string name="saved_esim_unavailable">Saved profiles unavailable</string>
++    <string name="saved_esim_empty">No profiles saved</string>
++    <string name="saved_esim_last_verified">Last updated %1$s</string>
 +    <string name="esim_inventory_save_failed">Couldn’t save the eSIM list</string>
++    <string name="esim_management_open">Manage eSIMs</string>
++    <string name="esim_management_unavailable">eSIM management is unavailable</string>
++    <string name="esim_management_use">Use this eSIM</string>
++    <string name="esim_management_done">Done</string>
++    <string name="esim_management_profile_changed">This profile changed. Refresh the list.</string>
  </resources>
 diff --git a/app-common/src/test/java/im/angry/openeuicc/core/HonorOperationAdmissionHostTest.kt b/app-common/src/test/java/im/angry/openeuicc/core/HonorOperationAdmissionHostTest.kt
 new file mode 100644
-index 0000000000000000000000000000000000000000..0809a5e5499d944fa2b5fe11df5c42dad4064e68
+index 0000000000000000000000000000000000000000..0e475ccd983ecc57ad87fe109b2520ea630ab834
 --- /dev/null
 +++ b/app-common/src/test/java/im/angry/openeuicc/core/HonorOperationAdmissionHostTest.kt
-@@ -0,0 +1,167 @@
+@@ -0,0 +1,202 @@
 +package im.angry.openeuicc.core
 +
 +fun main() {
@@ -3262,6 +4248,41 @@ index 0000000000000000000000000000000000000000..0809a5e5499d944fa2b5fe11df5c42da
 +    retired.opened(1);retired.closedScoped(1,3);retired.requireAllClosed();verify(!retired.hasOpen())
 +    val unqualified = LogicalChannelCloseReceipt()
 +    unqualified.opened(1);rejects { unqualified.closedScoped(1,0) };rejects { unqualified.requireAllClosed() }
++    // A drained real owner can observe asynchronous loss without hiding programming checks.
++    val lost = LpaChannelAdmission();val lostOwner=Any();val wrongOwner=Any()
++    lost.reserve(lostOwner);lost.unknownIfOwned(lostOwner)
++    val lostDrain=runCatching {lost.requireDrained(lostOwner)}.exceptionOrNull()
++    verify(lostDrain is LpaChannelAdmission.Unavailable && lostDrain.uncertain)
++    val lostComplete=runCatching {lost.complete(lostOwner)}.exceptionOrNull()
++    verify(lostComplete is LpaChannelAdmission.Unavailable && lostComplete.uncertain)
++    for (failure in listOf(runCatching {lost.requireDrained(wrongOwner)}.exceptionOrNull(),
++        runCatching {lost.complete(wrongOwner)}.exceptionOrNull())) {
++        verify(failure is IllegalStateException && failure !is LpaChannelAdmission.Unavailable)
++    }
++    verify(lost.isUnknown())
++    val liveReader=LpaChannelAdmission();val readerOwner=Any()
++    liveReader.reserve(readerOwner);liveReader.enter(readerOwner);liveReader.unknownIfOwned(readerOwner)
++    for (failure in listOf(runCatching {liveReader.requireDrained(readerOwner)}.exceptionOrNull(),
++        runCatching {liveReader.complete(readerOwner)}.exceptionOrNull())) {
++        verify(failure is IllegalStateException && failure !is LpaChannelAdmission.Unavailable)
++    }
++    liveReader.leave()
++    verify(runCatching {liveReader.requireDrained(readerOwner)}.exceptionOrNull() is LpaChannelAdmission.Unavailable)
++    val lostDuringClose=LpaChannelAdmission();val closeOwner=Any()
++    lostDuringClose.reserve(closeOwner)
++    var finishAfterLoss=0;var cleanAfterLoss=0
++    val closeFailure=runCatching {lostDuringClose.completeAfterDrain(closeOwner,
++        close={lostDuringClose.unknownIfOwned(closeOwner)},
++        finish={finishAfterLoss++;true},markClean={cleanAfterLoss++})}.exceptionOrNull()
++    verify(closeFailure is LpaChannelAdmission.Unavailable && closeFailure.uncertain)
++    verify(finishAfterLoss == 0 && cleanAfterLoss == 0 && lostDuringClose.isUnknown())
++    val lossBeforeComplete=LpaChannelAdmission();val completedOwner=Any()
++    lossBeforeComplete.reserve(completedOwner);lossBeforeComplete.requireDrained(completedOwner)
++    lossBeforeComplete.unknownIfOwned(completedOwner)
++    val lateComplete=runCatching {lossBeforeComplete.complete(completedOwner)}.exceptionOrNull()
++    verify(lateComplete is LpaChannelAdmission.Unavailable && lateComplete.uncertain)
++    verify(lossBeforeComplete.isUnknown())
++
 +    println("HONOR_OPERATION_ADMISSION_HOST_PASS checks=$checks")
 +}
 diff --git a/app-common/src/test/java/im/angry/openeuicc/core/LastProfileProofHostTest.kt b/app-common/src/test/java/im/angry/openeuicc/core/LastProfileProofHostTest.kt
@@ -3291,6 +4312,115 @@ index 0000000000000000000000000000000000000000..779de3b521a81c7f730a67e63f4b17c8
 +    verify(runCatching { LocalProfileInfo.State.fromString("unknown") }.isFailure)
 +    verify(LocalProfileInfo.State.fromString("enabled")==LocalProfileInfo.State.Enabled)
 +    println("LAST_PROFILE_PROOF_HOST_PASS checks=$checks")
++}
+diff --git a/app-common/src/test/java/im/angry/openeuicc/core/ManagementSessionOutcomeHostTest.kt b/app-common/src/test/java/im/angry/openeuicc/core/ManagementSessionOutcomeHostTest.kt
+new file mode 100644
+index 0000000000000000000000000000000000000000..23743d0b0fd9e11e01cd77ab287d46340177c0e2
+--- /dev/null
++++ b/app-common/src/test/java/im/angry/openeuicc/core/ManagementSessionOutcomeHostTest.kt
+@@ -0,0 +1,103 @@
++package im.angry.openeuicc.core
++
++fun main() {
++    var checks=0
++    fun verify(value: Boolean) {checks++;check(value)}
++    val nonce="a".repeat(32)
++    val a="8900000000000000001";val b="8900000000000000002"
++    fun model()=ManagementSessionOutcome(nonce)
++    fun scope(op: Int=2,card: Int=7)=ManagementSessionOutcome.Scope(card,op,"b".repeat(32),1,3,-1)
++    // Already-enabled state is not an input or intent. Viewing never implies keep.
++    verify(model().complete(true) == false)
++    val use=model();use.accepted(2,7,a);verify(use.choice()==ManagementSessionOutcome.Choice(7,a))
++    verify(use.complete(true)==true);verify(use.complete(true)==null)
++    use.accepted(2,7,b);verify(use.choice()?.iccid==a)
++    for(kind in listOf(3,4)) {
++        val m=model();m.accepted(2,7,a);m.accepted(kind,7,b)
++        verify(m.choice()?.iccid==a)
++        m.accepted(kind,8,a);verify(m.choice()?.iccid==a)
++        m.accepted(kind,7,a);verify(m.choice()==null)
++        verify(m.complete(true)==false)
++    }
++    val notifications=model();notifications.accepted(2,7,a)
++    for(kind in listOf(1,5,6,7)) notifications.accepted(kind,7,null)
++    verify(notifications.choice()?.iccid==a)
++    val reset=model();reset.accepted(2,7,a);reset.accepted(8,7,null)
++    verify(reset.complete(true)==false)
++    // Only whole positive scope completion commits accepted framework/download-enable intent.
++    val framework=model();val fg=framework.granted()
++    verify(framework.choice()==null)
++    framework.scopeCompleted(fg,scope(),false,2,b)
++    verify(framework.choice()?.iccid==b)
++    verify(framework.complete(true)==true)
++    val downloadOnly=model();val dg=downloadOnly.granted()
++    downloadOnly.scopeCompleted(dg,scope(1),false,1,null)
++    verify(downloadOnly.complete(true)==false)
++    val failed=model();val failedGrant=failed.granted()
++    failed.interrupted(failedGrant,true)
++    failed.scopeCompleted(failedGrant,scope(),false,2,a)
++    verify(failed.choice()==null && failed.complete(true)==null)
++    val unconfirmed=model();unconfirmed.accepted(2,7,a)
++    verify(unconfirmed.complete(false)==null)
++    // Exact current nonce/sequence + native operation, never a historical UI bool.
++    val blank=model();val g=blank.granted()
++    blank.scopeCompleted(g,scope(2),true,3,a)
++    verify(blank.hasClosedBlank());verify(blank.choice()==null)
++    val later=blank.granted();verify(!blank.hasClosedBlank())
++    blank.scopeCompleted(g,scope(2),true,3,a);verify(!blank.hasClosedBlank())
++    blank.scopeCompleted(later,scope(3),true,4,a);verify(blank.hasClosedBlank())
++    blank.interrupted(later,false);verify(!blank.hasClosedBlank())
++    val previous=model();val old=previous.granted()
++    val newSession=ManagementSessionOutcome("c".repeat(32));newSession.granted()
++    newSession.scopeCompleted(old,scope(2),true,3,a)
++    verify(!newSession.hasClosedBlank());verify(newSession.choice()==null)
++    val deadProcess=ManagementSessionOutcome(nonce)
++    verify(!deadProcess.hasClosedBlank())
++    for(pair in listOf(2 to 4,3 to 3,1 to 3)) {
++        val mismatch=model();val mg=mismatch.granted()
++        mismatch.scopeCompleted(mg,scope(pair.first),true,pair.second,a)
++        verify(!mismatch.hasClosedBlank() && mismatch.complete(true)==null)
++    }
++    val wrongToken=model();val wt=wrongToken.granted()
++    wrongToken.scopeCompleted(wt,scope().copy(token="bad"),true,3,a)
++    verify(!wrongToken.hasClosedBlank() && wrongToken.complete(true)==null)
++    val staleLoss=model();val first=staleLoss.granted();val current=staleLoss.granted()
++    staleLoss.interrupted(first,true)
++    staleLoss.scopeCompleted(current,scope(),false,2,b)
++    verify(staleLoss.complete(true)==true)
++    // Reproduce the old unversioned callback: it incorrectly overwrites the newer choice.
++    val legacy=model();val legacyRead=legacy.granted()
++    legacy.scopeCompleted(legacyRead,scope().copy(operation=0),false,2,a)
++    val legacyFramework=legacy.granted()
++    legacy.scopeCompleted(legacyFramework,scope(),false,2,b)
++    legacy.accepted(2,7,a)
++    verify(legacy.choice()!=ManagementSessionOutcome.Choice(7,b))
++    // An earlier Use-current READ receipt cannot overwrite a later framework enable.
++    val ordered=model();val useGrant=ordered.granted()
++    ordered.scopeCompleted(useGrant,scope().copy(operation=0),false,2,a)
++    val newerGrant=ordered.granted()
++    ordered.scopeCompleted(newerGrant,scope(),false,2,b)
++    ordered.scopeCompleted(useGrant,scope().copy(operation=0),false,2,a)
++    verify(ordered.choice()==ManagementSessionOutcome.Choice(7,b))
++    verify(ordered.complete(true)==true)
++    val fence=model();val queued=fence.work()
++    val worker=checkNotNull(fence.enqueueWork())
++    val finalRead=fence.work(allowClosing=true,readOnly=true)
++    verify(queued.allowed());fence.beginClosing()
++    verify(!queued.allowed());verify(fence.enqueueWork()==null);verify(worker.allowed(3))
++    verify(finalRead.allowed(0));verify(!finalRead.allowed(2))
++    fence.freezeWork()
++    verify(!worker.allowed(3));verify(!finalRead.allowed(0))
++    verify(!queued.allowed());verify(!fence.work().allowed())
++    val nextSession=ManagementSessionOutcome("d".repeat(32))
++    verify(nextSession.work().allowed());verify(!queued.allowed())
++    val admission=LpaChannelAdmission();admission.requireIdle();verify(true)
++    val owner=Any();admission.reserve(owner)
++    val busy=runCatching {admission.requireIdle()}.exceptionOrNull()
++    verify(busy is LpaChannelAdmission.Unavailable && !busy.uncertain)
++    admission.complete(owner);admission.requireIdle();verify(true)
++    admission.reserve(owner);admission.unknownIfOwned(owner)
++    val unknown=runCatching {admission.requireIdle()}.exceptionOrNull()
++    verify(unknown is LpaChannelAdmission.Unavailable && unknown.uncertain)
++    println("MANAGEMENT_SESSION_OUTCOME_HOST_PASS checks=$checks")
 +}
 diff --git a/app-common/src/test/java/im/angry/openeuicc/core/ProfileInventoryHostTest.kt b/app-common/src/test/java/im/angry/openeuicc/core/ProfileInventoryHostTest.kt
 new file mode 100644
@@ -4736,10 +5866,10 @@ index 5d50ac4d5aa8d49a0b093f30506c0b93010180b6..6bd08be68df0a64125b72f2401ac2ec3
          // Only show the disable option for non-removable eUICCs
          // Some devices without internal eUICCs have the "optimization" of ignoring SIM
 diff --git a/app/src/main/java/im/angry/openeuicc/ui/PrivilegedMainActivity.kt b/app/src/main/java/im/angry/openeuicc/ui/PrivilegedMainActivity.kt
-index 90956e1f66674c19353ec732850c87326000da2d..f9c1a7ba2974d4590e7fbf653f9fe4455bc134eb 100644
+index 90956e1f66674c19353ec732850c87326000da2d..1878092f580be100d52f19105b6424c19003a224 100644
 --- a/app/src/main/java/im/angry/openeuicc/ui/PrivilegedMainActivity.kt
 +++ b/app/src/main/java/im/angry/openeuicc/ui/PrivilegedMainActivity.kt
-@@ -1,13 +1,30 @@
+@@ -1,23 +1,65 @@
  package im.angry.openeuicc.ui
  
  import android.os.Build
@@ -4756,21 +5886,46 @@ index 90956e1f66674c19353ec732850c87326000da2d..f9c1a7ba2974d4590e7fbf653f9fe445
 +    private val managingCard: Boolean
 +        get() = intent.action == EuiccService.ACTION_MANAGE_EMBEDDED_SUBSCRIPTIONS
 +
++    private val passiveManageEntry: Boolean by lazy {
++        managingCard && im.angry.openeuicc.core.HonorLpaChannelAccess.enabled()
++    }
++    private var reportedManagementPorts: List<Pair<Int, Int>> = emptyList()
++    private var readUnavailable = false
++    override val passiveManagement: Boolean get() = passiveManageEntry
++    override val savedProfilesManagement: Boolean get() = passiveManageEntry && readUnavailable
++
++    override fun observeManagementPorts(): Boolean {
++        if (!passiveManageEntry) return false
++        reportedManagementPorts = EuiccUiRouting.managementPorts(
++            intent, tm.cardIdForDefaultEuicc, tm.uiccCardsInfo ?: emptyList())
++        readUnavailable = reportedManagementPorts.isEmpty()
++        return !readUnavailable
++    }
++
++    override fun chooseSavedManagementFallback(): Boolean {
++        if (!passiveManageEntry) return false
++        readUnavailable = true
++        return true
++    }
++
 +    override val includeUsbReaders: Boolean
 +        get() = !managingCard
 +
 +    override fun internalEuiccPorts() = if (!managingCard) super.internalEuiccPorts() else flow {
 +        // Cached framework identity only. Opening each chosen port still uses the ordinary
 +        // Phone-owned operation lease; a missing requested card never falls back to another.
-+        EuiccUiRouting.managementPorts(intent, tm.cardIdForDefaultEuicc, tm.uiccCardsInfo)
-+            .forEach { emit(it) }
++        val ports = if (passiveManageEntry) reportedManagementPorts else
++            EuiccUiRouting.managementPorts(intent, tm.cardIdForDefaultEuicc, tm.uiccCardsInfo)
++        ports.forEach { emit(it) }
 +    }
 +
 +
      override fun onCreateOptionsMenu(menu: Menu): Boolean {
          super.onCreateOptionsMenu(menu)
++        if (savedProfilesManagement) return true
          menuInflater.inflate(R.menu.activity_main_privileged, menu)
-@@ -16,8 +33,9 @@ class PrivilegedMainActivity : MainActivity() {
+ 
+         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
              menu.findItem(R.id.slot_mapping).isVisible = false
          }
  
@@ -4781,14 +5936,14 @@ index 90956e1f66674c19353ec732850c87326000da2d..f9c1a7ba2974d4590e7fbf653f9fe445
              isChecked = tm.dsdsEnabled
          }
  
-@@ -29,14 +47,16 @@ class PrivilegedMainActivity : MainActivity() {
+@@ -29,14 +71,16 @@ class PrivilegedMainActivity : MainActivity() {
  
      override fun onOptionsItemSelected(item: MenuItem): Boolean = when (item.itemId) {
          R.id.dsds -> {
 -            tm.setDsdsEnabled(euiccChannelManager, !item.isChecked)
 -            Toast.makeText(this, R.string.toast_dsds_switched, Toast.LENGTH_LONG).show()
 -            finish()
-+            if (!SharedSlotOperationGate.areDirectRadioChangesBlocked()) {
++            if (!savedProfilesManagement && !SharedSlotOperationGate.areDirectRadioChangesBlocked()) {
 +                tm.setDsdsEnabled(euiccChannelManager, !item.isChecked)
 +                Toast.makeText(this, R.string.toast_dsds_switched, Toast.LENGTH_LONG).show()
 +                finish()
@@ -4798,7 +5953,7 @@ index 90956e1f66674c19353ec732850c87326000da2d..f9c1a7ba2974d4590e7fbf653f9fe445
  
          R.id.slot_mapping -> {
 -            showSlotMappingFragment()
-+            if (!SharedSlotOperationGate.areDirectRadioChangesBlocked()) showSlotMappingFragment()
++            if (!savedProfilesManagement && !SharedSlotOperationGate.areDirectRadioChangesBlocked()) showSlotMappingFragment()
              true
          }
  

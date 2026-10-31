@@ -36,8 +36,8 @@
       "excluded_input_count": 3,
       "public_snapshot_revision": "4a813b3fa05b3814db5416a1a6e0410f2a2f0978",
       "public_snapshot_tree": "8b846736c40fa89717e0a1933363778ee0e5f2b1",
-      "target_snapshot_revision": "c159ed4f84980d0646275725f79fa227a92fdf89",
-      "target_snapshot_tree": "45cf4e74dbc2cf591fc840a945bc084eb1badfbd"
+      "target_snapshot_revision": "5cec75263619dd0525941e608604075a15cb98a3",
+      "target_snapshot_tree": "3c42aa580a7ec852a6402393ababf7e2564d40cc"
     },
     {
       "path": "frameworks/av",
@@ -165,15 +165,15 @@
     },
     {
       "path": "packages/apps/OpenEUICC",
-      "revision": "d5d4573a5429bca37cbaee2e75d9526edeeb0873",
-      "tree": "e51b57d5b901fdd0ba7bb31fdc93444a652fab87",
+      "revision": "235922b7cd9f8832419dd2bbb31024c262bd664d",
+      "tree": "52c6ec6792ec0dc7b7b0768b204f15f847c79625",
       "base_revision": "89d677e07d0ebbd2d157ede2cb31f76aec737e3a",
       "patch": "patches/packages_apps_OpenEUICC.patch",
-      "patch_sha256": "3871a1fee3c6fdf961373baeaba126a3702a825090172ea6dfed7a931baf1e32",
+      "patch_sha256": "81aef856dfc6e09642d68cd533e606b9ef82c5a14c923fd9b92e2058536d2828",
       "patch_tree_verified": true,
       "remote_url": "https://github.com/estkme-group/openeuicc.git",
-      "target_snapshot_revision": "d5d4573a5429bca37cbaee2e75d9526edeeb0873",
-      "target_snapshot_tree": "e51b57d5b901fdd0ba7bb31fdc93444a652fab87"
+      "target_snapshot_revision": "235922b7cd9f8832419dd2bbb31024c262bd664d",
+      "target_snapshot_tree": "52c6ec6792ec0dc7b7b0768b204f15f847c79625"
     },
     {
       "path": "packages/apps/OpenEUICC/libs/lpac-jni/src/main/jni/cjson/cjson",
@@ -191,15 +191,15 @@
     },
     {
       "path": "packages/apps/Settings",
-      "revision": "1c104f3e18bf4a41a0e79ebc37bc253127a8d054",
-      "tree": "95b076969c06f2e15207a4f5a162ef61512a58f6",
+      "revision": "48d8cd4680fd3bfb3ebbea216ffb9f336ec0ae1d",
+      "tree": "2a418fe0c659f3f44c2cda13b6d92beca5e1e07c",
       "base_revision": "0b97deb37dcba757a3130899273fb4c298702f00",
       "patch": "patches/packages_apps_Settings.patch",
-      "patch_sha256": "28bd982b2b71076ea4494e6199d8215e81bd08ee4f669533134272b0ffed1d39",
+      "patch_sha256": "49e28b1aa8ef8592204cd17e20952a330ef31fa707c80be1a5212e339f5e1011",
       "patch_tree_verified": true,
       "remote_url": "https://github.com/LineageOS/android_packages_apps_Settings",
-      "target_snapshot_revision": "1c104f3e18bf4a41a0e79ebc37bc253127a8d054",
-      "target_snapshot_tree": "95b076969c06f2e15207a4f5a162ef61512a58f6",
+      "target_snapshot_revision": "48d8cd4680fd3bfb3ebbea216ffb9f336ec0ae1d",
+      "target_snapshot_tree": "2a418fe0c659f3f44c2cda13b6d92beca5e1e07c",
       "historical_public_snapshot": {
         "revision": "8397134ae4ee640f1a26eb9f12d9eddb91650b89",
         "tree": "5f22ecf62a013dbae9b9d336782b93681ddf3489"
@@ -207,15 +207,15 @@
     },
     {
       "path": "packages/services/Telephony",
-      "revision": "e8e6b9443d68f40d599c9d9feca23b3688d772b6",
-      "tree": "40b6145705774825cafe139388e6fb55c16884ec",
+      "revision": "17478ac9aaa7f7f49bc9b26cc926793f9ae893fe",
+      "tree": "da8a6ebaf38d7dbeb89717bc91fda8c342480e6c",
       "base_revision": "2d0e6fb0059b8c1cab748f6f04453c9955a14fe3",
       "patch": "patches/packages_services_Telephony.patch",
-      "patch_sha256": "53f374b2261de21661cdce7184c208bd825625734683e5d51dbfb2a82cfb7f80",
+      "patch_sha256": "af6f85698a3a9b5e2d8a418122a67a8646a9714256acd049d43e81ae5c987e76",
       "patch_tree_verified": true,
       "remote_url": "https://github.com/LineageOS/android_packages_services_Telephony",
-      "target_snapshot_revision": "e8e6b9443d68f40d599c9d9feca23b3688d772b6",
-      "target_snapshot_tree": "40b6145705774825cafe139388e6fb55c16884ec"
+      "target_snapshot_revision": "17478ac9aaa7f7f49bc9b26cc926793f9ae893fe",
+      "target_snapshot_tree": "da8a6ebaf38d7dbeb89717bc91fda8c342480e6c"
     },
     {
       "path": "prebuilts/openeuicc-deps",

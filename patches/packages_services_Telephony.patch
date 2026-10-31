@@ -5559,10 +5559,10 @@ index 0000000000000000000000000000000000000000..14a25d46e90456cf564ec98f7ab8874c
 +}
 diff --git a/src/com/android/phone/HonorLdyAn00EsimSetupService.java b/src/com/android/phone/HonorLdyAn00EsimSetupService.java
 new file mode 100644
-index 0000000000000000000000000000000000000000..fb23b0bb2761fc05836e90a0c49cda5db38a1dd0
+index 0000000000000000000000000000000000000000..2b909e2c42afa91bd4e3c9b052954d179a91a2ab
 --- /dev/null
 +++ b/src/com/android/phone/HonorLdyAn00EsimSetupService.java
-@@ -0,0 +1,391 @@
+@@ -0,0 +1,414 @@
 +/*
 + * Copyright (C) 2026 The LineageOS Project
 + * SPDX-License-Identifier: Apache-2.0
@@ -5608,6 +5608,9 @@ index 0000000000000000000000000000000000000000..fb23b0bb2761fc05836e90a0c49cda5d
 +        final Object owner,request;
 +        final int phase,previousPhase;
 +        final boolean previousOutbound,previousReturn;
++        int managementOriginMode = -1, managementOriginRequest = -1;
++        long managementOriginGeneration;
++        Object managementOriginClient;
 +        Selection(Object owner,Object request,int phase,int previousPhase,
 +                boolean previousOutbound,boolean previousReturn) {
 +            this.owner=owner;this.request=request;this.phase=phase;this.previousPhase=previousPhase;
@@ -5860,6 +5863,13 @@ index 0000000000000000000000000000000000000000..fb23b0bb2761fc05836e90a0c49cda5d
 +                try {
 +                    Selection selection = new Selection(owner,reply,reply.phaseSerial,
 +                            sSelectedPhaseSerial,sOutboundRequested,sReturnRequested);
++                    if (!physical && state.state == UiState.PHYSICAL_READY) {
++                        // This exact pre-SET snapshot includes correlated mode0/card proof.
++                        selection.managementOriginMode = 0;
++                        selection.managementOriginRequest = reply.requestId;
++                        selection.managementOriginGeneration = owner.generation();
++                        selection.managementOriginClient = reply.messenger.getBinder();
++                    }
 +                    sPendingSelection=selection;
 +                    sSelectedPhaseSerial = reply.phaseSerial;
 +                    Runnable callBusyBeforeAdmission = () -> owner.requestUiSnapshot(observed ->
@@ -5944,6 +5954,19 @@ index 0000000000000000000000000000000000000000..fb23b0bb2761fc05836e90a0c49cda5d
 +            data.putBoolean("target_physical", physical);
 +        data.putString("state", state);
 +        HonorSepTrialOwner cachedOwner=HonorSepTrialOwner.existingPreparedOwner();
++        Selection origin = sPendingSelection;
++        if (!sStopped && cachedOwner != null && origin != null && origin.owner == cachedOwner
++                && origin.managementOriginMode == 0
++                && origin.managementOriginGeneration == cachedOwner.generation()
++                && origin.managementOriginClient == target.messenger.getBinder()
++                && origin.phase < Integer.MAX_VALUE && phaseSerial == origin.phase + 1
++                && ("EUICC_READY".equals(state) || "KNOWN_BLANK".equals(state))) {
++            data.putInt("management_origin_protocol", 1);
++            data.putInt("management_origin_mode", 0);
++            data.putInt("management_origin_phase", origin.phase);
++            data.putInt("management_origin_request", origin.managementOriginRequest);
++            data.putLong("management_origin_generation", origin.managementOriginGeneration);
++        }
 +        data.putString("backend_stage",cachedOwner==null ? "OWNER_UNAVAILABLE" : cachedOwner.cachedReadStage());
 +        data.putBoolean("can_return", !sStopped && canReturn);
 +        data.putBoolean("test_image", HonorSepTrialOwner.isTrustedDebugTestImage());
