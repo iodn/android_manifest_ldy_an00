@@ -36,8 +36,8 @@
       "excluded_input_count": 3,
       "public_snapshot_revision": "4a813b3fa05b3814db5416a1a6e0410f2a2f0978",
       "public_snapshot_tree": "8b846736c40fa89717e0a1933363778ee0e5f2b1",
-      "target_snapshot_revision": "4a813b3fa05b3814db5416a1a6e0410f2a2f0978",
-      "target_snapshot_tree": "8b846736c40fa89717e0a1933363778ee0e5f2b1"
+      "target_snapshot_revision": "5ff552309dbda72de1e5de1ed8f4b54ab3859344",
+      "target_snapshot_tree": "4e13ca8694f79242dadf217c0651b35c8b971e95"
     },
     {
       "path": "frameworks/av",
