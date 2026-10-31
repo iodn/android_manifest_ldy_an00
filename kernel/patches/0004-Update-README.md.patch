@@ -1,0 +1,41 @@
+From 5ca44bb398e5883bc4bbae15e0e9fe96839ff908 Mon Sep 17 00:00:00 2001
+From: iodn <iodn@users.noreply.github.com>
+Date: Fri, 30 Oct 2026 22:55:15 +0000
+Subject: [PATCH 4/5] Update README.md
+
+Change-Id: I4591e31650ad7e2a8f55dfa589dbb45691d226ca
+---
+ scripts/build-ldy-an00.sh | 24 ++++++++++++++++++++++++
+ 1 file changed, 24 insertions(+)
+ create mode 100755 scripts/build-ldy-an00.sh
+
+diff --git a/scripts/build-ldy-an00.sh b/scripts/build-ldy-an00.sh
+new file mode 100755
+index 000000000..0f7845282
+--- /dev/null
++++ b/scripts/build-ldy-an00.sh
+@@ -0,0 +1,24 @@
++#!/bin/sh
++# Run from an Android Kleaf workspace; set SOURCE_DATE_EPOCH only to reproduce a build.
++set -eu
++
++workspace_dir=$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)
++if [ ! -x "$workspace_dir/tools/bazel" ]; then
++    echo "An Android Kleaf workspace with tools/bazel is required." >&2
++    exit 2
++fi
++
++SOURCE_DATE_EPOCH=${SOURCE_DATE_EPOCH:-$(date -u +%s)}
++case "$SOURCE_DATE_EPOCH" in
++    *[!0-9]*|"") echo "SOURCE_DATE_EPOCH must be a positive Unix timestamp." >&2; exit 2 ;;
++esac
++if [ "$SOURCE_DATE_EPOCH" -le 0 ]; then
++    echo "SOURCE_DATE_EPOCH must be greater than zero." >&2
++    exit 2
++fi
++export SOURCE_DATE_EPOCH
++printf 'Kernel build SOURCE_DATE_EPOCH=%s\n' "$SOURCE_DATE_EPOCH" >&2
++
++cd "$workspace_dir"
++exec tools/bazel build --config=stamp --lto=none --rust \
++    --sandbox_default_allow_network=false //common:kernel_aarch64

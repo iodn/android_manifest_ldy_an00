@@ -1,0 +1,39 @@
+[
+  {
+    "path": "etc",
+    "type": "directory"
+  },
+  {
+    "path": "etc/NOTICE.xml.gz",
+    "type": "file",
+    "sha256": "5c000c726326b4dd81c12ddfafa425268a12c0592fcf19d340233956e0e02e70"
+  },
+  {
+    "path": "etc/build.prop",
+    "type": "file",
+    "sha256": "152f620d5b37f68b3a0571d7551db6307a761e17b32308f20b29e28b875f06d4"
+  },
+  {
+    "path": "lib",
+    "type": "directory"
+  },
+  {
+    "path": "lib/modules",
+    "type": "directory"
+  },
+  {
+    "path": "lib/modules/modules.alias",
+    "type": "file",
+    "sha256": "aae2d0404e31d9e3fe110019af3f6d66aaa537b980de112e988cf803225ca738"
+  },
+  {
+    "path": "lib/modules/modules.dep",
+    "type": "file",
+    "sha256": "6ee3de8a59f55edd761f5a6ca26d2a1c887ac09c38339ba2e883899640e1e12b"
+  },
+  {
+    "path": "lib/modules/modules.load",
+    "type": "file",
+    "sha256": "ee1bd1a1c5c863ff1f5e9d87a4484a4fea754c04826f07184f7d4935ffe2d0ff"
+  }
+]

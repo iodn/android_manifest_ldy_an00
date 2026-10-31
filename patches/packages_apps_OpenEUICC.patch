@@ -3127,7 +3127,7 @@ index 0000000000000000000000000000000000000000..4610c33886432ce28b72dc9ee45e6360
 +    finishAffinity()
 +}
 diff --git a/app-common/src/main/java/im/angry/openeuicc/ui/MainActivity.kt b/app-common/src/main/java/im/angry/openeuicc/ui/MainActivity.kt
-index 6dd7de88f9f26004bf8c466531e22a999146bcc9..907b01f8a2b5672cd6d77b009181e07800b4f224 100644
+index 6dd7de88f9f26004bf8c466531e22a999146bcc9..6bc829f7022af4435c7835539ad210de909f476a 100644
 --- a/app-common/src/main/java/im/angry/openeuicc/ui/MainActivity.kt
 +++ b/app-common/src/main/java/im/angry/openeuicc/ui/MainActivity.kt
 @@ -16,6 +16,8 @@ import android.view.MenuItem
@@ -3317,7 +3317,7 @@ index 6dd7de88f9f26004bf8c466531e22a999146bcc9..907b01f8a2b5672cd6d77b009181e078
 +            MANAGEMENT_MENU -> {
 +                lifecycleScope.launch {
 +                    euiccChannelManagerLoaded.await()
-+                    showSavedProfiles()
++                    openManagement()
 +                }
 +                true
 +            }
@@ -4254,7 +4254,7 @@ index 0000000000000000000000000000000000000000..48c72d0f518e87d763a23897f02515f6
 +    <string name="saved_esim_android_cache">Saved by Android. Connect to the eSIM to refresh its profiles and current status.</string>
 +</resources>
 diff --git a/app-common/src/main/res/values/strings.xml b/app-common/src/main/res/values/strings.xml
-index 8d3ca7759948e745b4e97305c992b8b909787faa..bfa46a8014614bbebe90195002dab68cfa552419 100644
+index 8d3ca7759948e745b4e97305c992b8b909787faa..b08d7db2f68b5ad4e856c308ba2284341a11656b 100644
 --- a/app-common/src/main/res/values/strings.xml
 +++ b/app-common/src/main/res/values/strings.xml
 @@ -26,6 +26,9 @@
@@ -4295,7 +4295,7 @@ index 8d3ca7759948e745b4e97305c992b8b909787faa..bfa46a8014614bbebe90195002dab68c
 +    <string name="saved_esim_empty">No profiles saved</string>
 +    <string name="saved_esim_last_verified">Last updated %1$s</string>
 +    <string name="esim_inventory_save_failed">Couldn’t save the eSIM list</string>
-+    <string name="esim_management_open">Manage eSIMs</string>
++    <string name="esim_management_open">Refresh eSIM profiles</string>
 +    <string name="esim_management_unavailable">eSIM management is unavailable</string>
 +    <string name="esim_management_use">Use this eSIM</string>
 +    <string name="esim_management_done">Done</string>

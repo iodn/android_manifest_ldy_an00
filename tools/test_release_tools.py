@@ -1,5 +1,11 @@
 # SPDX-License-Identifier: Apache-2.0
 import importlib.util
+import hashlib
+import json
+import subprocess
+import sys
+import runpy
+from unittest.mock import patch
 from pathlib import Path
 import struct
 import tempfile
@@ -164,6 +170,78 @@ class ReleaseChecks(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, 'system image'):
                 prepare.build(root, target)
             self.assertFalse(target.exists())
+
+
+class CurrentInstallerEntryTests(unittest.TestCase):
+    def test_default_builder_and_prepare_help_require_owned_kernel_contract(self):
+        for name in ('prepare_install.py', 'build_first_install.py'):
+            q = subprocess.run([sys.executable, '-B', str(HERE / name), '--help'], capture_output=True, text=True)
+            self.assertEqual(q.returncode, 0, q.stderr)
+            self.assertIn('--kernel-contract', q.stdout)
+            self.assertNotIn('--release', q.stdout)
+            q = subprocess.run([sys.executable, '-B', str(HERE / name), '--inputs', '/missing',
+                '--stock-super-gzip', '/missing', '--output', '/missing', '--build-number', 'TEST'],
+                capture_output=True, text=True)
+            self.assertEqual(q.returncode, 2)
+            self.assertIn('--kernel-contract', q.stderr)
+
+    def test_actual_prepare_cli_forwards_the_complete_cohort_inputs(self):
+        import build_first_install
+        with patch.object(sys, 'argv', ['prepare_install.py', '--inputs', '/inputs',
+                '--stock-super-gzip', '/stock.gz', '--output', '/packet', '--build-number', 'TEST',
+                '--kernel-contract', '/cohort.json', '--kernel-contract-sha256', 'a' * 64]), \
+             patch.object(build_first_install, 'build', return_value={'status': 'FIXTURE_ONLY'}) as build:
+            runpy.run_path(str(HERE / 'prepare_install.py'), run_name='__main__')
+        build.assert_called_once_with(Path('/inputs'), Path('/stock.gz'), Path('/packet'),
+                                     'TEST', Path('/cohort.json'), 'a' * 64)
+
+    def signed_fixture(self, root):
+        import first_install
+        key, cert = root / 'test-key.pem', root / 'ota.x509.pem'
+        subprocess.run(['openssl', 'req', '-x509', '-newkey', 'rsa:2048', '-nodes', '-days', '1',
+            '-subj', '/CN=Installer test fixture', '-keyout', str(key), '-out', str(cert)],
+            capture_output=True, check=True)
+        manifest = dict(format_version=2, build_number='TEST', images={n: n + '.img' for n in
+            ['boot_a', 'boot_b', 'userdata', 'metadata']}, system_bytes=4,
+            system_sha256=hashlib.sha256(b'TEST').hexdigest())
+        (root / 'installer.json').write_text(json.dumps(manifest))
+        subprocess.run(['openssl', 'dgst', '-sha256', '-sign', str(key),
+            '-out', str(root / 'installer.json.sig'), str(root / 'installer.json')], check=True, capture_output=True)
+        der = subprocess.check_output(['openssl', 'x509', '-in', str(cert), '-outform', 'DER'])
+        return manifest, hashlib.sha256(der).hexdigest()
+
+    def test_actual_verify_cli_authenticates_signature_before_packet_validation(self):
+        import first_install
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary); manifest, cert_hash = self.signed_fixture(root)
+            # This test exercises the real owner-pin/OpenSSL authentication path with an ephemeral
+            # fixture identity; actual complete cohort validation has its own binary/range tests.
+            with patch.object(first_install, 'CERT_SHA', cert_hash), \
+                 patch.object(first_install, 'validate_packet', return_value=({}, {'boot_a': {}})) as validate, \
+                 patch.object(sys, 'argv', ['verify_install.py', '--packet', str(root)]):
+                runpy.run_path(str(HERE / 'verify_install.py'), run_name='__main__')
+            validate.assert_called_once_with(root, manifest)
+
+    def test_tampered_signed_manifest_never_reaches_packet_validation(self):
+        import first_install
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary); _, cert_hash = self.signed_fixture(root)
+            with (root / 'installer.json').open('ab') as stream: stream.write(b' ')
+            with patch.object(first_install, 'CERT_SHA', cert_hash), \
+                 patch.object(first_install, 'validate_packet') as validate, \
+                 self.assertRaises(subprocess.CalledProcessError):
+                verify.verify(None, root)
+            validate.assert_not_called()
+
+    def test_optional_raw_system_comparison_is_not_bypassed(self):
+        import first_install
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary); manifest, cert_hash = self.signed_fixture(root)
+            raw = root / 'raw'; raw.mkdir(); (raw / 'system.img').write_bytes(b'BAD!')
+            with patch.object(first_install, 'CERT_SHA', cert_hash), \
+                 patch.object(first_install, 'validate_packet', return_value=({}, {'boot_a': {}})), \
+                 self.assertRaisesRegex(ValueError, 'system input differs'):
+                verify.verify(raw, root)
 
 
 if __name__ == '__main__':

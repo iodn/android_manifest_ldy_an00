@@ -123,15 +123,15 @@
     },
     {
       "path": "packages/apps/OpenEUICC",
-      "revision": "b725630b975e64d7aea22ff03bb6e00aa6de712b",
-      "tree": "b6504e996e71f3d95dee2d29287dc19189c986ff",
+      "revision": "03f64de980e9899ee1ff2cd87c7ec8e1b92c3465",
+      "tree": "efcb0da744ea64e58e4e596bfe9c81538e767daf",
       "base_revision": "89d677e07d0ebbd2d157ede2cb31f76aec737e3a",
       "patch": "packages_apps_OpenEUICC.patch",
-      "patch_sha256": "f0a5e3c3e3585da62e2863eadb509b01f34c24a6e9022ace9897314d00bea3d8",
+      "patch_sha256": "87d32d76e5867f55e0d3b41852a4b0348e447f3626b850f5119cecee2ac8ad28",
       "patch_tree_verified": true,
       "remote_url": "https://github.com/estkme-group/openeuicc.git",
-      "target_snapshot_revision": "b725630b975e64d7aea22ff03bb6e00aa6de712b",
-      "target_snapshot_tree": "b6504e996e71f3d95dee2d29287dc19189c986ff"
+      "target_snapshot_revision": "03f64de980e9899ee1ff2cd87c7ec8e1b92c3465",
+      "target_snapshot_tree": "efcb0da744ea64e58e4e596bfe9c81538e767daf"
     },
     {
       "path": "packages/apps/Settings",

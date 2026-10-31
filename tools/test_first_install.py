@@ -215,7 +215,7 @@ class TransactionTests(unittest.TestCase):
         obj.stock_backup = Path('/existing-stock')
         with patch.object(install, 'check_stock_backup') as check:
             obj.install({'super': {}}, {'super': {}, 'lk_a': {}})
-        check.assert_called_once_with(obj.stock_backup, {'super': {}})
+        check.assert_called_once_with(obj.stock_backup, {'super': {}}, install.MUTABLE)
         self.assertIn(('readback', 'before', False), obj.events)
         self.assertNotIn(('readback', 'before', True), obj.events)
 

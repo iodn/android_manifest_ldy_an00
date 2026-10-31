@@ -1,0 +1,23 @@
+From 17dcabceec3e4d462ce9622dd71be48dfb7011a7 Mon Sep 17 00:00:00 2001
+From: iodn <iodn@users.noreply.github.com>
+Date: Fri, 30 Oct 2026 22:50:02 +0000
+Subject: [PATCH 3/5] Update README.md
+
+Change-Id: I6c1fc32158527b1f9607d93f3cebde0a679d7b8f
+---
+ scripts/setlocalversion | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/scripts/setlocalversion b/scripts/setlocalversion
+index 5818465ab..2024fe04a 100755
+--- a/scripts/setlocalversion
++++ b/scripts/setlocalversion
+@@ -205,4 +205,7 @@ elif [ "${LOCALVERSION+set}" != "set" ]; then
+ 	scm_version="$(scm_version --short)"
+ fi
+ 
+-echo "${KERNELVERSION}${file_localversion}${config_localversion}${LOCALVERSION}${scm_version}"
++# Keep device branding separate from the GKI label, retaining revision and page size.
++device_localversion="${file_localversion}${config_localversion}${LOCALVERSION}${scm_version}"
++device_localversion=$(printf '%s' "$device_localversion" | sed -E 's/^-android[0-9]+-[0-9]+//')
++echo "${KERNELVERSION}-LDY-AN00${device_localversion}"

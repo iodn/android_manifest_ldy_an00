@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: Apache-2.0
-"""Independently decode prepared sparse overlays; read host files only."""
+"""Verify signed first-install packets or retained diagnostic overlays; host files only."""
 import argparse
 import hashlib
 import json
@@ -40,6 +40,20 @@ def decode(path):
 
 
 def verify(release, packet):
+    if (packet / 'installer.json').exists():
+        # The public packet is authenticated before trusting any path or image identity.
+        from first_install import authenticate, validate_packet
+        manifest = authenticate(packet)
+        before, after = validate_packet(packet, manifest)
+        if release is not None:
+            image = release / 'system.img'
+            if image.stat().st_size != manifest['system_bytes'] or sha(image) != manifest['system_sha256']:
+                raise ValueError('Maintainer system input differs from the signed installer')
+        return {'status': 'SIGNED_FIRST_INSTALL_PACKET_VERIFIED',
+                'format_version': manifest['format_version'], 'build_number': manifest['build_number'],
+                'verified_partitions': len(after), 'physical_writes': len(manifest['images']) - 2,
+                'phone_access': False, 'hardware_trial_verified': False}
+    # Retained diagnostic overlay format, not the current public installer.
     manifest = json.loads((packet / 'install-files.json').read_text())
     expected = '32a0183ea9b7381da70585e0d7596183b1d80e39b0be18dc27233114cd465c84'
     image = release / 'system.img' if release else None

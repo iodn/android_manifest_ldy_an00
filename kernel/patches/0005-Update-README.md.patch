@@ -1,0 +1,34 @@
+From 275da71428d7cc471f576284038a050191339c65 Mon Sep 17 00:00:00 2001
+From: iodn <iodn@users.noreply.github.com>
+Date: Fri, 30 Oct 2026 23:34:36 +0000
+Subject: [PATCH 5/5] Update README.md
+
+Change-Id: I70503700deaf72e1d8be8e18863f7b6e5aae5f94
+---
+ scripts/build-ldy-an00.sh | 1 +
+ scripts/setlocalversion   | 2 +-
+ 2 files changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/scripts/build-ldy-an00.sh b/scripts/build-ldy-an00.sh
+index 0f7845282..e35f01b40 100755
+--- a/scripts/build-ldy-an00.sh
++++ b/scripts/build-ldy-an00.sh
+@@ -17,6 +17,7 @@ if [ "$SOURCE_DATE_EPOCH" -le 0 ]; then
+     exit 2
+ fi
+ export SOURCE_DATE_EPOCH
++export KLEAF_EXTRA_GIT_PROJECTS="${KLEAF_EXTRA_GIT_PROJECTS:+${KLEAF_EXTRA_GIT_PROJECTS}:}common"
+ printf 'Kernel build SOURCE_DATE_EPOCH=%s\n' "$SOURCE_DATE_EPOCH" >&2
+ 
+ cd "$workspace_dir"
+diff --git a/scripts/setlocalversion b/scripts/setlocalversion
+index 2024fe04a..eafffc08e 100755
+--- a/scripts/setlocalversion
++++ b/scripts/setlocalversion
+@@ -207,5 +207,5 @@ fi
+ 
+ # Keep device branding separate from the GKI label, retaining revision and page size.
+ device_localversion="${file_localversion}${config_localversion}${LOCALVERSION}${scm_version}"
+-device_localversion=$(printf '%s' "$device_localversion" | sed -E 's/^-android[0-9]+-[0-9]+//')
++device_localversion=$(printf '%s' "$device_localversion" | sed -E 's/^-android[0-9]+-[0-9]+//; s/^-LDY-AN00($|-)/\1/')
+ echo "${KERNELVERSION}-LDY-AN00${device_localversion}"

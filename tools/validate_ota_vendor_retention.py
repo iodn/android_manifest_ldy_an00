@@ -8,6 +8,7 @@ import zipfile
 from pathlib import Path
 from google.protobuf.message import DecodeError
 import update_metadata_pb2 as metadata
+from postinstall_policy import validate_partition as validate_postinstall_partition
 
 MAX_MANIFEST = 16 * 1024 * 1024
 MAX_METADATA_SIGNATURE = 1024 * 1024
@@ -47,8 +48,10 @@ def validate_stream(stream, payload_size):
     if len(names) != 2 or set(names) != EXPECTED_PARTITIONS:
         raise AdmissionError("payload must update exactly system and vbmeta_system")
     for partition in manifest.partitions:
-        if partition.run_postinstall or partition.postinstall_path:
-            raise AdmissionError("postinstall hooks require a separate review")
+        try:
+            validate_postinstall_partition(partition)
+        except ValueError as error:
+            raise AdmissionError(str(error)) from error
     if not manifest.HasField("partial_update") or not manifest.partial_update:
         raise AdmissionError("partial_update must explicitly be true")
     if not manifest.HasField("dynamic_partition_metadata"):

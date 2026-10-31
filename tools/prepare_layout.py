@@ -69,12 +69,18 @@ def parse_capture(data):
     entries = raw[lba * 4096:lba * 4096 + count * entry_size]
     if len(entries) != count * entry_size or zlib.crc32(entries) & 0xffffffff != crc:
         raise ValueError('GPT entry-array CRC mismatch')
-    found = {}
+    from first_install_cohort import GPT
+    found, cohort_found = {}, {}
     for i in range(count):
         entry = entries[i * entry_size:(i + 1) * entry_size]
         if entry[:16] == bytes(16):
             continue
         name = entry[56:128].decode('utf-16le').split('\0', 1)[0]
+        if name in GPT:
+            first, last = struct.unpack_from('<QQ', entry, 32)
+            if name in cohort_found or last < first:
+                raise ValueError('Duplicate or invalid cohort GPT partition')
+            cohort_found[name] = {'first_lba': first, 'last_lba': last, 'bytes': (last - first + 1) * 4096}
         if name in GEOMETRY:
             if aliases[name] != '/dev/block/sdc' + str(i + 1):
                 raise ValueError('GPT and by-name alias disagree: ' + name)
@@ -88,7 +94,7 @@ def parse_capture(data):
     if any(left[1] >= right[0] for left, right in zip(ranges, ranges[1:])):
         raise ValueError('Overlapping target GPT partitions')
     return {'model': fields[1], 'slot': fields[2][1:], 'boot_id': fields[3],
-            'geometry': geometry, 'partitions': found, 'gpt_crcs_valid': True}
+            'geometry': geometry, 'partitions': found, 'gpt_crcs_valid': True, 'cohort_partitions': cohort_found}
 
 
 def check_receipt(receipt, serial, geometry, now=None):

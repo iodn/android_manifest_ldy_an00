@@ -1,0 +1,73 @@
+From 0cd88f62757fad1920f8c2135284ce282584d437 Mon Sep 17 00:00:00 2001
+From: iodn <iodn@users.noreply.github.com>
+Date: Fri, 30 Oct 2026 21:23:20 +0000
+Subject: [PATCH 2/5] Update README.md
+
+Change-Id: Id24192e44baa7f878ef4d6cfa63143d292ccc915
+---
+ include/linux/slab.h | 5 +++++
+ mm/slab.h            | 7 +++++--
+ mm/slab_common.c     | 2 +-
+ 3 files changed, 11 insertions(+), 3 deletions(-)
+
+diff --git a/include/linux/slab.h b/include/linux/slab.h
+index c33221fa0..08d3728f0 100644
+--- a/include/linux/slab.h
++++ b/include/linux/slab.h
+@@ -60,6 +60,8 @@ enum _slab_flag_bits {
+ #ifdef CONFIG_SLAB_OBJ_EXT
+ 	_SLAB_NO_OBJ_EXT,
+ #endif
++	_SLAB_MM_TRACK,
++	_SLAB_MM_NOTRACK,
+ 	_SLAB_FLAGS_LAST_BIT
+ };
+ 
+@@ -222,6 +224,9 @@ enum _slab_flag_bits {
+ #define SLAB_NO_OBJ_EXT		__SLAB_FLAG_UNUSED
+ #endif
+ 
++#define SLAB_MM_TRACK		__SLAB_FLAG_BIT(_SLAB_MM_TRACK)
++#define SLAB_MM_NOTRACK		__SLAB_FLAG_BIT(_SLAB_MM_NOTRACK)
++
+ /*
+  * ZERO_SIZE_PTR will be returned for zero sized kmalloc requests.
+  *
+diff --git a/mm/slab.h b/mm/slab.h
+index 7bb8b125d..6a7a16ecb 100644
+--- a/mm/slab.h
++++ b/mm/slab.h
+@@ -484,7 +484,8 @@ static inline bool is_kmalloc_normal(struct kmem_cache *s)
+ 			  SLAB_NO_USER_FLAGS | SLAB_KMALLOC | SLAB_NO_MERGE)
+ 
+ /* Common flags available with current configuration */
+-#define CACHE_CREATE_MASK (SLAB_CORE_FLAGS | SLAB_DEBUG_FLAGS | SLAB_CACHE_FLAGS)
++#define CACHE_CREATE_MASK (SLAB_CORE_FLAGS | SLAB_DEBUG_FLAGS | SLAB_CACHE_FLAGS | \
++			  SLAB_MM_TRACK | SLAB_MM_NOTRACK)
+ 
+ /* Common flags permitted for kmem_cache_create */
+ #define SLAB_FLAGS_PERMITTED (SLAB_CORE_FLAGS | \
+@@ -499,7 +500,9 @@ static inline bool is_kmalloc_normal(struct kmem_cache *s)
+ 			      SLAB_ACCOUNT | \
+ 			      SLAB_KMALLOC | \
+ 			      SLAB_NO_MERGE | \
+-			      SLAB_NO_USER_FLAGS)
++			      SLAB_NO_USER_FLAGS | \
++			      SLAB_MM_TRACK | \
++			      SLAB_MM_NOTRACK)
+ 
+ bool __kmem_cache_empty(struct kmem_cache *);
+ int __kmem_cache_shutdown(struct kmem_cache *);
+diff --git a/mm/slab_common.c b/mm/slab_common.c
+index e95d747d3..36640b667 100644
+--- a/mm/slab_common.c
++++ b/mm/slab_common.c
+@@ -47,7 +47,7 @@ struct kmem_cache *kmem_cache;
+  */
+ #define SLAB_NEVER_MERGE (SLAB_RED_ZONE | SLAB_POISON | SLAB_STORE_USER | \
+ 		SLAB_TRACE | SLAB_TYPESAFE_BY_RCU | SLAB_NOLEAKTRACE | \
+-		SLAB_FAILSLAB | SLAB_NO_MERGE)
++		SLAB_FAILSLAB | SLAB_NO_MERGE | SLAB_MM_NOTRACK)
+ 
+ #define SLAB_MERGE_SAME (SLAB_RECLAIM_ACCOUNT | SLAB_CACHE_DMA | \
+ 			 SLAB_CACHE_DMA32 | SLAB_ACCOUNT)

@@ -79,8 +79,20 @@ def authenticate(root):
     return json.loads((root / 'installer.json').read_text())
 
 
+def mutable_partitions(manifest):
+    if manifest.get('format_version', 1) == 2:
+        from first_install_cohort import MUTABLE as cohort_mutable
+        return cohort_mutable
+    return MUTABLE
+
+
 def validate_packet(root, manifest):
     baseline = json.loads((HERE / 'stock113-partitions.json').read_text())
+    if manifest.get('format_version') == 2:
+        from first_install_cohort import validate
+        if manifest['files'][manifest['fastboot']]['sha256'] != FASTBOOT_SHA:
+            raise ValueError('Unqualified fastboot binary')
+        return validate(root, manifest, baseline, checked_file, decode)
     if (manifest['format_version'] != 1 or manifest['model'] != 'LDY-AN00'
             or manifest['firmware'] != '10.0.0.113(C00E100R101P1)'
             or manifest['before'] != baseline):
@@ -137,16 +149,17 @@ def validate_packet(root, manifest):
 
 
 
-def check_stock_backup(directory, profile):
+def check_stock_backup(directory, profile, mutable=None):
     """Reuse a recovery set verified earlier; reject changed saved-file metadata.
 
     This checks a cached verification receipt, not a fresh hash of backup data.
     Device partition hashes are always read independently before installation.
     """
+    mutable = MUTABLE if mutable is None else mutable
     receipt = json.loads((directory / 'RECOVERY.json').read_text())
     if receipt.get('format_version') != 1 or receipt.get('model') != 'LDY-AN00':
         raise ValueError('Unsupported stock recovery receipt')
-    if set(receipt['partitions']) != MUTABLE:
+    if set(receipt['partitions']) != mutable:
         raise ValueError('Incomplete stock recovery receipt')
     for name, row in receipt['partitions'].items():
         relative = PurePosixPath(row['file'])
@@ -294,7 +307,15 @@ class Installer:
         if layout['slot'] != self.slot:
             raise ValueError('Selected slot changed since the Android layout check')
         atomic_json(self.directory / 'layout-verified.json', layout)
-        if int(getvar(self.command(['getvar', 'max-download-size']), 'max-download-size'), 16) < 8 * 1024 * 1024 + 64:
+        required_download = 8 * 1024 * 1024 + 64
+        if self.m.get('format_version') == 2:
+            from first_install_cohort import GPT
+            if layout.get('cohort_partitions') != {name: {'first_lba': first, 'last_lba': last,
+                    'bytes': (last - first + 1) * 4096} for name, (first, last) in GPT.items()}:
+                raise ValueError('Full-cohort GPT layout differs from the qualified stock baseline')
+            required_download = max(required_download, *(self.m['files'][name]['bytes']
+                for name in self.m['images'].values()))
+        if int(getvar(self.command(['getvar', 'max-download-size']), 'max-download-size'), 16) < required_download:
             raise ValueError('Fastboot download limit too small')
         self.state('MISC_READ_PENDING')
         misc = capture_misc(self.serial)
@@ -304,15 +325,16 @@ class Installer:
         self.state('MISC_VERIFIED')
 
     def readback(self, phase, profile, backup=False):
+        mutable = mutable_partitions(self.m)
         reports = self.directory / phase
         reports.mkdir()
         for index, (name, row) in enumerate(profile.items(), 1):
-            print(('Backing up' if backup and name in MUTABLE else 'Verifying') + ' %d/%d: %s (%d bytes)' % (index, len(profile), name, row['bytes']), flush=True)
+            print(('Backing up' if backup and name in mutable else 'Verifying') + ' %d/%d: %s (%d bytes)' % (index, len(profile), name, row['bytes']), flush=True)
             self.state('READBACK_PENDING', partition=name, read_phase=phase)
             receipt = reports / (name + '.json')
             argv = [sys.executable, '-B', str(HERE / 'hash_readonly.py'), '--serial', self.serial,
                     '--partition', name, '--sha256', row['sha256'], '--receipt', str(receipt), '--execute-read-only']
-            if backup and name in MUTABLE:
+            if backup and name in mutable:
                 argv += ['--backup', str(reports / (name + '.img'))]
             with (reports / (name + '.log')).open('x') as log:
                 subprocess.run(argv, check=True, timeout=7300, stdout=log, stderr=subprocess.STDOUT)
@@ -324,7 +346,7 @@ class Installer:
 
         if backup:
             rows = {}
-            for name in MUTABLE:
+            for name in mutable:
                 path = reports / (name + '.img')
                 rows[name] = {'file': path.name, 'identity': profile[name],
                               'stored_bytes': path.stat().st_size,
@@ -341,18 +363,24 @@ class Installer:
     def install(self, before, after):
         self.inspect()
         if self.stock_backup is not None:
-            check_stock_backup(self.stock_backup, before)
+            check_stock_backup(self.stock_backup, before, mutable_partitions(self.m))
         self.readback('before', before, backup=self.stock_backup is None)
-        for name in [*self.m['system_pieces'], self.m['footer_piece']]:
+        for name in [*self.m['system_pieces'], self.m['footer_piece'], *self.m.get('dlkm_pieces', [])]:
             self.flash('super', name)
-        for partition in ('vbmeta_system_a', 'vbmeta_system_b', 'vbmeta_a', 'vbmeta_b'):
-            self.flash(partition, self.m['images'][partition])
+        if self.m.get('format_version') == 2:
+            from first_install_cohort import physical_plan
+            plan = physical_plan(self.m['images'])
+        else:
+            plan = [(partition, self.m['images'][partition]) for partition in
+                    ('vbmeta_system_a', 'vbmeta_system_b', 'vbmeta_a', 'vbmeta_b')]
+        for partition, image in plan:
+            self.flash(partition, image)
         self.readback('after-system', after)
         for partition in ('userdata', 'metadata'):
             print('Formatting ' + partition + '...', flush=True)
             self.command(['erase', partition])
             self.flash(partition, self.m['images'][partition])
-        retained = {n: r for n, r in after.items() if n not in ('super', 'vbmeta_a', 'vbmeta_b', 'vbmeta_system_a', 'vbmeta_system_b')}
+        retained = {n: r for n, r in after.items() if n not in mutable_partitions(self.m)}
         self.readback('after-format', retained)
         self.state('COMPLETE', build=self.m['build_number'], data_erased=True)
 
@@ -367,6 +395,8 @@ def main():
                         help='Reuse an existing recovery set with a verified RECOVERY.json receipt')
     parser.add_argument('--yes-erase-userdata', action='store_true')
     parser.add_argument('--reboot', action='store_true')
+    parser.add_argument('--reboot-recovery', action='store_true',
+                        help='Boot Lineage Recovery for add-on sideload before the first Android boot')
     args = parser.parse_args()
     try:
         __import__('usb.core')
@@ -376,6 +406,8 @@ def main():
     root = args.package.resolve()
     manifest = authenticate(root)
     before, after = validate_packet(root, manifest)
+    if args.reboot_recovery and manifest.get('format_version') != 2:
+        raise ValueError('Recovery-first installation requires the complete Lineage Recovery cohort')
     fastboot = root / manifest['fastboot']
     devices = subprocess.check_output([str(fastboot), 'devices'], text=True, timeout=15).splitlines()
     serials = [line.split()[0] for line in devices if line.strip()]
@@ -400,8 +432,8 @@ def main():
     directory = args.backup_dir or state_dir / (serial + '-' + time.strftime('%Y%m%dT%H%M%S'))
     directory.parent.mkdir(parents=True, exist_ok=True)
     if args.stock_backup:
-        check_stock_backup(args.stock_backup, before)
-    required = 1073741824 + (0 if args.stock_backup else sum(before[n]['bytes'] for n in MUTABLE))
+        check_stock_backup(args.stock_backup, before, mutable_partitions(manifest))
+    required = 1073741824 + (0 if args.stock_backup else sum(before[n]['bytes'] for n in mutable_partitions(manifest)))
     if shutil.disk_usage(directory.parent).free < required:
         raise ValueError('Insufficient space for verified recovery backups; allow at least 22 GB')
     if not args.yes_erase_userdata:
@@ -416,9 +448,11 @@ def main():
     try:
         installer.install(before, after)
         print('INSTALL_VERIFIED', manifest['build_number'])
-        if args.reboot:
-            installer.command(['reboot'])
-            installer.state('COMPLETE', build=manifest['build_number'], data_erased=True, reboot_requested=True)
+        if args.reboot or args.reboot_recovery:
+            target = ['reboot', 'recovery'] if args.reboot_recovery else ['reboot']
+            installer.command(target)
+            installer.state('COMPLETE', build=manifest['build_number'], data_erased=True,
+                            reboot_requested=True, reboot_target='recovery' if args.reboot_recovery else 'android')
     except BaseException:
         print('STOP: installation did not complete. Do not retry or reboot blindly. Journal: ' + str(directory), file=sys.stderr)
         raise

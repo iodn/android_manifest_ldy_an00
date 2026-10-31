@@ -1,0 +1,723 @@
+[
+  {
+    "path": "lib/modules/6lowpan.ko",
+    "source": "net/6lowpan/6lowpan.ko",
+    "sha256": "bbc3a4b9bee12215c270158ca715642410158aac21696ce962f9c9c0f418b113",
+    "build_id": "d5d9b7481771d1592a4e25a4c33512486f56d9f4",
+    "old_sha256": "0b88c4993eb4194e00842a87cc6e73cc2486907189d0a802a78c890a31482e8f"
+  },
+  {
+    "path": "lib/modules/8021q.ko",
+    "source": "net/8021q/8021q.ko",
+    "sha256": "280d77d9776984c413f7a548ba4cecb33199e2e9a7bffa94d57b6c77d6f1a6be",
+    "build_id": "566989a10156b0e210b9aafc4e9351b669802994",
+    "old_sha256": "8074197b5cb1161a4c5a54ae7b70e4646fabb45822709ea982a67c27c34e9a29"
+  },
+  {
+    "path": "lib/modules/9pnet.ko",
+    "source": "net/9p/9pnet.ko",
+    "sha256": "a89eef991af7f9188b0bc1607cad1a96da999930a0d1e0b0d7b5336ccbe38bec",
+    "build_id": "21f8eb8de4b56f33d637302b4136f6e7ef922b90",
+    "old_sha256": "ac1a1beb826c16bb6d3128948a43cb9dff96a374a8d56ee50551fa171ed132f8"
+  },
+  {
+    "path": "lib/modules/9pnet_fd.ko",
+    "source": "net/9p/9pnet_fd.ko",
+    "sha256": "99fb72ea873b6c391aa43874d5898e65813e104153b25c353fe4c7204d745ecb",
+    "build_id": "2e68e526eb192b605b20d5302ec4be34f2d85fb4",
+    "old_sha256": "1e5f736a453cc3cb722417649953139b098546283d430fb278388e3d838d235c"
+  },
+  {
+    "path": "lib/modules/aqc111.ko",
+    "source": "drivers/net/usb/aqc111.ko",
+    "sha256": "a2cb6d6004a679aaee93dd0be65e30587f8fa5e04dd02be0b4311ce127e8d31a",
+    "build_id": "94b7f50bc4e51049b8eb0bb91b03d5adcb22fe27",
+    "old_sha256": "e25340b3c2f8adecef3a989e55beb79f973cc4f1626e828d0b4cb3d6c08e6ba6"
+  },
+  {
+    "path": "lib/modules/asix.ko",
+    "source": "drivers/net/usb/asix.ko",
+    "sha256": "9a8f5738790f436b7a74201d0a9dd677bfd26649eb6841137a6b97e0be4edf25",
+    "build_id": "2b0bde15b2a2b9118ee5bf94ef7ab9a1f4bd2dc5",
+    "old_sha256": "16b460551fffa7039bcb2ef23c16b42d460547fc9b1b4bfe60ecd300c9be4285"
+  },
+  {
+    "path": "lib/modules/ax88179_178a.ko",
+    "source": "drivers/net/usb/ax88179_178a.ko",
+    "sha256": "56732b55e1f4f083f1592635d74edffe04b1c717edf5cb92f1c0a1b0af6cbee1",
+    "build_id": "43e2132f143ce52fee603743fcbe5a3879cda632",
+    "old_sha256": "a74eb67d8c1bb4dbdf92a3dc2cafe39effc888676d2b6a8fb27ab854e0842223"
+  },
+  {
+    "path": "lib/modules/bluetooth.ko",
+    "source": "net/bluetooth/bluetooth.ko",
+    "sha256": "cad2b2f93ea2b4556911397628a9db4e62360e23ec56c813a107d2c9640ca07a",
+    "build_id": "4c3ce8c93e7f15d7d1651ba6f8a1b15793cc0e14",
+    "old_sha256": "88abf740255288121bcdc69878758ed6f075edd8e607288fe97897b5d2ea46c6"
+  },
+  {
+    "path": "lib/modules/bsd_comp.ko",
+    "source": "drivers/net/ppp/bsd_comp.ko",
+    "sha256": "e4d3afc08d615066472c2a10afd745ae574f2381bb96dbb06002667b8a846675",
+    "build_id": "c5b31ffe747101c7df095f38e85ef9ae7833335b",
+    "old_sha256": "2a68bf49b266f0fb3fedae971b054f7f00fa064ae496b96fad4d908cc1305822"
+  },
+  {
+    "path": "lib/modules/btbcm.ko",
+    "source": "drivers/bluetooth/btbcm.ko",
+    "sha256": "eb2f56ac1c5ee9503f63af1b677b84019c02c0087af9021a3488ddb9bc04ea26",
+    "build_id": "193cd5de301e31279ec27ef324148f54172af6e2",
+    "old_sha256": "afb1c8e9172f6f5108011eae30a5a86044febea206b517be03cdbf9f83d7beb0"
+  },
+  {
+    "path": "lib/modules/btqca.ko",
+    "source": "drivers/bluetooth/btqca.ko",
+    "sha256": "0a5a48e69b770c679a1a3e8ef81508c80abcf07c02e22f37180c8ed00caafd45",
+    "build_id": "cebcbf5b8507ee9867ca7aaa8fbb560916916175",
+    "old_sha256": "ef64b01ba7ad1e39fcafa8035c503f406d177a1e6bca41a6c14ba18ca892ac5a"
+  },
+  {
+    "path": "lib/modules/btsdio.ko",
+    "source": "drivers/bluetooth/btsdio.ko",
+    "sha256": "0cffbd059da27393a45985758bab329c397d6eeb7a7024879592999d2afc1938",
+    "build_id": "7cb689a751470dd7ca240bb486658c6e3cd9d8fc",
+    "old_sha256": "90ec869f9947f0001a9cf9e4e2d1ed17f84205f1732f4baed02624f403397970"
+  },
+  {
+    "path": "lib/modules/can-bcm.ko",
+    "source": "net/can/can-bcm.ko",
+    "sha256": "f679754fe177ee1b38e976618c30956a6f560cd17471bf371a0a8a7682c64ff3",
+    "build_id": "511f3781e181bbe002fd4403e57064e81ac8444b",
+    "old_sha256": "f74a28082fc5a177a8b94c993d26253b947d0ac972edb1e02bcc5d364c8e8a3b"
+  },
+  {
+    "path": "lib/modules/can-dev.ko",
+    "source": "drivers/net/can/dev/can-dev.ko",
+    "sha256": "66cd1a19889e1408449fe3425f9df14ec0677bdb40d16cb3811d7c19b63f5f48",
+    "build_id": "a90b4e6cd89203fcdf87b91f342a938c468c4279",
+    "old_sha256": "3fd067d0afc1859f075c05f391250c6ef13f49d3b797cf40f17bc98d65c8763a"
+  },
+  {
+    "path": "lib/modules/can-gw.ko",
+    "source": "net/can/can-gw.ko",
+    "sha256": "4d495f31a91eb6858799a94c206bd338482d680f0c086b11577858a559207134",
+    "build_id": "5830535ea23ad49704271c50e17db39b63b63820",
+    "old_sha256": "fadfa08eb09baa3d811be399d60fb2fc9e05a3b24e1ea87623bfbad7341d87e2"
+  },
+  {
+    "path": "lib/modules/can-raw.ko",
+    "source": "net/can/can-raw.ko",
+    "sha256": "a0199518cdf0177f8e7b67964f9a14fa5c7fb2bb2e1f8c69b6fc8074e7386f51",
+    "build_id": "e0e541f110d745de94f2a0d4b387873d31e42c8c",
+    "old_sha256": "4498677c21d30a7995c912c51334657d06dd2ebf5394e8345f633d2589ab15a6"
+  },
+  {
+    "path": "lib/modules/can.ko",
+    "source": "net/can/can.ko",
+    "sha256": "bd04df4048e4a764a5d25f4a623d3012c47e3c54294c3c8123322a6c51c1b8b2",
+    "build_id": "cec7fcd9821d59aa0b55fbd7ae8fcd9d9acbc415",
+    "old_sha256": "05d9199a3dac009ef75f19b7e67f8c621e278385e368870d4604e38463633de7"
+  },
+  {
+    "path": "lib/modules/cctrng.ko",
+    "source": "drivers/char/hw_random/cctrng.ko",
+    "sha256": "f837195ecd4456dd6ead8b1f6fcc972dd66394f6b46312f5db5990c091a9844e",
+    "build_id": "826d04fc56188cd30891036750f6c62efc2c189a",
+    "old_sha256": "eab1dd39e22b637b4ab3b6b8b9c7ce3bd069806f2a396fc1cb1db2545d192161"
+  },
+  {
+    "path": "lib/modules/cdc-acm.ko",
+    "source": "drivers/usb/class/cdc-acm.ko",
+    "sha256": "9c174280f6d26c6b00f74fbaed0596ba8d033f1a7520f73700d2b4c0217f5de9",
+    "build_id": "76186e5a96d17cf2a42c0e65fae3182a787b21ea",
+    "old_sha256": "9bbaf20e57c215642f950577d609779781bac83dac35585848d229ce8998bc84"
+  },
+  {
+    "path": "lib/modules/cdc_eem.ko",
+    "source": "drivers/net/usb/cdc_eem.ko",
+    "sha256": "dcab2ef077855861cdd3c18033a2ada11788833964bc9b3a7f2255217f6db988",
+    "build_id": "2c30314e346e0d7824e681ca7f3b120bd2411ea1",
+    "old_sha256": "42a7d00345e6dce8c2c8f21b21bd9b506217c589b15b807ed873a1393497c558"
+  },
+  {
+    "path": "lib/modules/cdc_ether.ko",
+    "source": "drivers/net/usb/cdc_ether.ko",
+    "sha256": "ed41b4f3325b2c1b319c66f90527d3d227ef05f39988eb8cd4aab19c9662c652",
+    "build_id": "4fa2ccfa3981f6d736f644e07d464210fd103111",
+    "old_sha256": "d7e80b8ad73f184ad802bc85477816fcf156995e9562c97c0c1a80273fff24c8"
+  },
+  {
+    "path": "lib/modules/cdc_ncm.ko",
+    "source": "drivers/net/usb/cdc_ncm.ko",
+    "sha256": "be367cdea5380c9a63b9e8d9af55fb2edddb51f060f2c19a597682afad21e6e9",
+    "build_id": "5c5deae47131ecce02e02f1c092ababc55e1863e",
+    "old_sha256": "8ebd7c31828c9eb9fc04821828c4086bbd80d8afabe19581ae550b8fbdd42aa0"
+  },
+  {
+    "path": "lib/modules/clk-gate_test.ko",
+    "source": "drivers/clk/clk-gate_test.ko",
+    "sha256": "c46c526b2a271b3918943871d3a40a4ce3a708b7f5840b13dff2d0b378b5505e",
+    "build_id": "8421dc3e760d6c551fec29bf1500ccad62e88343",
+    "old_sha256": "065269facd7289be67b1b12413de90df29950588d0f7164673236f86d196d608"
+  },
+  {
+    "path": "lib/modules/clk-test.ko",
+    "source": "drivers/clk/clk-test.ko",
+    "sha256": "1821b73e33b47ca1331f2516b6dacbc87321ee917121824b4e2063366bc7726e",
+    "build_id": "7ad8f4e347099a80e29a6decf0a74bbd361afb07",
+    "old_sha256": "481ce016533c97f0f091730ea29f2686cf71ff54d44bc096220714a32ee5cf87"
+  },
+  {
+    "path": "lib/modules/clk_kunit_helpers.ko",
+    "source": "drivers/clk/clk_kunit_helpers.ko",
+    "sha256": "cd33df1ac5756bc997b914f7d4c365785ecfc3bf8748112ec50b2688a47edb6b",
+    "build_id": "6c47a7d1a1df84a45d0a7293905e7762d3af9ae2",
+    "old_sha256": "596fe6b758f0ade0c6144d45102bf3c237ede0ec990eb54b4999d2077e294759"
+  },
+  {
+    "path": "lib/modules/dev_addr_lists_test.ko",
+    "source": "net/core/dev_addr_lists_test.ko",
+    "sha256": "d306a79854512add273b590d9d78f0f8fd6f7b2604362aa3c8e254037eb0504c",
+    "build_id": "9a56c12e36a8e4848231c7e75c5b7c33ba80f824",
+    "old_sha256": "2d5d3eb2d0ea467cd92f13d254e3f9ed442c69486ce3ec1152949002dff94333"
+  },
+  {
+    "path": "lib/modules/ext4-inode-test.ko",
+    "source": "fs/ext4/ext4-inode-test.ko",
+    "sha256": "c46719fd74e9510f404e0f30633e4dada2d920d3b343fa6191a2ee972e4ef595",
+    "build_id": "6ff46c1048f0ae6c7a86a11c4996693fc0cc2d04",
+    "old_sha256": "d14d31685e29720aa5ae1daa69faea4b038061cd9bd1506b94dd3805d35d0a43"
+  },
+  {
+    "path": "lib/modules/fat_test.ko",
+    "source": "fs/fat/fat_test.ko",
+    "sha256": "b84e8e8aee8131b3e3a56ab1997e0985ab2b34c42a218e6e7bb06ec919f38be6",
+    "build_id": "c43fba374beda894dfbb818a35c072cd7e622793",
+    "old_sha256": "e4ba55d885315679f40e4d1ea708e6f2a6ad64d0fcbcb2b6e85362bad067132a"
+  },
+  {
+    "path": "lib/modules/ftdi_sio.ko",
+    "source": "drivers/usb/serial/ftdi_sio.ko",
+    "sha256": "9ee8e423feca0e06ec5b63bf86e8a5af634e41b108414f372378a1826ac43ab7",
+    "build_id": "187f2808763ef258974728d042792bbb1c32b446",
+    "old_sha256": "ae4a640955cf7e0a7b3888bbcf06b432c6ff02d9e103867422d492caa92afb7b"
+  },
+  {
+    "path": "lib/modules/gnss.ko",
+    "source": "drivers/gnss/gnss.ko",
+    "sha256": "c61cb3d22c15359afb487648c8ecd83d3b76e9ead703942c70e7163b9aaa14ab",
+    "build_id": "37133f5757a29b1be8a8886a6085655273656402",
+    "old_sha256": "2481955b0b688a4fb44ea302b3ecda4937ca0eb6778b10d81e7bac744883741a"
+  },
+  {
+    "path": "lib/modules/gzvm.ko",
+    "source": "arch/arm64/geniezone/gzvm.ko",
+    "sha256": "f783650a42cbc0426f06e42db9730e88200221781cade5b10276c93a324ab757",
+    "build_id": "6a7382701537faa3756f49163d6a81bf0bc77b0f",
+    "old_sha256": "43b83b9b3139a43e6c899a9595bc8d5047a63d234593a0726cca3835afd1cb4f"
+  },
+  {
+    "path": "lib/modules/hci_uart.ko",
+    "source": "drivers/bluetooth/hci_uart.ko",
+    "sha256": "fcf1efd56182ebf41242f30688c18bda9d934a61216f8a87575a410677c5b248",
+    "build_id": "aa6c3ca06bd215da9ccbab66cb5d1091ba5caf61",
+    "old_sha256": "2ced6a6ab747c6b2151579663fb4032f76a48aac9f577a7868e307aecbacc808"
+  },
+  {
+    "path": "lib/modules/hid-uclogic-test.ko",
+    "source": "drivers/hid/hid-uclogic-test.ko",
+    "sha256": "d232ea969fcd7483a3f4d9bf87a3c354909ded1bab69aedee04193398f5ad55c",
+    "build_id": "19c34b5640680d3f192e9bf9128a2985d783e247",
+    "old_sha256": "02b653dfc657821f45a36f390a9936466ac43fbba5dfbdf15dc42ebe613f28b0"
+  },
+  {
+    "path": "lib/modules/hidp.ko",
+    "source": "net/bluetooth/hidp/hidp.ko",
+    "sha256": "2894b1ed0b68db1c916ebe472a98e86473d2f1282b73adf22efcae101dda195e",
+    "build_id": "d6cf71a75ee5635d494b385bf1dda24c0ba565c9",
+    "old_sha256": "d9b24bbf5c90d80ced5d2ed01370bea8e5656bb1f9e1d3d81321ec21ed503120"
+  },
+  {
+    "path": "lib/modules/ieee802154.ko",
+    "source": "net/ieee802154/ieee802154.ko",
+    "sha256": "bdccca652bc8fc89e85c0ddc4d5f9be5d4f859208b49ac95397f6dd3a92bd0bc",
+    "build_id": "c501d5e7783a3b7afcad24b16d779fe002a71903",
+    "old_sha256": "2db793f8a0abc918ca38de50f47215e97271dfd24816f5c882ba4d659d01f39a"
+  },
+  {
+    "path": "lib/modules/ieee802154_6lowpan.ko",
+    "source": "net/ieee802154/6lowpan/ieee802154_6lowpan.ko",
+    "sha256": "1cc142eae543fbce0201200f5aa23b7ef56b7865ad573765c640bf9b7363554f",
+    "build_id": "04e581558b5b633d79935f8db6ee0103436da654",
+    "old_sha256": "ebd666055a003701d40f1f9130f0ad824404d3cf1a267b82133a9b634a64827f"
+  },
+  {
+    "path": "lib/modules/ieee802154_socket.ko",
+    "source": "net/ieee802154/ieee802154_socket.ko",
+    "sha256": "9d76567a4dfe01f706ae2af76818a680ff8d74d46d17593988a4e6c46d36e047",
+    "build_id": "39f5a286a1465056e06a6e8d6bd7e5f93ed3f0fa",
+    "old_sha256": "b5cb4de3cb50ff07845c2f62def4428027f16c1f9a3bb4f76eb1cd04a172f260"
+  },
+  {
+    "path": "lib/modules/iio-test-format.ko",
+    "source": "drivers/iio/test/iio-test-format.ko",
+    "sha256": "c2ab82c3147dc4bde3b4c87f220707d6309873b253757d412a2948fcab3ef1a1",
+    "build_id": "f07e60e6a94225f602b3e8a082afc6ca6802a948",
+    "old_sha256": "827fcd21215169ccf32e45320e2d6aeccb773e43ac4d35944ddfe4c3b37aba91"
+  },
+  {
+    "path": "lib/modules/input_test.ko",
+    "source": "drivers/input/tests/input_test.ko",
+    "sha256": "c5afa5ea440361f7f6a183026463c171c65365183c7dc2dc1795e7142695d77e",
+    "build_id": "7a52254241727dee67a9cc3f5f6829d8cfa13485",
+    "old_sha256": "d437fe827fc9dfc7306dcd086c5ba322ab1f3abac7814bdcc58038f64f933abd"
+  },
+  {
+    "path": "lib/modules/kheaders.ko",
+    "source": "kernel/kheaders.ko",
+    "sha256": "9616d837b938b1ca1e8bee153f208db19c66464c874775dd8b0dcfa4ca77d201",
+    "build_id": "5c53fccff25cd451e00bf72eeefeb341d28a3b29",
+    "old_sha256": "ced7cef0f161b07d0e1d6f0aad86e4d3e2c5fedaaabcbfba617cb408a5a6aa51"
+  },
+  {
+    "path": "lib/modules/kunit-example-test.ko",
+    "source": "lib/kunit/kunit-example-test.ko",
+    "sha256": "55c22b8e9dac2d24a38acd06109f29277e45e05ab284b2ae7cc5ad0ab9d4a8ce",
+    "build_id": "75fea0db91a0a4e0617aada46ae0fc37a29d7be2",
+    "old_sha256": "12d7223614307e863de981767f6080396bfad04e040b23ceb1e53ffa65de6507"
+  },
+  {
+    "path": "lib/modules/kunit-test.ko",
+    "source": "lib/kunit/kunit-test.ko",
+    "sha256": "5df1dee715a9d7fd3fdf70f00df8ef87e47e89a9318f1bfcc2d301e7f3b7b79d",
+    "build_id": "9757d3ce6910f11ec240f2e0de2be54f2fe199bc",
+    "old_sha256": "49be0f8e327df8f03731179f838b9823b16203ad4b604c6f30a6894293e77f53"
+  },
+  {
+    "path": "lib/modules/kunit.ko",
+    "source": "lib/kunit/kunit.ko",
+    "sha256": "6e01d75d4a2734ba530eb422b227f7dea5044b3cc51397beeda6dd107a5bc87f",
+    "build_id": "a573ec34876e1289d0b30b699ff5f454cc3f20b8",
+    "old_sha256": "1dab701f1b293d7e99d10c082b3c6869d50d71309ca99e8e252a6ef3502eb21e"
+  },
+  {
+    "path": "lib/modules/l2tp_core.ko",
+    "source": "net/l2tp/l2tp_core.ko",
+    "sha256": "abcc29c86748b0e6b3da9ad94d5e2b19553564e4006a8c4687b18752687e92c8",
+    "build_id": "4aee47fe828532021f3e59eb8d0927169ac8a507",
+    "old_sha256": "978819e507dd8ea6e7edc8f5e4926142ca1c84acb438cd836fc823558e390e71"
+  },
+  {
+    "path": "lib/modules/l2tp_ppp.ko",
+    "source": "net/l2tp/l2tp_ppp.ko",
+    "sha256": "3f12de37923b7fc2d5831f64e1fd33b6c035bf76bc2ccc41f5f5ed25668b6531",
+    "build_id": "57bbbf91e4b1924c2f6cb184fc7bf66517f7de72",
+    "old_sha256": "c98084173c21813dd286de3d383e514dbe0b04f882fc347c13ae75cba6cc9367"
+  },
+  {
+    "path": "lib/modules/lib_test.ko",
+    "source": "drivers/rtc/lib_test.ko",
+    "sha256": "df79f473afb57beb580418431b0d8389356da611772ef560849ca2055b686c23",
+    "build_id": "973a1b2bcae49e583a88f856b3a57e23922c785b",
+    "old_sha256": "34b0f16ef58413217461adb475c3c0afafdd62aac6387b11e4e721cafe9889f7"
+  },
+  {
+    "path": "lib/modules/libarc4.ko",
+    "source": "lib/crypto/libarc4.ko",
+    "sha256": "3c887aed207480b12667c2afb3122697bd7d85f10f2d3cf7b49916c7b5f1abfe",
+    "build_id": "bfc9a6e6e6f508817eca9e4f55e8217dd92b57a9",
+    "old_sha256": "0ee9f3128d6c6a473e8638e47fd8c60975295a43ed0af31cf841d3f915aae0ce"
+  },
+  {
+    "path": "lib/modules/mac802154.ko",
+    "source": "net/mac802154/mac802154.ko",
+    "sha256": "d46a2f5c1afb1ec1bd09ed546c4d7f5db538cadc1177e465601519b540548c67",
+    "build_id": "ceb1f53b34caaf9e0db35ba4f3709b1237b15f49",
+    "old_sha256": "8182e0cf1bc2948d8117629d57db24a689ff9b5e0b2b9b161aee950e6320fd66"
+  },
+  {
+    "path": "lib/modules/macsec.ko",
+    "source": "drivers/net/macsec.ko",
+    "sha256": "9fade038b90a1f0958c14b08db16cddb17cc1069e3dc71fd6f14e3d1e46fc51e",
+    "build_id": "ca74569eec07c82f6c35d0f1f0c90b29b8d09cc4",
+    "old_sha256": "950259ce7d0a001fc09c22e290915e4d8f6007c3d45fb142c1bbc423a1a7f214"
+  },
+  {
+    "path": "lib/modules/mii.ko",
+    "source": "drivers/net/mii.ko",
+    "sha256": "1935ce1c988724760f422df86e1c94052196032aa4f2627d8394a3c6d50520f2",
+    "build_id": "2599e09c862788a25b097894b73ff0d5e429bfb7",
+    "old_sha256": "8e65160e57db394f242ff4246e9844fde559d32f13fc6e82091cb652806b2c3c"
+  },
+  {
+    "path": "lib/modules/netfs.ko",
+    "source": "fs/netfs/netfs.ko",
+    "sha256": "69cf2dfe40822cd387b73e34c97c82289cc5b42b20514018963b62b17a18f024",
+    "build_id": "4d6ed7481df883863af7c18b44bbbd1f7984c7a1",
+    "old_sha256": "2870e724082996ea4c4fc63670cd78b1dbcbfe6d8d19988909f73b30a4ea3cc5"
+  },
+  {
+    "path": "lib/modules/nfc.ko",
+    "source": "net/nfc/nfc.ko",
+    "sha256": "cd190a52ba3ca8dfcd4305d9f644fe5f3f0931a5e493780b2888ce7c35961f56",
+    "build_id": "7680dfc35c5ee88a8e47c30d8424c3ec83cdc89d",
+    "old_sha256": "47093c7c03a89109c44f1d59ea03c4374267185ca75fc76002d329f9735c74f2"
+  },
+  {
+    "path": "lib/modules/nhc_dest.ko",
+    "source": "net/6lowpan/nhc_dest.ko",
+    "sha256": "6c8a4bcc510e6c95ca019885b1d7079788a696e35afad8cd97b54e062e05e4e9",
+    "build_id": "e6c1808543bba6e8b60a706a623e2b1989021d1b",
+    "old_sha256": "f40f946f9cd0810561a5aaf19d786c4215bb3587b7adf64d2039cb5e1c7f1ee8"
+  },
+  {
+    "path": "lib/modules/nhc_fragment.ko",
+    "source": "net/6lowpan/nhc_fragment.ko",
+    "sha256": "522225bed1f99f2e18a69d592c6a61241b244db249887713afd9692ff9a626ac",
+    "build_id": "ecd7a40eb8f14a6ccf10ef93af0c0d6834d75cd5",
+    "old_sha256": "948d17d57245ab481ccd7fac7cebce056ec8b5128400262dfe82692fcf9c35a3"
+  },
+  {
+    "path": "lib/modules/nhc_hop.ko",
+    "source": "net/6lowpan/nhc_hop.ko",
+    "sha256": "9acd396630bbb1eca56e1794128cbe31f28d1c2f98aa59dd82d261c509c94ee4",
+    "build_id": "b973c95adfffa9c3010b49c8b05bc3d4342ee1b9",
+    "old_sha256": "7d3bae48b54e7e0fd951bc9b7615e8c2c8cc085ffb2a336158132a5e1bbca283"
+  },
+  {
+    "path": "lib/modules/nhc_ipv6.ko",
+    "source": "net/6lowpan/nhc_ipv6.ko",
+    "sha256": "72a590d2ca81ef1671a35691ff8122681200df9801d71b899a27193ccd443360",
+    "build_id": "4714d43e2f837545be723e88d297f75b495bbd4d",
+    "old_sha256": "848546ffb21f8d17a43ff8d70570252288827fb9dde35572bacf3e86d3f0e01d"
+  },
+  {
+    "path": "lib/modules/nhc_mobility.ko",
+    "source": "net/6lowpan/nhc_mobility.ko",
+    "sha256": "f0431634a4d0f0319e6f0bd9ea5f3bca445d6730711db034b1a4772ad8471616",
+    "build_id": "327612da2f8a07badfc5527599b77a5c64ce9f6c",
+    "old_sha256": "a27a75c7a13231c27e39d35950fc590937103a16ffd9eaf5603a8cbd4e5012cf"
+  },
+  {
+    "path": "lib/modules/nhc_routing.ko",
+    "source": "net/6lowpan/nhc_routing.ko",
+    "sha256": "e50ffb4f9b909fbd5a3e4dc5a89e8505ed5e3fc42f8a934c4067c1fde744d24c",
+    "build_id": "6cd1540f7accd2a3c5ef7b3366d6ce737931f781",
+    "old_sha256": "d996ede223837df8d04e6d524815d9c293b793a432dfc5f9a4e9133bfa1c9e7b"
+  },
+  {
+    "path": "lib/modules/nhc_udp.ko",
+    "source": "net/6lowpan/nhc_udp.ko",
+    "sha256": "71b96a35d1dafff6dfd8583855488a5a1e9e09945ab1defa411421802847412c",
+    "build_id": "f57a26c2d9658acdcd76fa6e4b64f5e1abc1c71a",
+    "old_sha256": "ffaa19753ca6172ed6e78f8543daae114b35777ff44b9c3f03ffa42df7e8850f"
+  },
+  {
+    "path": "lib/modules/of_kunit_helpers.ko",
+    "source": "drivers/of/of_kunit_helpers.ko",
+    "sha256": "d92a6ba076243455472bf1ef78cb86f7292a3a05f3d7d5a5955a9f6fc5724d4a",
+    "build_id": "3ae143fbdac9641344a2604ad6f8b565040b7777",
+    "old_sha256": "94bdb5e4cf7e619231d1333b5cc8d16535da32b1a12557a042d9097c5692feb4"
+  },
+  {
+    "path": "lib/modules/open-dice.ko",
+    "source": "drivers/misc/open-dice.ko",
+    "sha256": "f42a50aaeb0478e9508b57f06a4dea2197458792868a6b13f57c3baf58c4637b",
+    "build_id": "7907f93797dcf7e1d5f95bb678a6a3148fb4b0bc",
+    "old_sha256": "a7ed39c138bcdc3f554c781aadccd8795a3df9efbc5a5cc59c86efd496e2ea7e"
+  },
+  {
+    "path": "lib/modules/platform-test.ko",
+    "source": "lib/kunit/platform-test.ko",
+    "sha256": "e7ccfae9f28966ac83bdb26eccf7aacbbaed451cf80c6ec12dc4a9de7b46bf47",
+    "build_id": "0aa44e71ec618612b52ac11c2097c27077c724f4",
+    "old_sha256": "c6c83868fab6ec5d943e4e48cfec3a4c7512651b2eb98a560b43441712fade23"
+  },
+  {
+    "path": "lib/modules/ppp_deflate.ko",
+    "source": "drivers/net/ppp/ppp_deflate.ko",
+    "sha256": "26357d6f097dc872594caa241165c86e141ac8e15dc614c0bd257d61f2684cdd",
+    "build_id": "3c2fc9157c0f31cc8371e34ec7ec4afbc9b31020",
+    "old_sha256": "70e84904b379b4335e9fe8649f01fe42fb1cda693edb261ba76a4a0652b4b5ca"
+  },
+  {
+    "path": "lib/modules/ppp_generic.ko",
+    "source": "drivers/net/ppp/ppp_generic.ko",
+    "sha256": "590e06991a8ee1441e443feb48f5fb3de199e93bc843ef7594d127242891b508",
+    "build_id": "903e290f967e892176e83666370c9ff79df1e030",
+    "old_sha256": "d137cba365adf5571d2cdeb2dafb1c87616751d2f550df6818238ff904ef375e"
+  },
+  {
+    "path": "lib/modules/ppp_mppe.ko",
+    "source": "drivers/net/ppp/ppp_mppe.ko",
+    "sha256": "51001d3be9d76875d7e0588fe1c3b06bae64bfae1d22fb65de80254e265dd2dd",
+    "build_id": "4edf774a6c40e494e09eff024f9e655ba375e9db",
+    "old_sha256": "c0801958e0f0dfd3a2406b06c395b5f9a03ea49a5cd890b33f309ae6776a086f"
+  },
+  {
+    "path": "lib/modules/pppox.ko",
+    "source": "drivers/net/ppp/pppox.ko",
+    "sha256": "836661628432b3aa6b17ce921eb814f5f4f314bebbe31e40ff2d79a8524caf2f",
+    "build_id": "040bfc175e46520ffd7d41fb2d044669198649b2",
+    "old_sha256": "6d51c17cb96df770819b9daa12d2228bcc647315c1058352d5824f8335122b34"
+  },
+  {
+    "path": "lib/modules/pps_core.ko",
+    "source": "drivers/pps/pps_core.ko",
+    "sha256": "9a8d8e2fd1ac6bc3130ffc1523795c223703718f63c704a7c502f150d9a729ba",
+    "build_id": "4034d9073214938de18620c7599d34d15f2c0856",
+    "old_sha256": "7accae1e4bc94c2ebc2333fbb212b5fc562f7ba503060320e2a5421ab52a92db"
+  },
+  {
+    "path": "lib/modules/pptp.ko",
+    "source": "drivers/net/ppp/pptp.ko",
+    "sha256": "a5c7efc2db4f2f56de263441ace871abaa840d9fb01d1e14c15d34b5a5311c30",
+    "build_id": "80ba13a920694faf6b3b69e6bde3fb04cb7738e9",
+    "old_sha256": "0cc769f272d4235e152741bd998f96a7cad927850459aad334be03f665860865"
+  },
+  {
+    "path": "lib/modules/ptp.ko",
+    "source": "drivers/ptp/ptp.ko",
+    "sha256": "6548959569efc1afd810a32b47ce5043c85a1d7bc83c2dd0c4cba897f18e2343",
+    "build_id": "3aa93d224e8d57e9cec0c537af8c040ca07e1b11",
+    "old_sha256": "e0f74b5930b79515c2feb416cea1412d82f7534685e68c5d107d148871f25124"
+  },
+  {
+    "path": "lib/modules/ptp_kvm.ko",
+    "source": "drivers/ptp/ptp_kvm.ko",
+    "sha256": "a5bc03d27c0685ab14de6f25cfec234f4802503cc897f08519a4729408da5e0d",
+    "build_id": "653097c21a235f9af041eb786ae235bdb2fdfd5c",
+    "old_sha256": "aecfa43d93a487df28a724927bfadd8c2d64e83ea771b27a4467443a5aeb24c4"
+  },
+  {
+    "path": "lib/modules/pwrseq-core.ko",
+    "source": "drivers/power/sequencing/pwrseq-core.ko",
+    "sha256": "2b66ef08b996e3e1b82530f6877984583a40cb4a8e75df9658e88ac8a3234516",
+    "build_id": "d83acd53aa26dd5be8404e7559eba1281080231f",
+    "old_sha256": "f533058b70bc444b6e9fd322efc8af2a0cc24ca24baa23a10aad78b9095d0d04"
+  },
+  {
+    "path": "lib/modules/r8152.ko",
+    "source": "drivers/net/usb/r8152.ko",
+    "sha256": "1c6aa3d82da5792ddf4257eb561f7c1f639f56d899995cd667bc4f53507193b9",
+    "build_id": "028a862d25642e1e60eb1417aa581548851453bc",
+    "old_sha256": "3aba33dc4725e1c285697d53a1c939b81827365fc49827e68a91a0cfbea57857"
+  },
+  {
+    "path": "lib/modules/r8153_ecm.ko",
+    "source": "drivers/net/usb/r8153_ecm.ko",
+    "sha256": "92df6c3511c9d3ec8525dc77e74a8b24148456d854cc4c105bdc4fb7ee5f33d6",
+    "build_id": "6ad888ee18be0b2fdd792dc9729ceeb4a725d3d4",
+    "old_sha256": "462d57a314a2b67a26a82fcd016da35b64a65875542e3db7bc59b9e9e12ea723"
+  },
+  {
+    "path": "lib/modules/regmap-kunit.ko",
+    "source": "drivers/base/regmap/regmap-kunit.ko",
+    "sha256": "ab71c121adf67e747bb149a42261ab43bc9574dd2c5d1fca022efe03c3c7f910",
+    "build_id": "9fae7ac7d8fc79b272d9aac8475c6c0e56d37cb1",
+    "old_sha256": "69744b80449d4b578597e449986bd4ab8c765a3331612cc8c9e0fa4ee26d5515"
+  },
+  {
+    "path": "lib/modules/regmap-ram.ko",
+    "source": "drivers/base/regmap/regmap-ram.ko",
+    "sha256": "d613b3ad486222f07693202575f9e63a14449abadbed5534db3d50836a7aa768",
+    "build_id": "5deef23a5af3e56fdaddc682ca90db16b3ccdd3e",
+    "old_sha256": "5d359c1144b8f0386113407497ce89111304a63ab7bcf000bfdb542cce0bf8ba"
+  },
+  {
+    "path": "lib/modules/regmap-raw-ram.ko",
+    "source": "drivers/base/regmap/regmap-raw-ram.ko",
+    "sha256": "34d7248114bbf16c714a250bf23c44cf06f8523895cdcfbb74e9026ad3d1d60b",
+    "build_id": "d5f03183e86a20154db217b616eae52e4672ba18",
+    "old_sha256": "e2828908d94ccd1c0f394557f0b81a3f62eb13d08fc50581d2959caceaf512f3"
+  },
+  {
+    "path": "lib/modules/rfcomm.ko",
+    "source": "net/bluetooth/rfcomm/rfcomm.ko",
+    "sha256": "400e377fc0bc1b0585752ed08b10a0988dfbbef0d228cb1e51b3d7dff7c3b91f",
+    "build_id": "50254e290e610f21bd9a2bc065b09552d746d089",
+    "old_sha256": "f4e23dcaf946dbdfe1eb23e9d547c610b2abdda0a29169d24346da957d9b7620"
+  },
+  {
+    "path": "lib/modules/rfkill.ko",
+    "source": "net/rfkill/rfkill.ko",
+    "sha256": "44fda4696e1ffdcd7acf4a2d6997354b60b9013be917e7bcc16fe25c7c0d555f",
+    "build_id": "3a3794f6ee75aa8eb4e388e6fc576a9b3bf85925",
+    "old_sha256": "9fb768ca7967003ebe8eb3be0b09526f6e959ebe4f68e3878839e03ba39e9421"
+  },
+  {
+    "path": "lib/modules/rtl8150.ko",
+    "source": "drivers/net/usb/rtl8150.ko",
+    "sha256": "bb7af11e73bb498cb79e6b794dba6fdb524c5b184d1d5703d246b5181d4af80b",
+    "build_id": "b143214e81f2c521d18c706b6f40bb272121d2a6",
+    "old_sha256": "a2113bd60d38ae2d4a29c29335320f53736206e17dc3eea548bb16160f57855a"
+  },
+  {
+    "path": "lib/modules/rust_binder.ko",
+    "source": "drivers/android/rust_binder.ko",
+    "sha256": "fa12136a480fa1e658cdca731fe540c55c9465b556661366aaa6599f590ecf8a",
+    "build_id": "2671b9a672b3d6721ce5c60ffbb2f24ad307a243",
+    "old_sha256": "3574a3acd4420fbf3b5e5249b687b954c07442ff646f488583ef344c9527ca2d"
+  },
+  {
+    "path": "lib/modules/slcan.ko",
+    "source": "drivers/net/can/slcan/slcan.ko",
+    "sha256": "e4da0897a27dd33adf28d8bf62538afd5328331dc4ec53c8f235559f0f92d595",
+    "build_id": "1fb1b0c85da727e1336bee994f19be64316a0d40",
+    "old_sha256": "5ef8cd4c2bed796dbead97c723bb0c5c7d13c5a94055d1fccc29b88cfedd82d2"
+  },
+  {
+    "path": "lib/modules/slhc.ko",
+    "source": "drivers/net/slip/slhc.ko",
+    "sha256": "1f8d5383f78cdc497b8ee78de33a1474abe0729bd097c9f921046b45a798c3d5",
+    "build_id": "99d15b7027e306e8cfee3ff587af849a767820ef",
+    "old_sha256": "66fe6999947848a95392c33e56662a454b8b82c4a904f2d66820aaa9d95393ba"
+  },
+  {
+    "path": "lib/modules/soc-topology-test.ko",
+    "source": "sound/soc/soc-topology-test.ko",
+    "sha256": "be9230fefdab693348a1664f3eb4c748564a37ef1b4c86840c05a863e89f5dc3",
+    "build_id": "47f7ba76e65a85cf358787d069fef1caa0a49edb",
+    "old_sha256": "e4a777fd9d49e847b2245fa199cffcd69aa0154a70871c0d170f0e27783d6a23"
+  },
+  {
+    "path": "lib/modules/soc-utils-test.ko",
+    "source": "sound/soc/soc-utils-test.ko",
+    "sha256": "3e004cf784d8ed026a0885805ddbc0c66b41c466905c00d1fb15c7648fc62a6c",
+    "build_id": "e8372035f22cf633897e3b147dbeddc7497ff336",
+    "old_sha256": "a8192e375ba88aca4f32f9730ce23b60a1ef2e3bdb8da0d92dcf073e8d55d618"
+  },
+  {
+    "path": "lib/modules/time_test.ko",
+    "source": "kernel/time/time_test.ko",
+    "sha256": "8f234b92e1f338f32f742a7d1aa1e9e3e896690c5074f5d1bd365d0009f392d2",
+    "build_id": "b5d463af4726ea2c759ace5860b4f1a6f7438362",
+    "old_sha256": "c77bb453a71739e918aed31fc9eb466a820b2b423d74f656c1e13e1f9aecf66d"
+  },
+  {
+    "path": "lib/modules/tipc.ko",
+    "source": "net/tipc/tipc.ko",
+    "sha256": "ff648b7f2e8ad2fbf09eb8daad39dd4d3205a59655817591b9eee5a5598f5f69",
+    "build_id": "6ca551595db62a08c4e8478ca53a83cce758ac36",
+    "old_sha256": "af878af29b68b51857819a5500a933ecc144a72e7f6b8a8932aeac6188b31553"
+  },
+  {
+    "path": "lib/modules/tipc_diag.ko",
+    "source": "net/tipc/tipc_diag.ko",
+    "sha256": "bc88b22b2cce215451f990f00a7812019b099beeb5b31303d2866e0807fa46f6",
+    "build_id": "32886a85de151b20c620be803545c87f79144527",
+    "old_sha256": "cd8b070aec7eae7311cc89f8bc9a0768d00e492fe0e48a7752a914e528c634cc"
+  },
+  {
+    "path": "lib/modules/tls.ko",
+    "source": "net/tls/tls.ko",
+    "sha256": "dab008489e0d9b753a44c18e4d0fd3d0015ab85f7ed26c7f5ae4290f59cb2487",
+    "build_id": "54f0671e19159d6fe82ef47c0706e05e7557bbd2",
+    "old_sha256": "aa91bbe1b710c8bbaa3db746d4ed7914679757ca247f1103cced5c4f8ecb8d7f"
+  },
+  {
+    "path": "lib/modules/usbmon.ko",
+    "source": "drivers/usb/mon/usbmon.ko",
+    "sha256": "1feca0c846104f4c40c49378f30c1c1d5547ef1ecbe51b43f764241a46c04be1",
+    "build_id": "bda12a1f95e376dff642feed20828f1dcd72627f",
+    "old_sha256": "cef4a5441bb7db70db28de83f09af085b342f7bfe7a07a671f4984289f678d82"
+  },
+  {
+    "path": "lib/modules/usbnet.ko",
+    "source": "drivers/net/usb/usbnet.ko",
+    "sha256": "5584045f00b97e5a3afbc8b8e65c505465572f427f3b39db27d2430f82d03bf1",
+    "build_id": "0984ca639db473fcbe12c6f89fd891b6cd0e9d7c",
+    "old_sha256": "9d7d2d87387432f253591c0d17a511b1177a5de459b46ed65fd755cc6bed6029"
+  },
+  {
+    "path": "lib/modules/usbserial.ko",
+    "source": "drivers/usb/serial/usbserial.ko",
+    "sha256": "924c038d66ba613f1e146127af5339219b9083fee121eedec135b726bbc17f37",
+    "build_id": "d7456ebecfda286679d6f55b19716216e52fcd89",
+    "old_sha256": "925a99529ad1fd50dcb646524727985fc7039fb6881d43448eba92014679b104"
+  },
+  {
+    "path": "lib/modules/vcan.ko",
+    "source": "drivers/net/can/vcan.ko",
+    "sha256": "13a5c5ffe5966cb3620b59f3ebb86e8ece500e2f18bbbee9a6f9dfcc38bdbd2c",
+    "build_id": "1e4c7d89318aa7dfd67421670409e6d94bfefb26",
+    "old_sha256": "f3488c724f8a588a9fcc0c3033f1d6fbcf09bd485d1faa8b4cba632985ea991f"
+  },
+  {
+    "path": "lib/modules/vcpu_stall_detector.ko",
+    "source": "drivers/misc/vcpu_stall_detector.ko",
+    "sha256": "d27497003aafd09c9d0382e67adebae751c84bf634a10c99073495f70b679ce3",
+    "build_id": "fdeb61482d29c07e208bf8cec602f67d7f7bd18f",
+    "old_sha256": "e00268c52d32140c63321ab0955c7f354c8becad521f0e6bf62367d1cab35017"
+  },
+  {
+    "path": "lib/modules/virtio_balloon.ko",
+    "source": "drivers/virtio/virtio_balloon.ko",
+    "sha256": "18fd5786c63df45f473eebaa9ca24a10858adabfcdb49b458748421949c85656",
+    "build_id": "1b815f0772c8b2c334081ba23ac077886054211a",
+    "old_sha256": "e04f05ff2ea3fe950393e7a15a5f6a7f0755777f3115fd328127c9800b50bc39"
+  },
+  {
+    "path": "lib/modules/virtio_blk.ko",
+    "source": "drivers/block/virtio_blk.ko",
+    "sha256": "ffa9cc5bf5b4c78d67043956334d9a00af5c95a0f859d80cf18cc11a1c2233b6",
+    "build_id": "9d18d7205c59855a305adeefd8b2f725205b8f6a",
+    "old_sha256": "553cfcee2f629fe3a20026c2d7bb11c18ca40387e3436e49458981dff8499f0f"
+  },
+  {
+    "path": "lib/modules/virtio_console.ko",
+    "source": "drivers/char/virtio_console.ko",
+    "sha256": "7144268441229f16365f2b57a152f8b7e40458e23c04d2dd9997e82a48e5cf42",
+    "build_id": "242bfaa3cd370ad05788f88d995701055ae364ea",
+    "old_sha256": "ded21cf2fa8ace5135eef019d10b763dd2c55326dab16250838d0998179bae55"
+  },
+  {
+    "path": "lib/modules/virtio_pci.ko",
+    "source": "drivers/virtio/virtio_pci.ko",
+    "sha256": "2813aac5cb072d6aecb54159a8a65db70afd7532220cc1f58051d82ae989be5d",
+    "build_id": "dcd1823126ddbfd5b4b10a5a14350d5b1fb46836",
+    "old_sha256": "46b9c50602f4edbd9f1070ee6fe659cce3159d4e9412f362d661d8cc6d34d421"
+  },
+  {
+    "path": "lib/modules/virtio_pci_legacy_dev.ko",
+    "source": "drivers/virtio/virtio_pci_legacy_dev.ko",
+    "sha256": "b062d050d77aa08800396df60e40417b82fe0d9b468de1c86dba8b96ed7e498a",
+    "build_id": "81e13e1b1a3f6083be369ec1a2452007076b5533",
+    "old_sha256": "5b556a803a882d2696fcdf803023e1e5708ff807207f3e65104836d19383b58d"
+  },
+  {
+    "path": "lib/modules/virtio_pci_modern_dev.ko",
+    "source": "drivers/virtio/virtio_pci_modern_dev.ko",
+    "sha256": "930e832b7c7504014aab0b6ed5523876c18ee5cfcb658dace42b97cba81bfad9",
+    "build_id": "c9bbdff2812c1b71ce4652f6c5e3b3d7e4105dc6",
+    "old_sha256": "44db18f94406a6f8164b3f7629ba124466aa835633dc33c63c1742905e4b41e8"
+  },
+  {
+    "path": "lib/modules/vmw_vsock_virtio_transport.ko",
+    "source": "net/vmw_vsock/vmw_vsock_virtio_transport.ko",
+    "sha256": "135631b9a4740602153b0aaab91c227789a593e5def8a98c8b353e832dc70bb9",
+    "build_id": "06a289aa67ac83bc3b72333feaa786e97cbc7cd9",
+    "old_sha256": "b691ec3bef6a56f19479371666b4b0220c31800a97937694ae5cdd0a5a4befe8"
+  },
+  {
+    "path": "lib/modules/wwan.ko",
+    "source": "drivers/net/wwan/wwan.ko",
+    "sha256": "3ab01f3a06705e9c6de2ed1352f1e1cd3ea98f22171a48354501e3aad8eac710",
+    "build_id": "5b71bbcfb086f2eb2f3482bb077fb859661033ec",
+    "old_sha256": "0353cdcd6ba9371076fc9a8c99139ccd7bbffa39b9f94cdab4173c8e0cabbdda"
+  },
+  {
+    "path": "lib/modules/zram.ko",
+    "source": "drivers/block/zram/zram.ko",
+    "sha256": "ca34c99b95fa83e5d98a48e29290e216cddf59e5f3d88cd7c88cee0d574477d7",
+    "build_id": "c14b92e32a3c324c7c579f80b21792b1a2b6cf9d",
+    "old_sha256": "58693ebb1f67ad41a6036832bbd8501d67734bdb56913dddefb8bf99679a5726"
+  },
+  {
+    "path": "lib/modules/zsmalloc.ko",
+    "source": "mm/zsmalloc.ko",
+    "sha256": "74d27363d692a36823f5d82fa2c3f4b65ce084d8cac0341d45156bf824721c7e",
+    "build_id": "0a8e59d3091fec07bb59f01f8c71e59caf67354a",
+    "old_sha256": "3faaaf82e0ae36f27bc10706d498fb4b031d92de4f08939e9b2117671affdbf8"
+  }
+]

@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "source_commit": "275da71428d7cc471f576284038a050191339c65",
+  "source_tree": "9e60a124a152b6fe12ece49ceadffe2cbea6d7e5",
+  "upstream_url": "https://android.googlesource.com/kernel/common",
+  "upstream_revision": "df70442655d4c7b1802ba29a52d1698a4d6cbf6d",
+  "kernel_release": "6.12.38-LDY-AN00-g275da71428d7-4k",
+  "source_date_epoch": 1793405844,
+  "image_sha256": "1e34a7a7af4dc11403c56deb29bc28e6e203928611ec630d4ccfb6cbfef5615a",
+  "config_sha256": "cfd4c412605ce7d87f19d613baa7a5029702a39bcca30b32436c36709e9d80e5",
+  "module_count": 103,
+  "patch_replay_verified": true,
+  "notes": [
+    "The five patches restore the exact source commit and tree with the provided build helper.",
+    "The source archive preserves upstream licenses and source notices.",
+    "Toolchains and build dependencies are fetched using the pinned public manifest; prebuilt toolchain binaries are not embedded in the source archive.",
+    "Rebuilds generate fresh module signing material. Rebuilt signatures and final hashes may differ; private release keys are not distributed.",
+    "packaging/package.py produces three kernel cohort images from qualified stock inputs and a user-provided AVB key. Release parent AVB images must be rebuilt consistently before installation.",
+    "Packaging was host-tested with retained K4 kernel/modules and a temporary AVB key. Retained auxiliary file hashes and types are checked before copying; same-size, same-mtime tamper tests pass. No hardware boot or byte-identical new-key signature claim."
+  ]
+}

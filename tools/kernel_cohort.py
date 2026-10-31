@@ -4,6 +4,7 @@
 import argparse,copy,hashlib,json,shutil,stat,tempfile,zipfile
 from pathlib import Path,PurePosixPath
 from kernel_caremap import generate
+from postinstall_policy import validate_config as validate_postinstall_config
 
 FIVE=("boot","system","system_dlkm","vbmeta_system","vbmeta_system_dlkm")
 TWO=("system","vbmeta_system")
@@ -168,8 +169,7 @@ def project(source,expected,out,contract,contract_sha,directory):
                 need(ix[n].file_size==fixed["boot"].stat().st_size,"Compiler boot partition size differs from cohort")
                 with z.open(n) as f:need(f.read(prefix)==boot_prefix,"Compiler boot payload differs from cohort")
         if "META/postinstall_config.txt" in ix:
-            need(all(v=="false" for k,v in parse(z.read("META/postinstall_config.txt")).items()
-                     if k.startswith("RUN_POSTINSTALL_")),"Postinstall not disabled")
+            validate_postinstall_config(parse(z.read("META/postinstall_config.txt")))
         removed={n for n in ix if n in DERIVED or n.startswith(("BOOTABLE_IMAGES/","PREBUILT_IMAGES/","BOOT/","INIT_BOOT/","VENDOR_BOOT/","RECOVERY/")) or
                  n in {"IMAGES/"+p+".img" for p in fixed} or
                  n.startswith("IMAGES/") and n.endswith(".map")}
@@ -192,8 +192,7 @@ def assemble(signed,expected,projection_receipt,projection_sha,out,contract,cont
         ix=names(z);shipping_five(z);kernel(z,c);variants(ix)
         need(tuple(z.read("META/ab_partitions.txt").decode().split())==TWO,"Signed projection AB list")
         if "META/postinstall_config.txt" in ix:
-            need(all(v=="false" for k,v in parse(z.read("META/postinstall_config.txt")).items()
-                     if k.startswith("RUN_POSTINSTALL_")),"Signed postinstall not disabled")
+            validate_postinstall_config(parse(z.read("META/postinstall_config.txt")))
         need("META/care_map.pb" in ix and z.getinfo("META/care_map.pb").file_size>0,"Missing signed-system care map")
         need({n for n in ix if n.startswith("IMAGES/") and n.endswith(".img")}==
              {"IMAGES/system.img","IMAGES/vbmeta_system.img","IMAGES/vbmeta.img"},"Unexpected signed projection images")

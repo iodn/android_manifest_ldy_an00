@@ -34,10 +34,10 @@
       "tree": "ac7c6cc8482d2e18e5c7dbe4eb030a0475f395b9",
       "repository": "android_device_honor_ldy_an00",
       "excluded_input_count": 3,
-      "public_snapshot_revision": "502e0301c30e9f328baf30ba62d70ccd0c7ac1c2",
-      "public_snapshot_tree": "4c455bc3eb6f611300452f147e62442df381e570",
-      "target_snapshot_revision": "502e0301c30e9f328baf30ba62d70ccd0c7ac1c2",
-      "target_snapshot_tree": "4c455bc3eb6f611300452f147e62442df381e570"
+      "public_snapshot_revision": "d40c252fb46f7c4b0c9de02e2f997cc0043e8e55",
+      "public_snapshot_tree": "28f3118c10b1653631c48ca95256915a3e8d26a4",
+      "target_snapshot_revision": "d40c252fb46f7c4b0c9de02e2f997cc0043e8e55",
+      "target_snapshot_tree": "28f3118c10b1653631c48ca95256915a3e8d26a4"
     },
     {
       "path": "frameworks/av",
@@ -165,15 +165,15 @@
     },
     {
       "path": "packages/apps/OpenEUICC",
-      "revision": "b725630b975e64d7aea22ff03bb6e00aa6de712b",
-      "tree": "b6504e996e71f3d95dee2d29287dc19189c986ff",
+      "revision": "03f64de980e9899ee1ff2cd87c7ec8e1b92c3465",
+      "tree": "efcb0da744ea64e58e4e596bfe9c81538e767daf",
       "base_revision": "89d677e07d0ebbd2d157ede2cb31f76aec737e3a",
       "patch": "patches/packages_apps_OpenEUICC.patch",
-      "patch_sha256": "f0a5e3c3e3585da62e2863eadb509b01f34c24a6e9022ace9897314d00bea3d8",
+      "patch_sha256": "87d32d76e5867f55e0d3b41852a4b0348e447f3626b850f5119cecee2ac8ad28",
       "patch_tree_verified": true,
       "remote_url": "https://github.com/estkme-group/openeuicc.git",
-      "target_snapshot_revision": "b725630b975e64d7aea22ff03bb6e00aa6de712b",
-      "target_snapshot_tree": "b6504e996e71f3d95dee2d29287dc19189c986ff"
+      "target_snapshot_revision": "03f64de980e9899ee1ff2cd87c7ec8e1b92c3465",
+      "target_snapshot_tree": "efcb0da744ea64e58e4e596bfe9c81538e767daf"
     },
     {
       "path": "packages/apps/OpenEUICC/libs/lpac-jni/src/main/jni/cjson/cjson",
@@ -247,10 +247,10 @@
       "tree": "994bf5cf373c1814afa4f0ef38c411d39ce27dd5",
       "repository": "android_vendor_honor_ldy_an00",
       "excluded_input_count": 18,
-      "public_snapshot_revision": "2904b5bf704a9a2d10b85ce26123d492a21fa360",
-      "public_snapshot_tree": "4c870c867d6e3230ea3f9302fa5d7eb16b61c6ad",
-      "target_snapshot_revision": "2904b5bf704a9a2d10b85ce26123d492a21fa360",
-      "target_snapshot_tree": "4c870c867d6e3230ea3f9302fa5d7eb16b61c6ad"
+      "public_snapshot_revision": "42ba12612dcdfdf59dc46c7d6520e296752db25b",
+      "public_snapshot_tree": "7bd46a12ef6e5758c359d63f1780090f5cb4c037",
+      "target_snapshot_revision": "42ba12612dcdfdf59dc46c7d6520e296752db25b",
+      "target_snapshot_tree": "7bd46a12ef6e5758c359d63f1780090f5cb4c037"
     },
     {
       "path": "vendor/lineage",

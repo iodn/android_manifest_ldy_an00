@@ -83,9 +83,15 @@ def build(release, output):
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--release', type=Path, required=True)
+    from build_first_install import build as build_first_install
+    parser = argparse.ArgumentParser(description='Prepare the complete signed-image first-install packet; host only.')
+    parser.add_argument('--inputs', type=Path, required=True)
+    parser.add_argument('--stock-super-gzip', type=Path, required=True)
     parser.add_argument('--output', type=Path, required=True)
+    parser.add_argument('--build-number', required=True)
+    parser.add_argument('--kernel-contract', type=Path, required=True)
+    parser.add_argument('--kernel-contract-sha256', required=True)
     args = parser.parse_args()
-    result = build(args.release, args.output)
-    print(json.dumps({'status': result['status'], 'pieces': len(result['pieces'])}))
+    result = build_first_install(args.inputs, args.stock_super_gzip, args.output,
+        args.build_number, args.kernel_contract, args.kernel_contract_sha256)
+    print(json.dumps(result, indent=2))

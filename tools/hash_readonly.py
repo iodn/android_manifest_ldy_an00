@@ -9,7 +9,7 @@ from pathlib import Path
 import re
 import time
 
-PARTITIONS = {'vbmeta_system_a': 1048576, 'vbmeta_system_b': 1048576, 'super': 17574133760, 'boot_a': 67108864, 'boot_b': 67108864, 'init_boot_a': 8388608, 'init_boot_b': 8388608, 'vendor_boot_a': 100663296, 'vendor_boot_b': 100663296, 'dtbo_a': 25165824, 'dtbo_b': 25165824, 'recovery_ramdisk_a': 67108864, 'recovery_ramdisk_b': 67108864, 'recovery_vbmeta_a': 1048576, 'recovery_vbmeta_b': 1048576, 'vbmeta_a': 1048576, 'vbmeta_b': 1048576, 'lk_a': 16777216, 'lk_b': 16777216}
+PARTITIONS = {'vbmeta_system_dlkm_a': 1048576, 'vbmeta_system_dlkm_b': 1048576, 'vbmeta_system_a': 1048576, 'vbmeta_system_b': 1048576, 'super': 17574133760, 'boot_a': 67108864, 'boot_b': 67108864, 'init_boot_a': 8388608, 'init_boot_b': 8388608, 'vendor_boot_a': 100663296, 'vendor_boot_b': 100663296, 'dtbo_a': 25165824, 'dtbo_b': 25165824, 'recovery_ramdisk_a': 67108864, 'recovery_ramdisk_b': 67108864, 'recovery_vbmeta_a': 1048576, 'recovery_vbmeta_b': 1048576, 'vbmeta_a': 1048576, 'vbmeta_b': 1048576, 'lk_a': 16777216, 'lk_b': 16777216}
 START = b'INFOread data begin, please wait......DUMPSTART'
 TRAILER = b'DUMPENDOKAY'
 CHUNK = 65536

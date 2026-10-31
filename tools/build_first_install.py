@@ -4,6 +4,7 @@
 import argparse
 import gzip
 import hashlib
+import io
 import json
 from pathlib import Path
 import shutil
@@ -53,12 +54,24 @@ def overlay_hash(baseline, system, footer, total, start, window, chunk=4 * 1024 
     return old.hexdigest(), new.hexdigest()
 
 
-def build(inputs, baseline_gzip, output, build_number):
-    image, child, parent = [inputs / n for n in ('system.img', 'vbmeta_system.img', 'vbmeta-owner.flags0.img')]
+def build(inputs, baseline_gzip, output, build_number, kernel_contract=None, kernel_contract_sha=None):
+    full_cohort = kernel_contract is not None
+    cohort_images, dlkm_pieces = {}, []
+    if full_cohort:
+        from first_install_cohort import (LOGICAL, MAIN_PARENT, DLKM_START, DLKM_BYTES,
+                                          baseline as cohort_baseline, contract_images, overlay_ranges_hash)
+        if not kernel_contract_sha or sha(kernel_contract) != kernel_contract_sha:
+            raise ValueError('Kernel contract must have its reviewed SHA-256')
+        source_images = {name: inputs / (name + '.img') for name in LOGICAL}
+        if any(not path.is_file() or path.is_symlink() for path in source_images.values()):
+            raise ValueError('Cohort inputs must be regular files')
+        contract_images(json.loads(kernel_contract.read_text()), source_images)
+    image, child, parent = [inputs / n for n in ('system.img', 'vbmeta_system.img',
+        'vbmeta.img' if full_cohort else 'vbmeta-owner.flags0.img')]
     tail = inputs / 'stock113-system-tail.bin'
     if (not 0 < image.stat().st_size <= SYSTEM_WINDOW - 4096 or image.stat().st_size % 4096
             or child.stat().st_size != 4096 or child.read_bytes()[:4] != b'AVB0'
-            or sha(parent) != PARENT_SHA or sha(tail) != TAIL_SHA):
+            or sha(parent) != (MAIN_PARENT if full_cohort else PARENT_SHA) or sha(tail) != TAIL_SHA):
         raise ValueError('Unqualified image inputs')
     with image.open('rb') as stream:
         stream.seek(-64, 2)
@@ -69,6 +82,8 @@ def build(inputs, baseline_gzip, output, build_number):
     (output / 'payload').mkdir()
     (output / 'tools').mkdir()
     profile = json.loads((HERE / 'stock113-partitions.json').read_text())
+    if full_cohort:
+        profile = cohort_baseline(profile)
     after = {n: dict(r) for n, r in profile.items()}
     pieces = []
     with image.open('rb') as stream:
@@ -86,12 +101,34 @@ def build(inputs, baseline_gzip, output, build_number):
     shutil.copyfile(parent, output / parent_name)
     images = {n: parent_name if n in ('vbmeta_a', 'vbmeta_b') else child_name
               for n in ('vbmeta_a', 'vbmeta_b', 'vbmeta_system_a', 'vbmeta_system_b')}
+    if full_cohort:
+        for name in LOGICAL:
+            destination = 'payload/' + name + '.img'
+            if name == 'vbmeta_system':
+                destination = child_name
+            elif name == 'vbmeta':
+                destination = parent_name
+            else:
+                shutil.copyfile(source_images[name], output / destination)
+            cohort_images[name] = destination
+        with source_images['system_dlkm'].open('rb') as stream:
+            offset = DLKM_START
+            while data := stream.read(PIECE):
+                name = 'payload/system-dlkm-%03d.sparse' % len(dlkm_pieces)
+                sparse(output / name, offset, data)
+                dlkm_pieces.append(name)
+                offset += len(data)
+        from first_install_cohort import PHYSICAL
+        for name in PHYSICAL:
+            for slot in 'ab':
+                images[name + '_' + slot] = cohort_images[name]
+        shutil.copyfile(kernel_contract, output / 'payload/kernel-owned-inputs.json')
     for n in ('userdata', 'metadata'):
         name = 'payload/' + n + '.sparse'
         shutil.copyfile(inputs / (n + '.original.sparse'), output / name)
         images[n] = name
     shutil.copyfile(inputs / 'ota.x509.pem', output / 'ota.x509.pem')
-    for name in ('first_install.py', 'prepare_layout.py', 'check_partitions.py', 'hash_readonly.py', 'verify_install.py', 'stock113-partitions.json'):
+    for name in ('first_install.py', 'prepare_layout.py', 'check_partitions.py', 'hash_readonly.py', 'verify_install.py', 'stock113-partitions.json', 'first_install_cohort.py'):
         shutil.copyfile(HERE / name, output / 'tools' / name)
     shutil.copyfile(HERE.parent / 'flash.sh', output / 'flash.sh')
     (output / 'flash.sh').chmod(0o755)
@@ -108,7 +145,13 @@ def build(inputs, baseline_gzip, output, build_number):
         raise ValueError('Wrong qualified fastboot binary')
     print('Deriving the full-super readback hash from the verified stock stream...', flush=True)
     with gzip.open(baseline_gzip, 'rb') as baseline, image.open('rb') as source:
-        original_sha, new_sha = overlay_hash(baseline, source, patched_tail, SUPER, SYSTEM_START, SYSTEM_WINDOW)
+        if full_cohort:
+            with source_images['system_dlkm'].open('rb') as dlkm:
+                original_sha, new_sha = overlay_ranges_hash(baseline,
+                    [(SYSTEM_START, source), (SYSTEM_START + SYSTEM_WINDOW - 4096, io.BytesIO(patched_tail)),
+                     (DLKM_START, dlkm)], SUPER)
+        else:
+            original_sha, new_sha = overlay_hash(baseline, source, patched_tail, SUPER, SYSTEM_START, SYSTEM_WINDOW)
     if original_sha != profile['super']['sha256']:
         raise ValueError('Full stock-super baseline mismatch')
     after['super']['sha256'] = new_sha
@@ -116,6 +159,10 @@ def build(inputs, baseline_gzip, output, build_number):
         after[n]['sha256'] = sha(output / parent_name)
     for n in ('vbmeta_system_a', 'vbmeta_system_b'):
         after[n]['sha256'] = sha(output / child_name)
+    if full_cohort:
+        for partition, file in images.items():
+            if partition in after:
+                after[partition]['sha256'] = sha(output / file)
     readme = f'''# LineageOS first installation for HONOR LDY-AN00
 
 Unofficial LineageOS 24.0 / Android 17 for HONOR LDY-AN00.
@@ -208,6 +255,14 @@ The manifest signature authenticates the packaged files. Private signing keys
 are never included. This unofficial build retains the stock kernel/vendor;
 its Android system patch level does not update those retained components.
 '''
+    if full_cohort:
+        readme = readme.replace("This package retains\nHonor's kernel and vendor firmware", "This package installs the maintained kernel and Lineage Recovery while retaining\nHonor's vendor firmware")
+        readme = readme.replace('It saves only the five OS partitions that it changes', 'It saves only the OS partitions that it changes')
+        readme = readme.replace('It preserves LK, kernel,\nvendor firmware', 'It preserves LK,\nvendor firmware')
+        readme = readme.replace('the five OS partitions being replaced', 'the OS partitions being replaced')
+        readme = readme.replace('This unofficial build retains the stock kernel/vendor;', 'This unofficial build retains stock vendor components;')
+        readme += "\nRuntime filesystem verification is disabled to support recovery-installed add-ons.\nSigned package checks remain required; reported boot properties do not prove stock integrity.\n"
+        readme += "\nTo install compatible add-ons before the first Android boot, use\n`bash flash.sh --reboot-recovery` instead. Install the add-on in Lineage Recovery\nbefore selecting Reboot system. The default command boots vanilla LineageOS.\n"
     (output / 'README.md').write_text(readme)
     files = {str(p.relative_to(output)): {'bytes': p.stat().st_size, 'sha256': sha(p)}
              for p in sorted(output.rglob('*')) if p.is_file()}
@@ -216,6 +271,9 @@ its Android system patch level does not update those retained components.
                     'metadata': 67108864, 'misc': 2097152}, 'before': profile, 'after': after,
                 'files': files, 'fastboot': fastboot, 'system_pieces': pieces, 'footer_piece': footer_name,
                 'system_bytes': image.stat().st_size, 'system_sha256': sha(image), 'images': images}
+    if full_cohort:
+        manifest.update(format_version=2, cohort_images=cohort_images, dlkm_pieces=dlkm_pieces,
+                        kernel_contract='payload/kernel-owned-inputs.json')
     validate_packet(output, manifest)
     (output / 'installer.json').write_text(json.dumps(manifest, indent=2, sort_keys=True) + '\n')
     return {'status': 'HOST_PACKET_PREPARED_MANIFEST_SIGNATURE_PENDING', 'pieces': len(pieces),
@@ -228,5 +286,9 @@ if __name__ == '__main__':
     parser.add_argument('--stock-super-gzip', type=Path, required=True)
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--build-number', required=True)
+    parser.add_argument('--kernel-contract', type=Path, required=True,
+                        help='Reviewed owned-kernel contract; enables the complete-cohort installer')
+    parser.add_argument('--kernel-contract-sha256', required=True)
     args = parser.parse_args()
-    print(json.dumps(build(args.inputs, args.stock_super_gzip, args.output, args.build_number), indent=2))
+    print(json.dumps(build(args.inputs, args.stock_super_gzip, args.output, args.build_number,
+                           args.kernel_contract, args.kernel_contract_sha256), indent=2))
