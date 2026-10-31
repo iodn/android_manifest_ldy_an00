@@ -1,5 +1,5 @@
 diff --git a/Android.bp b/Android.bp
-index 3b610e961982888a5a11ff0f739961aee08808fc..306a5685fe106fc1069a3823da858b696cfb733d 100644
+index 3b610e961982888a5a11ff0f739961aee08808fc..5b56fb03435964482459fed26f3fe8e5042910d0 100644
 --- a/Android.bp
 +++ b/Android.bp
 @@ -20,6 +20,7 @@ android_library {
@@ -10,6 +10,14 @@ index 3b610e961982888a5a11ff0f739961aee08808fc..306a5685fe106fc1069a3823da858b69
          "kotlinx_coroutines",
      ],
      srcs: [
+@@ -46,6 +47,7 @@ android_app {
+     jni_libs: [
+         "liblpac-jni",
+     ],
++    use_embedded_native_libs: true,
+     srcs: [
+         "app/src/main/**/*.kt",
+     ],
 diff --git a/app-common/src/main/java/im/angry/openeuicc/core/DefaultEuiccChannelManager.kt b/app-common/src/main/java/im/angry/openeuicc/core/DefaultEuiccChannelManager.kt
 index 84c1d9bcab55150f7baedd712ab9a2bb2dc731c9..343e0ed648fdc7da1ca3511314bdbc5dd9f3ddc2 100644
 --- a/app-common/src/main/java/im/angry/openeuicc/core/DefaultEuiccChannelManager.kt
@@ -283,6 +291,32 @@ index e47d403b669174529da2097535f1f4ed08702117..9a1ff68cd2f1ba60b08e9f4f2a070d3e
      }
      override val lpa: LocalProfileAssistant by lpaDelegate
      override val valid: Boolean
+diff --git a/app-common/src/main/java/im/angry/openeuicc/core/FrameworkProfileCache.kt b/app-common/src/main/java/im/angry/openeuicc/core/FrameworkProfileCache.kt
+new file mode 100644
+index 0000000000000000000000000000000000000000..37b2b5ef49699bc125e10ca6bcbb4d9172e1fb40
+--- /dev/null
++++ b/app-common/src/main/java/im/angry/openeuicc/core/FrameworkProfileCache.kt
+@@ -0,0 +1,20 @@
++package im.angry.openeuicc.core
++
++import android.content.Context
++import android.telephony.SubscriptionManager
++
++/** Android subscription history, not a verified or complete read of the eUICC. */
++internal object FrameworkProfileCache {
++    data class Row(val eid: String, val iccid: String, val name: String, val provider: String)
++    fun read(context: Context): List<Row> {
++        val manager = context.getSystemService(SubscriptionManager::class.java) ?: return emptyList()
++        return try {
++            manager.allSubscriptionInfoList.orEmpty().filter { it.isEmbedded }.mapNotNull {
++                val eid = it.cardString
++                val iccid = it.iccId
++                if (!eid.matches(Regex("[0-9]{32}")) || !iccid.matches(Regex("[0-9]{18,22}"))) null
++                else Row(eid, iccid, it.displayName?.toString().orEmpty(), it.carrierName?.toString().orEmpty())
++            }.distinctBy { it.eid to it.iccid }
++        } catch (_: SecurityException) { emptyList() }
++    }
++}
 diff --git a/app-common/src/main/java/im/angry/openeuicc/core/HonorLpaChannelAccess.kt b/app-common/src/main/java/im/angry/openeuicc/core/HonorLpaChannelAccess.kt
 new file mode 100644
 index 0000000000000000000000000000000000000000..6d3a9dbea7a8c9feb36a9289301444f6b2ce5c16
@@ -1647,6 +1681,39 @@ index 0000000000000000000000000000000000000000..6129a5f95179d54965b258f23f68fa08
 +        }
 +    }
 +}
+diff --git a/app-common/src/main/java/im/angry/openeuicc/core/PendingProfileAction.kt b/app-common/src/main/java/im/angry/openeuicc/core/PendingProfileAction.kt
+new file mode 100644
+index 0000000000000000000000000000000000000000..87a83152454e348135173e6f7f14d8d20bedc836
+--- /dev/null
++++ b/app-common/src/main/java/im/angry/openeuicc/core/PendingProfileAction.kt
+@@ -0,0 +1,27 @@
++package im.angry.openeuicc.core
++
++/** One user gesture, held in memory only. Intents carry an opaque token, never an operation. */
++internal object PendingProfileAction {
++    const val EXTRA = "honor_management_action_token"
++    enum class Kind { ENABLE, DISABLE, DELETE, RENAME, ADD }
++    data class Action(val kind: Kind, val eid: String?, val iccid: String?)
++    private var pending: Pair<String, Action>? = null
++    @Synchronized fun begin(token: String, action: Action): Boolean {
++        require(token.matches(Regex("[0-9a-f]{32}")))
++        require(action.eid == null || action.eid.matches(Regex("[0-9]{32}")))
++        require(action.kind == Kind.ADD || action.eid != null && action.iccid?.matches(Regex("[0-9]{18,22}")) == true)
++        if (pending != null) return false
++        pending = token to action
++        return true
++    }
++    @Synchronized fun clear() { pending = null }
++    @Synchronized fun take(token: String?, eid: String, iccids: List<String>): Action? {
++        val request = pending ?: return null
++        if (token != request.first) return null
++        pending = null // Consume before checking the live identity; mismatch cannot retry elsewhere.
++        val action = request.second
++        if (action.eid != null && action.eid != eid) return null
++        if (action.kind != Kind.ADD && iccids.count { it == action.iccid } != 1) return null
++        return action
++    }
++}
 diff --git a/app-common/src/main/java/im/angry/openeuicc/core/ProfileInventory.kt b/app-common/src/main/java/im/angry/openeuicc/core/ProfileInventory.kt
 new file mode 100644
 index 0000000000000000000000000000000000000000..a73689ea7b885375982bf7c74f0cd4a4d35dd326
@@ -2505,10 +2572,10 @@ index 157ab42d0f6ad2aa3240c754067fd3faf1843eaa..38a5dc0a657a652e7eef241d94ad92df
      }
  
 diff --git a/app-common/src/main/java/im/angry/openeuicc/ui/EuiccManagementFragment.kt b/app-common/src/main/java/im/angry/openeuicc/ui/EuiccManagementFragment.kt
-index 49006a78bbcf83e521bf8e3039f5bae2f0576db2..91ea115d603d61c1207cf72016d47c1ff4b7b332 100644
+index 49006a78bbcf83e521bf8e3039f5bae2f0576db2..330c7784fcc68476cb655816ba99fdff324deead 100644
 --- a/app-common/src/main/java/im/angry/openeuicc/ui/EuiccManagementFragment.kt
 +++ b/app-common/src/main/java/im/angry/openeuicc/ui/EuiccManagementFragment.kt
-@@ -28,9 +28,12 @@ import androidx.recyclerview.widget.RecyclerView
+@@ -28,9 +28,13 @@ import androidx.recyclerview.widget.RecyclerView
  import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
  import com.google.android.material.floatingactionbutton.FloatingActionButton
  import im.angry.openeuicc.common.R
@@ -2519,10 +2586,11 @@ index 49006a78bbcf83e521bf8e3039f5bae2f0576db2..91ea115d603d61c1207cf72016d47c1f
 +import im.angry.openeuicc.service.EuiccChannelManagerService.Companion.waitOutcome
 +import im.angry.openeuicc.core.HonorLpaChannelAccess
 +import im.angry.openeuicc.core.HonorManagementSession
++import im.angry.openeuicc.core.PendingProfileAction
  import im.angry.openeuicc.ui.wizard.DownloadWizardActivity
  import im.angry.openeuicc.util.*
  import kotlinx.coroutines.Dispatchers
-@@ -46,6 +49,16 @@ open class EuiccManagementFragment : Fragment(), EuiccProfilesChangedListener,
+@@ -46,6 +50,16 @@ open class EuiccManagementFragment : Fragment(), EuiccProfilesChangedListener,
      EuiccChannelFragmentMarker {
      companion object {
          const val TAG = "EuiccManagementFragment"
@@ -2539,7 +2607,7 @@ index 49006a78bbcf83e521bf8e3039f5bae2f0576db2..91ea115d603d61c1207cf72016d47c1f
  
          fun newInstance(
              slotId: Int,
-@@ -55,6 +68,8 @@ open class EuiccManagementFragment : Fragment(), EuiccProfilesChangedListener,
+@@ -55,6 +69,8 @@ open class EuiccManagementFragment : Fragment(), EuiccProfilesChangedListener,
              newInstanceEuicc(EuiccManagementFragment::class.java, slotId, portId, seId)
      }
  
@@ -2548,7 +2616,7 @@ index 49006a78bbcf83e521bf8e3039f5bae2f0576db2..91ea115d603d61c1207cf72016d47c1f
      private lateinit var swipeRefresh: SwipeRefreshLayout
      private lateinit var fab: FloatingActionButton
      private lateinit var profileList: RecyclerView
-@@ -67,6 +82,8 @@ open class EuiccManagementFragment : Fragment(), EuiccProfilesChangedListener,
+@@ -67,6 +83,8 @@ open class EuiccManagementFragment : Fragment(), EuiccProfilesChangedListener,
      // Marker for when this fragment might enter an invalid state
      // e.g. after a failed enable / disable operation
      private var invalid = false
@@ -2557,7 +2625,7 @@ index 49006a78bbcf83e521bf8e3039f5bae2f0576db2..91ea115d603d61c1207cf72016d47c1f
  
      // Subscribe to settings we care about outside of coroutine contexts while initializing
      // This gives us access to the "latest" state without having to launch coroutines
-@@ -76,7 +93,7 @@ open class EuiccManagementFragment : Fragment(), EuiccProfilesChangedListener,
+@@ -76,7 +94,7 @@ open class EuiccManagementFragment : Fragment(), EuiccProfilesChangedListener,
  
      override fun onCreate(savedInstanceState: Bundle?) {
          super.onCreate(savedInstanceState)
@@ -2566,35 +2634,30 @@ index 49006a78bbcf83e521bf8e3039f5bae2f0576db2..91ea115d603d61c1207cf72016d47c1f
      }
  
      override fun onCreateView(
-@@ -105,8 +122,13 @@ open class EuiccManagementFragment : Fragment(), EuiccProfilesChangedListener,
+@@ -105,8 +123,9 @@ open class EuiccManagementFragment : Fragment(), EuiccProfilesChangedListener,
              ))
  
          profileList.addOnScrollListener(object : RecyclerView.OnScrollListener() {
 -            override fun onScrollStateChanged(view: RecyclerView, newState: Int) =
 +            override fun onScrollStateChanged(view: RecyclerView, newState: Int) {
-+                if (savedInventoryMode) {
-+                    fab.hide()
-+                    return
-+                }
                  if (newState == RecyclerView.SCROLL_STATE_IDLE) fab.show() else fab.hide()
 +            }
          })
  
          return view
-@@ -119,7 +141,12 @@ open class EuiccManagementFragment : Fragment(), EuiccProfilesChangedListener,
-         profileList.layoutManager =
+@@ -120,6 +139,11 @@ open class EuiccManagementFragment : Fragment(), EuiccProfilesChangedListener,
              LinearLayoutManager(view.context, LinearLayoutManager.VERTICAL, false)
  
-+        if (savedInventoryMode) {
-+            fab.isVisible = false
-+            return
-+        }
          fab.setOnClickListener {
 +            if (sessionClosing()) return@setOnClickListener
++            if (savedInventoryMode) {
++                requestSavedAction(PendingProfileAction.Kind.ADD, null)
++                return@setOnClickListener
++            }
              val intent = DownloadWizardActivity.newIntent(requireContext(), logicalSlotId, seId)
              startActivity(intent)
          }
-@@ -131,15 +158,18 @@ open class EuiccManagementFragment : Fragment(), EuiccProfilesChangedListener,
+@@ -131,15 +155,18 @@ open class EuiccManagementFragment : Fragment(), EuiccProfilesChangedListener,
      }
  
      override fun onEuiccProfilesChanged() {
@@ -2613,7 +2676,7 @@ index 49006a78bbcf83e521bf8e3039f5bae2f0576db2..91ea115d603d61c1207cf72016d47c1f
          super.onPrepareOptionsMenu(menu)
          menu.findItem(R.id.show_notifications).isVisible =
              logicalSlotId != -1
-@@ -149,7 +179,7 @@ open class EuiccManagementFragment : Fragment(), EuiccProfilesChangedListener,
+@@ -149,7 +176,7 @@ open class EuiccManagementFragment : Fragment(), EuiccProfilesChangedListener,
              enabledProfile == null
      }
  
@@ -2622,7 +2685,7 @@ index 49006a78bbcf83e521bf8e3039f5bae2f0576db2..91ea115d603d61c1207cf72016d47c1f
          R.id.show_notifications -> {
              Intent(requireContext(), NotificationsActivity::class.java).apply {
                  putExtra("logicalSlotId", logicalSlotId)
-@@ -189,16 +219,81 @@ open class EuiccManagementFragment : Fragment(), EuiccProfilesChangedListener,
+@@ -189,16 +216,88 @@ open class EuiccManagementFragment : Fragment(), EuiccProfilesChangedListener,
          }
  
      private fun refresh() {
@@ -2680,9 +2743,16 @@ index 49006a78bbcf83e521bf8e3039f5bae2f0576db2..91ea115d603d61c1207cf72016d47c1f
 +            is im.angry.openeuicc.core.ProfileInventory.State.VerifiedEmpty -> saved.snapshot
 +            im.angry.openeuicc.core.ProfileInventory.State.Unavailable -> null
 +        }
++        val frameworkProfiles = if (saved is im.angry.openeuicc.core.ProfileInventory.State.Unavailable && eid != null)
++            withContext(Dispatchers.IO) {
++                im.angry.openeuicc.core.FrameworkProfileCache.read(appContext).filter { it.eid == eid }
++            } else emptyList()
 +        adapter.savedProfiles = snapshot?.profiles ?: emptyList()
++        adapter.frameworkProfiles = frameworkProfiles
 +        val message = when (saved) {
-+            im.angry.openeuicc.core.ProfileInventory.State.Unavailable -> getString(R.string.saved_esim_unavailable)
++            im.angry.openeuicc.core.ProfileInventory.State.Unavailable -> getString(
++                if (frameworkProfiles.isNotEmpty()) R.string.saved_esim_android_cache
++                else R.string.saved_esim_unavailable)
 +            else -> {
 +                val observed = checkNotNull(snapshot)
 +                val time = java.text.DateFormat.getDateTimeInstance().format(
@@ -2706,7 +2776,7 @@ index 49006a78bbcf83e521bf8e3039f5bae2f0576db2..91ea115d603d61c1207cf72016d47c1f
          ensureEuiccChannelManager()
          euiccChannelManagerService.waitForForegroundTask()
  
-@@ -211,20 +306,44 @@ open class EuiccManagementFragment : Fragment(), EuiccProfilesChangedListener,
+@@ -211,22 +310,76 @@ open class EuiccManagementFragment : Fragment(), EuiccProfilesChangedListener,
                  preferenceRepository.unfilteredProfileListFlow.stateIn(lifecycleScope)
          }
  
@@ -2758,8 +2828,40 @@ index 49006a78bbcf83e521bf8e3039f5bae2f0576db2..91ea115d603d61c1207cf72016d47c1f
 +            adapter.footerViews = onCreateFooterViews(profileList, visibleProfiles)
              adapter.notifyDataSetChanged()
              swipeRefresh.isRefreshing = false
++            val action = (activity as? MainActivity)?.takeProfileAction(eid, profiles.map { it.iccid })
++            if (action != null) performPendingAction(action, profiles)
++        }
++    }
++
++    private fun requestSavedAction(kind: PendingProfileAction.Kind, iccid: String?) {
++        (activity as? MainActivity)?.requestProfileAction(PendingProfileAction.Action(
++            kind, arguments?.getString(SAVED_EID), iccid))
++    }
++
++    private fun performPendingAction(action: PendingProfileAction.Action, profiles: List<LocalProfileInfo>) {
++        if (action.kind == PendingProfileAction.Kind.ADD) {
++            startActivity(DownloadWizardActivity.newIntent(requireContext(), logicalSlotId, seId))
++            return
++        }
++        val profile = profiles.singleOrNull { it.iccid == action.iccid } ?: return
++        when (action.kind) {
++            PendingProfileAction.Kind.ENABLE -> if (profile.isEnabled) useEnabledProfile(profile.iccid)
++                else if (profiles.enabled == null || profiles.enabled?.profileClass == profile.profileClass)
++                    enableOrDisableProfile(profile.iccid, true)
++                else Toast.makeText(context, R.string.toast_profile_enable_cross_class, Toast.LENGTH_LONG).show()
++            PendingProfileAction.Kind.DISABLE -> if (profile.isEnabled) enableOrDisableProfile(profile.iccid, false)
++            PendingProfileAction.Kind.DELETE -> if (!profile.isEnabled)
++                ProfileDeleteFragment.newInstance(slotId, portId, seId, profile.iccid, profile.displayName)
++                    .show(childFragmentManager, ProfileDeleteFragment.TAG)
++                else Toast.makeText(context, R.string.esim_disable_before_delete, Toast.LENGTH_LONG).show()
++            PendingProfileAction.Kind.RENAME -> ProfileRenameFragment.newInstance(
++                slotId, portId, seId, profile.iccid, profile.displayName)
++                    .show(childFragmentManager, ProfileRenameFragment.TAG)
++            PendingProfileAction.Kind.ADD -> Unit
          }
-@@ -236,6 +355,8 @@ open class EuiccManagementFragment : Fragment(), EuiccProfilesChangedListener,
+     }
+ 
+@@ -236,6 +389,8 @@ open class EuiccManagementFragment : Fragment(), EuiccProfilesChangedListener,
      }
  
      private fun enableOrDisableProfile(iccid: String, enable: Boolean) {
@@ -2768,7 +2870,7 @@ index 49006a78bbcf83e521bf8e3039f5bae2f0576db2..91ea115d603d61c1207cf72016d47c1f
          swipeRefresh.isRefreshing = true
          fab.isEnabled = false
  
-@@ -243,13 +364,17 @@ open class EuiccManagementFragment : Fragment(), EuiccProfilesChangedListener,
+@@ -243,13 +398,17 @@ open class EuiccManagementFragment : Fragment(), EuiccProfilesChangedListener,
              ensureEuiccChannelManager()
              euiccChannelManagerService.waitForForegroundTask()
  
@@ -2789,7 +2891,7 @@ index 49006a78bbcf83e521bf8e3039f5bae2f0576db2..91ea115d603d61c1207cf72016d47c1f
              when (err) {
                  null -> {}
                  is EuiccChannelManagerService.SwitchingProfilesRefreshException -> {
-@@ -278,21 +403,66 @@ open class EuiccManagementFragment : Fragment(), EuiccProfilesChangedListener,
+@@ -278,21 +437,66 @@ open class EuiccManagementFragment : Fragment(), EuiccProfilesChangedListener,
                      }
                  }
  
@@ -2858,12 +2960,17 @@ index 49006a78bbcf83e521bf8e3039f5bae2f0576db2..91ea115d603d61c1207cf72016d47c1f
          popup.menu.findItem(R.id.delete).isVisible = false
  
          // We hide the disable option by default to avoid "bricking" some cards that won't get
-@@ -368,6 +538,23 @@ open class EuiccManagementFragment : Fragment(), EuiccProfilesChangedListener,
+@@ -367,8 +571,45 @@ open class EuiccManagementFragment : Fragment(), EuiccProfilesChangedListener,
+ 
          private lateinit var profile: LocalProfileInfo
          private var canEnable: Boolean = false
- 
++        private var savedRow: im.angry.openeuicc.core.ProfileInventory.Row? = null
++        private var frameworkRow: im.angry.openeuicc.core.FrameworkProfileCache.Row? = null
++
 +        internal fun setSavedProfile(row: im.angry.openeuicc.core.ProfileInventory.Row) {
-+            profileMenu.isVisible = false
++            savedRow = row
++            frameworkRow = null
++            profileMenu.isVisible = true
 +            name.text = row.nickname.ifEmpty { row.name }
 +            provider.text = row.provider
 +            iccid.text = row.iccid
@@ -2879,21 +2986,57 @@ index 49006a78bbcf83e521bf8e3039f5bae2f0576db2..91ea115d603d61c1207cf72016d47c1f
 +            })
 +        }
 +
++        internal fun setFrameworkProfile(row: im.angry.openeuicc.core.FrameworkProfileCache.Row) {
++            frameworkRow = row
++            savedRow = null
++            profileMenu.isVisible = true
++            name.text = row.name
++            provider.text = row.provider
++            iccid.text = row.iccid
++            iccid.transformationMethod = PasswordTransformationMethod.getInstance()
++            state.setText(R.string.saved_esim_android_state)
++            profileClassLabel.isVisible = false
++            profileClass.isVisible = false
++        }
+ 
          fun setProfile(profile: LocalProfileInfo) {
++            savedRow = null
++            frameworkRow = null
++            profileMenu.isVisible = true
              this.profile = profile
              name.text = profile.displayName
-@@ -408,8 +595,9 @@ open class EuiccManagementFragment : Fragment(), EuiccProfilesChangedListener,
+ 
+@@ -408,8 +649,28 @@ open class EuiccManagementFragment : Fragment(), EuiccProfilesChangedListener,
          }
  
          private fun showOptionsMenu() {
-+            if (savedInventoryMode) return
++            if (savedInventoryMode) {
++                val savedIccid = savedRow?.iccid ?: frameworkRow?.iccid ?: return
++                PopupMenu(root.context, profileMenu).apply {
++                    inflate(R.menu.profile_options)
++                    menu.findItem(R.id.disable).isVisible = true
++                    setOnMenuItemClickListener { item ->
++                        val kind = when (item.itemId) {
++                            R.id.enable -> PendingProfileAction.Kind.ENABLE
++                            R.id.disable -> PendingProfileAction.Kind.DISABLE
++                            R.id.delete -> PendingProfileAction.Kind.DELETE
++                            R.id.rename -> PendingProfileAction.Kind.RENAME
++                            else -> null
++                        }
++                        if (kind != null) requestSavedAction(kind, savedIccid)
++                        kind != null
++                    }
++                    show()
++                }
++                return
++            }
              // Prevent users from doing multiple things at once
 -            if (invalid || swipeRefresh.isRefreshing) return
 +            if (sessionClosing() || invalid || swipeRefresh.isRefreshing) return
  
              PopupMenu(root.context, profileMenu).apply {
                  setOnMenuItemClickListener(::onMenuItemClicked)
-@@ -419,9 +607,11 @@ open class EuiccManagementFragment : Fragment(), EuiccProfilesChangedListener,
+@@ -419,9 +680,11 @@ open class EuiccManagementFragment : Fragment(), EuiccProfilesChangedListener,
          }
  
          private fun onMenuItemClicked(item: MenuItem): Boolean =
@@ -2907,16 +3050,17 @@ index 49006a78bbcf83e521bf8e3039f5bae2f0576db2..91ea115d603d61c1207cf72016d47c1f
                          enableOrDisableProfile(profile.iccid, true)
                      } else {
                          val resId = R.string.toast_profile_enable_cross_class
-@@ -466,6 +656,8 @@ open class EuiccManagementFragment : Fragment(), EuiccProfilesChangedListener,
+@@ -466,6 +729,9 @@ open class EuiccManagementFragment : Fragment(), EuiccProfilesChangedListener,
  
      inner class EuiccProfileAdapter : RecyclerView.Adapter<ViewHolder>() {
          var profiles: List<LocalProfileInfo> = listOf()
 +        internal var savedProfiles: List<im.angry.openeuicc.core.ProfileInventory.Row>? = null
-+        private val rowCount get() = savedProfiles?.size ?: profiles.size
++        internal var frameworkProfiles: List<im.angry.openeuicc.core.FrameworkProfileCache.Row> = emptyList()
++        private val rowCount get() = savedProfiles?.let { it.size + frameworkProfiles.size } ?: profiles.size
          var footerViews: List<View> = listOf()
  
          override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder =
-@@ -483,11 +675,11 @@ open class EuiccManagementFragment : Fragment(), EuiccProfilesChangedListener,
+@@ -483,11 +749,11 @@ open class EuiccManagementFragment : Fragment(), EuiccProfilesChangedListener,
  
          override fun getItemViewType(position: Int): Int =
              when {
@@ -2930,15 +3074,17 @@ index 49006a78bbcf83e521bf8e3039f5bae2f0576db2..91ea115d603d61c1207cf72016d47c1f
                      ViewHolder.Type.FOOTER.value
                  }
  
-@@ -497,13 +689,17 @@ open class EuiccManagementFragment : Fragment(), EuiccProfilesChangedListener,
+@@ -497,13 +763,19 @@ open class EuiccManagementFragment : Fragment(), EuiccProfilesChangedListener,
          override fun onBindViewHolder(holder: ViewHolder, position: Int) {
              when (holder) {
                  is ProfileViewHolder -> {
 -                    holder.setProfile(profiles[position])
 -                    holder.setEnabledProfile(profiles.enabled)
 +                    val saved = savedProfiles
-+                    if (saved != null) holder.setSavedProfile(saved[position])
-+                    else {
++                    if (saved != null) {
++                        if (position < saved.size) holder.setSavedProfile(saved[position])
++                        else holder.setFrameworkProfile(frameworkProfiles[position - saved.size])
++                    } else {
 +                        holder.setProfile(profiles[position])
 +                        holder.setEnabledProfile(profiles.enabled)
 +                    }
@@ -2951,7 +3097,7 @@ index 49006a78bbcf83e521bf8e3039f5bae2f0576db2..91ea115d603d61c1207cf72016d47c1f
                  }
              }
          }
-@@ -514,6 +710,6 @@ open class EuiccManagementFragment : Fragment(), EuiccProfilesChangedListener,
+@@ -514,6 +786,6 @@ open class EuiccManagementFragment : Fragment(), EuiccProfilesChangedListener,
              }
          }
  
@@ -2981,7 +3127,7 @@ index 0000000000000000000000000000000000000000..4610c33886432ce28b72dc9ee45e6360
 +    finishAffinity()
 +}
 diff --git a/app-common/src/main/java/im/angry/openeuicc/ui/MainActivity.kt b/app-common/src/main/java/im/angry/openeuicc/ui/MainActivity.kt
-index 6dd7de88f9f26004bf8c466531e22a999146bcc9..f90e10f26544ec98c17cd5cac50fa8777e677dc2 100644
+index 6dd7de88f9f26004bf8c466531e22a999146bcc9..907b01f8a2b5672cd6d77b009181e07800b4f224 100644
 --- a/app-common/src/main/java/im/angry/openeuicc/ui/MainActivity.kt
 +++ b/app-common/src/main/java/im/angry/openeuicc/ui/MainActivity.kt
 @@ -16,6 +16,8 @@ import android.view.MenuItem
@@ -3011,18 +3157,19 @@ index 6dd7de88f9f26004bf8c466531e22a999146bcc9..f90e10f26544ec98c17cd5cac50fa877
      }
  
      private lateinit var loadingProgress: ProgressBar
-@@ -50,6 +56,10 @@ open class MainActivity : BaseEuiccAccessActivity(), OpenEuiccContextMarker {
+@@ -50,6 +56,11 @@ open class MainActivity : BaseEuiccAccessActivity(), OpenEuiccContextMarker {
      private lateinit var viewPager: ViewPager2
  
      private var refreshing = false
 +    private var managementSession = false
 +    private var managementLauncher = false
++    private var managementEntryStarted = false
 +    private var facadeInFlight = false
 +    private var recoveryDialog: androidx.appcompat.app.AlertDialog? = null
  
      private data class Page(
          val id: Long,
-@@ -81,10 +91,18 @@ open class MainActivity : BaseEuiccAccessActivity(), OpenEuiccContextMarker {
+@@ -81,10 +92,18 @@ open class MainActivity : BaseEuiccAccessActivity(), OpenEuiccContextMarker {
  
      protected lateinit var tm: TelephonyManager
  
@@ -3042,10 +3189,11 @@ index 6dd7de88f9f26004bf8c466531e22a999146bcc9..f90e10f26544ec98c17cd5cac50fa877
              }
          }
      }
-@@ -92,6 +110,11 @@ open class MainActivity : BaseEuiccAccessActivity(), OpenEuiccContextMarker {
+@@ -92,6 +111,12 @@ open class MainActivity : BaseEuiccAccessActivity(), OpenEuiccContextMarker {
      @SuppressLint("WrongConstant", "UnspecifiedRegisterReceiverFlag")
      override fun onCreate(savedInstanceState: Bundle?) {
          enableEdgeToEdge()
++        if (savedInstanceState != null) im.angry.openeuicc.core.PendingProfileAction.clear()
 +        managementSession = HonorManagementSession.attach(this,savedInstanceState != null)
 +        managementLauncher = im.angry.openeuicc.core.HonorLpaChannelAccess.enabled() && !managementSession
 +            && (intent.action == Intent.ACTION_MAIN
@@ -3054,7 +3202,7 @@ index 6dd7de88f9f26004bf8c466531e22a999146bcc9..f90e10f26544ec98c17cd5cac50fa877
          super.onCreate(savedInstanceState)
          setContentView(R.layout.activity_main)
          setSupportActionBar(requireViewById(R.id.toolbar))
-@@ -116,20 +139,76 @@ open class MainActivity : BaseEuiccAccessActivity(), OpenEuiccContextMarker {
+@@ -116,20 +141,122 @@ open class MainActivity : BaseEuiccAccessActivity(), OpenEuiccContextMarker {
                  this::activityToolbarInsetHandler
              ), consume = false
          )
@@ -3068,7 +3216,8 @@ index 6dd7de88f9f26004bf8c466531e22a999146bcc9..f90e10f26544ec98c17cd5cac50fa877
 +        } else if (managementLauncher) {
 +            if (HonorManagementSession.hasEnvelope(intent)) {
 +                setResult(RESULT_CANCELED);finish()
-+            } else if (!facadeInFlight) launchManagementFacade()
++            }
++            // The bind-only onInit callback checks recovery before entering Settings.
 +        }
 +    }
 +
@@ -3077,7 +3226,41 @@ index 6dd7de88f9f26004bf8c466531e22a999146bcc9..f90e10f26544ec98c17cd5cac50fa877
 +        super.onSaveInstanceState(outState)
 +    }
 +
-+    private fun launchManagementFacade() {
++    private suspend fun openManagement() {
++        if (facadeInFlight || isFinishing || isDestroyed) return
++        // A durable UNKNOWN must reach explicit Restore, not loop through a normal route request.
++        if (showRecoveryBeforeDiscovery()) {
++            refreshing=false
++            loadingProgress.visibility=View.GONE
++            return
++        }
++        launchManagementFacade()
++    }
++
++    private var pendingActionKind: String? = null
++
++    internal fun requestProfileAction(action: im.angry.openeuicc.core.PendingProfileAction.Action) {
++        if (facadeInFlight || isFinishing || isDestroyed) return
++        val token = java.util.UUID.randomUUID().toString().replace("-", "")
++        if (!im.angry.openeuicc.core.PendingProfileAction.begin(token, action)) return
++        pendingActionKind = action.kind.name
++        lifecycleScope.launch {
++            euiccChannelManagerLoaded.await()
++            if (showRecoveryBeforeDiscovery()) {
++                im.angry.openeuicc.core.PendingProfileAction.clear()
++                return@launch
++            }
++            launchManagementFacade(token)
++        }
++    }
++
++    internal fun takeProfileAction(eid: String, iccids: List<String>): im.angry.openeuicc.core.PendingProfileAction.Action? {
++        if (!HonorManagementSession.isActiveFor(this)) return null
++        return im.angry.openeuicc.core.PendingProfileAction.take(
++            intent.getStringExtra(im.angry.openeuicc.core.PendingProfileAction.EXTRA), eid, iccids)
++    }
++
++    private fun launchManagementFacade(actionToken: String? = null) {
 +        if (facadeInFlight) return
 +        try {
 +            val info=packageManager.getActivityInfo(HonorManagementSession.FACADE,0)
@@ -3087,7 +3270,11 @@ index 6dd7de88f9f26004bf8c466531e22a999146bcc9..f90e10f26544ec98c17cd5cac50fa877
 +                    != PackageManager.SIGNATURE_MATCH) throw SecurityException("Management unavailable")
 +            facadeInFlight=true
 +            startActivityForResult(Intent(HonorManagementSession.FACADE_ACTION)
-+                .setComponent(HonorManagementSession.FACADE),MANAGEMENT_FACADE_REQUEST)
++                .setComponent(HonorManagementSession.FACADE)
++                .putExtra(im.angry.openeuicc.core.PendingProfileAction.EXTRA, actionToken)
++                .putExtra("honor_management_action_kind", actionToken?.let {
++                    pendingActionKind
++                }),MANAGEMENT_FACADE_REQUEST)
 +        } catch (_: PackageManager.NameNotFoundException) { managementLaunchUnavailable() }
 +          catch (_: android.content.ActivityNotFoundException) { managementLaunchUnavailable() }
 +          catch (_: SecurityException) { managementLaunchUnavailable() }
@@ -3104,7 +3291,8 @@ index 6dd7de88f9f26004bf8c466531e22a999146bcc9..f90e10f26544ec98c17cd5cac50fa877
 +        super.onActivityResult(requestCode,resultCode,data)
 +        if (requestCode != MANAGEMENT_FACADE_REQUEST) return
 +        facadeInFlight=false
-+        if (resultCode == RESULT_OK) {
++        im.angry.openeuicc.core.PendingProfileAction.clear()
++        if (resultCode == RESULT_OK && !managementLauncher) {
 +            setResult(resultCode,data)
 +            finish()
 +        } else lifecycleScope.launch { showSavedProfiles() }
@@ -3126,25 +3314,40 @@ index 6dd7de88f9f26004bf8c466531e22a999146bcc9..f90e10f26544ec98c17cd5cac50fa877
  
      override fun onOptionsItemSelected(item: MenuItem): Boolean =
          when (item.itemId) {
-+            MANAGEMENT_MENU -> { launchManagementFacade();true }
++            MANAGEMENT_MENU -> {
++                lifecycleScope.launch {
++                    euiccChannelManagerLoaded.await()
++                    showSavedProfiles()
++                }
++                true
++            }
 +            MANAGEMENT_DONE_MENU -> { HonorManagementSession.requestFinish();true }
              R.id.settings -> {
                  startActivity(Intent(this, SettingsActivity::class.java))
                  true
-@@ -144,6 +223,8 @@ open class MainActivity : BaseEuiccAccessActivity(), OpenEuiccContextMarker {
+@@ -144,6 +271,14 @@ open class MainActivity : BaseEuiccAccessActivity(), OpenEuiccContextMarker {
          }
  
      override fun onInit() {
-+        if (managementLauncher) return
++        if (managementLauncher) {
++            if (!managementEntryStarted) {
++                managementEntryStarted=true
++                lifecycleScope.launch { showSavedProfiles() }
++            }
++            return
++        }
 +        if (managementSession) HonorManagementSession.attachService(euiccChannelManagerService)
          lifecycleScope.launch {
              init()
          }
-@@ -157,20 +238,53 @@ open class MainActivity : BaseEuiccAccessActivity(), OpenEuiccContextMarker {
+@@ -157,20 +292,56 @@ open class MainActivity : BaseEuiccAccessActivity(), OpenEuiccContextMarker {
      }
  
      private suspend fun init(fromUsbEvent: Boolean = false) {
-+        if (managementLauncher) { showSavedProfiles();return }
++        if (managementLauncher) {
++            showSavedProfiles()
++            return
++        }
 +        if (isFinishing || isDestroyed || managementSession && HonorManagementSession.isClosingFor(this)) return
 +        try {
          refreshing = true // We don't check this here -- the check happens in refresh()
@@ -3199,7 +3402,7 @@ index 6dd7de88f9f26004bf8c466531e22a999146bcc9..f90e10f26544ec98c17cd5cac50fa877
              Log.d(TAG, "slot $slotId port $portId")
  
              euiccChannelManager.flowEuiccSecureElements(slotId, portId).onEach { seId ->
-@@ -209,6 +323,13 @@ open class MainActivity : BaseEuiccAccessActivity(), OpenEuiccContextMarker {
+@@ -209,6 +380,13 @@ open class MainActivity : BaseEuiccAccessActivity(), OpenEuiccContextMarker {
                  UsbCcidReaderPermissionFragment()
              })
          }
@@ -3213,7 +3416,7 @@ index 6dd7de88f9f26004bf8c466531e22a999146bcc9..f90e10f26544ec98c17cd5cac50fa877
          viewPager.visibility = View.VISIBLE
  
          if (newPages.size > 1) {
-@@ -246,9 +367,165 @@ open class MainActivity : BaseEuiccAccessActivity(), OpenEuiccContextMarker {
+@@ -246,9 +424,174 @@ open class MainActivity : BaseEuiccAccessActivity(), OpenEuiccContextMarker {
          ShortcutManagerCompat.setDynamicShortcuts(this, buildShortcuts().take(4))
  
          refreshing = false
@@ -3275,13 +3478,22 @@ index 6dd7de88f9f26004bf8c466531e22a999146bcc9..f90e10f26544ec98c17cd5cac50fa877
 +            val states = withContext(Dispatchers.IO) {
 +                im.angry.openeuicc.core.HonorProfileInventory.store(this@MainActivity).saved()
 +            }
-+            pages.clear()
-+            states.forEachIndexed { index, state ->
-+                val eid = when (state) {
++            val savedEids = states.mapNotNull { state ->
++                when (state) {
 +                    is im.angry.openeuicc.core.ProfileInventory.State.Verified -> state.snapshot.eid
 +                    is im.angry.openeuicc.core.ProfileInventory.State.VerifiedEmpty -> state.snapshot.eid
 +                    im.angry.openeuicc.core.ProfileInventory.State.Unavailable -> null
 +                }
++            }
++            val cardEids: List<String?> = if (savedEids.isNotEmpty()) savedEids else {
++                val cached = withContext(Dispatchers.IO) {
++                    im.angry.openeuicc.core.FrameworkProfileCache.read(this@MainActivity)
++                        .map { it.eid }.distinct()
++                }
++                if (cached.isEmpty()) listOf(null) else cached
++            }
++            pages.clear()
++            cardEids.forEachIndexed { index, eid ->
 +                pages.add(newPage(-1, getString(R.string.saved_esim_card, index + 1)) {
 +                    EuiccManagementFragment.newSavedInstance(eid)
 +                })
@@ -3357,7 +3569,7 @@ index 6dd7de88f9f26004bf8c466531e22a999146bcc9..f90e10f26544ec98c17cd5cac50fa877
 +        lifecycleScope.launch {
 +            try {
 +                action()
-+                init()
++                if (managementLauncher) openManagement() else init()
 +            } catch (failure: Exception) {
 +                val access=im.angry.openeuicc.core.HonorLpaChannelAccess
 +                if (failure is kotlinx.coroutines.CancellationException) throw failure
@@ -4029,6 +4241,18 @@ index 423f258afabe15aca86c18326c89a2596bd5415a..fd3e96b8495ae6aea59e725c1bb7eee1
              app:flow_verticalGap="16dp"
              app:layout_constrainedWidth="true"
              app:layout_constraintBottom_toBottomOf="parent"
+diff --git a/app-common/src/main/res/values/honor_esim_actions.xml b/app-common/src/main/res/values/honor_esim_actions.xml
+new file mode 100644
+index 0000000000000000000000000000000000000000..48c72d0f518e87d763a23897f02515f6f5f149a4
+--- /dev/null
++++ b/app-common/src/main/res/values/honor_esim_actions.xml
+@@ -0,0 +1,6 @@
++<?xml version="1.0" encoding="utf-8"?>
++<resources>
++    <string name="esim_disable_before_delete">Disable this eSIM before deleting it.</string>
++    <string name="saved_esim_android_state">Status unconfirmed</string>
++    <string name="saved_esim_android_cache">Saved by Android. Connect to the eSIM to refresh its profiles and current status.</string>
++</resources>
 diff --git a/app-common/src/main/res/values/strings.xml b/app-common/src/main/res/values/strings.xml
 index 8d3ca7759948e745b4e97305c992b8b909787faa..bfa46a8014614bbebe90195002dab68cfa552419 100644
 --- a/app-common/src/main/res/values/strings.xml

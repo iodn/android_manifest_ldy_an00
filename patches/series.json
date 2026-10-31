@@ -123,27 +123,27 @@
     },
     {
       "path": "packages/apps/OpenEUICC",
-      "revision": "235922b7cd9f8832419dd2bbb31024c262bd664d",
-      "tree": "52c6ec6792ec0dc7b7b0768b204f15f847c79625",
+      "revision": "b725630b975e64d7aea22ff03bb6e00aa6de712b",
+      "tree": "b6504e996e71f3d95dee2d29287dc19189c986ff",
       "base_revision": "89d677e07d0ebbd2d157ede2cb31f76aec737e3a",
       "patch": "packages_apps_OpenEUICC.patch",
-      "patch_sha256": "81aef856dfc6e09642d68cd533e606b9ef82c5a14c923fd9b92e2058536d2828",
+      "patch_sha256": "f0a5e3c3e3585da62e2863eadb509b01f34c24a6e9022ace9897314d00bea3d8",
       "patch_tree_verified": true,
       "remote_url": "https://github.com/estkme-group/openeuicc.git",
-      "target_snapshot_revision": "235922b7cd9f8832419dd2bbb31024c262bd664d",
-      "target_snapshot_tree": "52c6ec6792ec0dc7b7b0768b204f15f847c79625"
+      "target_snapshot_revision": "b725630b975e64d7aea22ff03bb6e00aa6de712b",
+      "target_snapshot_tree": "b6504e996e71f3d95dee2d29287dc19189c986ff"
     },
     {
       "path": "packages/apps/Settings",
-      "revision": "48d8cd4680fd3bfb3ebbea216ffb9f336ec0ae1d",
-      "tree": "2a418fe0c659f3f44c2cda13b6d92beca5e1e07c",
+      "revision": "6df78cb0d395ad586c33f5c41dfd3dee0e825351",
+      "tree": "884f3553ace31fda60cf4e8fcbfb13d3830f955c",
       "base_revision": "0b97deb37dcba757a3130899273fb4c298702f00",
       "patch": "packages_apps_Settings.patch",
-      "patch_sha256": "49e28b1aa8ef8592204cd17e20952a330ef31fa707c80be1a5212e339f5e1011",
+      "patch_sha256": "72938fc8aea08a4d4be838e4f91a04700405d5437dc5484d1bb62d06835334aa",
       "patch_tree_verified": true,
       "remote_url": "https://github.com/LineageOS/android_packages_apps_Settings",
-      "target_snapshot_revision": "48d8cd4680fd3bfb3ebbea216ffb9f336ec0ae1d",
-      "target_snapshot_tree": "2a418fe0c659f3f44c2cda13b6d92beca5e1e07c",
+      "target_snapshot_revision": "6df78cb0d395ad586c33f5c41dfd3dee0e825351",
+      "target_snapshot_tree": "884f3553ace31fda60cf4e8fcbfb13d3830f955c",
       "historical_public_snapshot": {
         "revision": "8397134ae4ee640f1a26eb9f12d9eddb91650b89",
         "tree": "5f22ecf62a013dbae9b9d336782b93681ddf3489"
@@ -151,15 +151,15 @@
     },
     {
       "path": "packages/services/Telephony",
-      "revision": "17478ac9aaa7f7f49bc9b26cc926793f9ae893fe",
-      "tree": "da8a6ebaf38d7dbeb89717bc91fda8c342480e6c",
+      "revision": "e07290a9c6ac95158dffff6ca56f0563581305f2",
+      "tree": "e2c73111318cae604c7724fd42668d8f6f1b7ee1",
       "base_revision": "2d0e6fb0059b8c1cab748f6f04453c9955a14fe3",
       "patch": "packages_services_Telephony.patch",
-      "patch_sha256": "af6f85698a3a9b5e2d8a418122a67a8646a9714256acd049d43e81ae5c987e76",
+      "patch_sha256": "d52d3fb85778dd65c398d980835ea663b68d7c48aed2d124fba0c7e020c3e9e2",
       "patch_tree_verified": true,
       "remote_url": "https://github.com/LineageOS/android_packages_services_Telephony",
-      "target_snapshot_revision": "17478ac9aaa7f7f49bc9b26cc926793f9ae893fe",
-      "target_snapshot_tree": "da8a6ebaf38d7dbeb89717bc91fda8c342480e6c"
+      "target_snapshot_revision": "e07290a9c6ac95158dffff6ca56f0563581305f2",
+      "target_snapshot_tree": "e2c73111318cae604c7724fd42668d8f6f1b7ee1"
     },
     {
       "path": "system/fs/fs_mgr",

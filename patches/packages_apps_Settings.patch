@@ -1370,7 +1370,7 @@ index 0000000000000000000000000000000000000000..af06a58a4bb5cc6c3c61cf14b8a1ee74
 +}
 diff --git a/src/com/android/settings/network/HonorLdyAn00EsimEntry.kt b/src/com/android/settings/network/HonorLdyAn00EsimEntry.kt
 new file mode 100644
-index 0000000000000000000000000000000000000000..a34d9d57b890a9021b7bc06e83350444d51a0f7d
+index 0000000000000000000000000000000000000000..595c2d303f44541847b59fb3b0f673522da2ce70
 --- /dev/null
 +++ b/src/com/android/settings/network/HonorLdyAn00EsimEntry.kt
 @@ -0,0 +1,121 @@
@@ -1477,7 +1477,7 @@ index 0000000000000000000000000000000000000000..a34d9d57b890a9021b7bc06e83350444
 +            pm.checkSignatures("android", component.packageName) == PackageManager.SIGNATURE_MATCH
 +    }
 +
-+    fun launchManagement(context: Context) = launch(context, managementIntent())
++    fun launchManagement(context: Context) = launch(context, lpaIntent(true))
 +
 +    fun launch(context: Context) = launch(context, intent())
 +
@@ -1497,10 +1497,10 @@ index 0000000000000000000000000000000000000000..a34d9d57b890a9021b7bc06e83350444
 +}
 diff --git a/src/com/android/settings/network/HonorLdyAn00EsimManagementActivity.java b/src/com/android/settings/network/HonorLdyAn00EsimManagementActivity.java
 new file mode 100644
-index 0000000000000000000000000000000000000000..fd71479254dcc981a9f53bd92f591e988cc3a7e7
+index 0000000000000000000000000000000000000000..2b61fe5def30b2abffd54de31871e20447124341
 --- /dev/null
 +++ b/src/com/android/settings/network/HonorLdyAn00EsimManagementActivity.java
-@@ -0,0 +1,76 @@
+@@ -0,0 +1,83 @@
 +/*
 + * Copyright (C) 2026 The LineageOS Project
 + * SPDX-License-Identifier: Apache-2.0
@@ -1540,8 +1540,15 @@ index 0000000000000000000000000000000000000000..fd71479254dcc981a9f53bd92f591e98
 +    }
 +
 +    Intent privateSetupIntent() {
-+        return HonorLdyAn00EsimEntry.INSTANCE.managementIntent()
-+                .putExtra(HonorLdyAn00EsimSetupActivity.EXTRA_CONFIRM_MANAGEMENT, true)
++        Intent request = HonorLdyAn00EsimEntry.INSTANCE.managementIntent();
++        String actionToken = getIntent().getStringExtra("honor_management_action_token");
++        if (actionToken != null && actionToken.matches("[0-9a-f]{32}"))
++            request.putExtra("honor_management_action_token", actionToken);
++        String kind = getIntent().getStringExtra("honor_management_action_kind");
++        if (kind != null && kind.matches("ENABLE|DISABLE|DELETE|RENAME|ADD"))
++            request.putExtra("honor_management_action_kind", kind);
++        return request
++                .putExtra(HonorLdyAn00EsimSetupActivity.EXTRA_CONFIRM_MANAGEMENT, actionToken == null)
 +                .addFlags(Intent.FLAG_ACTIVITY_FORWARD_RESULT);
 +    }
 +
@@ -1579,10 +1586,10 @@ index 0000000000000000000000000000000000000000..fd71479254dcc981a9f53bd92f591e98
 +}
 diff --git a/src/com/android/settings/network/HonorLdyAn00EsimSetupActivity.java b/src/com/android/settings/network/HonorLdyAn00EsimSetupActivity.java
 new file mode 100644
-index 0000000000000000000000000000000000000000..80151eca4ef1cb0b474e23f1f57e123343cb910e
+index 0000000000000000000000000000000000000000..dfa53a56073f07fd43f21b964f966c5f865d76f9
 --- /dev/null
 +++ b/src/com/android/settings/network/HonorLdyAn00EsimSetupActivity.java
-@@ -0,0 +1,246 @@
+@@ -0,0 +1,250 @@
 +/*
 + * Copyright (C) 2026 The LineageOS Project
 + * SPDX-License-Identifier: Apache-2.0
@@ -1732,6 +1739,9 @@ index 0000000000000000000000000000000000000000..80151eca4ef1cb0b474e23f1f57e1233
 +                Bundle session = mModel.takeManagementLaunch();
 +                if (session == null) return;
 +                dismissProgressDialog();
++                String actionToken = getIntent().getStringExtra("honor_management_action_token");
++                if (actionToken != null && actionToken.matches("[0-9a-f]{32}"))
++                    session.putString("honor_management_action_token", actionToken);
 +                try {
 +                    startActivityForResult(HonorLdyAn00EsimEntry.INSTANCE.lpaIntent(true)
 +                            .putExtras(session), MANAGEMENT_REQUEST);
@@ -1766,8 +1776,9 @@ index 0000000000000000000000000000000000000000..80151eca4ef1cb0b474e23f1f57e1233
 +        if (phaseSerial < 0) { error(R.string.honor_esim_change_unconfirmed); return; }
 +        mDialogPhaseSerial = phaseSerial;
 +        mDialogShown = true;
++        boolean activating = "ENABLE".equals(getIntent().getStringExtra("honor_management_action_kind"));
 +        String message = getString(physical ? R.string.honor_esim_return_message
-+                : mManageEsims ? R.string.honor_esim_manage_message
++                : mManageEsims && !activating ? R.string.honor_esim_manage_message
 +                        : R.string.honor_esim_sim2_message);
 +        if (mTestImage) message += "\n\n" + getString(R.string.honor_esim_debug_message);
 +        ConfirmDialogFragment.show(this, ConfirmDialogFragment.OnConfirmListener.class,
@@ -2339,7 +2350,7 @@ index 0000000000000000000000000000000000000000..b1a6bb42ad5da4c0fdf491ddefdef83d
 +    }
 +}
 diff --git a/src/com/android/settings/network/MobileNetworkListFragment.kt b/src/com/android/settings/network/MobileNetworkListFragment.kt
-index 59acade78ad930765a59c0cc27885c442991a564..3bed1f62cb95050091d5f2cf47af7e41c42d636b 100644
+index 59acade78ad930765a59c0cc27885c442991a564..2b0e4e6d2a44c969c8054bae8d65622056636cd3 100644
 --- a/src/com/android/settings/network/MobileNetworkListFragment.kt
 +++ b/src/com/android/settings/network/MobileNetworkListFragment.kt
 @@ -22,6 +22,13 @@ import android.os.Bundle
@@ -2439,10 +2450,10 @@ index 59acade78ad930765a59c0cc27885c442991a564..3bed1f62cb95050091d5f2cf47af7e41
 +        val slot = findPreference<RestrictedSwitchPreference>("honor_physical_slot2") ?: return
 +        val controller = use(NetworkProviderSimListController::class.java)
 +        controller?.setHonorRouteState(if (honorActivationAllowed) honorRouteState else null)
-+        slot.isVisible = HonorLdyAn00EsimSetupViewModel.canReturnPhysical(honorRouteState) &&
-+            controller?.hasHonorPhysicalSim2Row() != true
++        slot.isVisible = controller?.hasHonorPhysicalSim2Row() != true
 +        slot.isChecked = false
-+        slot.isEnabled = honorActivationAllowed && HonorLdyAn00EsimEntry.isAvailable(requireContext())
++        slot.isEnabled = HonorLdyAn00EsimSetupViewModel.canReturnPhysical(honorRouteState) &&
++            honorActivationAllowed && HonorLdyAn00EsimEntry.isAvailable(requireContext())
 +    }
 +
 +    override fun onPause() {
@@ -2496,7 +2507,7 @@ index c5ea99073a4d0b6ae97f24163e45e7e58dcdbdf8..6512ef38e156dd462f88d3272aa7380a
      private fun getSelectableSubscriptionInfoList(context: Context): List<SubscriptionInfo> =
          subscriptionInfoList
 diff --git a/src/com/android/settings/network/NetworkProviderSimListController.java b/src/com/android/settings/network/NetworkProviderSimListController.java
-index 51059a742d995f17c1ec8bdb18f61e465914f0f6..d8101aec64afdaa8218736df44b8ddadfc069107 100644
+index 51059a742d995f17c1ec8bdb18f61e465914f0f6..853bac7a86a6ae579a726c04b86c7a0ffb34932a 100644
 --- a/src/com/android/settings/network/NetworkProviderSimListController.java
 +++ b/src/com/android/settings/network/NetworkProviderSimListController.java
 @@ -17,6 +17,7 @@
@@ -2507,7 +2518,7 @@ index 51059a742d995f17c1ec8bdb18f61e465914f0f6..d8101aec64afdaa8218736df44b8ddad
  import android.graphics.drawable.Drawable;
  import android.telephony.SubscriptionManager;
  import android.util.ArrayMap;
-@@ -52,6 +53,31 @@ public class NetworkProviderSimListController extends BasePreferenceController i
+@@ -52,6 +53,26 @@ public class NetworkProviderSimListController extends BasePreferenceController i
      private final MobileNetworkRepository mMobileNetworkRepository;
      private List<SubscriptionInfoEntity> mSubInfoEntityList = new ArrayList<>();
      private final DefaultSubscriptionReceiver mDataSubscriptionChangedReceiver;
@@ -2526,20 +2537,15 @@ index 51059a742d995f17c1ec8bdb18f61e465914f0f6..d8101aec64afdaa8218736df44b8ddad
 +    }
 +
 +    public boolean hasHonorPhysicalSim2Row() {
-+        return mHonorCanReturnPhysical
-+                && HonorLdyAn00EsimEntry.INSTANCE.isAvailable(mContext)
-+                && mSubInfoEntityList.stream().anyMatch(info -> {
-+                    RestrictedPreference preference = mPreferences.get(info.getSubId());
-+                    return info.isValidSubscription && !info.isEmbedded && info.simSlotIndex == 1
-+                            && !SubscriptionUtil.isConvertedPsimSubscription(mContext, info.getSubId())
-+                            && preference != null && preference.isEnabled() && preference.isSelectable();
-+                });
++        return mSubInfoEntityList.stream().anyMatch(info ->
++                info.isValidSubscription && !info.isEmbedded && info.simSlotIndex == 1
++                        && mPreferences.containsKey(info.getSubId()));
 +    }
 +
  
      public NetworkProviderSimListController(Context context, String preferenceKey) {
          super(context, preferenceKey);
-@@ -71,6 +97,7 @@ public class NetworkProviderSimListController extends BasePreferenceController i
+@@ -71,6 +92,7 @@ public class NetworkProviderSimListController extends BasePreferenceController i
  
      @Override
      public void onPause(@NonNull LifecycleOwner owner) {
@@ -2547,7 +2553,7 @@ index 51059a742d995f17c1ec8bdb18f61e465914f0f6..d8101aec64afdaa8218736df44b8ddad
          mMobileNetworkRepository.removeRegister(this);
          mDataSubscriptionChangedReceiver.unRegisterReceiver();
      }
-@@ -110,6 +137,12 @@ public class NetworkProviderSimListController extends BasePreferenceController i
+@@ -110,6 +132,12 @@ public class NetworkProviderSimListController extends BasePreferenceController i
                  pref.setEnabled(false);
              } else {
                  pref.setOnPreferenceClickListener(clickedPref -> {
@@ -2560,7 +2566,7 @@ index 51059a742d995f17c1ec8bdb18f61e465914f0f6..d8101aec64afdaa8218736df44b8ddad
                      if (!info.isEmbedded && !isActiveSubscriptionId
                              && !SubscriptionUtil.showToggleForPhysicalSim(mSubscriptionManager)) {
                          SubscriptionUtil.startToggleSubscriptionDialogActivity(mContext, subId,
-@@ -172,6 +205,7 @@ public class NetworkProviderSimListController extends BasePreferenceController i
+@@ -172,6 +200,7 @@ public class NetworkProviderSimListController extends BasePreferenceController i
              mPreferenceCategory.setVisible(isAvailable());
          }
          update();
@@ -3386,7 +3392,7 @@ index f4d2ce2b03c076ab1daa9eaa245b3c19610e3af1..edc2b55daef8bf77dcace1caa4ac931f
          if (mSubscriptionManager.canDisablePhysicalSubscription() && mSubInfo != null) {
              mSubscriptionManager.setUiccApplicationsEnabled(mSubInfo.getSubscriptionId(), mEnable);
 diff --git a/src/com/android/settings/spa/network/SimsSection.kt b/src/com/android/settings/spa/network/SimsSection.kt
-index 33f151d665101d5d6d5fdb51b09ce9b3ad1431b7..d90f26361b0547eabc0c3c0bd0902d820f105363 100644
+index 33f151d665101d5d6d5fdb51b09ce9b3ad1431b7..7ca53b4f8d4ed016b6f7c50fd19f71a8e5406478 100644
 --- a/src/com/android/settings/spa/network/SimsSection.kt
 +++ b/src/com/android/settings/spa/network/SimsSection.kt
 @@ -26,6 +26,15 @@ import androidx.compose.material.icons.outlined.Add
@@ -3462,7 +3468,7 @@ index 33f151d665101d5d6d5fdb51b09ce9b3ad1431b7..d90f26361b0547eabc0c3c0bd0902d82
      val context = LocalContext.current
      val checked =
          remember(subInfo.subscriptionId) {
-@@ -79,51 +113,73 @@ private fun SimPreference(subInfo: SubscriptionInfo) {
+@@ -79,51 +113,74 @@ private fun SimPreference(subInfo: SubscriptionInfo) {
          remember(subInfo.cardId) { EuiccRepository(context).isAvailableFlow(subInfo.cardId) }
              .collectAsStateWithLifecycle(initialValue = false)
      val isAvailable = !subInfo.isEmbedded || isEuiccAvailable
@@ -3545,11 +3551,12 @@ index 33f151d665101d5d6d5fdb51b09ce9b3ad1431b7..d90f26361b0547eabc0c3c0bd0902d82
 +        if (physicalReturn) HonorLdyAn00EsimEntry.launchPhysicalReturn(context)
 +        else MobileNetworkUtils.launchMobileNetworkSettings(context, subInfo)
      }
-+    return physicalReturn
++    // Presence of a real SIM2 row is independent of permission to switch its route.
++    return HonorLdyAn00EsimEntry.isPhysicalSim2(subInfo)
  }
  
  @Composable
-@@ -151,12 +207,14 @@ private fun AddSim() {
+@@ -151,12 +208,14 @@ private fun AddSim() {
      val isSatelliteSessionStarted by
          remember { SatelliteRepository(context).getIsSessionStartedFlow() }
              .collectAsStateWithLifecycle(initialValue = false)
@@ -3566,7 +3573,7 @@ index 33f151d665101d5d6d5fdb51b09ce9b3ad1431b7..d90f26361b0547eabc0c3c0bd0902d82
                      override val icon = @Composable { SettingsIcon(Icons.Outlined.Add) }
                      override val onClick = {
                          if (isSatelliteSessionStarted) {
-@@ -171,7 +229,14 @@ private fun AddSim() {
+@@ -171,7 +230,14 @@ private fun AddSim() {
      }
  }
  
@@ -3582,7 +3589,7 @@ index 33f151d665101d5d6d5fdb51b09ce9b3ad1431b7..d90f26361b0547eabc0c3c0bd0902d82
  
  fun getAddSimIntent() =
      Intent(EuiccManager.ACTION_PROVISION_EMBEDDED_SUBSCRIPTION).apply {
-@@ -196,3 +261,59 @@ fun getSatelliteWarningDialogIntent(context: Context) =
+@@ -196,3 +262,61 @@ fun getSatelliteWarningDialogIntent(context: Context) =
          content.put(CUSTOM_CONTENT_BUTTON_NAME, context.getString(R.string.okay))
          putExtra(SatelliteWarningDialogActivity.EXTRA_TYPE_OF_SATELLITE_CUSTOMIZED_CONTENT, content)
      }
@@ -3618,7 +3625,7 @@ index 33f151d665101d5d6d5fdb51b09ce9b3ad1431b7..d90f26361b0547eabc0c3c0bd0902d82
 +/** A physical routing option, not a fabricated card or subscription. */
 +@Composable
 +private fun HonorPhysicalSlot2(canReturnPhysical: Boolean) {
-+    if (!canReturnPhysical) return
++    if (!HonorLdyAn00EsimEntry.isDeviceEnabled()) return
 +    val context = LocalContext.current
 +    val activationAllowed by
 +        remember { SubscriptionActivationRepository(context).isActivationChangeableFlow() }
@@ -3626,20 +3633,22 @@ index 33f151d665101d5d6d5fdb51b09ce9b3ad1431b7..d90f26361b0547eabc0c3c0bd0902d82
 +    RestrictedTwoTargetSwitchPreference(
 +        model = object : SwitchPreferenceModel {
 +            override val title = context.getString(R.string.honor_esim_physical_slot2)
-+            override val summary = { context.getString(R.string.sim_category_inactive_sim) }
++            override val summary = {
++                if (canReturnPhysical) context.getString(R.string.sim_category_inactive_sim) else ""
++            }
 +            override val icon = @Composable { SimIcon(false) }
 +            override val checked = { false }
-+            override val changeable = { activationAllowed && HonorLdyAn00EsimEntry.isAvailable(context) }
++            override val changeable = { canReturnPhysical && activationAllowed && HonorLdyAn00EsimEntry.isAvailable(context) }
 +            override val onCheckedChange: (Boolean) -> Unit = { selected ->
-+                if (selected && activationAllowed) {
++                if (selected && canReturnPhysical && activationAllowed) {
 +                    HonorLdyAn00EsimEntry.launchPhysicalReturn(context)
 +                }
 +            }
 +        },
 +        restrictions = Restrictions(keys = listOf(UserManager.DISALLOW_CONFIG_MOBILE_NETWORKS)),
-+        primaryEnabled = { activationAllowed && HonorLdyAn00EsimEntry.isAvailable(context) },
++        primaryEnabled = { canReturnPhysical && activationAllowed && HonorLdyAn00EsimEntry.isAvailable(context) },
 +    ) {
-+        if (activationAllowed) HonorLdyAn00EsimEntry.launchPhysicalReturn(context)
++        if (canReturnPhysical && activationAllowed) HonorLdyAn00EsimEntry.launchPhysicalReturn(context)
 +    }
 +}
 diff --git a/tests/robotests/src/com/android/settings/MobileNetworkActivityTest.kt b/tests/robotests/src/com/android/settings/MobileNetworkActivityTest.kt

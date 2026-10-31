@@ -1351,10 +1351,10 @@ index 0000000000000000000000000000000000000000..3769bc78d0840ff3b9a2ec1c435c3bdc
 +}
 diff --git a/src/com/android/internal/telephony/honor/HonorLpaLeaseService.java b/src/com/android/internal/telephony/honor/HonorLpaLeaseService.java
 new file mode 100644
-index 0000000000000000000000000000000000000000..70413aa19a7dd84c8206cc1a01ea1ff7ca264a3e
+index 0000000000000000000000000000000000000000..8701d928d86543b528c50851cdf6b4eaef9cec52
 --- /dev/null
 +++ b/src/com/android/internal/telephony/honor/HonorLpaLeaseService.java
-@@ -0,0 +1,742 @@
+@@ -0,0 +1,750 @@
 +/* Copyright (C) 2026 The LineageOS Project. SPDX-License-Identifier: Apache-2.0 */
 +package com.android.internal.telephony.honor;
 +
@@ -1596,10 +1596,18 @@ index 0000000000000000000000000000000000000000..70413aa19a7dd84c8206cc1a01ea1ff7
 +                synchronized(state) {
 +                    ticket.requireRunning();
 +                    HonorSepTrialOwner owner=HonorSepTrialOwner.existingPreparedOwner();
-+                    if(grantCancelled.get() || !client.isBinderAlive() || owner==null) return grant(3,null);
++                    if(grantCancelled.get() || !client.isBinderAlive() || owner==null) {
++                        android.util.Log.i("HonorLpaRecovery","GRANT_OWNER_UNAVAILABLE");return grant(3,null);
++                    }
 +                    EuiccReadiness.Epoch current=endpoint(1,0,observed.publicCardId);
 +                    var baseline=owner.leaseSnapshot(1,0,observed.publicCardId);
-+                    if(current!=observed.epoch || baseline==null || !baseline.same(observed)) return grant(3,null);
++                    if(current!=observed.epoch || baseline==null || !baseline.same(observed)) {
++                        android.util.Log.i("HonorLpaRecovery",current!=observed.epoch ? "GRANT_ENDPOINT_CHANGED"
++                                : baseline==null ? "GRANT_OBSERVER_UNAVAILABLE"
++                                : baseline.revision!=observed.revision ? "GRANT_REVISION_CHANGED" : "GRANT_CARD_CHANGED");
++                        return grant(3,null);
++                    }
++                    android.util.Log.i("HonorLpaRecovery","GRANT_SNAPSHOT_ACCEPTED");
 +                    byte[] random=new byte[16];new SecureRandom().nextBytes(random);
 +                    var scope=new LpaOperationLease.Scope(java.util.HexFormat.of().formatHex(random),uid,0,7,
 +                            1,0,observed.publicCardId,current.generation,current.routeSerial,current.observationSerial);
@@ -2680,10 +2688,10 @@ index 0000000000000000000000000000000000000000..cdb3a8e9d7bdda0358026a82980a8275
 +}
 diff --git a/src/com/android/internal/telephony/honor/HonorSepTrialOwner.java b/src/com/android/internal/telephony/honor/HonorSepTrialOwner.java
 new file mode 100644
-index 0000000000000000000000000000000000000000..ebe148169232e7e8b37e02cfc9cf8cb46157d112
+index 0000000000000000000000000000000000000000..37a62d2c28a2f9547b1bec53c6346d191b11ac9e
 --- /dev/null
 +++ b/src/com/android/internal/telephony/honor/HonorSepTrialOwner.java
-@@ -0,0 +1,1200 @@
+@@ -0,0 +1,1323 @@
 +/*
 + * Copyright (C) 2026 The LineageOS Project
 + * SPDX-License-Identifier: Apache-2.0
@@ -2702,7 +2710,7 @@ index 0000000000000000000000000000000000000000..ebe148169232e7e8b37e02cfc9cf8cb4
 +public final class HonorSepTrialOwner extends Handler implements HonorSepTrialAdapter.Owner,
 +        HonorSepTrialAdapter.ResultSink, MtkSimTypeTransport.Listener {
 +    private static final String TAG="HonorSepTrial";
-+    private static final int ICC=1, UNAVAILABLE=2, LEASE_BLANK=3, ADOPTION_CARD=4, RESTORE_CARD=5;
++    private static final int ICC=1, UNAVAILABLE=2, LEASE_BLANK=3, ADOPTION_CARD=4, RESTORE_CARD=5, RECOVERY_BASELINE=6, RECOVERY_POWER=7, RECOVERY_EMPTY=8;
 +    private static volatile HonorSepTrialOwner instance;
 +    private static boolean prepareAttempted;
 +    private static volatile String preparationStatus="not attempted";
@@ -2903,6 +2911,13 @@ index 0000000000000000000000000000000000000000..ebe148169232e7e8b37e02cfc9cf8cb4
 +    }
 +    private boolean euiccTrialUsed, physicalTrialUsed, uiRequestFailed;
 +    private LpaRecoveryFence recoveryTicket;
++    private MtkSimTypeQuery recoveryMode;
++    private RecoverySimPower recoveryPower;
++    private long recoveryDeadline;
++    private boolean recoveryStopped;
++    private java.util.concurrent.CompletableFuture<EuiccReadiness.Snapshot> recoveryResult;
++    private record RecoveryPowerToken(RecoverySimPower power,RecoverySimPower.Phase phase) {}
++
 +    private final java.util.ArrayList<String> events=new java.util.ArrayList<>();
 +    private long generation=1;
 +    private volatile boolean alive=true, registered, preparationPending=true;
@@ -3016,42 +3031,132 @@ index 0000000000000000000000000000000000000000..ebe148169232e7e8b37e02cfc9cf8cb4
 +                                || exact.adoption!=null && exact.preparationPending)
 +                            throw new IllegalStateException("Owner work outstanding");
 +                        HonorSimRouteCallGuard.requireIdle();
-+                        exact.recoveryTicket=fence;
++                        exact.recoveryTicket=fence;exact.recoveryStopped=false;
++                        exact.recoveryResult=result;exact.recoveryDeadline=SystemClock.elapsedRealtime()+30_000;
++                        if(!exact.postDelayed(()->{
++                            if(exact.recoveryResult==result && !result.isDone()) exact.failRecoveryPower();
++                        },30_000)) throw new IllegalStateException("Recovery watchdog unavailable");
 +                        exact.closeReadiness(exact.endpoints.retireUi());
 +                        exact.adapter=new HonorSepTrialAdapter(exact.getLooper(),PhoneFactory.getPhone(1),exact,exact);
 +                        exact.admission=exact.endpoints.admit();
 +                        exact.preparationPending=false;
-+                        exact.adapter.requestRecovery(fence);
++                        exact.recoveryMode=new MtkSimTypeQuery(exact.generation,exact.routeSerials.allocate(),
++                                SystemClock.elapsedRealtime()+10_000);
++                        exact.routeTransport.query(exact.recoveryMode.serial());
 +                        exact.euiccTrialUsed=true;exact.physicalTrialUsed=false;
 +                        exact.observedEuiccProof=null;exact.initialPhysicalObservation=null;
-+                        exact.awaitRecoveryCard(fence,result,SystemClock.elapsedRealtime()+30_000);
-+                    } catch(Exception refused) {result.complete(null);}
++                        exact.awaitRecoveryCard(fence,result,exact.recoveryDeadline);
++                    } catch(Exception refused) {exact.failRecoveryPower();result.complete(null);}
 +                })) result.complete(null);
 +            } catch(Exception refused) {result.complete(null);}
 +            finally {if(instance==null || instance.getLooper()!=thread.getLooper()) thread.quitSafely();}
 +        });
 +        return result;
 +    }
++    private void requireRecoveryCurrent() {
++        if(recoveryStopped || recoveryResult==null || recoveryResult.isDone()
++                || SystemClock.elapsedRealtime()>=recoveryDeadline)
++            throw new IllegalStateException("Recovery attempt retired");
++        assertQualifiedExclusiveOwner();recoveryTicket.requireRunning();
++    }
++    private void failRecoveryPower() {
++        if(recoveryStopped) return;
++        recoveryStopped=true;
++        if(recoveryMode!=null) recoveryMode.unavailable();
++        if(adoption!=null) adoption.unavailable();
++        if(recoveryPower!=null) {
++            recoveryPower.fail();
++            try {journal.unknown(generation,recoveryPower.serial);} catch(java.io.IOException ignored) {}
++        }
++        uiRequestFailed=true;closeReadiness(endpoints.lose());
++        record(SepMuxTrial.State.UNKNOWN,"Recovery power barrier unknown; no retry");
++        if(recoveryResult!=null) recoveryResult.complete(null);
++    }
++    private void recoveryCardMessage(Message message) {
++        // A completed attempt cannot revoke an endpoint published for its successful recovery.
++        if(recoveryStopped || recoveryResult==null || recoveryResult.isDone()) return;
++        try {
++            requireRecoveryCurrent();HonorSimRouteCallGuard.requireIdle();
++            if(!(message.obj instanceof AsyncResult ar) || ar.exception!=null
++                    || !(ar.result instanceof com.android.internal.telephony.uicc.IccCardStatus card))
++                throw new IllegalStateException("Recovery card receipt failed");
++            if(message.what==RECOVERY_BASELINE) {
++                if(ar.userObj!=recoveryMode || recoveryPower!=null
++                        || !recoveryMode.current(generation,SystemClock.elapsedRealtime())
++                        || recoveryMode.state()!=MtkSimTypeQuery.State.EUICC)
++                    throw new IllegalStateException("Unowned recovery baseline");
++                var atr=com.android.internal.telephony.uicc.AnswerToReset.parseAtr(card.atr);
++                if(serial==Integer.MAX_VALUE) throw new IllegalStateException("Serial exhausted");
++                recoveryPower=new RecoverySimPower(generation,serial++,SystemClock.elapsedRealtime());
++                recoveryPower.baseline(generation,card.mSlotPortMapping==null ? -1 : card.mSlotPortMapping.mPhysicalSlotIndex,
++                        card.mSlotPortMapping==null ? -1 : card.mSlotPortMapping.mPortIndex,
++                        card.mCardState==com.android.internal.telephony.uicc.IccCardStatus.CardState.CARDSTATE_PRESENT
++                                && atr!=null && atr.isEuiccSupported(),card.eid,SystemClock.elapsedRealtime());
++                journal.pending(generation,recoveryPower.serial,SepMuxTrial.Selector.EUICC);
++                dispatchRecoveryPower(0);
++            } else {
++                if(!(ar.userObj instanceof RecoveryPowerToken token) || token.power()!=recoveryPower
++                        || token.phase()!=RecoverySimPower.Phase.EMPTY)
++                    throw new IllegalStateException("Unowned powered-down status");
++                recoveryPower.poweredDown(generation,
++                        card.mSlotPortMapping==null ? -1 : card.mSlotPortMapping.mPhysicalSlotIndex,
++                        card.mSlotPortMapping==null ? -1 : card.mSlotPortMapping.mPortIndex,
++                        card.mApplications==null ? -1 : card.mApplications.length,SystemClock.elapsedRealtime());
++                dispatchRecoveryPower(1);
++            }
++        } catch(Exception failure) {failRecoveryPower();}
++    }
++    private void dispatchRecoveryPower(int state) {
++        requireRecoveryCurrent();HonorSimRouteCallGuard.requireIdle();
++        var token=new RecoveryPowerToken(recoveryPower,recoveryPower.phase());
++        PhoneFactory.getPhone(1).mCi.setSimCardPower(state,obtainMessage(RECOVERY_POWER,token),null);
++    }
++    private void recoveryPowerMessage(Message message) {
++        if(recoveryStopped || recoveryResult==null || recoveryResult.isDone()) return;
++        try {
++            requireRecoveryCurrent();
++            if(!(message.obj instanceof AsyncResult ar) || !(ar.userObj instanceof RecoveryPowerToken token)
++                    || token.power()!=recoveryPower)
++                throw new IllegalStateException("Unowned power completion");
++            recoveryPower.powerCompleted(generation,token.phase(),ar.exception==null,SystemClock.elapsedRealtime());
++            if(recoveryPower.phase()==RecoverySimPower.Phase.EMPTY) {
++                PhoneFactory.getPhone(1).mCi.getIccCardStatus(obtainMessage(RECOVERY_EMPTY,
++                        new RecoveryPowerToken(recoveryPower,RecoverySimPower.Phase.EMPTY)));
++            } else {
++                adoption=new SepMuxRouteAdoption(null,generation,routeSerials.allocate(),SystemClock.elapsedRealtime());
++                watchAdoption(adoption);routeTransport.query(adoption.querySerial);
++            }
++        } catch(Exception failure) {failRecoveryPower();}
++    }
 +    private void awaitRecoveryCard(LpaRecoveryFence fence,
 +            java.util.concurrent.CompletableFuture<EuiccReadiness.Snapshot> result,long deadline) {
 +        if(result.isDone()) return;
 +        try {
-+            fence.requireRunning();assertQualifiedExclusiveOwner();
++            requireRecoveryCurrent();fence.requireRunning();
 +            if(SystemClock.elapsedRealtime()>=deadline
++                    || uiRequestFailed || recoveryPower!=null && recoveryPower.phase()==RecoverySimPower.Phase.UNKNOWN
 +                    || adapter.uiRouteState()==SharedSlotRouteTrial.State.UNKNOWN)
 +                throw new IllegalStateException("Recovery completion unknown");
 +            UiccController controller=UiccController.getInstance();
 +            if(!controller.post(()->{
 +                try {
 +                    EuiccReadiness.Epoch epoch=endpoints.fence.get();
-+                    var first=epoch==null ? null : HonorEuiccReadinessObserver.readCurrent(controller,epoch,0);
-+                    var second=epoch==null ? null : HonorEuiccReadinessObserver.readCurrent(controller,epoch,0);
++                    // Resolve the target, then hand off the observer's real local revision.
++                    var target=epoch==null ? null : HonorEuiccReadinessObserver.readCurrent(controller,epoch,0);
++                    var first=target==null ? null : leaseSnapshot(1,0,target.publicCardId);
++                    var second=first==null ? null : leaseSnapshot(1,0,first.publicCardId);
 +                    if(first!=null && second!=null && first.valid(epoch) && first.same(second)
-+                            && leaseEndpoint(1,0,first.publicCardId)==epoch) {result.complete(first);return;}
++                            && leaseEndpoint(1,0,first.publicCardId)==epoch) {
++                        post(()->{
++                            if(result.isDone()) return;
++                            try {requireRecoveryCurrent();readStage("RECOVERY_OBSERVER_READY");result.complete(first);}
++                            catch(Exception retired) {failRecoveryPower();}
++                        });return;
++                    }
 +                    postDelayed(()->awaitRecoveryCard(fence,result,deadline),100);
-+                } catch(Exception refused) {result.complete(null);}
-+            })) result.complete(null);
-+        } catch(Exception refused) {result.complete(null);}
++                } catch(Exception refused) {post(this::failRecoveryPower);}
++            })) failRecoveryPower();
++        } catch(Exception refused) {failRecoveryPower();}
 +    }
 +    /** Same Phone process only; preserve the framework command's real card ID before slot lookup. */
 +    private void installConnectorPreparationHook() {
@@ -3162,9 +3267,12 @@ index 0000000000000000000000000000000000000000..ebe148169232e7e8b37e02cfc9cf8cb4
 +                EuiccReadiness.Snapshot first=HonorEuiccReadinessObserver.readCurrent(controller,expected.endpoint,0);
 +                EuiccReadiness.Snapshot second=HonorEuiccReadinessObserver.readCurrent(controller,expected.endpoint,0);
 +                post(()->{
++                    if(expected.state()==SepMuxRouteAdoption.State.READY) return;
 +                    try {
 +                        if(adoption!=expected || generation!=expected.generation) throw new IllegalStateException("Adoption superseded");
-+                        assertQualifiedExclusiveOwner();journal.requireClean();operationLeases.requireRouteAllowed();
++                        assertQualifiedExclusiveOwner();
++                        if(recoveryPower==null) {journal.requireClean();operationLeases.requireRouteAllowed();}
++                        else requireRecoveryCurrent();
 +                        if(SystemClock.elapsedRealtime()>=expected.deadline)
 +                            throw new IllegalStateException("Card readiness deadline");
 +                        var atr=com.android.internal.telephony.uicc.AnswerToReset.parseAtr(card.atr);
@@ -3188,6 +3296,8 @@ index 0000000000000000000000000000000000000000..ebe148169232e7e8b37e02cfc9cf8cb4
 +                                card.mSlotPortMapping==null ? -1 : card.mSlotPortMapping.mPhysicalSlotIndex,
 +                                card.mSlotPortMapping==null ? -1 : card.mSlotPortMapping.mPortIndex,
 +                                card.eid,first,second,SystemClock.elapsedRealtime());
++                        if(recoveryPower!=null) journal.completedRecoveryPower(recoveryTicket,
++                                recoveryPower.finish(proof,card.eid,SystemClock.elapsedRealtime()));
 +                        adapter.adoptEuicc(proof);
 +                        EuiccReadiness.Epoch token;
 +                        if(proof.lastSetterSerial>0) {
@@ -3317,9 +3427,26 @@ index 0000000000000000000000000000000000000000..ebe148169232e7e8b37e02cfc9cf8cb4
 +            }
 +            return;
 +        }
++        if(recoveryMode!=null && serial==recoveryMode.serial()
++                && recoveryMode.state()==MtkSimTypeQuery.State.WAITING) {
++            recoveryMode.onResponse(generation,serial,type,error,support,mode,reserved,SystemClock.elapsedRealtime());
++            try {
++                requireRecoveryCurrent();
++                if(recoveryMode.state()==MtkSimTypeQuery.State.EUICC)
++                    PhoneFactory.getPhone(1).mCi.getIccCardStatus(obtainMessage(RECOVERY_BASELINE,recoveryMode));
++                else if(recoveryMode.state()==MtkSimTypeQuery.State.PHYSICAL)
++                    adapter.requestRecovery(recoveryTicket); // Genuine physical-to-eUICC selector transition.
++                else if(recoveryMode.state()!=MtkSimTypeQuery.State.WAITING) failRecoveryPower();
++            } catch(Exception failure) {failRecoveryPower();}
++            return;
++        }
 +        if(adoption!=null && serial==adoption.querySerial
 +                && adoption.state()==SepMuxRouteAdoption.State.ROUTE) {
 +            adoption.response(generation,serial,type,error,support,mode,reserved,SystemClock.elapsedRealtime());
++            if(recoveryPower!=null && adoption.state()==SepMuxRouteAdoption.State.CARD) {
++                try {recoveryPower.route(generation,true,SystemClock.elapsedRealtime());}
++                catch(RuntimeException refused) {failRecoveryPower();return;}
++            }
 +            if(adoption.state()==SepMuxRouteAdoption.State.CARD
 +                    || adoption.state()==SepMuxRouteAdoption.State.PHYSICAL) {
 +                readStage(adoption.state()==SepMuxRouteAdoption.State.CARD ? "MODE1_CI_PENDING" : "MODE0_CI_PENDING");
@@ -3418,7 +3545,9 @@ index 0000000000000000000000000000000000000000..ebe148169232e7e8b37e02cfc9cf8cb4
 +        HonorSepTrialOwner current=instance;
 +        return current==null || !(current.preparationPending || current.endpoints.hasPendingAdmission());
 +    }
-+    void recoveryFinished() {recoveryTicket=null;}
++    void recoveryFinished() {
++        recoveryTicket=null;recoveryPower=null;recoveryMode=null;recoveryResult=null;
++    }
 +    private void loseOperationLease() {
 +        try { operationLeases.ownerLost(); } catch(java.io.IOException e) { /* UNKNOWN retained. */ }
 +    }
@@ -3651,6 +3780,8 @@ index 0000000000000000000000000000000000000000..ebe148169232e7e8b37e02cfc9cf8cb4
 +            // An uncorrelatable callback cannot release a potentially outstanding read.
 +            return;
 +        }
++        if(m.what==RECOVERY_BASELINE || m.what==RECOVERY_EMPTY) {recoveryCardMessage(m);return;}
++        if(m.what==RECOVERY_POWER) {recoveryPowerMessage(m);return;}
 +        if(m.what==ADOPTION_CARD) {adoptionCard(m);return;}
 +        if(m.what==LEASE_BLANK) {
 +            if(m.obj instanceof AsyncResult response && response.userObj instanceof BlankQuery query && !query.result.isDone()) {
@@ -4818,6 +4949,70 @@ index 0000000000000000000000000000000000000000..8b18c9f612b06a7126aa97a31fd664cb
 +    }
 +    @Override public String toString(){return "PhysicalSimEvidence["+presence+"]";}
 +}
+diff --git a/src/com/android/internal/telephony/honor/RecoverySimPower.java b/src/com/android/internal/telephony/honor/RecoverySimPower.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..eca05f8ebba5a1c8a2cab9fa2a8791ce9dbe4d74
+--- /dev/null
++++ b/src/com/android/internal/telephony/honor/RecoverySimPower.java
+@@ -0,0 +1,58 @@
++/* Copyright (C) 2026 The LineageOS Project. SPDX-License-Identifier: Apache-2.0 */
++package com.android.internal.telephony.honor;
++
++/** Recovery-only standard SIM power barrier. No selector completion is manufactured. */
++final class RecoverySimPower {
++    enum Phase { BASELINE, DOWN, EMPTY, UP, ROUTE, CARD, READY, UNKNOWN }
++    static final class Proof {
++        final long generation;
++        final int serial;
++        private Proof(long generation,int serial) {this.generation=generation;this.serial=serial;}
++    }
++    final long generation, deadline;
++    final int serial;
++    private Phase phase=Phase.BASELINE;
++    private String baselineEid;
++    RecoverySimPower(long generation,int serial,long now) {
++        if(generation<=0 || serial<=0 || now<0 || now>Long.MAX_VALUE-30_000)
++            throw new IllegalArgumentException("Invalid recovery power identity");
++        this.generation=generation;this.serial=serial;deadline=now+30_000;
++    }
++    Phase phase() {return phase;}
++    private void require(Phase expected,long epoch,long now) {
++        if(phase!=expected || epoch!=generation || now<deadline-30_000 || now>=deadline) {
++            phase=Phase.UNKNOWN;throw new IllegalStateException("Stale recovery power phase");
++        }
++    }
++    void baseline(long epoch,int slot,int port,boolean genuineEuicc,String eid,long now) {
++        require(Phase.BASELINE,epoch,now);
++        if(slot!=1 || port!=0 || !genuineEuicc || !EuiccReadiness.validEid(eid)) {fail();throw new IllegalStateException("Wrong power target");}
++        baselineEid=eid;phase=Phase.DOWN;
++    }
++    void powerCompleted(long epoch,Phase expected,boolean accepted,long now) {
++        require(expected,epoch,now);
++        if(!accepted || (expected!=Phase.DOWN && expected!=Phase.UP)) {
++            fail();throw new IllegalStateException("Power completion unqualified");
++        }
++        phase=expected==Phase.DOWN ? Phase.EMPTY : Phase.ROUTE;
++    }
++    void poweredDown(long epoch,int slot,int port,int applications,long now) {
++        require(Phase.EMPTY,epoch,now);
++        // Android specifies empty applications, not CARDSTATE_ABSENT, after POWER_DOWN.
++        if(slot!=1 || port!=0 || applications!=0) {fail();throw new IllegalStateException("Card not powered down");}
++        phase=Phase.UP;
++    }
++    void route(long epoch,boolean freshModeOne,long now) {
++        require(Phase.ROUTE,epoch,now);
++        if(!freshModeOne) {fail();throw new IllegalStateException("Recovery route not observed");}
++        phase=Phase.CARD;
++    }
++    Proof finish(SepMuxRouteAdoption.Proof card,String eid,long now) {
++        require(Phase.CARD,card==null ? -1 : card.generation,now);
++        if(card.lastSetterSerial!=0 || card.observationSerial<=0 || !baselineEid.equals(eid)) {
++            fail();throw new IllegalStateException("Fresh observed card required");
++        }
++        phase=Phase.READY;return new Proof(generation,serial);
++    }
++    void fail() {phase=Phase.UNKNOWN;}
++}
 diff --git a/src/com/android/internal/telephony/honor/SepMuxAdmission.java b/src/com/android/internal/telephony/honor/SepMuxAdmission.java
 new file mode 100644
 index 0000000000000000000000000000000000000000..6c27edc241116adf5a9e22e1342f6be41a4c38c3
@@ -4858,10 +5053,10 @@ index 0000000000000000000000000000000000000000..6c27edc241116adf5a9e22e1342f6be4
 +}
 diff --git a/src/com/android/internal/telephony/honor/SepMuxJournal.java b/src/com/android/internal/telephony/honor/SepMuxJournal.java
 new file mode 100644
-index 0000000000000000000000000000000000000000..fb0c8fea3df99b77b9318d9f75fde825e97a6160
+index 0000000000000000000000000000000000000000..5aedad5a134348547d45ad63e5d2c146908cf836
 --- /dev/null
 +++ b/src/com/android/internal/telephony/honor/SepMuxJournal.java
-@@ -0,0 +1,126 @@
+@@ -0,0 +1,137 @@
 +/* Copyright (C) 2026 The LineageOS Project
 + * SPDX-License-Identifier: Apache-2.0 */
 +package com.android.internal.telephony.honor;
@@ -4972,6 +5167,17 @@ index 0000000000000000000000000000000000000000..fb0c8fea3df99b77b9318d9f75fde825
 +                || outcome==null || !outcome.completionMatches(generation,serial,
 +                        Integer.parseInt(record.trim().split(" ")[4])))
 +            throw new IOException("Unqualified SEP route completion");
++        write(record.replace("PENDING","CLEAN"));
++        recovery=null;
++    }
++    /** A real standard power cycle plus fresh card proof, distinct from OEM setter completion. */
++    void completedRecoveryPower(LpaRecoveryFence ticket,RecoverySimPower.Proof proof) throws IOException {
++        ticket.requireRunning();
++        if(recovery!=ticket || !recoveryPending || failed || proof==null
++                || record==null || !record.startsWith("SEP1 PENDING ")
++                || generation!=proof.generation || serial!=proof.serial
++                || !record.trim().endsWith(" 1"))
++            throw new IOException("Unqualified recovery power completion");
 +        write(record.replace("PENDING","CLEAN"));
 +        recovery=null;
 +    }
@@ -8163,6 +8369,95 @@ index 0000000000000000000000000000000000000000..cc2889029f99d60592ffac9289ee407b
 +            check(refused, "invalid construction refused");
 +        }
 +        System.out.println("PASS " + checks + " query checks; production model, not Android/Binder/hardware");
++    }
++}
+diff --git a/tests/host/ldy_an00_esim/RecoverySimPowerTest.java b/tests/host/ldy_an00_esim/RecoverySimPowerTest.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..dbaa12910f8cea909bc6c7afdeb87711c8836cb6
+--- /dev/null
++++ b/tests/host/ldy_an00_esim/RecoverySimPowerTest.java
+@@ -0,0 +1,83 @@
++/* Copyright (C) 2026 The LineageOS Project. SPDX-License-Identifier: Apache-2.0 */
++package com.android.internal.telephony.honor;
++
++public final class RecoverySimPowerTest {
++    private static final String EID="12345678901234567890123456789012";
++    private static int checks;
++    private static void check(boolean value) {checks++;if(!value)throw new AssertionError();}
++    private static void refuse(Runnable action) {
++        try {action.run();} catch(IllegalStateException expected) {checks++;return;}
++        throw new AssertionError("Unexpected power proof");
++    }
++    private static RecoverySimPower start() {return new RecoverySimPower(7,9,100);}
++    private static RecoverySimPower down() {
++        var p=start();p.baseline(7,1,0,true,EID,101);return p;
++    }
++    private static RecoverySimPower up() {
++        var p=down();p.powerCompleted(7,RecoverySimPower.Phase.DOWN,true,102);
++        p.poweredDown(7,1,0,0,103);return p;
++    }
++    private static RecoverySimPower card() {
++        var p=up();p.powerCompleted(7,RecoverySimPower.Phase.UP,true,104);
++        p.route(7,true,105);return p;
++    }
++    private static SepMuxRouteAdoption.Proof observed() {
++        var a=new SepMuxRouteAdoption(null,7,19,100);
++        a.response(7,19,0,0,1,1,0,105);
++        var s=new EuiccReadiness.Snapshot(a.endpoint,0,new Object(),new Object(),new Object(),
++                1,1,0,2,2,true,true,true,true,EID);
++        return a.card(7,true,true,1,0,EID,s,s,106);
++    }
++    public static void main(String[] ignored) throws Exception {
++        var valid=card();var proof=valid.finish(observed(),EID,107);
++        check(proof.generation==7 && proof.serial==9 && valid.phase()==RecoverySimPower.Phase.READY);
++        refuse(()->valid.finish(observed(),EID,108));
++        for(int i=0;i<8;i++) {
++            var p=start();final int n=i;
++            refuse(()->p.baseline(n==0 ? 8:7,n==1 ? 0:1,n==2 ? 1:0,n!=3,
++                    n==4 ? "":EID,n==5 ? 99:n==6 ? 30100:n==7 ? 30101:101));
++            check(p.phase()==RecoverySimPower.Phase.UNKNOWN);
++        }
++        var early=start();refuse(()->early.powerCompleted(7,RecoverySimPower.Phase.UP,true,101));
++        var badDown=down();refuse(()->badDown.powerCompleted(7,RecoverySimPower.Phase.DOWN,false,102));
++        var badUp=up();refuse(()->badUp.powerCompleted(7,RecoverySimPower.Phase.UP,false,104));
++        var wrongEpoch=down();refuse(()->wrongEpoch.powerCompleted(8,RecoverySimPower.Phase.DOWN,true,102));
++        var late=down();refuse(()->late.powerCompleted(7,RecoverySimPower.Phase.DOWN,true,30100));
++        var duplicate=down();duplicate.powerCompleted(7,RecoverySimPower.Phase.DOWN,true,102);
++        refuse(()->duplicate.powerCompleted(7,RecoverySimPower.Phase.DOWN,true,103));
++        for(int i=0;i<3;i++) {
++            var p=down();p.powerCompleted(7,RecoverySimPower.Phase.DOWN,true,102);final int n=i;
++            refuse(()->p.poweredDown(7,n==0 ? 0:1,n==1 ? 1:0,n==2 ? 1:0,103));
++        }
++        var mode=up();mode.powerCompleted(7,RecoverySimPower.Phase.UP,true,104);refuse(()->mode.route(7,false,105));
++        var absent=card();refuse(()->absent.finish(null,EID,107));
++        var wrongEid=card();refuse(()->wrongEid.finish(observed(),"00000000000000000000000000000000",107));
++        var expiry=card();refuse(()->expiry.finish(observed(),EID,30100));
++        class Store implements SepMuxJournal.Store {
++            String value;
++            Store(String value) {this.value=value;}
++            public String read() {return value;}
++            public void writeDurably(String value) {this.value=value;}
++        }
++        var fenceStore=new Store(null);var fence=new LpaRecoveryFence(fenceStore);
++        String before="00000000-0000-0000-0000-000000000001";
++        String after="00000000-0000-0000-0000-000000000002";
++        String app=LpaRecoveryFence.hash("A\n");
++        fence.arm(before,app,1000,"journals");fence.begin(after,app,1000,"journals");
++        var store=new Store("SEP1 UNKNOWN 1 2 1\n");
++        var journal=SepMuxJournal.forRecovery(store,fence);
++        journal.pending(7,9,SepMuxTrial.Selector.EUICC);
++        var cycle=card();var good=cycle.finish(observed(),EID,107);
++        journal.completedRecoveryPower(fence,good);
++        check(store.value.equals("SEP1 CLEAN 7 9 1\n"));
++        try {journal.completedRecoveryPower(fence,good);throw new AssertionError();}
++        catch(java.io.IOException expected) {checks++;}
++        var wrongStore=new Store("SEP1 UNKNOWN 1 2 1\n");
++        var wrongJournal=SepMuxJournal.forRecovery(wrongStore,fence);
++        wrongJournal.pending(6,9,SepMuxTrial.Selector.EUICC);
++        try {wrongJournal.completedRecoveryPower(fence,good);throw new AssertionError();}
++        catch(java.io.IOException expected) {checks++;}
++        check(wrongStore.value.startsWith("SEP1 PENDING"));
++        System.out.println("RECOVERY_SIM_POWER_HOST_PASS checks="+checks);
 +    }
 +}
 diff --git a/tests/host/ldy_an00_esim/SepMuxAdmissionTest.java b/tests/host/ldy_an00_esim/SepMuxAdmissionTest.java
