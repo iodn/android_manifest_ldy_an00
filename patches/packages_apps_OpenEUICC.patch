@@ -11,18 +11,23 @@ index 3b610e961982888a5a11ff0f739961aee08808fc..306a5685fe106fc1069a3823da858b69
      ],
      srcs: [
 diff --git a/app-common/src/main/java/im/angry/openeuicc/core/DefaultEuiccChannelManager.kt b/app-common/src/main/java/im/angry/openeuicc/core/DefaultEuiccChannelManager.kt
-index 84c1d9bcab55150f7baedd712ab9a2bb2dc731c9..c6c1820c3a243953b26c0948e1c78f51f78382e4 100644
+index 84c1d9bcab55150f7baedd712ab9a2bb2dc731c9..343e0ed648fdc7da1ca3511314bdbc5dd9f3ddc2 100644
 --- a/app-common/src/main/java/im/angry/openeuicc/core/DefaultEuiccChannelManager.kt
 +++ b/app-common/src/main/java/im/angry/openeuicc/core/DefaultEuiccChannelManager.kt
-@@ -26,6 +26,7 @@ open class DefaultEuiccChannelManager(
+@@ -26,6 +26,12 @@ open class DefaultEuiccChannelManager(
      protected val appContainer: AppContainer,
      protected val context: Context
  ) : EuiccChannelManager {
-+    init { HonorLpaLeaseClient.initialize(context) }
++    init {
++        try { HonorLpaLeaseClient.initialize(context) }
++        catch (_: HonorLpaOperationJournal.Unavailable) {
++            // Keep discovery unavailable; Main can report the typed storage refusal.
++        }
++    }
      companion object {
          const val TAG = "EuiccChannelManager"
      }
-@@ -54,7 +55,7 @@ open class DefaultEuiccChannelManager(
+@@ -54,7 +60,7 @@ open class DefaultEuiccChannelManager(
      private suspend inline fun tryOpenChannelWithKnownAids(
          openFn: (ByteArray, EuiccChannel.SecureElementId) -> EuiccChannel?
      ): List<EuiccChannel> {
@@ -31,7 +36,7 @@ index 84c1d9bcab55150f7baedd712ab9a2bb2dc731c9..c6c1820c3a243953b26c0948e1c78f51
              parseIsdrAidList(appContainer.preferenceRepository.isdrAidListFlow.first())
          val ret = mutableListOf<EuiccChannel>()
          val openedAids = mutableListOf<ByteArray>()
-@@ -79,7 +80,7 @@ open class DefaultEuiccChannelManager(
+@@ -79,7 +85,7 @@ open class DefaultEuiccChannelManager(
                          }
                      }
  
@@ -40,7 +45,7 @@ index 84c1d9bcab55150f7baedd712ab9a2bb2dc731c9..c6c1820c3a243953b26c0948e1c78f51
                      val res = channel?.queryVendorAidListTransformation(isdrAidList)
                      if (res != null) {
                          // Reset the for loop since we needed to replace the AID list due to vendor-specific code
-@@ -121,9 +122,13 @@ open class DefaultEuiccChannelManager(
+@@ -121,9 +127,13 @@ open class DefaultEuiccChannelManager(
      private suspend fun tryOpenEuiccChannel(
          port: UiccPortInfoCompat,
      ): List<EuiccChannel>? {
@@ -55,7 +60,7 @@ index 84c1d9bcab55150f7baedd712ab9a2bb2dc731c9..c6c1820c3a243953b26c0948e1c78f51
              }
  
              // First get all channels for the requested port
-@@ -131,7 +136,7 @@ open class DefaultEuiccChannelManager(
+@@ -131,7 +141,7 @@ open class DefaultEuiccChannelManager(
                  channelCache.filter { it.slotId == port.card.physicalSlotIndex && it.portId == port.portIndex }
              if (existing.isNotEmpty()) {
                  if (existing.all { it.valid && it.logicalSlotId == port.logicalSlotIndex }) {
@@ -64,7 +69,7 @@ index 84c1d9bcab55150f7baedd712ab9a2bb2dc731c9..c6c1820c3a243953b26c0948e1c78f51
                  } else {
                      // If any channel shouldn't be considered valid anymore, close all existing for the same slot / port
                      // and reopen
-@@ -144,7 +149,7 @@ open class DefaultEuiccChannelManager(
+@@ -144,7 +154,7 @@ open class DefaultEuiccChannelManager(
  
              if (port.logicalSlotIndex == SubscriptionManager.INVALID_SIM_SLOT_INDEX) {
                  // We can only open channels on ports that are actually enabled
@@ -73,7 +78,7 @@ index 84c1d9bcab55150f7baedd712ab9a2bb2dc731c9..c6c1820c3a243953b26c0948e1c78f51
              }
  
              // This function is not responsible for managing USB channels (see the initial check)
-@@ -159,15 +164,17 @@ open class DefaultEuiccChannelManager(
+@@ -159,15 +169,17 @@ open class DefaultEuiccChannelManager(
  
              if (channels.isNotEmpty()) {
                  channelCache.addAll(channels)
@@ -93,7 +98,7 @@ index 84c1d9bcab55150f7baedd712ab9a2bb2dc731c9..c6c1820c3a243953b26c0948e1c78f51
      }
  
      protected suspend fun findEuiccChannelByLogicalSlot(
-@@ -188,7 +195,7 @@ open class DefaultEuiccChannelManager(
+@@ -188,7 +200,7 @@ open class DefaultEuiccChannelManager(
              }
  
              null
@@ -102,7 +107,7 @@ index 84c1d9bcab55150f7baedd712ab9a2bb2dc731c9..c6c1820c3a243953b26c0948e1c78f51
  
      /**
       * Find all EuiccChannels associated with a _physical_ slot, including all secure elements
-@@ -206,7 +213,7 @@ open class DefaultEuiccChannelManager(
+@@ -206,7 +218,7 @@ open class DefaultEuiccChannelManager(
                  .ifEmpty { null }
          }
          return null
@@ -111,7 +116,7 @@ index 84c1d9bcab55150f7baedd712ab9a2bb2dc731c9..c6c1820c3a243953b26c0948e1c78f51
  
      /**
       * Finds all EuiccChannels associated with a physical slot + port. Note that this
-@@ -224,7 +231,7 @@ open class DefaultEuiccChannelManager(
+@@ -224,7 +236,7 @@ open class DefaultEuiccChannelManager(
              uiccCards.find { it.physicalSlotIndex == physicalSlotId }?.let { card ->
                  card.ports.find { it.portIndex == portId }?.let { tryOpenEuiccChannel(it) }
              }
@@ -120,7 +125,7 @@ index 84c1d9bcab55150f7baedd712ab9a2bb2dc731c9..c6c1820c3a243953b26c0948e1c78f51
  
      override suspend fun findFirstAvailablePort(physicalSlotId: Int): Int =
          withContext(Dispatchers.IO) {
-@@ -251,16 +258,22 @@ open class DefaultEuiccChannelManager(
+@@ -251,16 +263,22 @@ open class DefaultEuiccChannelManager(
          seId: EuiccChannel.SecureElementId,
          fn: suspend (EuiccChannel) -> R
      ): R {
@@ -144,7 +149,7 @@ index 84c1d9bcab55150f7baedd712ab9a2bb2dc731c9..c6c1820c3a243953b26c0948e1c78f51
      }
  
      override suspend fun <R> withEuiccChannel(
-@@ -268,19 +281,29 @@ open class DefaultEuiccChannelManager(
+@@ -268,19 +286,29 @@ open class DefaultEuiccChannelManager(
          seId: EuiccChannel.SecureElementId,
          fn: suspend (EuiccChannel) -> R
      ): R {
@@ -175,7 +180,7 @@ index 84c1d9bcab55150f7baedd712ab9a2bb2dc731c9..c6c1820c3a243953b26c0948e1c78f51
          val numChannelsBefore = if (physicalSlotId == EuiccChannelManager.USB_CHANNEL_ID) {
              usbChannels.size
          } else {
-@@ -327,6 +350,8 @@ open class DefaultEuiccChannelManager(
+@@ -327,6 +355,8 @@ open class DefaultEuiccChannelManager(
                  delay(1000)
              }
          }
@@ -184,7 +189,7 @@ index 84c1d9bcab55150f7baedd712ab9a2bb2dc731c9..c6c1820c3a243953b26c0948e1c78f51
      }
  
      override fun flowInternalEuiccPorts(): Flow<Pair<Int, Int>> = flow {
-@@ -342,7 +367,7 @@ open class DefaultEuiccChannelManager(
+@@ -342,7 +372,7 @@ open class DefaultEuiccChannelManager(
                  }
              }
          }
@@ -193,7 +198,7 @@ index 84c1d9bcab55150f7baedd712ab9a2bb2dc731c9..c6c1820c3a243953b26c0948e1c78f51
  
      override fun flowAllOpenEuiccPorts(): Flow<Pair<Int, Int>> =
          merge(flowInternalEuiccPorts(), flow {
-@@ -358,10 +383,12 @@ open class DefaultEuiccChannelManager(
+@@ -358,10 +388,12 @@ open class DefaultEuiccChannelManager(
          findEuiccChannelsByPort(slotId, portId)?.forEach {
              emit(it.seId)
          }
@@ -207,7 +212,7 @@ index 84c1d9bcab55150f7baedd712ab9a2bb2dc731c9..c6c1820c3a243953b26c0948e1c78f51
              usbManager.deviceList.values.forEach { device ->
                  Log.i(
                      TAG,
-@@ -405,9 +432,11 @@ open class DefaultEuiccChannelManager(
+@@ -405,9 +437,11 @@ open class DefaultEuiccChannelManager(
                  )
              }
              return@withContext Pair(null, false)
@@ -220,7 +225,7 @@ index 84c1d9bcab55150f7baedd712ab9a2bb2dc731c9..c6c1820c3a243953b26c0948e1c78f51
          for (channel in channelCache) {
              channel.close()
          }
-@@ -416,5 +445,6 @@ open class DefaultEuiccChannelManager(
+@@ -416,5 +450,6 @@ open class DefaultEuiccChannelManager(
          usbChannels.clear()
          channelCache.clear()
          euiccChannelFactory.cleanup()
@@ -280,24 +285,39 @@ index e47d403b669174529da2097535f1f4ed08702117..9a1ff68cd2f1ba60b08e9f4f2a070d3e
      override val valid: Boolean
 diff --git a/app-common/src/main/java/im/angry/openeuicc/core/HonorLpaChannelAccess.kt b/app-common/src/main/java/im/angry/openeuicc/core/HonorLpaChannelAccess.kt
 new file mode 100644
-index 0000000000000000000000000000000000000000..96a41557a7130bc8b1b7380c0126755a72edcb0b
+index 0000000000000000000000000000000000000000..9c18c3d96a1869ad878a7dc25ab9ff9f3bc33a54
 --- /dev/null
 +++ b/app-common/src/main/java/im/angry/openeuicc/core/HonorLpaChannelAccess.kt
-@@ -0,0 +1,23 @@
+@@ -0,0 +1,38 @@
 +package im.angry.openeuicc.core
 +
 +/** The privileged backend uses only opaque Phone-owned generation-bound handles on Honor. */
 +object HonorLpaChannelAccess {
 +    fun knownBlank() = HonorLpaLeaseClient.knownBlankForUi
++    fun isJournalUnavailableFailure(failure: Throwable) = failure is HonorLpaOperationJournal.Unavailable
++    fun isProfileListReadFailure(failure: Throwable) = failure is net.typeblog.lpac_jni.ProfileListReadException
++    fun isAccessUnavailableFailure(failure: Throwable) = failure is LpaChannelAdmission.Unavailable
++    fun isAccessUncertainFailure(failure: Throwable) =
++        (failure as? LpaChannelAdmission.Unavailable)?.uncertain == true
 +    fun isEndpointNotReadyFailure(failure: Throwable) = failure is HonorLpaLeaseClient.EndpointNotReady
 +    fun isKnownBlankFailure(failure: Throwable) = failure is HonorLpaLeaseClient.KnownBlankRoute
 +    suspend fun prepareKnownBlankForDiscovery(context: android.content.Context, slot: Int, port: Int, expectedCardId: Int = -1) =
 +        HonorLpaLeaseClient.prepareKnownBlankForDiscovery(context,slot,port,expectedCardId)
++    fun isConfirmedProfileRejection(failure: Throwable) = failure is HonorLpaLeaseClient.ProfileRejected
 +    fun enabled() = HonorLpaLeaseClient.requiresCloseProof()
++    data class RecoveryState(val status: Int,val localMarker: Boolean,val unavailable: Boolean)
++    suspend fun recoveryState(context: android.content.Context): RecoveryState {
++        val state=HonorLpaLeaseClient.recoveryState(context)
++        return RecoveryState(state.status,state.localMarker,state.unavailable)
++    }
++    suspend fun armRecovery(context: android.content.Context,manager: EuiccChannelManager) =
++        HonorLpaLeaseClient.armRecovery(context,manager)
++    fun isRecoveryUnavailableFailure(failure: Throwable) = failure is HonorLpaLeaseClient.RecoveryUnavailable
 +    /** Lifecycle cleanup is not the operation owner and must not close its in-flight channels. */
 +    fun cleanupIfUnowned(manager: EuiccChannelManager) {
 +        try { manager.invalidate() }
 +        catch (reserved: LpaChannelAdmission.Unavailable) { if (!enabled()) throw reserved }
++        catch (journal: HonorLpaOperationJournal.Unavailable) { if (!enabled()) throw journal }
 +    }
 +    data class Opened(val handle: Long, val channel: Int)
 +    fun open(slot: Int, port: Int, card: Int, aid: String, p2: Int): Opened {
@@ -335,10 +355,10 @@ index 0000000000000000000000000000000000000000..a290e1ac69d4784b25931ddd60bdeb6f
 +}
 diff --git a/app-common/src/main/java/im/angry/openeuicc/core/HonorLpaLeaseClient.kt b/app-common/src/main/java/im/angry/openeuicc/core/HonorLpaLeaseClient.kt
 new file mode 100644
-index 0000000000000000000000000000000000000000..a7eb8e6ae85e4662bbcc49e5f2b328db5e7459eb
+index 0000000000000000000000000000000000000000..1db98b60dea9fcefeb914ce7005f188ef6e7f891
 --- /dev/null
 +++ b/app-common/src/main/java/im/angry/openeuicc/core/HonorLpaLeaseClient.kt
-@@ -0,0 +1,301 @@
+@@ -0,0 +1,529 @@
 +package im.angry.openeuicc.core
 +
 +import android.content.ComponentName
@@ -368,6 +388,8 @@ index 0000000000000000000000000000000000000000..a7eb8e6ae85e4662bbcc49e5f2b328db
 +    @Volatile var knownBlankForUi = false
 +        private set
 +    class KnownBlankRoute : IllegalStateException("No active eSIM endpoint; return through SIM settings")
++    class ProfileRejected(val rejection: net.typeblog.lpac_jni.ProfileOperationRejectedException) :
++        Exception("The eSIM rejected this change", rejection)
 +    class EndpointNotReady : IllegalStateException("No eSIM endpoint is ready")
 +    private val identity = ThreadLocal<Any?>()
 +    private var journal: HonorLpaOperationJournal? = null
@@ -384,7 +406,7 @@ index 0000000000000000000000000000000000000000..a7eb8e6ae85e4662bbcc49e5f2b328db
 +    }
 +    @PublishedApi internal fun enterChannelAccess(): Boolean {
 +        if (!CLIENT_RUNTIME_QUALIFIED || !isHonorBuild()) return false
-+        check(journal != null) { "Operation journal unavailable" }
++        if (journal == null) throw HonorLpaOperationJournal.Unavailable()
 +        admission.enter(identity.get()); return true
 +    }
 +    @PublishedApi internal fun leaveChannelAccess(entered: Boolean) { if (entered) admission.leave() }
@@ -426,7 +448,7 @@ index 0000000000000000000000000000000000000000..a7eb8e6ae85e4662bbcc49e5f2b328db
 +                    check(bound) { "Preparation service unavailable" }
 +                    val api = withTimeout(10_000) { connected.await() }
 +                    // Never send the new transaction to a protocol-2 Phone.
-+                    check(api.protocolVersion() == 4) { "Phone/LPA lease protocol version mismatch" }
++                    check(api.protocolVersion() == 6) { "Phone/LPA lease protocol version mismatch" }
 +                    when (api.prepareKnownBlankEndpoint(slot,port,expectedCardId,Binder())) {
 +                        IHonorLpaLease.PREPARE_NOT_NEEDED, IHonorLpaLease.PREPARE_READY -> {
 +                            if (expectedCardId >= 0) {
@@ -441,6 +463,7 @@ index 0000000000000000000000000000000000000000..a7eb8e6ae85e4662bbcc49e5f2b328db
 +                                    && card.ports.any { it.portIndex == port && it.isActive && it.logicalSlotIndex == 1 }) {
 +                                    "Requested eUICC target is unavailable"
 +                                }
++                                knownBlankForUi = false
 +                            }
 +                        }
 +                        IHonorLpaLease.PREPARE_NOT_READY -> throw EndpointNotReady()
@@ -466,12 +489,13 @@ index 0000000000000000000000000000000000000000..a7eb8e6ae85e4662bbcc49e5f2b328db
 +        val client: IBinder, val target: Target, val localOwner: Any) : NativeMutationBoundary.Observer {
 +        var uncertain = false
 +        var nativeInFlight = false
++        var rejectedConfirmed = false
 +        var resetPending = false
 +        var lastKind = 0
 +        var lastProfileBefore = false
 +        var completedKnownBlank = false
 +        override fun before(kind: Int,lastProfileBefore: Boolean,targetIccid: String?) {
-+            check(!uncertain && !nativeInFlight && !resetPending)
++            check(!uncertain && !nativeInFlight && !resetPending && !rejectedConfirmed)
 +            if (!api.beginNativeTarget(lease, client, kind,lastProfileBefore,targetIccid)) { uncertain = true; error("Operation lease unavailable") }
 +            lastKind=kind;this.lastProfileBefore=lastProfileBefore;nativeInFlight = true
 +        }
@@ -480,6 +504,19 @@ index 0000000000000000000000000000000000000000..a7eb8e6ae85e4662bbcc49e5f2b328db
 +            nativeInFlight = false
 +            if (!api.nativeReturned(lease, client, true)) { uncertain = true; error("Native completion unavailable") }
 +            resetPending = kind <= 4 || kind == 8
++        }
++        override fun rejected(kind: Int, code: Int) {
++            check(nativeInFlight && lastKind == kind && !uncertain)
++            check(net.typeblog.lpac_jni.Es10cProfileResult.isKnownRejection(kind,code))
++            try {
++                check(api.nativeRejected(lease,client,kind,code)) { "Card rejection was not acknowledged" }
++                nativeInFlight = false
++                resetPending = false
++                rejectedConfirmed = true
++            } catch (failure: Throwable) {
++                uncertain()
++                throw failure
++            }
 +        }
 +        override fun uncertain() {
 +            uncertain = true
@@ -561,8 +598,10 @@ index 0000000000000000000000000000000000000000..a7eb8e6ae85e4662bbcc49e5f2b328db
 +        check(context.packageManager.checkSignatures("android","com.android.phone") == android.content.pm.PackageManager.SIGNATURE_MATCH)
 +        val target = if (requestedTarget.cardId >= 0) requestedTarget else {
 +            val tm = checkNotNull(context.getSystemService(android.telephony.TelephonyManager::class.java))
-+            val card = tm.uiccCardsInfo.single { it.physicalSlotIndex == requestedTarget.slot && it.isEuicc }
-+            check(card.ports.any { it.portIndex == requestedTarget.port && it.isActive && it.logicalSlotIndex == 1 })
++            val card = tm.uiccCardsInfo.singleOrNull { it.physicalSlotIndex == requestedTarget.slot && it.isEuicc }
++                ?: throw EndpointNotReady()
++            if (!card.ports.any { it.portIndex == requestedTarget.port && it.isActive && it.logicalSlotIndex == 1 })
++                throw EndpointNotReady()
 +            requestedTarget.copy(cardId = card.cardId)
 +        }
 +        initialize(context)
@@ -574,8 +613,8 @@ index 0000000000000000000000000000000000000000..a7eb8e6ae85e4662bbcc49e5f2b328db
 +            override fun onServiceConnected(name: ComponentName, service: IBinder) {
 +                connected.complete(IHonorLpaLease.Stub.asInterface(service))
 +            }
-+            override fun onServiceDisconnected(name: ComponentName) { admission.unknown() }
-+            override fun onBindingDied(name: ComponentName) { admission.unknown() }
++            override fun onServiceDisconnected(name: ComponentName) { admission.unknownIfOwned(localOwner) }
++            override fun onBindingDied(name: ComponentName) { admission.unknownIfOwned(localOwner) }
 +            override fun onNullBinding(name: ComponentName) { connected.completeExceptionally(IllegalStateException("Lease service unavailable")) }
 +        }
 +        var session: Session? = null
@@ -594,7 +633,7 @@ index 0000000000000000000000000000000000000000..a7eb8e6ae85e4662bbcc49e5f2b328db
 +                    catch(failure: android.os.RemoteException) {
 +                        throw IllegalStateException("Phone/LPA lease protocol version mismatch",failure)
 +                    }
-+                check(protocol==4) { "Phone/LPA lease protocol version mismatch" }
++                check(protocol==6) { "Phone/LPA lease protocol version mismatch" }
 +                val client = Binder()
 +                val grant = api.acquireV2(target.operation, target.slot, target.port, target.cardId, client)
 +                check(grant != null)
@@ -629,23 +668,232 @@ index 0000000000000000000000000000000000000000..a7eb8e6ae85e4662bbcc49e5f2b328db
 +                catch(clearFailure: Throwable) {admission.unknown();throw clearFailure}
 +                throw failure // Only a positive typed no-grant receipt permits this local clear.
 +            }
-+            admission.unknown()
-+            // No inferred drain on cancellation, transport loss, native false or close failure.
-+            withContext(NonCancellable) {
-+                session?.let { try { it.api.finish(it.lease, it.client, false) } catch (_: Exception) { } }
++            var drained = false
++            session?.let { granted ->
++                // Cancellation of an idle read is not an unknown native mutation. Keep the
++                // exact lease/owner until synchronous closes and Phone's drain acknowledgement.
++                if ((granted.target.operation == 0 || granted.lastKind == 0 || granted.rejectedConfirmed)
++                    && !granted.uncertain && !granted.nativeInFlight && !granted.resetPending
++                    && !granted.completedKnownBlank) {
++                    try {
++                        withContext(NonCancellable + identity.asContextElement(localOwner)
++                            + NativeMutationBoundary.observer.asContextElement(granted)) {
++                            admission.completeAfterDrain(localOwner,
++                                close = { manager.invalidate() },
++                                finish = { granted.api.finish(granted.lease, granted.client, true) },
++                                markClean = { journal!!.write(active = false) })
++                        }
++                        drained = true
++                    } catch (cleanupFailure: Throwable) {
++                        failure.addSuppressed(cleanupFailure)
++                    }
++                }
 +            }
++            if (!drained) {
++                admission.unknown()
++                // No inferred drain on transport loss, native false or an unconfirmed close.
++                withContext(NonCancellable) {
++                    session?.let { try { it.api.finish(it.lease, it.client, false) } catch (_: Exception) { } }
++                }
++            }
++            if (drained && failure is net.typeblog.lpac_jni.ProfileOperationRejectedException)
++                throw ProfileRejected(failure)
 +            throw failure
 +        } finally {
 +            if (bound) context.unbindService(connection)
 +        }
 +    }
++
++    class RecoveryUnavailable(cause: Throwable? = null) :
++        IllegalStateException("eSIM access recovery is unavailable",cause)
++    data class RecoveryState(val status: Int,val localMarker: Boolean,val unavailable: Boolean)
++    private val recoveryHash = java.security.MessageDigest.getInstance("SHA-256")
++        .digest(byteArrayOf(65,10)).joinToString("") { "%02x".format(it.toInt() and 255) }
++
++    /** Only Binder invocations use this adapter; local validation/programming failures propagate. */
++    private inline fun <T> recoveryRpc(call: () -> T): T = try {
++        call()
++    } catch (cancelled: kotlinx.coroutines.CancellationException) {
++        throw cancelled
++    } catch (failure: android.os.RemoteException) {
++        throw RecoveryUnavailable(failure)
++    } catch (failure: IllegalStateException) {
++        throw RecoveryUnavailable(failure)
++    } catch (failure: SecurityException) {
++        throw RecoveryUnavailable(failure)
++    }
++
++    private suspend fun <T> withRecoveryApi(context: Context,operation: suspend (IHonorLpaLease) -> T): T {
++        check(requiresCloseProof() && android.os.UserHandle.myUserId() == 0)
++        check(context.packageManager.checkSignatures("android","com.android.phone") ==
++            android.content.pm.PackageManager.SIGNATURE_MATCH)
++        val bindingContext=context.applicationContext
++        val connected=CompletableDeferred<IHonorLpaLease>()
++        val connection=object : ServiceConnection {
++            override fun onServiceConnected(name: ComponentName,service: IBinder) {
++                connected.complete(IHonorLpaLease.Stub.asInterface(service))
++            }
++            override fun onServiceDisconnected(name: ComponentName) {
++                connected.completeExceptionally(RecoveryUnavailable())
++            }
++            override fun onBindingDied(name: ComponentName) {
++                connected.completeExceptionally(RecoveryUnavailable())
++            }
++            override fun onNullBinding(name: ComponentName) {
++                connected.completeExceptionally(RecoveryUnavailable())
++            }
++        }
++        var bound=false
++        try {
++            val bindingIntent=Intent().setComponent(ComponentName("com.android.phone",
++                "com.android.internal.telephony.honor.HonorLpaLeaseService"))
++            bound=recoveryRpc { bindingContext.bindService(bindingIntent,connection,Context.BIND_AUTO_CREATE) }
++            if (!bound) throw RecoveryUnavailable()
++            val api=kotlinx.coroutines.withTimeoutOrNull(10_000) { connected.await() }
++                ?: throw RecoveryUnavailable()
++            if (recoveryRpc { api.protocolVersion() } != 6) throw RecoveryUnavailable()
++            return operation(api)
++        } finally { if (bound) bindingContext.unbindService(connection) }
++    }
++
++    /** Passive status is checked before ordinary endpoint discovery, including after an app crash. */
++    suspend fun recoveryState(context: Context): RecoveryState = withContext(Dispatchers.IO) {
++        sessionLock.withLock {
++            initialize(context)
++            val hash=journal!!.recoveryHash()
++            withRecoveryApi(context) { api ->
++                val status=recoveryRpc { api.recoveryStatus(recoveryHash) }
++                if (status == IHonorLpaLease.RECOVERY_DONE && (hash != null || admission.isUnknown())) {
++                    // Phone DONE requires current L1 C/no binding; stale DONE under a new U is refused.
++                    admission.acknowledgeRecoveryAfterDone(
++                        done = { recoveryRpc { api.recoveryStatus(recoveryHash) } == IHonorLpaLease.RECOVERY_DONE },
++                        markClean = { if (hash != null) journal!!.acknowledgeRecovery(hash) })
++                    knownBlankForUi=false
++                }
++                RecoveryState(status,hash != null && status != IHonorLpaLease.RECOVERY_DONE,admission.isUnknown())
++            }
++        }
++    }
++
++    /** Explicit user action only. Arming never starts recovery or reboots the device. */
++    suspend fun armRecovery(context: Context,manager: EuiccChannelManager): Int = withContext(Dispatchers.IO) {
++        sessionLock.withLock {
++            initialize(context)
++            withRecoveryApi(context) { api ->
++                if (recoveryRpc { api.recoveryStatus(recoveryHash) } != IHonorLpaLease.RECOVERY_REQUIRED)
++                    throw RecoveryUnavailable()
++                var hash=journal!!.recoveryHash()
++                if (hash == null) {
++                    // Explicit Restore only: Phone certified a valid durable UNKNOWN, not REFUSED.
++                    val owner=Any();admission.reserve(owner)
++                    try {
++                        withContext(NonCancellable + identity.asContextElement(owner)) {
++                            manager.invalidate()
++                            admission.requireDrained(owner)
++                            journal!!.write(active=true)
++                            admission.unknown()
++                        }
++                    } catch (failure: Throwable) { admission.unknown();throw failure }
++                    hash=journal!!.recoveryHash() ?: throw RecoveryUnavailable()
++                }
++                val client=Binder()
++                recoveryRpc { api.armRecovery(hash,client) }
++            }
++        }
++    }
++
++    /** New op-7 context only: no old handle, constructor, notification, reset or mutation replay. */
++    suspend fun recoverAccess(context: Context) = withContext(Dispatchers.IO) {
++        sessionLock.withLock {
++            initialize(context)
++            val hash=journal!!.recoveryHash() ?: throw RecoveryUnavailable()
++            withRecoveryApi(context) { api ->
++                if (recoveryRpc { api.recoveryStatus(hash) } != IHonorLpaLease.RECOVERY_READY) throw RecoveryUnavailable()
++                withContext(NonCancellable) {
++                    val owner=Any();admission.reserveRecovery(owner)
++                    val client=Binder()
++                    var lease: HonorLpaLease?=null
++                    var finished=false
++                    var recoverySession: Session?=null
++                    try {
++                        val grant=recoveryRpc { api.acquireRecovery(hash,client) }
++                        if (grant?.code == 3 && grant.lease == null) {
++                            admission.recoveryRefused(owner)
++                            throw RecoveryUnavailable()
++                        }
++                        val issued=grant?.lease ?: throw RecoveryUnavailable()
++                        lease=issued
++                        if (grant.code != 1 || issued.operation != 7 || issued.physicalSlot != 1
++                            || issued.port != 0 || issued.cardId < 0 || issued.uid != android.os.Process.myUid()
++                            || issued.user != 0 || issued.generation <= 0
++                            || issued.token?.matches(Regex("[0-9a-f]{32}")) != true
++                            || !((issued.routeSerial > 0 && issued.observationSerial == -1)
++                                || (issued.routeSerial == 0 && issued.observationSerial > 0)))
++                            throw RecoveryUnavailable()
++                        val scoped=Session(api,issued,client,Target(7,1,0,issued.cardId),owner)
++                        recoverySession=scoped
++                        val receipt=LogicalChannelCloseReceipt()
++                        var channel: Int?=null
++                        var handle: Long?=null
++                        val apdu=object : net.typeblog.lpac_jni.ApduInterface {
++                            override fun connect() {}
++                            override fun disconnect() {}
++                            override val valid: Boolean get() = channel != null && !scoped.uncertain
++                            override fun logicalChannelOpen(aid: ByteArray): Int {
++                                check(channel == null && handle == null)
++                                val opened=openScopedChannel(1,0,issued.cardId,
++                                    aid.joinToString("") { "%02x".format(it.toInt() and 255) },0)
++                                channel=opened.channel;handle=opened.handle;receipt.opened(opened.channel)
++                                return opened.channel
++                            }
++                            override fun transmit(logical: Int,tx: ByteArray): ByteArray {
++                                check(channel == logical)
++                                return transmitScopedChannel(checkNotNull(handle),tx)
++                            }
++                            override fun logicalChannelClose(logical: Int) {
++                                try {
++                                    check(channel == logical)
++                                    if (closeScopedChannel(checkNotNull(handle)) != 2) throw RecoveryUnavailable()
++                                    receipt.closed(logical,true);channel=null;handle=null
++                                } catch (failure: Throwable) { receipt.failed();throw failure }
++                            }
++                        }
++                        withContext(identity.asContextElement(owner)
++                            + NativeMutationBoundary.observer.asContextElement(scoped)) {
++                            withChannelAccess { net.typeblog.lpac_jni.ReadOnlyRecovery.read(apdu) }
++                            check(channel == null && handle == null)
++                            receipt.requireAllClosed();admission.requireDrained(owner)
++                            check(!scoped.uncertain && !scoped.nativeInFlight && !scoped.resetPending)
++                            if (!recoveryRpc { api.finishRecovery(issued,client,true) }) throw RecoveryUnavailable()
++                            finished=true
++                            admission.acknowledgeRecoveryAfterDone(owner,
++                                done = { recoveryRpc { api.recoveryStatus(hash) } == IHonorLpaLease.RECOVERY_DONE },
++                                markClean = { journal!!.acknowledgeRecovery(hash) })
++                            knownBlankForUi=false
++                        }
++                    } catch (failure: Throwable) {
++                        admission.unknown()
++                        if (!finished) lease?.let {
++                            try { recoveryRpc { api.finishRecovery(it,client,false) } } catch (_: Exception) {}
++                        }
++                        if (failure is Exception && (recoverySession?.uncertain == true
++                            || failure is net.typeblog.lpac_jni.ReadOnlyRecovery.ReadFailure
++                            || failure is net.typeblog.lpac_jni.ProfileListReadException))
++                            throw RecoveryUnavailable(failure)
++                        throw failure
++                    }
++                }
++            }
++        }
++    }
++
 +}
 diff --git a/app-common/src/main/java/im/angry/openeuicc/core/HonorLpaOperationJournal.kt b/app-common/src/main/java/im/angry/openeuicc/core/HonorLpaOperationJournal.kt
 new file mode 100644
-index 0000000000000000000000000000000000000000..515b17290f263718c36fc41a6bd172075d23ae5c
+index 0000000000000000000000000000000000000000..cddde0b2353b7258dc56ce315ab3af27c49ac561
 --- /dev/null
 +++ b/app-common/src/main/java/im/angry/openeuicc/core/HonorLpaOperationJournal.kt
-@@ -0,0 +1,52 @@
+@@ -0,0 +1,73 @@
 +package im.angry.openeuicc.core
 +
 +import android.content.Context
@@ -656,28 +904,49 @@ index 0000000000000000000000000000000000000000..515b17290f263718c36fc41a6bd17207
 +
 +/** An interrupted operation forbids new local channel opens after an LPA process restart. */
 +internal class HonorLpaOperationJournal(context: Context) {
++    class Unavailable(cause: Throwable? = null) : IllegalStateException("eSIM operation state is unavailable",cause)
 +    private val directory = context.createDeviceProtectedStorageContext().noBackupFilesDir
 +    private val path = File(directory, "honor-ldy-lpa-operation")
 +    private val file = AtomicFile(path)
 +    private fun noInterruptedWrite() {
 +        for (suffix in listOf(".new", ".bak")) {
-+            try { Os.lstat(path.path + suffix); error("Interrupted operation journal") }
++            try { Os.lstat(path.path + suffix); throw Unavailable() }
 +            catch (e: android.system.ErrnoException) {
 +                if (e.errno != OsConstants.ENOENT) throw e
 +            }
 +        }
 +    }
-+    fun isClean(): Boolean {
++    fun isClean(): Boolean = try {
++        readClean()
++    } catch (failure: java.io.IOException) {
++        throw Unavailable(failure)
++    } catch (failure: android.system.ErrnoException) {
++        throw Unavailable(failure)
++    }
++    private fun readClean(): Boolean {
 +        noInterruptedWrite()
 +        if (!path.exists()) {
 +            // Confirm ENOENT rather than treating an access error as a clean journal.
-+            try { Os.lstat(path.path); error("Unreadable operation journal") }
++            try { Os.lstat(path.path); throw Unavailable() }
 +            catch (e: android.system.ErrnoException) {
 +                if (e.errno != OsConstants.ENOENT) throw e
 +            }
 +            return true
 +        }
 +        return file.openRead().use { it.readNBytes(3).contentEquals(byteArrayOf(67, 10)) }
++    }
++    /** Only exact A newline is eligible; interrupted/malformed markers cannot arm recovery. */
++    fun recoveryHash(): String? {
++        if (isClean()) return null
++        val bytes=try { file.openRead().use { it.readNBytes(3) } }
++            catch (failure: java.io.IOException) { throw Unavailable(failure) }
++        if (!bytes.contentEquals(byteArrayOf(65,10))) throw Unavailable()
++        return java.security.MessageDigest.getInstance("SHA-256").digest(bytes)
++            .joinToString("") { "%02x".format(it.toInt() and 255) }
++    }
++    fun acknowledgeRecovery(expectedHash: String) {
++        check(recoveryHash() == expectedHash) { "Recovery journal changed" }
++        write(active=false)
 +    }
 +    fun write(active: Boolean) {
 +        noInterruptedWrite()
@@ -697,6 +966,43 @@ index 0000000000000000000000000000000000000000..515b17290f263718c36fc41a6bd17207
 +            check(file.openRead().use { it.readNBytes(3).contentEquals(if (active) byteArrayOf(65,10) else byteArrayOf(67,10)) })
 +        } finally { stream?.let { file.failWrite(it) } }
 +    }
++}
+diff --git a/app-common/src/main/java/im/angry/openeuicc/core/HonorProfileInventory.kt b/app-common/src/main/java/im/angry/openeuicc/core/HonorProfileInventory.kt
+new file mode 100644
+index 0000000000000000000000000000000000000000..6391a5475443b9b2773e6af868093e38f60179c4
+--- /dev/null
++++ b/app-common/src/main/java/im/angry/openeuicc/core/HonorProfileInventory.kt
+@@ -0,0 +1,31 @@
++package im.angry.openeuicc.core
++
++import android.content.Context
++import java.io.File
++import kotlinx.coroutines.Dispatchers
++import kotlinx.coroutines.ensureActive
++import kotlinx.coroutines.withContext
++import kotlinx.coroutines.sync.Mutex
++import kotlinx.coroutines.sync.withLock
++
++/** Not called by startup or cached viewing. Existing live routing remains separately gated. */
++internal object HonorProfileInventory {
++    private val captureLock=Mutex()
++    fun store(context: Context) =
++        ProfileInventory.Store(File(context.applicationContext.noBackupFilesDir,"profile-inventory"))
++
++    /** The caller supplies an existing channel READ, not another lease or route preparation. */
++    suspend fun captureCompletedRead(context: Context,
++        completedRead: suspend () -> ProfileInventory.Snapshot): ProfileInventory.Capture =
++        withContext(Dispatchers.IO) { captureLock.withLock {
++            ProfileInventory.captureAndPublish(store(context),
++                outerRead = {
++                    HonorLpaLeaseClient.requiresCloseProof() && NativeMutationBoundary.observer.get() == null
++                }) {
++                val snapshot=completedRead()
++                // Cooperative cancellation check after positive close/finish, before publication.
++                coroutineContext.ensureActive()
++                snapshot
++            }
++        } }
 +}
 diff --git a/app-common/src/main/java/im/angry/openeuicc/core/LastProfileProof.kt b/app-common/src/main/java/im/angry/openeuicc/core/LastProfileProof.kt
 new file mode 100644
@@ -830,41 +1136,80 @@ index 0000000000000000000000000000000000000000..10ed98f78a5069855b77c725874284fb
 +}
 diff --git a/app-common/src/main/java/im/angry/openeuicc/core/LpaChannelAdmission.kt b/app-common/src/main/java/im/angry/openeuicc/core/LpaChannelAdmission.kt
 new file mode 100644
-index 0000000000000000000000000000000000000000..b6f31a2e9c6c6382b139402350b4ad4cc326d7ff
+index 0000000000000000000000000000000000000000..ec7437c17106fd97ce6f0fd9e790bbe2c9430a65
 --- /dev/null
 +++ b/app-common/src/main/java/im/angry/openeuicc/core/LpaChannelAdmission.kt
-@@ -0,0 +1,25 @@
+@@ -0,0 +1,64 @@
 +package im.angry.openeuicc.core
 +
 +/** Process-local admission. UNKNOWN cannot be released by cancellation or a timeout. */
 +internal class LpaChannelAdmission {
-+    class Unavailable : IllegalStateException("eSIM channels are reserved or unknown")
++    class Unavailable(val uncertain: Boolean) : IllegalStateException(
++        if (uncertain) "Previous eSIM operation is unresolved" else "eSIM channels are in use")
 +    private enum class State { IDLE, RESERVED, UNKNOWN }
 +    private var state = State.IDLE
 +    private var owner: Any? = null
 +    private var readers = 0
 +    @Synchronized fun enter(token: Any?) {
-+        if (!(state == State.IDLE || state == State.RESERVED && token === owner)) throw Unavailable()
++        if (!(state == State.IDLE || state == State.RESERVED && token === owner)) throw Unavailable(state == State.UNKNOWN)
 +        readers++
 +    }
 +    @Synchronized fun leave() { check(readers > 0); readers-- }
 +    @Synchronized fun reserve(token: Any) {
-+        check(state == State.IDLE && readers == 0) { "eSIM channels are in use or unknown" }
++        if (state != State.IDLE || readers != 0) throw Unavailable(state == State.UNKNOWN)
 +        state = State.RESERVED; owner = token
 +    }
 +    @Synchronized fun complete(token: Any) {
 +        check(state == State.RESERVED && token === owner && readers == 0)
 +        state = State.IDLE; owner = null
 +    }
++    /** A refused/cancelled read is releasable only after the original owner proves its drain. */
++    fun completeAfterDrain(token: Any, close: () -> Unit, finish: () -> Boolean, markClean: () -> Unit) {
++        close()
++        requireDrained(token)
++        check(finish()) { "Operation drain was not confirmed" }
++        markClean()
++        complete(token)
++    }
++    /** Only the Phone's separately boot-fenced recovery may enter an existing UNKNOWN. */
++    @Synchronized fun reserveRecovery(token: Any) {
++        if (state != State.UNKNOWN || readers != 0 || owner != null) throw Unavailable(true)
++        state=State.RESERVED;owner=token
++    }
++    @Synchronized fun isUnknown() = state == State.UNKNOWN
++    @Synchronized fun recoveryRefused(token: Any) {
++        check(state == State.RESERVED && owner === token && readers == 0)
++        state=State.UNKNOWN;owner=null
++    }
++    /** Called only after positive Phone DONE, never on cancellation or a native timeout. */
++    fun acknowledgeRecoveryAfterDone(token: Any? = null,done: () -> Boolean,markClean: () -> Unit) {
++        synchronized(this) {
++            if (readers != 0 || !(state == State.UNKNOWN ||
++                state == State.RESERVED && owner === token)) throw Unavailable(true)
++        }
++        if (!done()) throw Unavailable(true)
++        markClean()
++        acknowledgeRecovery(token)
++    }
++    @Synchronized private fun acknowledgeRecovery(token: Any?) {
++        check(readers == 0 && (state == State.UNKNOWN ||
++            state == State.RESERVED && owner === token))
++        state=State.IDLE;owner=null
++    }
++    @Synchronized fun unknownIfOwned(token: Any): Boolean {
++        if (state == State.IDLE || owner !== token) return false
++        state=State.UNKNOWN
++        return true
++    }
 +    @Synchronized fun unknown() { state = State.UNKNOWN }
 +    @Synchronized fun requireDrained(token: Any) { check(state == State.RESERVED && token === owner && readers == 0) }
 +}
 diff --git a/app-common/src/main/java/im/angry/openeuicc/core/NativeMutationBoundary.kt b/app-common/src/main/java/im/angry/openeuicc/core/NativeMutationBoundary.kt
 new file mode 100644
-index 0000000000000000000000000000000000000000..38b32f80169186693ee4855314e5f37056b4d081
+index 0000000000000000000000000000000000000000..6129a5f95179d54965b258f23f68fa084511e297
 --- /dev/null
 +++ b/app-common/src/main/java/im/angry/openeuicc/core/NativeMutationBoundary.kt
-@@ -0,0 +1,26 @@
+@@ -0,0 +1,39 @@
 +package im.angry.openeuicc.core
 +
 +/** A native false result is ambiguous; never return it to a caller that might resend. */
@@ -872,23 +1217,185 @@ index 0000000000000000000000000000000000000000..38b32f80169186693ee4855314e5f370
 +    interface Observer {
 +        fun before(kind: Int,lastProfileBefore: Boolean,targetIccid: String?)
 +        fun returned(kind: Int)
++        fun rejected(kind: Int, code: Int) { error("Definitive native rejection is not supported") }
 +        fun uncertain()
 +    }
 +    val observer = ThreadLocal<Observer?>()
 +    fun <T> call(kind: Int,lastProfileBefore: Boolean = false,targetIccid: String? = null, operation: () -> T): T {
 +        val current = observer.get()
-+        current?.before(kind,lastProfileBefore,targetIccid)
 +        try {
++            current?.before(kind,lastProfileBefore,targetIccid)
 +            val result = operation()
 +            if (current != null && result == false) {
 +                error("eSIM native completion is uncertain")
 +            }
 +            current?.returned(kind)
 +            return result
++        } catch (rejected: net.typeblog.lpac_jni.ProfileOperationRejectedException) {
++            if (current != null) {
++                try {
++                    check(rejected.kind == kind)
++                    current.rejected(kind,rejected.resultCode)
++                } catch (failure: Throwable) {
++                    current.uncertain()
++                    failure.addSuppressed(rejected)
++                    throw failure
++                }
++            }
++            throw rejected
 +        } catch (failure: Throwable) {
 +            current?.uncertain()
 +            throw failure
 +        }
++    }
++}
+diff --git a/app-common/src/main/java/im/angry/openeuicc/core/ProfileInventory.kt b/app-common/src/main/java/im/angry/openeuicc/core/ProfileInventory.kt
+new file mode 100644
+index 0000000000000000000000000000000000000000..a73689ea7b885375982bf7c74f0cd4a4d35dd326
+--- /dev/null
++++ b/app-common/src/main/java/im/angry/openeuicc/core/ProfileInventory.kt
+@@ -0,0 +1,143 @@
++package im.angry.openeuicc.core
++
++import java.io.ByteArrayInputStream
++import java.io.ByteArrayOutputStream
++import java.io.DataInputStream
++import java.io.DataOutputStream
++import java.io.File
++import java.io.FileOutputStream
++import java.io.IOException
++import java.nio.channels.FileChannel
++import java.nio.file.Files
++import java.nio.file.StandardOpenOption
++import java.nio.file.StandardCopyOption
++import java.security.MessageDigest
++
++/** Historical display data only: never a live card result or mutation authority. */
++internal object ProfileInventory {
++    private const val MAGIC = 0x4c504931
++    private const val MAX_BYTES = 262144
++    private const val MAX_CARDS = 16
++    data class Row(val iccid: String, val enabledWhenRead: Boolean, val name: String,
++        val nickname: String, val provider: String, val profileClass: String)
++    data class Snapshot(val eid: String, val verifiedAtMillis: Long, val profiles: List<Row>)
++    sealed interface State {
++        data object Unavailable : State
++        data class VerifiedEmpty(val snapshot: Snapshot) : State
++        data class Verified(val snapshot: Snapshot) : State
++    }
++    private fun validate(s: Snapshot) {
++        require(s.eid.matches(Regex("[0-9]{32}")) && s.verifiedAtMillis > 0)
++        require(s.profiles.size <= 128 && s.profiles.map { it.iccid }.distinct().size == s.profiles.size)
++        s.profiles.forEach {
++            require(it.iccid.matches(Regex("[0-9]{18,22}")))
++            require(listOf(it.name,it.nickname,it.provider).all { value -> value.length <= 512 })
++            require(it.profileClass in setOf("Testing","Provisioning","Operational"))
++        }
++    }
++    internal fun encode(s: Snapshot): ByteArray {
++        validate(s)
++        val bytes=ByteArrayOutputStream()
++        DataOutputStream(bytes).use { out ->
++            out.writeInt(MAGIC);out.writeUTF(s.eid);out.writeLong(s.verifiedAtMillis)
++            out.writeInt(s.profiles.size)
++            s.profiles.forEach {
++                out.writeUTF(it.iccid);out.writeBoolean(it.enabledWhenRead)
++                out.writeUTF(it.name);out.writeUTF(it.nickname);out.writeUTF(it.provider)
++                out.writeUTF(it.profileClass)
++            }
++        }
++        return bytes.toByteArray().also { require(it.size <= MAX_BYTES) }
++    }
++    internal fun decode(bytes: ByteArray): Snapshot {
++        require(bytes.size <= MAX_BYTES)
++        DataInputStream(ByteArrayInputStream(bytes)).use { input ->
++            require(input.readInt() == MAGIC)
++            val eid=input.readUTF();val time=input.readLong();val count=input.readInt()
++            require(count in 0..128)
++            val rows=List(count) {
++                val iccid=input.readUTF();val enabled=input.readUnsignedByte()
++                require(enabled in 0..1)
++                Row(iccid,enabled == 1,input.readUTF(),input.readUTF(),input.readUTF(),input.readUTF())
++            }
++            require(input.read() == -1)
++            return Snapshot(eid,time,rows).also { validate(it) }
++        }
++    }
++    private fun name(eid: String): String {
++        require(eid.matches(Regex("[0-9]{32}")))
++        return MessageDigest.getInstance("SHA-256").digest(eid.toByteArray(Charsets.US_ASCII))
++            .joinToString("") { "%02x".format(it) } + ".inventory"
++    }
++    private fun state(s: Snapshot): State =
++        if(s.profiles.isEmpty()) State.VerifiedEmpty(s) else State.Verified(s)
++
++    /** Caller supplies an app-private noBackup directory, never shared/external storage. */
++    class Store(private val directory: File) {
++        @Synchronized fun load(eid: String): State = read(File(directory,name(eid)),eid)
++        @Synchronized fun saved(): List<State> { return try {
++            if(!directory.exists()) return listOf(State.Unavailable)
++            val files=directory.listFiles() ?: return listOf(State.Unavailable)
++            // Never silently present a partial set after malformed or oversized storage.
++            if(files.size > MAX_CARDS*2 || files.any {
++                    !it.name.matches(Regex("[0-9a-f]{64}\\.inventory(\\.new)?")) })
++                return listOf(State.Unavailable)
++            // An interrupted unpublished .new file cannot hide an older committed snapshot.
++            val committed=files.filter { it.name.endsWith(".inventory") }
++            if(committed.isEmpty() || committed.size > MAX_CARDS) return listOf(State.Unavailable)
++            val states=committed.sortedBy { it.name }.map { read(it,null) }
++            if(states.any { it is State.Unavailable }) listOf(State.Unavailable) else states
++        } catch (_: SecurityException) { listOf(State.Unavailable) } }
++        private fun read(file: File, expected: String?): State = try {
++            val bytes=file.inputStream().use { it.readNBytes(MAX_BYTES+1) }
++            val s=decode(bytes)
++            require((expected == null || s.eid == expected) && file.name == name(s.eid))
++            state(s)
++        } catch (_: IOException) { State.Unavailable }
++          catch (_: IllegalArgumentException) { State.Unavailable }
++          catch (_: SecurityException) { State.Unavailable }
++
++        fun publish(s: Snapshot) = synchronized(ProfileInventory) {
++            val bytes=encode(s)
++            check(directory.isDirectory || directory.mkdirs())
++            check(directory.setReadable(false,false) && directory.setWritable(false,false)
++                && directory.setExecutable(false,false) && directory.setReadable(true,true)
++                && directory.setWritable(true,true) && directory.setExecutable(true,true))
++            val target=File(directory,name(s.eid))
++            val existing=directory.listFiles() ?: throw IOException("Inventory directory unavailable")
++            check(target.exists() || existing.size < MAX_CARDS)
++            val temp=File(directory,target.name+".new")
++            // This app has one process; all writers share this lock. Only a new verified read
++            // may replace an unpublished partial file; it is never interpreted as inventory.
++            check(temp.createNewFile() || temp.isFile)
++            try {
++                check(temp.setReadable(false,false) && temp.setWritable(false,false)
++                    && temp.setReadable(true,true) && temp.setWritable(true,true))
++                FileOutputStream(temp).use { out -> out.write(bytes);out.fd.sync() }
++                Files.move(temp.toPath(),target.toPath(),
++                    StandardCopyOption.ATOMIC_MOVE,StandardCopyOption.REPLACE_EXISTING)
++                FileChannel.open(directory.toPath(),StandardOpenOption.READ).use { it.force(true) }
++            } finally {
++                if(temp.exists() && !temp.delete()) throw IOException("Inventory temporary file retained")
++            }
++        }
++    }
++
++    data class Capture(val snapshot: Snapshot, val saved: Boolean)
++
++    /** Only saving can fail softly; ownership, READ and cancellation failures stay outside. */
++    internal suspend fun captureAndPublish(store: Store, outerRead: () -> Boolean,
++        completedRead: suspend () -> Snapshot): Capture {
++        check(outerRead()) { "Inventory capture requires an outer READ" }
++        val snapshot=completedRead()
++        val saved=try {
++            store.publish(snapshot)
++            true
++        } catch (cancelled: java.util.concurrent.CancellationException) { throw cancelled }
++          catch (_: IOException) { false }
++          catch (_: SecurityException) { false }
++          catch (_: IllegalArgumentException) { false }
++          catch (_: IllegalStateException) { false }
++        return Capture(snapshot,saved)
 +    }
 +}
 diff --git a/app-common/src/main/java/im/angry/openeuicc/core/SharedSlotOperationGate.kt b/app-common/src/main/java/im/angry/openeuicc/core/SharedSlotOperationGate.kt
@@ -952,7 +1459,7 @@ index 0000000000000000000000000000000000000000..269955c2575a72d6de2a20539dc6b788
 +    }
 +}
 diff --git a/app-common/src/main/java/im/angry/openeuicc/service/EuiccChannelManagerService.kt b/app-common/src/main/java/im/angry/openeuicc/service/EuiccChannelManagerService.kt
-index bce9efcd89f0722a1eb2dba5a485a1919aa45be3..c2d533fe8f2db37aa94bb6ab4dbb6a02af2f4d5c 100644
+index bce9efcd89f0722a1eb2dba5a485a1919aa45be3..0c5ac85d2d00a0fbfff19edd9ee52b2dd573568b 100644
 --- a/app-common/src/main/java/im/angry/openeuicc/service/EuiccChannelManagerService.kt
 +++ b/app-common/src/main/java/im/angry/openeuicc/service/EuiccChannelManagerService.kt
 @@ -14,6 +14,9 @@ import androidx.lifecycle.lifecycleScope
@@ -995,14 +1502,19 @@ index bce9efcd89f0722a1eb2dba5a485a1919aa45be3..c2d533fe8f2db37aa94bb6ab4dbb6a02
          }
      }
  
-@@ -269,12 +275,19 @@ open class EuiccChannelManagerService : LifecycleService(), OpenEuiccContextMark
+@@ -269,12 +275,24 @@ open class EuiccChannelManagerService : LifecycleService(), OpenEuiccContextMark
          title: String,
          failureTitle: String,
          iconRes: Int,
 +        leaseTarget: HonorLpaLeaseClient.Target? = null,
++        compositeProfileDelete: Boolean = false,
++        readOnlyRecovery: Boolean = false,
 +        downloadedProfileRefresh: (() -> EuiccChannelManager.DownloadedProfileRefresh?)? = null,
          task: suspend EuiccChannelManagerService.(Channel<Any>) -> Unit
      ): ForegroundTaskHandle {
++        check(!compositeProfileDelete || (leaseTarget?.operation == 3 && downloadedProfileRefresh == null))
++        check(!readOnlyRecovery || (HonorLpaLeaseClient.requiresCloseProof() && leaseTarget == null
++            && !compositeProfileDelete && downloadedProfileRefresh == null))
          val taskID = System.currentTimeMillis()
          // Buffered so that a subscriber's send() never blocks
          val backChannel = Channel<Any>(capacity = Channel.BUFFERED)
@@ -1015,7 +1527,7 @@ index bce9efcd89f0722a1eb2dba5a485a1919aa45be3..c2d533fe8f2db37aa94bb6ab4dbb6a02
          // Atomically set the state to InProgress. If this returns true, we are
          // the only task currently in progress.
          if (!foregroundTaskState.compareAndSet(
-@@ -296,11 +309,10 @@ open class EuiccChannelManagerService : LifecycleService(), OpenEuiccContextMark
+@@ -296,11 +314,10 @@ open class EuiccChannelManagerService : LifecycleService(), OpenEuiccContextMark
              }
  
              if (res == null) {
@@ -1031,7 +1543,7 @@ index bce9efcd89f0722a1eb2dba5a485a1919aa45be3..c2d533fe8f2db37aa94bb6ab4dbb6a02
                  return@launch
              }
  
-@@ -308,15 +320,24 @@ open class EuiccChannelManagerService : LifecycleService(), OpenEuiccContextMark
+@@ -308,15 +325,28 @@ open class EuiccChannelManagerService : LifecycleService(), OpenEuiccContextMark
  
              wakeLock.acquire(10 * 60 * 1000L /*10 minutes*/)
  
@@ -1040,9 +1552,13 @@ index bce9efcd89f0722a1eb2dba5a485a1919aa45be3..c2d533fe8f2db37aa94bb6ab4dbb6a02
                  withContext(Dispatchers.IO + NonCancellable) { // Any LPA-related task must always complete
 -                    this@EuiccChannelManagerService.task(backChannel)
 +                    DownloadedProfilePublication.run(downloadedProfileRefresh) {
-+                        if (HonorLpaLeaseClient.isHonorBuild()) {
++                        if (readOnlyRecovery) {
++                            this@EuiccChannelManagerService.task(backChannel)
++                        } else if (HonorLpaLeaseClient.isHonorBuild()) {
 +                            val target = checkNotNull(leaseTarget) { "This eSIM workflow is not lease-qualified" }
-+                            HonorLpaLeaseClient.run(this@EuiccChannelManagerService,euiccChannelManager,target,
++                            if (compositeProfileDelete) {
++                                this@EuiccChannelManagerService.task(backChannel)
++                            } else HonorLpaLeaseClient.run(this@EuiccChannelManagerService,euiccChannelManager,target,
 +                                onKnownBlankCompleted={completedKnownBlank=true}) {
 +                                this@EuiccChannelManagerService.task(backChannel)
 +                            }
@@ -1059,7 +1575,17 @@ index bce9efcd89f0722a1eb2dba5a485a1919aa45be3..c2d533fe8f2db37aa94bb6ab4dbb6a02
                  foregroundTaskState.value = ForegroundTaskState.Done(t)
  
                  if (isActive) {
-@@ -406,11 +427,24 @@ open class EuiccChannelManagerService : LifecycleService(), OpenEuiccContextMark
+@@ -403,14 +433,34 @@ open class EuiccChannelManagerService : LifecycleService(), OpenEuiccContextMark
+             .collect()
+     }
+ 
++    fun launchAccessRecoveryTask(): ForegroundTaskHandle = launchForegroundTask(
++        getString(R.string.esim_recovery_title),getString(R.string.esim_recovery_unavailable),
++        R.drawable.ic_task_sim_card_download,readOnlyRecovery=true
++    ) { _ ->
++        HonorLpaLeaseClient.recoverAccess(this@EuiccChannelManagerService)
++    }
++
      open fun launchProfileDownloadTask(
          slotId: Int, portId: Int, seId: EuiccChannel.SecureElementId,
          input: ProfileDownloadInput,
@@ -1086,7 +1612,7 @@ index bce9efcd89f0722a1eb2dba5a485a1919aa45be3..c2d533fe8f2db37aa94bb6ab4dbb6a02
          ) { backChannel ->
              euiccChannelManager.beginTrackedOperation(slotId, portId, seId) {
                  euiccChannelManager.withEuiccChannel(slotId, portId, seId) { channel ->
-@@ -422,12 +456,8 @@ open class EuiccChannelManagerService : LifecycleService(), OpenEuiccContextMark
+@@ -422,12 +472,8 @@ open class EuiccChannelManagerService : LifecycleService(), OpenEuiccContextMark
                          )
  
                          if (state is ProfileDownloadState.ConfirmingDownload) {
@@ -1101,7 +1627,7 @@ index bce9efcd89f0722a1eb2dba5a485a1919aa45be3..c2d533fe8f2db37aa94bb6ab4dbb6a02
                              }
  
                              // Try to receive a signal for confirmation while blocking this thread
-@@ -454,6 +484,67 @@ open class EuiccChannelManagerService : LifecycleService(), OpenEuiccContextMark
+@@ -454,6 +500,67 @@ open class EuiccChannelManagerService : LifecycleService(), OpenEuiccContextMark
              }
          }
  
@@ -1169,7 +1695,7 @@ index bce9efcd89f0722a1eb2dba5a485a1919aa45be3..c2d533fe8f2db37aa94bb6ab4dbb6a02
      fun launchProfileRenameTask(
          slotId: Int,
          portId: Int,
-@@ -464,7 +555,8 @@ open class EuiccChannelManagerService : LifecycleService(), OpenEuiccContextMark
+@@ -464,7 +571,8 @@ open class EuiccChannelManagerService : LifecycleService(), OpenEuiccContextMark
          launchForegroundTask(
              getString(R.string.task_profile_rename),
              getString(R.string.task_profile_rename_failure),
@@ -1179,7 +1705,7 @@ index bce9efcd89f0722a1eb2dba5a485a1919aa45be3..c2d533fe8f2db37aa94bb6ab4dbb6a02
          ) { _ ->
              euiccChannelManager.withEuiccChannel(slotId, portId, seId) { channel ->
                  channel.lpa.setNickname(
-@@ -472,6 +564,9 @@ open class EuiccChannelManagerService : LifecycleService(), OpenEuiccContextMark
+@@ -472,6 +580,9 @@ open class EuiccChannelManagerService : LifecycleService(), OpenEuiccContextMark
                      name
                  )
              }
@@ -1189,14 +1715,19 @@ index bce9efcd89f0722a1eb2dba5a485a1919aa45be3..c2d533fe8f2db37aa94bb6ab4dbb6a02
          }
  
      fun launchProfileDeleteTask(
-@@ -483,13 +578,21 @@ open class EuiccChannelManagerService : LifecycleService(), OpenEuiccContextMark
+@@ -483,17 +594,93 @@ open class EuiccChannelManagerService : LifecycleService(), OpenEuiccContextMark
          launchForegroundTask(
              getString(R.string.task_profile_delete),
              getString(R.string.task_profile_delete_failure),
 -            R.drawable.ic_task_delete
 +            R.drawable.ic_task_delete,
-+            leaseTarget = HonorLpaLeaseClient.Target(3,slotId,portId,-1)
++            leaseTarget = HonorLpaLeaseClient.Target(3,slotId,portId,-1),
++            compositeProfileDelete = HonorLpaLeaseClient.isHonorBuild()
          ) { _ ->
++            if (HonorLpaLeaseClient.isHonorBuild()) {
++                deleteHonorProfile(slotId,portId,seId,iccid)
++                return@launchForegroundTask
++            }
              euiccChannelManager.beginTrackedOperation(slotId, portId, seId) {
                  euiccChannelManager.withEuiccChannel(slotId, portId, seId) { channel ->
                      channel.lpa.deleteProfile(iccid)
@@ -1212,7 +1743,74 @@ index bce9efcd89f0722a1eb2dba5a485a1919aa45be3..c2d533fe8f2db37aa94bb6ab4dbb6a02
                  preferenceRepository.notificationDeleteFlow.first()
              }
          }
-@@ -507,15 +610,23 @@ open class EuiccChannelManagerService : LifecycleService(), OpenEuiccContextMark
+ 
++    private suspend fun deleteHonorProfile(
++        slot: Int,port: Int,seId: EuiccChannel.SecureElementId,target: String
++    ) {
++        // Pin one real card before the first read. No lookup fallback after a reset.
++        val cardId=appContainer.telephonyManager.uiccCardsInfo.single {
++            it.isEuicc && it.physicalSlotIndex == slot
++        }.cardId
++        check(cardId >= 0)
++        var latestNotification: Long? = null
++        var finalSnapshot: FrameworkProfileDelete.Snapshot? = null
++        fun snapshot(channel: EuiccChannel) = FrameworkProfileDelete.Snapshot(
++            channel.lpa.eID,channel.lpa.profiles.map {
++                FrameworkProfileDownload.Profile(it.iccid,it.isEnabled)
++            })
++        suspend fun read(): FrameworkProfileDelete.Snapshot {
++            HonorLpaLeaseClient.prepareKnownBlankForDiscovery(this,slot,port,cardId)
++            return euiccChannelManager.withEuiccChannel(slot,port,seId) { channel ->
++                check(channel.port.card.cardId == cardId)
++                val observed=snapshot(channel)
++                if (latestNotification == null)
++                    latestNotification=channel.lpa.notifications.firstOrNull()?.seqNumber ?: 0
++                finalSnapshot=observed
++                observed
++            }
++        }
++        FrameworkProfileDelete.run(target,object : FrameworkProfileDelete.Operations {
++            override suspend fun snapshot() = read()
++            override suspend fun disable(target: String,expected: FrameworkProfileDelete.Snapshot) {
++                HonorLpaLeaseClient.run(this@EuiccChannelManagerService,euiccChannelManager,
++                    HonorLpaLeaseClient.Target(2,slot,port,cardId)) {
++                    euiccChannelManager.withEuiccChannel(slot,port,seId) { channel ->
++                        check(channel.port.card.cardId == cardId)
++                        FrameworkProfileDelete.requireSame(expected,snapshot(channel))
++                        check(channel.lpa.disableProfile(target,refresh=true))
++                    }
++                    HonorLpaLeaseClient.closeAndRebindKnownNativeStep(euiccChannelManager)
++                }
++            }
++            override suspend fun delete(target: String,expected: FrameworkProfileDelete.Snapshot) {
++                HonorLpaLeaseClient.run(this@EuiccChannelManagerService,euiccChannelManager,
++                    HonorLpaLeaseClient.Target(3,slot,port,cardId)) {
++                    euiccChannelManager.withEuiccChannel(slot,port,seId) { channel ->
++                        check(channel.port.card.cardId == cardId)
++                        FrameworkProfileDelete.requireSame(expected,snapshot(channel))
++                        check(channel.lpa.deleteProfile(target))
++                    }
++                    HonorLpaLeaseClient.closeAndRebindKnownNativeStep(euiccChannelManager)
++                }
++            }
++        })
++        if (preferenceRepository.notificationDeleteFlow.first()) {
++            HonorLpaLeaseClient.run(this,euiccChannelManager,
++                HonorLpaLeaseClient.Target(5,slot,port,cardId)) {
++                euiccChannelManager.withEuiccChannel(slot,port,seId) { channel ->
++                    check(channel.port.card.cardId == cardId)
++                    FrameworkProfileDelete.requireSame(checkNotNull(finalSnapshot),snapshot(channel))
++                    channel.lpa.notifications.filter { it.seqNumber > checkNotNull(latestNotification) }
++                        .forEach { check(channel.lpa.handleNotification(it.seqNumber)) }
++                }
++            }
++        }
++    }
++
+     class SwitchingProfilesRefreshException : Exception()
+ 
+     fun launchProfileSwitchTask(
+@@ -507,15 +694,23 @@ open class EuiccChannelManagerService : LifecycleService(), OpenEuiccContextMark
          launchForegroundTask(
              getString(R.string.task_profile_switch),
              getString(R.string.task_profile_switch_failure),
@@ -1237,7 +1835,7 @@ index bce9efcd89f0722a1eb2dba5a485a1919aa45be3..c2d533fe8f2db37aa94bb6ab4dbb6a02
                          } else {
                              // refresh failed, but refresh was requested
                              // Sometimes, we *can* enable or disable the profile, but we cannot
-@@ -534,6 +645,16 @@ open class EuiccChannelManagerService : LifecycleService(), OpenEuiccContextMark
+@@ -534,6 +729,16 @@ open class EuiccChannelManagerService : LifecycleService(), OpenEuiccContextMark
                      throw RuntimeException("Could not switch profile")
                  }
  
@@ -1254,7 +1852,7 @@ index bce9efcd89f0722a1eb2dba5a485a1919aa45be3..c2d533fe8f2db37aa94bb6ab4dbb6a02
                  if (!refreshed && slotId != EuiccChannelManager.USB_CHANNEL_ID) {
                      // We may have switched the profile, but we could not refresh. Tell the caller about this
                      // but only if we are talking to a modem and not a USB reader
-@@ -557,6 +678,19 @@ open class EuiccChannelManagerService : LifecycleService(), OpenEuiccContextMark
+@@ -557,6 +762,19 @@ open class EuiccChannelManagerService : LifecycleService(), OpenEuiccContextMark
              }
          }
  
@@ -1274,7 +1872,7 @@ index bce9efcd89f0722a1eb2dba5a485a1919aa45be3..c2d533fe8f2db37aa94bb6ab4dbb6a02
      fun launchMemoryReset(
          slotId: Int,
          portId: Int,
-@@ -565,13 +699,20 @@ open class EuiccChannelManagerService : LifecycleService(), OpenEuiccContextMark
+@@ -565,13 +783,20 @@ open class EuiccChannelManagerService : LifecycleService(), OpenEuiccContextMark
          launchForegroundTask(
              getString(R.string.task_euicc_memory_reset),
              getString(R.string.task_euicc_memory_reset_failure),
@@ -1296,6 +1894,49 @@ index bce9efcd89f0722a1eb2dba5a485a1919aa45be3..c2d533fe8f2db37aa94bb6ab4dbb6a02
                  preferenceRepository.notificationDeleteFlow.first()
              }
          }
+diff --git a/app-common/src/main/java/im/angry/openeuicc/service/FrameworkProfileDelete.kt b/app-common/src/main/java/im/angry/openeuicc/service/FrameworkProfileDelete.kt
+new file mode 100644
+index 0000000000000000000000000000000000000000..50ef52ae2b8492f2bd033442518ece45ea5cb714
+--- /dev/null
++++ b/app-common/src/main/java/im/angry/openeuicc/service/FrameworkProfileDelete.kt
+@@ -0,0 +1,37 @@
++package im.angry.openeuicc.service
++
++/** One confirmed deletion; each operation owns its own Phone lease, never a native retry. */
++internal object FrameworkProfileDelete {
++    data class Snapshot(val eid: String, val profiles: List<FrameworkProfileDownload.Profile>)
++    class StateChanged : IllegalStateException("The selected eSIM profile or card changed")
++    interface Operations {
++        suspend fun snapshot(): Snapshot
++        suspend fun disable(target: String, expected: Snapshot)
++        suspend fun delete(target: String, expected: Snapshot)
++    }
++    private fun states(snapshot: Snapshot): Map<String,Boolean> {
++        if (!snapshot.eid.matches(Regex("[0-9]{32}")) ||
++            snapshot.profiles.any { it.iccid.isEmpty() } ||
++            snapshot.profiles.map { it.iccid }.distinct().size != snapshot.profiles.size)
++            throw StateChanged()
++        return snapshot.profiles.associate { it.iccid to it.enabled }
++    }
++    fun requireSame(expected: Snapshot, actual: Snapshot) {
++        if (expected.eid != actual.eid || states(expected) != states(actual)) throw StateChanged()
++    }
++    suspend fun run(target: String, operations: Operations) {
++        val before=operations.snapshot()
++        val original=states(before)
++        if (target !in original || original.values.count { it } > 1) throw StateChanged()
++        val disabled=if (original[target] == true) {
++            operations.disable(target,before)
++            val observed=operations.snapshot()
++            if (observed.eid != before.eid ||
++                states(observed) != original + (target to false)) throw StateChanged()
++            observed
++        } else before
++        operations.delete(target,disabled)
++        val after=operations.snapshot()
++        if (after.eid != before.eid || states(after) != states(disabled) - target) throw StateChanged()
++    }
++}
 diff --git a/app-common/src/main/java/im/angry/openeuicc/service/FrameworkProfileDownload.kt b/app-common/src/main/java/im/angry/openeuicc/service/FrameworkProfileDownload.kt
 new file mode 100644
 index 0000000000000000000000000000000000000000..566ecd7cd5a897257e87cd5720f89287d477bc7d
@@ -1381,8 +2022,33 @@ index 0000000000000000000000000000000000000000..566ecd7cd5a897257e87cd5720f89287
 +        }) { "Another profile state changed unexpectedly" }
 +    }
 +}
+diff --git a/app-common/src/main/java/im/angry/openeuicc/ui/EuiccInfoActivity.kt b/app-common/src/main/java/im/angry/openeuicc/ui/EuiccInfoActivity.kt
+index 157ab42d0f6ad2aa3240c754067fd3faf1843eaa..38a5dc0a657a652e7eef241d94ad92df94bc8695 100644
+--- a/app-common/src/main/java/im/angry/openeuicc/ui/EuiccInfoActivity.kt
++++ b/app-common/src/main/java/im/angry/openeuicc/ui/EuiccInfoActivity.kt
+@@ -113,6 +113,7 @@ class EuiccInfoActivity : BaseEuiccAccessActivity(), OpenEuiccContextMarker {
+         swipeRefresh.isRefreshing = true
+ 
+         lifecycleScope.launch {
++            try {
+             euiccChannelManager.withEuiccChannel(logicalSlotId, seId) { channel ->
+                 if (channel.hasMultipleSE) {
+                     withContext(Dispatchers.Main) {
+@@ -132,7 +133,11 @@ class EuiccInfoActivity : BaseEuiccAccessActivity(), OpenEuiccContextMarker {
+                 }
+             }
+ 
+-            swipeRefresh.isRefreshing = false
++            } catch (failure: Exception) {
++                val message=euiccAccessFailureMessage(failure) ?: throw failure
++                Toast.makeText(this@EuiccInfoActivity,message,Toast.LENGTH_LONG).show()
++                finish()
++            } finally { swipeRefresh.isRefreshing = false }
+         }
+     }
+ 
 diff --git a/app-common/src/main/java/im/angry/openeuicc/ui/EuiccManagementFragment.kt b/app-common/src/main/java/im/angry/openeuicc/ui/EuiccManagementFragment.kt
-index 49006a78bbcf83e521bf8e3039f5bae2f0576db2..83627b06039e7e504d8f72eecba52f43c58761c6 100644
+index 49006a78bbcf83e521bf8e3039f5bae2f0576db2..b5d9fc6b1f07f640e0c0f4aac4ad80a8e5de0279 100644
 --- a/app-common/src/main/java/im/angry/openeuicc/ui/EuiccManagementFragment.kt
 +++ b/app-common/src/main/java/im/angry/openeuicc/ui/EuiccManagementFragment.kt
 @@ -30,7 +30,8 @@ import com.google.android.material.floatingactionbutton.FloatingActionButton
@@ -1395,24 +2061,93 @@ index 49006a78bbcf83e521bf8e3039f5bae2f0576db2..83627b06039e7e504d8f72eecba52f43
  import im.angry.openeuicc.ui.wizard.DownloadWizardActivity
  import im.angry.openeuicc.util.*
  import kotlinx.coroutines.Dispatchers
-@@ -193,7 +194,15 @@ open class EuiccManagementFragment : Fragment(), EuiccProfilesChangedListener,
+@@ -193,7 +194,31 @@ open class EuiccManagementFragment : Fragment(), EuiccProfilesChangedListener,
          swipeRefresh.isRefreshing = true
  
          lifecycleScope.launch {
 -            doRefresh()
 +            try {doRefresh()}
 +            catch (failure: Exception) {
++                if (failure is kotlinx.coroutines.CancellationException) throw failure
 +                swipeRefresh.isRefreshing=false
 +                if(HonorLpaChannelAccess.isKnownBlankFailure(failure)) {
 +                    invalid=true;requireActivity().finishForKnownBlank()
 +                } else if(HonorLpaChannelAccess.isEndpointNotReadyFailure(failure)) {
 +                    invalid=true;showSwitchFailureText()
++                } else if(failure is im.angry.openeuicc.core.EuiccChannelManager.EuiccChannelNotFoundException) {
++                    invalid=true;fab.isEnabled=false
++                    Toast.makeText(context,R.string.download_wizard_slot_removed,Toast.LENGTH_LONG).show()
++                } else if(HonorLpaChannelAccess.isProfileListReadFailure(failure)) {
++                    invalid=true;fab.isEnabled=false
++                    Toast.makeText(context,R.string.esim_profiles_read_failed,Toast.LENGTH_LONG).show()
++                } else if(HonorLpaChannelAccess.isJournalUnavailableFailure(failure)) {
++                    invalid=true;fab.isEnabled=false
++                    Toast.makeText(context,R.string.esim_access_unresolved,Toast.LENGTH_LONG).show()
++                } else if(HonorLpaChannelAccess.isAccessUnavailableFailure(failure)) {
++                    val uncertain=HonorLpaChannelAccess.isAccessUncertainFailure(failure)
++                    invalid=uncertain
++                    fab.isEnabled=!uncertain
++                    Toast.makeText(context,if(uncertain) R.string.esim_access_unresolved
++                        else R.string.esim_access_busy,Toast.LENGTH_LONG).show()
 +                } else throw failure
 +            }
          }
      }
  
-@@ -236,6 +245,7 @@ open class EuiccManagementFragment : Fragment(), EuiccProfilesChangedListener,
+@@ -211,20 +236,44 @@ open class EuiccManagementFragment : Fragment(), EuiccProfilesChangedListener,
+                 preferenceRepository.unfilteredProfileListFlow.stateIn(lifecycleScope)
+         }
+ 
+-        val profiles = withEuiccChannel { channel ->
++        val profiles = if (HonorLpaChannelAccess.enabled() && !isUsb) {
++            // The existing outer manager/Phone READ owns endpoint identity; no route preparation here.
++            var observedProfiles: List<LocalProfileInfo>? = null
++            var observedSlot = -1
++            val capture = im.angry.openeuicc.core.HonorProfileInventory.captureCompletedRead(
++                requireContext().applicationContext) {
++                withEuiccChannel { channel ->
++                    val observedEid = channel.lpa.eID
++                    val vector = channel.lpa.profiles.toList()
++                    observedProfiles = vector
++                    observedSlot = channel.logicalSlotId
++                    euiccChannelManager.notifyEuiccProfilesChanged(channel.logicalSlotId)
++                    im.angry.openeuicc.core.ProfileInventory.Snapshot(
++                        observedEid, System.currentTimeMillis(), vector.map {
++                            im.angry.openeuicc.core.ProfileInventory.Row(it.iccid, it.isEnabled,
++                                it.name, it.nickName, it.providerName, it.profileClass.name)
++                        })
++                }
++            }
++            // captureCompletedRead publishes only after this exact outer READ positively drains.
++            logicalSlotId = observedSlot
++            eid = capture.snapshot.eid
++            if (!capture.saved)
++                Toast.makeText(context,R.string.esim_inventory_save_failed,Toast.LENGTH_LONG).show()
++            checkNotNull(observedProfiles)
++        } else withEuiccChannel { channel ->
+             logicalSlotId = channel.logicalSlotId
+             eid = channel.lpa.eID
+-            enabledProfile = channel.lpa.profiles.enabled
++            val vector = channel.lpa.profiles
+             euiccChannelManager.notifyEuiccProfilesChanged(channel.logicalSlotId)
+-            if (unfilteredProfileListFlow.value)
+-                channel.lpa.profiles
+-            else
+-                channel.lpa.profiles.operational
++            vector
+         }
++        enabledProfile = profiles.enabled
++        val visibleProfiles = if (unfilteredProfileListFlow.value) profiles else profiles.operational
+ 
+         withContext(Dispatchers.Main) {
+-            adapter.profiles = profiles
+-            adapter.footerViews = onCreateFooterViews(profileList, profiles)
++            adapter.profiles = visibleProfiles
++            adapter.footerViews = onCreateFooterViews(profileList, visibleProfiles)
+             adapter.notifyDataSetChanged()
+             swipeRefresh.isRefreshing = false
+         }
+@@ -236,6 +285,7 @@ open class EuiccManagementFragment : Fragment(), EuiccProfilesChangedListener,
      }
  
      private fun enableOrDisableProfile(iccid: String, enable: Boolean) {
@@ -1420,7 +2155,7 @@ index 49006a78bbcf83e521bf8e3039f5bae2f0576db2..83627b06039e7e504d8f72eecba52f43
          swipeRefresh.isRefreshing = true
          fab.isEnabled = false
  
-@@ -243,13 +253,17 @@ open class EuiccManagementFragment : Fragment(), EuiccProfilesChangedListener,
+@@ -243,13 +293,17 @@ open class EuiccManagementFragment : Fragment(), EuiccProfilesChangedListener,
              ensureEuiccChannelManager()
              euiccChannelManagerService.waitForForegroundTask()
  
@@ -1441,11 +2176,20 @@ index 49006a78bbcf83e521bf8e3039f5bae2f0576db2..83627b06039e7e504d8f72eecba52f43
              when (err) {
                  null -> {}
                  is EuiccChannelManagerService.SwitchingProfilesRefreshException -> {
-@@ -281,6 +295,10 @@ open class EuiccManagementFragment : Fragment(), EuiccProfilesChangedListener,
-                 else -> showSwitchFailureText()
+@@ -278,9 +332,18 @@ open class EuiccManagementFragment : Fragment(), EuiccProfilesChangedListener,
+                     }
+                 }
+ 
+-                else -> showSwitchFailureText()
++                else -> {
++                    if(HonorLpaChannelAccess.isConfirmedProfileRejection(err))
++                        Toast.makeText(context,R.string.esim_profile_rejected,Toast.LENGTH_LONG).show()
++                    else showSwitchFailureText()
++                }
              }
  
-+            if(HonorLpaChannelAccess.enabled() && err!=null) {
++            if(HonorLpaChannelAccess.enabled() && err!=null
++                && !HonorLpaChannelAccess.isConfirmedProfileRejection(err)) {
 +                invalid=true;swipeRefresh.isRefreshing=false
 +                return@launch // UNKNOWN does not authorize an automatic refresh/read.
 +            }
@@ -1470,10 +2214,26 @@ index 0000000000000000000000000000000000000000..7c2160d2ffec8c3367e48875f1c8d9cf
 +    finishAffinity()
 +}
 diff --git a/app-common/src/main/java/im/angry/openeuicc/ui/MainActivity.kt b/app-common/src/main/java/im/angry/openeuicc/ui/MainActivity.kt
-index 6dd7de88f9f26004bf8c466531e22a999146bcc9..d02371f5200f037108ffbdd9f01a89f99458c54e 100644
+index 6dd7de88f9f26004bf8c466531e22a999146bcc9..bd7051b35a35f22dea13bc471cc8cd6f2d9accbc 100644
 --- a/app-common/src/main/java/im/angry/openeuicc/ui/MainActivity.kt
 +++ b/app-common/src/main/java/im/angry/openeuicc/ui/MainActivity.kt
-@@ -81,6 +81,10 @@ open class MainActivity : BaseEuiccAccessActivity(), OpenEuiccContextMarker {
+@@ -28,6 +28,7 @@ import com.google.android.material.tabs.TabLayoutMediator
+ import im.angry.openeuicc.common.R
+ import im.angry.openeuicc.core.EuiccChannel
+ import im.angry.openeuicc.core.EuiccChannelManager
++import im.angry.openeuicc.service.EuiccChannelManagerService.Companion.waitDone
+ import im.angry.openeuicc.ui.wizard.DownloadWizardActivity
+ import im.angry.openeuicc.util.*
+ import kotlinx.coroutines.Dispatchers
+@@ -50,6 +51,7 @@ open class MainActivity : BaseEuiccAccessActivity(), OpenEuiccContextMarker {
+     private lateinit var viewPager: ViewPager2
+ 
+     private var refreshing = false
++    private var recoveryDialog: androidx.appcompat.app.AlertDialog? = null
+ 
+     private data class Page(
+         val id: Long,
+@@ -81,6 +83,10 @@ open class MainActivity : BaseEuiccAccessActivity(), OpenEuiccContextMarker {
  
      protected lateinit var tm: TelephonyManager
  
@@ -1484,7 +2244,16 @@ index 6dd7de88f9f26004bf8c466531e22a999146bcc9..d02371f5200f037108ffbdd9f01a89f9
      private val usbReceiver = object : BroadcastReceiver() {
          override fun onReceive(context: Context?, intent: Intent?) {
              if (intent?.action == UsbManager.ACTION_USB_DEVICE_ATTACHED || intent?.action == UsbManager.ACTION_USB_DEVICE_DETACHED) {
-@@ -157,6 +161,7 @@ open class MainActivity : BaseEuiccAccessActivity(), OpenEuiccContextMarker {
+@@ -119,6 +125,8 @@ open class MainActivity : BaseEuiccAccessActivity(), OpenEuiccContextMarker {
+     }
+ 
+     override fun onDestroy() {
++        recoveryDialog?.dismiss()
++        recoveryDialog=null
+         super.onDestroy()
+         unregisterReceiver(usbReceiver)
+     }
+@@ -157,6 +165,7 @@ open class MainActivity : BaseEuiccAccessActivity(), OpenEuiccContextMarker {
      }
  
      private suspend fun init(fromUsbEvent: Boolean = false) {
@@ -1492,12 +2261,17 @@ index 6dd7de88f9f26004bf8c466531e22a999146bcc9..d02371f5200f037108ffbdd9f01a89f9
          refreshing = true // We don't check this here -- the check happens in refresh()
          loadingProgress.visibility = View.VISIBLE
          viewPager.visibility = View.GONE
-@@ -164,13 +169,32 @@ open class MainActivity : BaseEuiccAccessActivity(), OpenEuiccContextMarker {
+@@ -164,13 +173,37 @@ open class MainActivity : BaseEuiccAccessActivity(), OpenEuiccContextMarker {
          // Prevent concurrent access with any running foreground task
          euiccChannelManagerService.waitForForegroundTask()
  
 -        val (usbDevice, _) = withContext(Dispatchers.IO) {
 -            euiccChannelManager.tryOpenUsbEuiccChannel()
++        if (showRecoveryBeforeDiscovery()) {
++            refreshing=false;loadingProgress.visibility=View.GONE
++            return
++        }
++
 +        if (im.angry.openeuicc.core.HonorLpaChannelAccess.enabled()) {
 +            try {
 +                val cardId = im.angry.openeuicc.core.HonorLpaDiscoveryIntent.expectedCardId(intent)
@@ -1528,23 +2302,110 @@ index 6dd7de88f9f26004bf8c466531e22a999146bcc9..d02371f5200f037108ffbdd9f01a89f9
              Log.d(TAG, "slot $slotId port $portId")
  
              euiccChannelManager.flowEuiccSecureElements(slotId, portId).onEach { seId ->
-@@ -246,6 +270,14 @@ open class MainActivity : BaseEuiccAccessActivity(), OpenEuiccContextMarker {
+@@ -246,6 +279,101 @@ open class MainActivity : BaseEuiccAccessActivity(), OpenEuiccContextMarker {
          ShortcutManagerCompat.setDynamicShortcuts(this, buildShortcuts().take(4))
  
          refreshing = false
 +            } catch(failure: Exception) {
++            if (failure is kotlinx.coroutines.CancellationException) throw failure
 +            refreshing=false;loadingProgress.visibility=View.GONE
 +            if(im.angry.openeuicc.core.HonorLpaChannelAccess.isKnownBlankFailure(failure)) finishForKnownBlank()
 +            else if(im.angry.openeuicc.core.HonorLpaChannelAccess.isEndpointNotReadyFailure(failure)) {
 +                android.widget.Toast.makeText(this,R.string.esim_endpoint_not_ready_guidance,android.widget.Toast.LENGTH_LONG).show()
 +                finishAffinity()
++            } else if(failure is EuiccChannelManager.EuiccChannelNotFoundException) {
++                android.widget.Toast.makeText(this,R.string.download_wizard_slot_removed,android.widget.Toast.LENGTH_LONG).show()
++            } else if(im.angry.openeuicc.core.HonorLpaChannelAccess.isProfileListReadFailure(failure)) {
++                android.widget.Toast.makeText(this,R.string.esim_profiles_read_failed,android.widget.Toast.LENGTH_LONG).show()
++                // Keep failed discovery unavailable; never publish an empty-card result.
++            } else if(im.angry.openeuicc.core.HonorLpaChannelAccess.isJournalUnavailableFailure(failure)) {
++                android.widget.Toast.makeText(this,R.string.esim_access_unresolved,android.widget.Toast.LENGTH_LONG).show()
++            } else if(im.angry.openeuicc.core.HonorLpaChannelAccess.isAccessUnavailableFailure(failure)) {
++                val uncertain=im.angry.openeuicc.core.HonorLpaChannelAccess.isAccessUncertainFailure(failure)
++                android.widget.Toast.makeText(this,if(uncertain) R.string.esim_access_unresolved
++                    else R.string.esim_access_busy,android.widget.Toast.LENGTH_LONG).show()
++                // No new discovery/APDU is authorized by a refused local reservation.
 +            } else throw failure
++        }
++    }
++
++    /** Existing MANAGE UI, before opening any channel. Status is passive; every action is explicit. */
++    private suspend fun showRecoveryBeforeDiscovery(): Boolean {
++        val access=im.angry.openeuicc.core.HonorLpaChannelAccess
++        if (!access.enabled()) return false
++        val state=try { access.recoveryState(this) }
++            catch (failure: Exception) {
++                if (access.isRecoveryUnavailableFailure(failure)) {
++                    showRecoveryUnavailable()
++                    return true
++                }
++                throw failure
++            }
++        if (state.status == com.honor.ldy_an00.lease.IHonorLpaLease.RECOVERY_DONE) return false
++        if (state.status == com.honor.ldy_an00.lease.IHonorLpaLease.RECOVERY_REFUSED
++            && !state.localMarker && !state.unavailable) return false
++        recoveryDialog?.dismiss()
++        val builder=androidx.appcompat.app.AlertDialog.Builder(this)
++            .setTitle(R.string.esim_recovery_title)
++            .setOnCancelListener { finish() }
++            .setNegativeButton(android.R.string.cancel) { _, _ -> finish() }
++        when (state.status) {
++            com.honor.ldy_an00.lease.IHonorLpaLease.RECOVERY_REQUIRED -> builder.setMessage(R.string.esim_recovery_explanation)
++                .setPositiveButton(R.string.esim_recovery_prepare) { _, _ ->
++                    runRecoveryUiAction { access.armRecovery(this,euiccChannelManager) }
++                }
++            com.honor.ldy_an00.lease.IHonorLpaLease.RECOVERY_NEED_RESTART -> builder.setMessage(R.string.esim_recovery_restart)
++                .setPositiveButton(android.R.string.ok) { _, _ -> finish() }
++            com.honor.ldy_an00.lease.IHonorLpaLease.RECOVERY_READY -> builder.setMessage(R.string.esim_recovery_ready)
++                .setPositiveButton(R.string.esim_recovery_title) { _, _ ->
++                    runRecoveryUiAction {
++                        euiccChannelManagerService.waitForForegroundTask()
++                        val error=euiccChannelManagerService.launchAccessRecoveryTask().stateFlow
++                            .waitDone()
++                        if (error != null) throw error
++                    }
++                }
++            com.honor.ldy_an00.lease.IHonorLpaLease.RECOVERY_IN_PROGRESS -> builder.setMessage(R.string.esim_recovery_in_progress)
++                .setPositiveButton(R.string.esim_recovery_check) { _, _ -> refresh() }
++            else -> builder.setMessage(R.string.esim_recovery_unavailable)
++                .setPositiveButton(R.string.esim_recovery_check) { _, _ -> refresh() }
++        }
++        recoveryDialog=builder.show()
++        return true
++    }
++
++    private fun showRecoveryUnavailable() {
++        recoveryDialog?.dismiss()
++        recoveryDialog=androidx.appcompat.app.AlertDialog.Builder(this)
++            .setTitle(R.string.esim_recovery_title)
++            .setOnCancelListener { finish() }
++            .setMessage(R.string.esim_recovery_unavailable)
++            .setPositiveButton(R.string.esim_recovery_check) { _, _ -> refresh() }
++            .setNegativeButton(android.R.string.cancel) { _, _ -> finish() }.show()
++    }
++
++    private fun runRecoveryUiAction(action: suspend () -> Unit) {
++        if (refreshing) return
++        refreshing=true;loadingProgress.visibility=View.VISIBLE
++        lifecycleScope.launch {
++            try {
++                action()
++                init()
++            } catch (failure: Exception) {
++                val access=im.angry.openeuicc.core.HonorLpaChannelAccess
++                if (failure is kotlinx.coroutines.CancellationException) throw failure
++                if (access.isRecoveryUnavailableFailure(failure) || euiccAccessFailureMessage(failure) != null)
++                    showRecoveryUnavailable()
++                else throw failure
++            } finally {
++                refreshing=false;loadingProgress.visibility=View.GONE
++            }
 +        }
      }
  
      private fun refresh(fromUsbEvent: Boolean = false) {
 diff --git a/app-common/src/main/java/im/angry/openeuicc/ui/NotificationsActivity.kt b/app-common/src/main/java/im/angry/openeuicc/ui/NotificationsActivity.kt
-index c7aaa8905492fcac02be6006fd6fa58a5ae620cd..14674b179c5730488686491f904430855fbbe0c9 100644
+index c7aaa8905492fcac02be6006fd6fa58a5ae620cd..3e31dfdbcbeca0d96807bbbb316c4d076158c3c0 100644
 --- a/app-common/src/main/java/im/angry/openeuicc/ui/NotificationsActivity.kt
 +++ b/app-common/src/main/java/im/angry/openeuicc/ui/NotificationsActivity.kt
 @@ -23,6 +23,9 @@ import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
@@ -1557,7 +2418,7 @@ index c7aaa8905492fcac02be6006fd6fa58a5ae620cd..14674b179c5730488686491f90443085
  import im.angry.openeuicc.util.*
  import kotlinx.coroutines.Dispatchers
  import kotlinx.coroutines.launch
-@@ -121,9 +124,10 @@ class NotificationsActivity : BaseEuiccAccessActivity(), OpenEuiccContextMarker
+@@ -121,9 +124,12 @@ class NotificationsActivity : BaseEuiccAccessActivity(), OpenEuiccContextMarker
                  euiccChannelManagerLoaded.await()
              }
  
@@ -1565,13 +2426,15 @@ index c7aaa8905492fcac02be6006fd6fa58a5ae620cd..14674b179c5730488686491f90443085
 -
 -            swipeRefresh.isRefreshing = false
 +            try { task() }
-+            catch (_: Exception) {
-+                android.widget.Toast.makeText(this@NotificationsActivity,R.string.download_wizard_error_generic,android.widget.Toast.LENGTH_LONG).show()
++            catch (failure: Exception) {
++                if (failure is kotlinx.coroutines.CancellationException) throw failure
++                val message=euiccAccessFailureMessage(failure) ?: R.string.download_wizard_error_generic
++                android.widget.Toast.makeText(this@NotificationsActivity,message,android.widget.Toast.LENGTH_LONG).show()
 +            } finally { swipeRefresh.isRefreshing = false }
          }
      }
  
-@@ -220,6 +224,7 @@ class NotificationsActivity : BaseEuiccAccessActivity(), OpenEuiccContextMarker
+@@ -220,6 +226,7 @@ class NotificationsActivity : BaseEuiccAccessActivity(), OpenEuiccContextMarker
              v: View?,
              menuInfo: ContextMenu.ContextMenuInfo?
          ) {
@@ -1579,7 +2442,7 @@ index c7aaa8905492fcac02be6006fd6fa58a5ae620cd..14674b179c5730488686491f90443085
              menuInflater.inflate(R.menu.notification_options, menu)
  
              menu!!.forEach {
-@@ -228,13 +233,16 @@ class NotificationsActivity : BaseEuiccAccessActivity(), OpenEuiccContextMarker
+@@ -228,13 +235,16 @@ class NotificationsActivity : BaseEuiccAccessActivity(), OpenEuiccContextMarker
          }
  
          override fun onMenuItemClick(item: MenuItem): Boolean =
@@ -1601,7 +2464,7 @@ index c7aaa8905492fcac02be6006fd6fa58a5ae620cd..14674b179c5730488686491f90443085
                          }
  
                          refresh()
-@@ -244,10 +252,13 @@ class NotificationsActivity : BaseEuiccAccessActivity(), OpenEuiccContextMarker
+@@ -244,10 +254,13 @@ class NotificationsActivity : BaseEuiccAccessActivity(), OpenEuiccContextMarker
  
                  R.id.notification_delete -> {
                      launchTask {
@@ -1620,7 +2483,7 @@ index c7aaa8905492fcac02be6006fd6fa58a5ae620cd..14674b179c5730488686491f90443085
  
                          refresh()
 diff --git a/app-common/src/main/java/im/angry/openeuicc/ui/ProfileDeleteFragment.kt b/app-common/src/main/java/im/angry/openeuicc/ui/ProfileDeleteFragment.kt
-index 38609588274e4b313b65ca76f5c62df0251ecc40..f61cccbe777f67009ee348664d11215d7e5c89b2 100644
+index 38609588274e4b313b65ca76f5c62df0251ecc40..10cf41cfd7b94d80a65448d34cc0b184c9a53420 100644
 --- a/app-common/src/main/java/im/angry/openeuicc/ui/ProfileDeleteFragment.kt
 +++ b/app-common/src/main/java/im/angry/openeuicc/ui/ProfileDeleteFragment.kt
 @@ -10,7 +10,8 @@ import androidx.fragment.app.DialogFragment
@@ -1633,7 +2496,7 @@ index 38609588274e4b313b65ca76f5c62df0251ecc40..f61cccbe777f67009ee348664d11215d
  import im.angry.openeuicc.util.*
  import kotlinx.coroutines.flow.onStart
  import kotlinx.coroutines.launch
-@@ -87,16 +88,24 @@ class ProfileDeleteFragment : DialogFragment(), EuiccChannelFragmentMarker {
+@@ -87,16 +88,27 @@ class ProfileDeleteFragment : DialogFragment(), EuiccChannelFragmentMarker {
          alertDialog.getButton(AlertDialog.BUTTON_POSITIVE).isEnabled = false
          alertDialog.getButton(AlertDialog.BUTTON_NEGATIVE).isEnabled = false
  
@@ -1657,7 +2520,10 @@ index 38609588274e4b313b65ca76f5c62df0251ecc40..f61cccbe777f67009ee348664d11215d
 +                if(outcome.knownBlank || outcome.error?.let(HonorLpaChannelAccess::isKnownBlankFailure)==true) {
 +                    if(!host.isDestroyed) host.finishForKnownBlank()
 +                } else if(outcome.error==null) parent.notifyEuiccProfilesChanged()
-+                else if(!host.isDestroyed) Toast.makeText(host,R.string.download_wizard_error_generic,Toast.LENGTH_LONG).show()
++                else if(outcome.error?.let(HonorLpaChannelAccess::isConfirmedProfileRejection)==true) {
++                    parent.notifyEuiccProfilesChanged()
++                    if(!host.isDestroyed) Toast.makeText(host,R.string.esim_profile_rejected,Toast.LENGTH_LONG).show()
++                } else if(!host.isDestroyed) Toast.makeText(host,R.string.download_wizard_error_generic,Toast.LENGTH_LONG).show()
 +            }
          }
      }
@@ -1675,7 +2541,7 @@ index aefd7159018559c0b160d21943ff6769a0eeb6d8..a809ce1b124bfae3c24970c91f2230be
          }
  
 diff --git a/app-common/src/main/java/im/angry/openeuicc/ui/wizard/DownloadWizardActivity.kt b/app-common/src/main/java/im/angry/openeuicc/ui/wizard/DownloadWizardActivity.kt
-index acd690be37ed8773ce06992308af2685d847349a..71f151482a7b48fbc44364bd635dcdcb4813fead 100644
+index acd690be37ed8773ce06992308af2685d847349a..0416145190c480b5323a5b368ef261e8cf306885 100644
 --- a/app-common/src/main/java/im/angry/openeuicc/ui/wizard/DownloadWizardActivity.kt
 +++ b/app-common/src/main/java/im/angry/openeuicc/ui/wizard/DownloadWizardActivity.kt
 @@ -25,7 +25,6 @@ import im.angry.openeuicc.ui.BaseEuiccAccessActivity
@@ -1756,6 +2622,19 @@ index acd690be37ed8773ce06992308af2685d847349a..71f151482a7b48fbc44364bd635dcdcb
          outState.putBoolean("downloadStarted", state.downloadStarted)
          outState.putLong("downloadTaskID", state.downloadTaskID)
          outState.putBoolean("confirmationCodeRequired", state.confirmationCodeRequired)
+@@ -233,6 +245,12 @@ class DownloadWizardActivity : BaseEuiccAccessActivity() {
+                         Toast.LENGTH_LONG
+                     ).show()
+                     finish()
++                    return@launch
++                } catch (failure: Exception) {
++                    val message=euiccAccessFailureMessage(failure) ?: throw failure
++                    Toast.makeText(this@DownloadWizardActivity,message,Toast.LENGTH_LONG).show()
++                    finish()
++                    return@launch
+                 }
+             }
+ 
 diff --git a/app-common/src/main/java/im/angry/openeuicc/ui/wizard/DownloadWizardDetailsFragment.kt b/app-common/src/main/java/im/angry/openeuicc/ui/wizard/DownloadWizardDetailsFragment.kt
 index 4c538c5aef1daeea0d87474d191aa08504107537..d630d8ab888857b188d077becde61ff0a72ba947 100644
 --- a/app-common/src/main/java/im/angry/openeuicc/ui/wizard/DownloadWizardDetailsFragment.kt
@@ -1865,7 +2744,7 @@ index 9da7d971b27acc592a31d0dd265e64ba3d35ba59..742a1031b723c50b33615339e346b9c7
              state.matchingId = parsed.matchingId
              state.confirmationCodeRequired = parsed.confirmationCodeRequired
 diff --git a/app-common/src/main/java/im/angry/openeuicc/ui/wizard/DownloadWizardProgressFragment.kt b/app-common/src/main/java/im/angry/openeuicc/ui/wizard/DownloadWizardProgressFragment.kt
-index 170a6290e3bf1597a8b3b9bacd199bc09c33dd87..0b9b276b77c8e68a00175f21b7a040d6caef2fe2 100644
+index 170a6290e3bf1597a8b3b9bacd199bc09c33dd87..975e8d9b6b134c7c192d47a9190aa1d1f65abb9e 100644
 --- a/app-common/src/main/java/im/angry/openeuicc/ui/wizard/DownloadWizardProgressFragment.kt
 +++ b/app-common/src/main/java/im/angry/openeuicc/ui/wizard/DownloadWizardProgressFragment.kt
 @@ -20,7 +20,6 @@ import kotlinx.coroutines.flow.onEach
@@ -1876,7 +2755,15 @@ index 170a6290e3bf1597a8b3b9bacd199bc09c33dd87..0b9b276b77c8e68a00175f21b7a040d6
  
  class DownloadWizardProgressFragment : DownloadWizardActivity.DownloadWizardStepFragment() {
      private enum class ProgressState {
-@@ -103,8 +102,12 @@ class DownloadWizardProgressFragment : DownloadWizardActivity.DownloadWizardStep
+@@ -88,6 +87,7 @@ class DownloadWizardProgressFragment : DownloadWizardActivity.DownloadWizardStep
+         super.onStart()
+ 
+         lifecycleScope.launch {
++            try {
+             showProgressBar(-1) // set indeterminate first
+             ensureEuiccChannelManager()
+ 
+@@ -103,8 +103,12 @@ class DownloadWizardProgressFragment : DownloadWizardActivity.DownloadWizardStep
                      is EuiccChannelManagerService.ForegroundTaskState.Done -> {
                          hideProgressBar()
  
@@ -1891,7 +2778,20 @@ index 170a6290e3bf1597a8b3b9bacd199bc09c33dd87..0b9b276b77c8e68a00175f21b7a040d6
  
                          // Change the state of the last InProgress item to success (or error)
                          progressItems.forEachIndexed { index, progressItem ->
-@@ -152,7 +155,8 @@ class DownloadWizardProgressFragment : DownloadWizardActivity.DownloadWizardStep
+@@ -131,6 +135,12 @@ class DownloadWizardProgressFragment : DownloadWizardActivity.DownloadWizardStep
+                     else -> {}
+                 }
+             }.collect()
++            } catch (failure: Exception) {
++                val message=euiccAccessFailureMessage(failure) ?: throw failure
++                hideProgressBar()
++                android.widget.Toast.makeText(requireContext(),message,android.widget.Toast.LENGTH_LONG).show()
++                requireActivity().finish()
++            }
+         }
+     }
+ 
+@@ -152,7 +162,8 @@ class DownloadWizardProgressFragment : DownloadWizardActivity.DownloadWizardStep
                  euiccChannelManager,
                  logicalSlotId,
                  seId,
@@ -1902,10 +2802,27 @@ index 170a6290e3bf1597a8b3b9bacd199bc09c33dd87..0b9b276b77c8e68a00175f21b7a040d6
  
              state.downloadTaskID = ret.taskId
 diff --git a/app-common/src/main/java/im/angry/openeuicc/ui/wizard/DownloadWizardSlotSelectFragment.kt b/app-common/src/main/java/im/angry/openeuicc/ui/wizard/DownloadWizardSlotSelectFragment.kt
-index ad3cece92a29f4d45b86687a85e6deba7b70d590..66f2d79c4e408dd31fbedfc8516f6378174a4d2f 100644
+index ad3cece92a29f4d45b86687a85e6deba7b70d590..9b8097f2f2ab27a70e6a860a99b2b8d0f9d2842e 100644
 --- a/app-common/src/main/java/im/angry/openeuicc/ui/wizard/DownloadWizardSlotSelectFragment.kt
 +++ b/app-common/src/main/java/im/angry/openeuicc/ui/wizard/DownloadWizardSlotSelectFragment.kt
-@@ -95,6 +95,21 @@ class DownloadWizardSlotSelectFragment : DownloadWizardActivity.DownloadWizardSt
+@@ -87,7 +87,15 @@ class DownloadWizardSlotSelectFragment : DownloadWizardActivity.DownloadWizardSt
+     override fun onStart() {
+         super.onStart()
+         if (!loaded) {
+-            lifecycleScope.launch { init() }
++            lifecycleScope.launch {
++                try { init() }
++                catch (failure: Exception) {
++                    val message=euiccAccessFailureMessage(failure) ?: throw failure
++                    hideProgressBar()
++                    android.widget.Toast.makeText(requireContext(),message,android.widget.Toast.LENGTH_LONG).show()
++                    requireActivity().finish()
++                }
++            }
+         }
+     }
+ 
+@@ -95,6 +103,21 @@ class DownloadWizardSlotSelectFragment : DownloadWizardActivity.DownloadWizardSt
      @OptIn(kotlinx.coroutines.FlowPreview::class)
      private suspend fun init() {
          ensureEuiccChannelManager()
@@ -2011,6 +2928,31 @@ index 13c58ec19b1b42a7793559e251daa9f38372842b..02135e11109f1aaec6b67e198755d103
  
      if (autoConfirm) {
          // TODO: Ask user to confirm metadata for real if we need it
+diff --git a/app-common/src/main/java/im/angry/openeuicc/util/EuiccChannelFragmentUtils.kt b/app-common/src/main/java/im/angry/openeuicc/util/EuiccChannelFragmentUtils.kt
+index 444f5b186d6b877be3ffe860285b6c5bd6fd9714..fa7756ee757188eefc9ae190eb1b9c2330efe810 100644
+--- a/app-common/src/main/java/im/angry/openeuicc/util/EuiccChannelFragmentUtils.kt
++++ b/app-common/src/main/java/im/angry/openeuicc/util/EuiccChannelFragmentUtils.kt
+@@ -91,3 +91,20 @@ fun <T> T.notifyEuiccProfilesChanged() where T : Fragment {
+ interface EuiccProfilesChangedListener {
+     fun onEuiccProfilesChanged()
+ }
++
++/** Only expected access refusals have UI messages; cancellation/programming failures propagate. */
++fun euiccAccessFailureMessage(failure: Throwable): Int? {
++    if (failure is kotlinx.coroutines.CancellationException) throw failure
++    val access=im.angry.openeuicc.core.HonorLpaChannelAccess
++    return when {
++        failure is EuiccChannelManager.EuiccChannelNotFoundException ->
++            im.angry.openeuicc.common.R.string.download_wizard_slot_removed
++        access.isProfileListReadFailure(failure) -> im.angry.openeuicc.common.R.string.esim_profiles_read_failed
++        access.isJournalUnavailableFailure(failure) || access.isAccessUncertainFailure(failure) ->
++            im.angry.openeuicc.common.R.string.esim_access_unresolved
++        access.isAccessUnavailableFailure(failure) -> im.angry.openeuicc.common.R.string.esim_access_busy
++        access.isKnownBlankFailure(failure) || access.isEndpointNotReadyFailure(failure) ->
++            im.angry.openeuicc.common.R.string.esim_endpoint_not_ready_guidance
++        else -> null
++    }
++}
 diff --git a/app-common/src/main/java/im/angry/openeuicc/util/LPAUtils.kt b/app-common/src/main/java/im/angry/openeuicc/util/LPAUtils.kt
 index 6c530c92648318d9c56f32367e6ad138d8dfea8f..160607195d345ac0ebb7419e7dd37bb46122917c 100644
 --- a/app-common/src/main/java/im/angry/openeuicc/util/LPAUtils.kt
@@ -2113,7 +3055,7 @@ index 423f258afabe15aca86c18326c89a2596bd5415a..fd3e96b8495ae6aea59e725c1bb7eee1
              app:layout_constrainedWidth="true"
              app:layout_constraintBottom_toBottomOf="parent"
 diff --git a/app-common/src/main/res/values/strings.xml b/app-common/src/main/res/values/strings.xml
-index 8d3ca7759948e745b4e97305c992b8b909787faa..60a3ece88dd71469b3c70e2e43e1f1c382e8ba1c 100644
+index 8d3ca7759948e745b4e97305c992b8b909787faa..41fd8dc5ff2e352a3f065f3e6e0ff5795702da66 100644
 --- a/app-common/src/main/res/values/strings.xml
 +++ b/app-common/src/main/res/values/strings.xml
 @@ -26,6 +26,9 @@
@@ -2126,7 +3068,7 @@ index 8d3ca7759948e745b4e97305c992b8b909787faa..60a3ece88dd71469b3c70e2e43e1f1c3
      <string name="profile_enable">Enable</string>
      <string name="profile_disable">Disable</string>
      <string name="profile_delete">Delete</string>
-@@ -250,4 +253,9 @@
+@@ -250,4 +253,22 @@
      <string name="pref_info_website">Official Website</string>
      <string name="pref_info_source_code">Source Code</string>
      <string name="pref_info_source_code_url" translatable="false">https://gitea.angry.im/PeterCxy/OpenEUICC</string>
@@ -2135,13 +3077,26 @@ index 8d3ca7759948e745b4e97305c992b8b909787faa..60a3ece88dd71469b3c70e2e43e1f1c3
 +    <string name="profile_download_unsupported_activation">This activation code has an unsupported issuer restriction.</string>
 +    <string name="esim_known_blank_return_guidance">No active eSIM is available. Open SIM settings to return to physical SIM2.</string>
 +    <string name="esim_endpoint_not_ready_guidance">Open system SIM settings &gt; Manage eSIMs to connect.</string>
++    <string name="esim_access_busy">Another eSIM operation is in progress. Please wait for it to finish.</string>
++    <string name="esim_access_unresolved">The previous eSIM operation could not be confirmed. No new operation was started.</string>
++    <string name="esim_profile_rejected">The eSIM did not accept this change.</string>
++    <string name="esim_profiles_read_failed">Unable to read eSIM profiles. No profile list is available.</string>
++    <string name="esim_recovery_title">Restore eSIM access</string>
++    <string name="esim_recovery_explanation">A previous eSIM operation could not be confirmed. Prepare recovery, restart the device, then return here to check the card. Recovery does not erase profiles.</string>
++    <string name="esim_recovery_prepare">Prepare recovery</string>
++    <string name="esim_recovery_restart">Recovery is prepared. Restart the device, then open Manage eSIMs to finish restoring access.</string>
++    <string name="esim_recovery_ready">The device has restarted. Check the eSIM card to restore access without changing profiles.</string>
++    <string name="esim_recovery_in_progress">Recovery is in progress. Check its status before continuing.</string>
++    <string name="esim_recovery_check">Check status</string>
++    <string name="esim_recovery_unavailable">eSIM access is unavailable. No recovery result has been confirmed.</string>
++    <string name="esim_inventory_save_failed">Couldn’t save the eSIM list</string>
  </resources>
 diff --git a/app-common/src/test/java/im/angry/openeuicc/core/HonorOperationAdmissionHostTest.kt b/app-common/src/test/java/im/angry/openeuicc/core/HonorOperationAdmissionHostTest.kt
 new file mode 100644
-index 0000000000000000000000000000000000000000..b0297d8e3d7e0baa776019b000ee3ec2d8973103
+index 0000000000000000000000000000000000000000..0809a5e5499d944fa2b5fe11df5c42dad4064e68
 --- /dev/null
 +++ b/app-common/src/test/java/im/angry/openeuicc/core/HonorOperationAdmissionHostTest.kt
-@@ -0,0 +1,52 @@
+@@ -0,0 +1,167 @@
 +package im.angry.openeuicc.core
 +
 +fun main() {
@@ -2149,13 +3104,96 @@ index 0000000000000000000000000000000000000000..b0297d8e3d7e0baa776019b000ee3ec2
 +    fun verify(b: Boolean) { check(b); checks++ }
 +    fun rejects(action: () -> Unit) { verify(runCatching(action).isFailure) }
 +    val admission = LpaChannelAdmission();val owner = Any();val stranger = Any()
-+    admission.enter(null); rejects { admission.reserve(owner) };admission.leave()
++    admission.enter(null)
++    val busy = runCatching { admission.reserve(owner) }.exceptionOrNull()
++    verify(busy is LpaChannelAdmission.Unavailable && !busy.uncertain)
++    admission.leave()
 +    admission.reserve(owner);rejects { admission.enter(null) };rejects { admission.enter(stranger) }
 +    admission.enter(owner);rejects { admission.requireDrained(owner) };rejects { admission.complete(owner) }
 +    admission.leave();admission.requireDrained(owner);rejects { admission.complete(stranger) }
 +    admission.complete(owner);admission.enter(null);admission.leave()
 +    admission.reserve(owner);admission.unknown();rejects { admission.enter(owner) }
-+    rejects { admission.complete(owner) };rejects { admission.reserve(stranger) }
++    rejects { admission.complete(owner) }
++    val unresolved = runCatching { admission.reserve(stranger) }.exceptionOrNull()
++    verify(unresolved is LpaChannelAdmission.Unavailable && unresolved.uncertain)
++    val unresolvedRead = runCatching { admission.enter(null) }.exceptionOrNull()
++    verify(unresolvedRead is LpaChannelAdmission.Unavailable && unresolvedRead.uncertain)
++    // Neither observing the typed error nor an unowned completion releases UNKNOWN.
++    rejects { admission.complete(stranger) }
++    verify(runCatching { admission.reserve(owner) }.exceptionOrNull() is LpaChannelAdmission.Unavailable)
++
++    val lateCallback = LpaChannelAdmission();val oldOwner = Any();val newOwner = Any()
++    lateCallback.reserve(oldOwner);lateCallback.complete(oldOwner)
++    verify(!lateCallback.unknownIfOwned(oldOwner))
++    lateCallback.reserve(newOwner)
++    verify(!lateCallback.unknownIfOwned(oldOwner))
++    lateCallback.enter(newOwner);lateCallback.leave()
++    verify(lateCallback.unknownIfOwned(newOwner))
++    verify(lateCallback.unknownIfOwned(newOwner))
++    verify(!lateCallback.unknownIfOwned(oldOwner))
++    rejects { lateCallback.enter(newOwner) }
++
++    val recovery= LpaChannelAdmission();val recoveryOwner=Any()
++    rejects { recovery.reserveRecovery(recoveryOwner) } // CLEAN is not a recovery grant.
++    recovery.unknown()
++    var doneCalls=0;var cleanWrites=0
++    rejects { recovery.acknowledgeRecoveryAfterDone(
++        done={doneCalls++;false},markClean={cleanWrites++}) }
++    verify(doneCalls == 1 && cleanWrites == 0 && recovery.isUnknown())
++    recovery.reserveRecovery(recoveryOwner)
++    recovery.enter(recoveryOwner)
++    rejects { recovery.acknowledgeRecoveryAfterDone(recoveryOwner,
++        done={doneCalls++;true},markClean={cleanWrites++}) }
++    verify(doneCalls == 1 && cleanWrites == 0)
++    recovery.leave()
++    rejects { recovery.acknowledgeRecoveryAfterDone(Any(),
++        done={doneCalls++;true},markClean={cleanWrites++}) }
++    verify(doneCalls == 1 && cleanWrites == 0)
++    rejects { recovery.acknowledgeRecoveryAfterDone(recoveryOwner,
++        done={doneCalls++;true},markClean={error("journal write failed")}) }
++    verify(cleanWrites == 0)
++    recovery.unknown() // Actual client preserves UNKNOWN after a failed atomic local write.
++    recovery.acknowledgeRecoveryAfterDone(done={doneCalls++;true},markClean={cleanWrites++})
++    verify(cleanWrites == 1)
++    recovery.enter(null);recovery.leave()
++    val afterCrash=LpaChannelAdmission()
++    afterCrash.unknown() // Phone completed, process died before local C.
++    afterCrash.acknowledgeRecoveryAfterDone(done={true},markClean={cleanWrites++})
++    verify(cleanWrites == 2)
++    afterCrash.enter(null);afterCrash.leave()
++    val refusedGrant=LpaChannelAdmission();refusedGrant.unknown();refusedGrant.reserveRecovery(recoveryOwner)
++    refusedGrant.recoveryRefused(recoveryOwner)
++    verify(refusedGrant.isUnknown())
++    rejects { refusedGrant.enter(null) } // Refusal cannot authorize normal channels.
++
++    val cancelledRead = LpaChannelAdmission();val readOwner = Any()
++    val drainSteps = mutableListOf<String>()
++    cancelledRead.reserve(readOwner)
++    cancelledRead.completeAfterDrain(readOwner,
++        { drainSteps += "close" }, { drainSteps += "finish";true }, { drainSteps += "journal" })
++    verify(drainSteps == listOf("close","finish","journal"))
++    cancelledRead.enter(null);cancelledRead.leave()
++    for (rejectAt in listOf("close","readers","finish","journal")) {
++        val refused = LpaChannelAdmission();val token = Any();val steps = mutableListOf<String>()
++        refused.reserve(token)
++        if (rejectAt == "readers") refused.enter(token)
++        rejects {
++            refused.completeAfterDrain(token,
++                { steps += "close";check(rejectAt != "close") },
++                { steps += "finish";rejectAt != "finish" },
++                { steps += "journal";check(rejectAt != "journal") })
++        }
++        verify("journal" !in steps || rejectAt == "journal")
++        if (rejectAt == "close" || rejectAt == "readers") verify("finish" !in steps)
++        if (rejectAt == "readers") refused.leave()
++        // The actual client marks UNKNOWN on any failed proof and must not retry.
++        refused.unknown();rejects { refused.reserve(Any()) }
++    }
++
++    val readFailureClass=net.typeblog.lpac_jni.ProfileListReadException::class.java
++    verify(readFailureClass.name == "net.typeblog.lpac_jni.ProfileListReadException")
++    val readFailure=readFailureClass.getConstructor(String::class.java).newInstance("read unavailable")
++    verify(readFailure is IllegalStateException && readFailure.message == "read unavailable")
 +
 +    var nativeCalls = 0;var before = 0;var uncertain = 0
 +    NativeMutationBoundary.observer.set(object : NativeMutationBoundary.Observer {
@@ -2178,6 +3216,38 @@ index 0000000000000000000000000000000000000000..b0297d8e3d7e0baa776019b000ee3ec2
 +    verify(nativeCalls == 3)
 +    NativeMutationBoundary.observer.remove()
 +    verify(!NativeMutationBoundary.call(1) { false }) // Preserve behavior outside a lease observer.
++    for (kind in 2..4) {
++        verify(net.typeblog.lpac_jni.Es10cProfileResult.accepted(kind,0))
++        val maximum = if (kind == 2) 5 else 3
++        for (code in 1..maximum) {
++            val rejected = runCatching { net.typeblog.lpac_jni.Es10cProfileResult.accepted(kind,code) }.exceptionOrNull()
++            verify(rejected is net.typeblog.lpac_jni.ProfileOperationRejectedException
++                && rejected.kind == kind && rejected.resultCode == code)
++        }
++        for (code in listOf(-1,-2,maximum+1,255))
++            verify(!net.typeblog.lpac_jni.Es10cProfileResult.accepted(kind,code))
++    }
++    var rejectionAcks = 0;var positiveReturns = 0;var rejectionUnknown = 0
++    NativeMutationBoundary.observer.set(object : NativeMutationBoundary.Observer {
++        override fun before(kind: Int,lastProfileBefore: Boolean,targetIccid: String?) { }
++        override fun returned(kind: Int) { positiveReturns++ }
++        override fun rejected(kind: Int,code: Int) { check(kind == 4 && code == 2);rejectionAcks++ }
++        override fun uncertain() { rejectionUnknown++ }
++    })
++    rejects { NativeMutationBoundary.call<Boolean>(4) { net.typeblog.lpac_jni.Es10cProfileResult.accepted(4,2) } }
++    verify(rejectionAcks == 1 && positiveReturns == 0 && rejectionUnknown == 0)
++    rejects { NativeMutationBoundary.call<Boolean>(4) { net.typeblog.lpac_jni.Es10cProfileResult.accepted(4,-1) } }
++    verify(rejectionAcks == 1 && rejectionUnknown == 1)
++    NativeMutationBoundary.observer.set(object : NativeMutationBoundary.Observer {
++        override fun before(kind: Int,lastProfileBefore: Boolean,targetIccid: String?) { }
++        override fun returned(kind: Int) { positiveReturns++ }
++        override fun rejected(kind: Int,code: Int) { error("Phone rejection acknowledgement refused") }
++        override fun uncertain() { rejectionUnknown++ }
++    })
++    rejects { NativeMutationBoundary.call<Boolean>(4) { net.typeblog.lpac_jni.Es10cProfileResult.accepted(4,2) } }
++    verify(rejectionUnknown == 2 && positiveReturns == 0)
++    NativeMutationBoundary.observer.remove()
++
 +    val closed = LogicalChannelCloseReceipt()
 +    closed.opened(1);verify(closed.hasOpen());rejects { closed.requireAllClosed() }
 +    closed.closed(1,true);closed.requireAllClosed();verify(!closed.hasOpen())
@@ -2221,6 +3291,157 @@ index 0000000000000000000000000000000000000000..779de3b521a81c7f730a67e63f4b17c8
 +    verify(runCatching { LocalProfileInfo.State.fromString("unknown") }.isFailure)
 +    verify(LocalProfileInfo.State.fromString("enabled")==LocalProfileInfo.State.Enabled)
 +    println("LAST_PROFILE_PROOF_HOST_PASS checks=$checks")
++}
+diff --git a/app-common/src/test/java/im/angry/openeuicc/core/ProfileInventoryHostTest.kt b/app-common/src/test/java/im/angry/openeuicc/core/ProfileInventoryHostTest.kt
+new file mode 100644
+index 0000000000000000000000000000000000000000..48e00c765e1d68fad5d787739d41b67c73de0b7f
+--- /dev/null
++++ b/app-common/src/test/java/im/angry/openeuicc/core/ProfileInventoryHostTest.kt
+@@ -0,0 +1,145 @@
++package im.angry.openeuicc.core
++
++import java.io.File
++import java.nio.file.Files
++import java.util.concurrent.CancellationException
++import kotlin.coroutines.*
++
++private var checks=0
++private fun verify(value: Boolean) { checks++;check(value) }
++private fun rejects(block: () -> Unit) {
++    try {block();error("Expected rejection")} catch (_: IllegalArgumentException) {checks++}
++}
++private fun <T> execute(block: suspend () -> T): T {
++    var outcome: Result<T>?=null
++    block.startCoroutine(object : Continuation<T> {
++        override val context=EmptyCoroutineContext
++        override fun resumeWith(result: Result<T>) {outcome=result}
++    })
++    return checkNotNull(outcome).getOrThrow()
++}
++fun main() {
++    val directory=Files.createTempDirectory("profile-inventory-test").toFile()
++    try {
++        val store=ProfileInventory.Store(File(directory,"private"))
++        val eid="1".repeat(32);val other="2".repeat(32)
++        fun row(i: Int,kind: String="Operational") =
++            ProfileInventory.Row("890000000000000000$i",false,"Name$i","Nickname$i","Provider$i",kind)
++        val snapshot=ProfileInventory.Snapshot(eid,1234,listOf(row(1),row(2),row(3,"Testing"),row(4,"Provisioning")))
++        verify(store.load(eid) == ProfileInventory.State.Unavailable)
++        verify(store.saved() == listOf(ProfileInventory.State.Unavailable))
++        store.publish(snapshot)
++        verify((store.load(eid) as ProfileInventory.State.Verified).snapshot == snapshot)
++        verify(snapshot.profiles.all { !it.enabledWhenRead })
++        verify(snapshot.profiles.map {it.profileClass} == listOf("Operational","Operational","Testing","Provisioning"))
++        val target=File(directory,"private").listFiles()!!.single()
++        val baseline=target.readBytes()
++        var reads=0
++        try {
++            execute {ProfileInventory.captureAndPublish(store, {false}) {reads++;snapshot}}
++            error("nested read")
++        } catch (_: IllegalStateException) {checks++}
++        verify(reads == 0 && target.readBytes().contentEquals(baseline))
++        for (failClose in listOf(true,false)) {
++            val admission=LpaChannelAdmission()
++            val owner=Any()
++            admission.reserve(owner)
++            var markedClean=false
++            var finishes=0
++            try {
++                execute {ProfileInventory.captureAndPublish(store, {true}) {
++                    admission.completeAfterDrain(owner,
++                        close={if(failClose) error("close not confirmed")},
++                        finish={finishes++;false},
++                        markClean={markedClean=true})
++                    snapshot
++                }}
++                error("unconfirmed completion")
++            } catch (_: IllegalStateException) {checks++}
++            verify(!markedClean && finishes == if(failClose) 0 else 1)
++            verify(target.readBytes().contentEquals(baseline))
++        }
++        val malformed=snapshot.copy(profiles=listOf(row(1),row(1)))
++        var successfulReads=0
++        val failedSave=execute {ProfileInventory.captureAndPublish(store, {true}) {
++            successfulReads++
++            malformed
++        }}
++        verify(successfulReads == 1 && !failedSave.saved && failedSave.snapshot === malformed)
++        verify(failedSave.snapshot.profiles === malformed.profiles)
++        verify(target.readBytes().contentEquals(baseline))
++        val blockedDirectory=File(directory,"not-a-directory").apply {writeText("preserve")}
++        val blockedSave=execute {ProfileInventory.captureAndPublish(
++            ProfileInventory.Store(blockedDirectory), {true}) {snapshot}}
++        verify(!blockedSave.saved && blockedSave.snapshot === snapshot)
++        verify(blockedDirectory.readText() == "preserve")
++        verify(Files.getPosixFilePermissions(target.toPath()).toString() == "[OWNER_READ, OWNER_WRITE]" ||
++            Files.getPosixFilePermissions(target.toPath()) == java.nio.file.attribute.PosixFilePermissions.fromString("rw-------"))
++        verify(Files.getPosixFilePermissions(target.parentFile.toPath()) ==
++            java.nio.file.attribute.PosixFilePermissions.fromString("rwx------"))
++        for (failure in listOf(IllegalStateException("finish ACK missing"),CancellationException("cancelled"))) {
++            try {execute {ProfileInventory.captureAndPublish(store, {true}) {throw failure}};error("expected failure")}
++            catch (caught: Exception) {verify(caught === failure)}
++            verify(target.readBytes().contentEquals(baseline))
++        }
++        val events=mutableListOf<String>()
++        execute {ProfileInventory.captureAndPublish(store, {true}) {
++            events += "EID";events += "one profile vector";events += "close";events += "finish ACK"
++            verify(target.readBytes().contentEquals(baseline))
++            snapshot.copy(verifiedAtMillis=2345)
++        }}
++        verify(events == listOf("EID","one profile vector","close","finish ACK"))
++        verify((store.load(eid) as ProfileInventory.State.Verified).snapshot.verifiedAtMillis == 2345L)
++        store.publish(ProfileInventory.Snapshot(other,3456,emptyList()))
++        verify(store.load(other) is ProfileInventory.State.VerifiedEmpty)
++        verify(store.saved().size == 2)
++        verify(store.load(eid) is ProfileInventory.State.Verified)
++        rejects {ProfileInventory.encode(snapshot.copy(eid="1"))}
++        rejects {ProfileInventory.encode(snapshot.copy(verifiedAtMillis=0))}
++        rejects {ProfileInventory.encode(snapshot.copy(profiles=listOf(row(1),row(1))))}
++        verify(ProfileInventory.decode(ProfileInventory.encode(snapshot.copy(profiles=listOf(row(1).copy(enabledWhenRead=true),row(2).copy(enabledWhenRead=true))))).profiles.all {it.enabledWhenRead})
++        rejects {ProfileInventory.encode(snapshot.copy(profiles=listOf(row(1).copy(iccid="bad"))))}
++        rejects {ProfileInventory.encode(snapshot.copy(profiles=listOf(row(1).copy(name="x".repeat(513)))))}
++        rejects {ProfileInventory.encode(snapshot.copy(profiles=listOf(row(1,"Unknown"))))}
++        rejects {ProfileInventory.encode(snapshot.copy(profiles=List(129) {row(it)}))}
++        rejects {ProfileInventory.decode(baseline + byteArrayOf(0))}
++        rejects {ProfileInventory.decode(ByteArray(262145))}
++        val saved=target.readBytes()
++        for (bytes in listOf(byteArrayOf(),saved.copyOf(5),saved.copyOf().also {it[0]=0},
++            saved.copyOf().also {it[48]=2})) {
++            target.writeBytes(bytes)
++            verify(store.load(eid) == ProfileInventory.State.Unavailable)
++            verify(store.saved() == listOf(ProfileInventory.State.Unavailable))
++        }
++        target.writeBytes(saved.copyOf().also {it[71]=2})
++        verify(store.load(eid) == ProfileInventory.State.Unavailable)
++        target.writeBytes(ByteArray(262145))
++        verify(store.load(eid) == ProfileInventory.State.Unavailable)
++        target.writeBytes(saved)
++        try {store.publish(snapshot.copy(profiles=listOf(row(1,"Unknown"))));error("invalid publish")}
++        catch (_: IllegalArgumentException) {checks++}
++        verify(target.readBytes().contentEquals(saved))
++        val newFile=File(target.parentFile,target.name+".new")
++        newFile.writeText("partial")
++        verify(store.load(eid) is ProfileInventory.State.Verified)
++        verify(store.saved().size == 2 && store.saved().none {it is ProfileInventory.State.Unavailable})
++        store.publish(snapshot.copy(verifiedAtMillis=4567))
++        verify(!newFile.exists())
++        verify((store.load(eid) as ProfileInventory.State.Verified).snapshot.verifiedAtMillis == 4567L)
++        target.writeBytes(saved)
++        val otherFile=target.parentFile.listFiles()!!.single {it != target}
++        val otherSaved=otherFile.readBytes()
++        target.writeBytes(otherSaved)
++        verify(store.load(eid) == ProfileInventory.State.Unavailable)
++        verify(store.saved() == listOf(ProfileInventory.State.Unavailable))
++        target.writeBytes(saved)
++        // Exhaust the bounded card set without evicting an older positively verified card.
++        for(i in 3..16) store.publish(ProfileInventory.Snapshot(i.toString().padStart(32,'0'),4000,emptyList()))
++        val before=target.readBytes()
++        try {store.publish(ProfileInventory.Snapshot("9".repeat(32),5000,emptyList()));error("capacity")}
++        catch (_: IllegalStateException) {checks++}
++        verify(target.readBytes().contentEquals(before))
++        verify(store.saved().size == 16)
++        println("PROFILE_INVENTORY_HOST_PASS checks=$checks")
++    } finally {directory.deleteRecursively()}
 +}
 diff --git a/app-common/src/test/java/im/angry/openeuicc/core/SharedSlotMutationGuardHostTest.kt b/app-common/src/test/java/im/angry/openeuicc/core/SharedSlotMutationGuardHostTest.kt
 new file mode 100644
@@ -2382,6 +3603,82 @@ index 0000000000000000000000000000000000000000..fdea5e4fcc5101396dddea3c61cb64f4
 +        execute {DownloadedProfilePublication.run(null) {calls++}}
 +        assertEquals(1,calls)
 +    }
++}
+diff --git a/app-common/src/test/java/im/angry/openeuicc/service/FrameworkProfileDeleteHostTest.kt b/app-common/src/test/java/im/angry/openeuicc/service/FrameworkProfileDeleteHostTest.kt
+new file mode 100644
+index 0000000000000000000000000000000000000000..763336bc6debf7302d343d82a285ee61828055be
+--- /dev/null
++++ b/app-common/src/test/java/im/angry/openeuicc/service/FrameworkProfileDeleteHostTest.kt
+@@ -0,0 +1,70 @@
++package im.angry.openeuicc.service
++
++import kotlinx.coroutines.runBlocking
++
++fun main() = runBlocking {
++    var checks=0
++    fun verify(value: Boolean) {check(value);checks++}
++    val eid="1".repeat(32)
++    fun profile(id: String,on: Boolean)=FrameworkProfileDownload.Profile(id,on)
++    fun snapshot(vararg p: FrameworkProfileDownload.Profile)=FrameworkProfileDelete.Snapshot(eid,p.toList())
++    class Operations(
++        val reads: List<FrameworkProfileDelete.Snapshot>,
++        val disableFailure: Boolean=false,val deleteFailure: Boolean=false
++    ): FrameworkProfileDelete.Operations {
++        val calls=mutableListOf<String>();var read=0
++        override suspend fun snapshot(): FrameworkProfileDelete.Snapshot {
++            calls += "read"
++            return reads[read++]
++        }
++        override suspend fun disable(target: String,expected: FrameworkProfileDelete.Snapshot) {
++            calls += "disable:$target"
++            check(!disableFailure)
++        }
++        override suspend fun delete(target: String,expected: FrameworkProfileDelete.Snapshot) {
++            calls += "delete:$target"
++            check(!deleteFailure)
++        }
++    }
++    val off=snapshot(profile("target",false),profile("other",false))
++    val on=snapshot(profile("target",true),profile("other",false))
++    val after=snapshot(profile("other",false))
++    val inactive=Operations(listOf(off,after))
++    FrameworkProfileDelete.run("target",inactive)
++    verify(inactive.calls==listOf("read","delete:target","read"))
++    val active=Operations(listOf(on,off,after))
++    FrameworkProfileDelete.run("target",active)
++    verify(active.calls==listOf("read","disable:target","read","delete:target","read"))
++    suspend fun refuses(ops: Operations): Operations {
++        verify(runCatching { FrameworkProfileDelete.run("target",ops) }.isFailure)
++        verify(ops.calls.count { it.startsWith("delete:") }<=1)
++        verify(ops.calls.count { it.startsWith("disable:") }<=1)
++        return ops
++    }
++    for (changed in listOf(
++        on,
++        off.copy(eid="2".repeat(32)),
++        snapshot(profile("target",false),profile("other",true)),
++        after,
++        snapshot(profile("target",false),profile("target",false)),
++        off.copy(eid="invalid")
++    )) {
++        val ops=refuses(Operations(listOf(on,changed)))
++        verify(ops.calls.none { it.startsWith("delete:") })
++    }
++    val multipleActive=refuses(Operations(listOf(snapshot(profile("target",true),profile("other",true)))))
++    verify(multipleActive.calls==listOf("read"))
++    val missing=refuses(Operations(listOf(after)))
++    verify(missing.calls==listOf("read"))
++    val disableFailed=refuses(Operations(listOf(on),disableFailure=true))
++    verify(disableFailed.calls==listOf("read","disable:target"))
++    val deleteFailed=refuses(Operations(listOf(off),deleteFailure=true))
++    verify(deleteFailed.calls==listOf("read","delete:target"))
++    refuses(Operations(listOf(off,off))) // Returned success is not proof of absence.
++    refuses(Operations(listOf(off,snapshot(profile("other",true)))))
++    val reordered=off.copy(profiles=off.profiles.reversed())
++    FrameworkProfileDelete.requireSame(off,reordered);checks++
++    verify(runCatching { FrameworkProfileDelete.requireSame(off,on) }.isFailure)
++    verify(runCatching { FrameworkProfileDelete.requireSame(off,off.copy(eid="2".repeat(32))) }.isFailure)
++    println("FRAMEWORK_PROFILE_DELETE_HOST_PASS checks=$checks")
 +}
 diff --git a/app-common/src/test/java/im/angry/openeuicc/service/FrameworkProfileDownloadHostTest.kt b/app-common/src/test/java/im/angry/openeuicc/service/FrameworkProfileDownloadHostTest.kt
 new file mode 100644
@@ -2917,7 +4214,7 @@ index 0000000000000000000000000000000000000000..3727302d20a8ce5d7f5f934974742a28
 +        }.build()
 +    }.toTypedArray()
 diff --git a/app/src/main/java/im/angry/openeuicc/service/OpenEuiccService.kt b/app/src/main/java/im/angry/openeuicc/service/OpenEuiccService.kt
-index 884e01938eea020969279f0a8dcad33d46664445..5910abb15557b3363b8098e04b69b1770d0d290f 100644
+index 884e01938eea020969279f0a8dcad33d46664445..d336a605c68a705352164d4f38fe122c21ad6aae 100644
 --- a/app/src/main/java/im/angry/openeuicc/service/OpenEuiccService.kt
 +++ b/app/src/main/java/im/angry/openeuicc/service/OpenEuiccService.kt
 @@ -2,7 +2,10 @@ package im.angry.openeuicc.service
@@ -3147,6 +4444,15 @@ index 884e01938eea020969279f0a8dcad33d46664445..5910abb15557b3363b8098e04b69b177
          if (shouldIgnoreSlot(slotId)) return@withEuiccChannelManager RESULT_FIRST_USER
  
          val ports = euiccChannelManager.findAvailablePorts(slotId)
+@@ -252,7 +295,7 @@ class OpenEuiccService : EuiccService(), OpenEuiccContextMarker {
+             }
+         }
+ 
+-        if (enabledAnywhere) return@withEuiccChannelManager RESULT_FIRST_USER
++        if (enabledAnywhere && !HonorLpaChannelAccess.enabled()) return@withEuiccChannelManager RESULT_FIRST_USER
+ 
+         euiccChannelManagerService.waitForForegroundTask()
+         val success = euiccChannelManagerService.launchProfileDeleteTask(
 @@ -268,7 +311,7 @@ class OpenEuiccService : EuiccService(), OpenEuiccContextMarker {
          } else {
              RESULT_FIRST_USER
@@ -3416,6 +4722,19 @@ index e7c22a913b4863aed174936726eb88b71d24b0bc..70b6c49a45bfc1a32e7acb34801dae0e
              finish()
          }
      }
+diff --git a/app/src/main/java/im/angry/openeuicc/ui/PrivilegedEuiccManagementFragment.kt b/app/src/main/java/im/angry/openeuicc/ui/PrivilegedEuiccManagementFragment.kt
+index 5d50ac4d5aa8d49a0b093f30506c0b93010180b6..6bd08be68df0a64125b72f2401ac2ec3655eb10b 100644
+--- a/app/src/main/java/im/angry/openeuicc/ui/PrivilegedEuiccManagementFragment.kt
++++ b/app/src/main/java/im/angry/openeuicc/ui/PrivilegedEuiccManagementFragment.kt
+@@ -45,6 +45,8 @@ class PrivilegedEuiccManagementFragment : EuiccManagementFragment() {
+ 
+     override fun populatePopupWithProfileActions(popup: PopupMenu, profile: LocalProfileInfo) {
+         super.populatePopupWithProfileActions(popup, profile)
++        if (im.angry.openeuicc.core.HonorLpaChannelAccess.enabled())
++            popup.menu.findItem(im.angry.openeuicc.common.R.id.delete).isVisible = true
+         if (!profile.isEnabled || isRemovable) return
+         // Only show the disable option for non-removable eUICCs
+         // Some devices without internal eUICCs have the "optimization" of ignoring SIM
 diff --git a/app/src/main/java/im/angry/openeuicc/ui/PrivilegedMainActivity.kt b/app/src/main/java/im/angry/openeuicc/ui/PrivilegedMainActivity.kt
 index 90956e1f66674c19353ec732850c87326000da2d..f9c1a7ba2974d4590e7fbf653f9fe4455bc134eb 100644
 --- a/app/src/main/java/im/angry/openeuicc/ui/PrivilegedMainActivity.kt
@@ -3725,6 +5044,32 @@ index 0000000000000000000000000000000000000000..dfb1904865d4d7a08e2d155521a808bd
 +These focused host tests execute the production routing, cached-card proof and framework profile projection against the real frozen Android 37 framework classes. They are intentionally outside Gradle local unit tests, whose android.jar methods are stubs. The corresponding source compilation and explicit JUnit runner command are recorded in the reviewed host artifact esim-native-profile-publication1/FOCUSED-FINAL.json.
 +
 +They do not invoke a real SubscriptionManager, radio, APDU, profile operation, or Android UI. Native Settings row publication and accessibility still require a rebuilt candidate and a device test.
+diff --git a/libs/lpac-jni/src/main/java/net/typeblog/lpac_jni/Es10cProfileResult.kt b/libs/lpac-jni/src/main/java/net/typeblog/lpac_jni/Es10cProfileResult.kt
+new file mode 100644
+index 0000000000000000000000000000000000000000..23c0b3df0ccb0c3529c5a8e67d8193e57213c1c2
+--- /dev/null
++++ b/libs/lpac-jni/src/main/java/net/typeblog/lpac_jni/Es10cProfileResult.kt
+@@ -0,0 +1,20 @@
++package net.typeblog.lpac_jni
++
++/** Only parsed, documented card rejections are definitive; transport/unknown codes stay false. */
++class ProfileOperationRejectedException(val kind: Int, val resultCode: Int) :
++    Exception("eUICC rejected profile operation (kind=$kind, code=$resultCode)") {
++    init { require(Es10cProfileResult.isKnownRejection(kind,resultCode)) }
++}
++
++object Es10cProfileResult {
++    fun isKnownRejection(kind: Int, code: Int): Boolean = when(kind) {
++        2 -> code in 1..5
++        3, 4 -> code in 1..3
++        else -> false
++    }
++    fun accepted(kind: Int, code: Int): Boolean {
++        if (code == 0) return true
++        if (isKnownRejection(kind,code)) throw ProfileOperationRejectedException(kind,code)
++        return false
++    }
++}
 diff --git a/libs/lpac-jni/src/main/java/net/typeblog/lpac_jni/LocalProfileInfo.kt b/libs/lpac-jni/src/main/java/net/typeblog/lpac_jni/LocalProfileInfo.kt
 index 01ee23f3b97df87732e925b596058351fe5b89fb..fe26eef5cf0f47b1d7d3d6c3d1b9038b869554ca 100644
 --- a/libs/lpac-jni/src/main/java/net/typeblog/lpac_jni/LocalProfileInfo.kt
@@ -3738,11 +5083,155 @@ index 01ee23f3b97df87732e925b596058351fe5b89fb..fe26eef5cf0f47b1d7d3d6c3d1b9038b
                  }
          }
      }
+diff --git a/libs/lpac-jni/src/main/java/net/typeblog/lpac_jni/ProfileListReadException.kt b/libs/lpac-jni/src/main/java/net/typeblog/lpac_jni/ProfileListReadException.kt
+new file mode 100644
+index 0000000000000000000000000000000000000000..5095eb5305e7a6396b4d8634e4188d98a2b7af8f
+--- /dev/null
++++ b/libs/lpac-jni/src/main/java/net/typeblog/lpac_jni/ProfileListReadException.kt
+@@ -0,0 +1,4 @@
++package net.typeblog.lpac_jni
++
++/** A failed profile-list read must never be published as a successfully read empty card. */
++class ProfileListReadException(message: String) : IllegalStateException(message)
+diff --git a/libs/lpac-jni/src/main/java/net/typeblog/lpac_jni/ReadOnlyRecovery.kt b/libs/lpac-jni/src/main/java/net/typeblog/lpac_jni/ReadOnlyRecovery.kt
+new file mode 100644
+index 0000000000000000000000000000000000000000..dafdcf06837d875993413ac521b130eeedf36c47
+--- /dev/null
++++ b/libs/lpac-jni/src/main/java/net/typeblog/lpac_jni/ReadOnlyRecovery.kt
+@@ -0,0 +1,64 @@
++package net.typeblog.lpac_jni
++
++/** Bare owned JNI context: exactly live EID then profiles. No info2, HTTP, notifications or reset. */
++object ReadOnlyRecovery {
++    class ReadFailure : IllegalStateException("Unable to confirm read-only eSIM recovery")
++    internal interface Calls {
++        fun create(apdu: ApduInterface): Long
++        fun init(context: Long): Int
++        fun eid(context: Long): String?
++        fun profiles(context: Long): Long
++        fun next(profile: Long): Long
++        fun iccid(profile: Long): String
++        fun state(profile: Long): String
++        fun free(head: Long)
++        fun finish(context: Long)
++        fun destroy(context: Long)
++    }
++    private object Jni : Calls {
++        override fun create(apdu: ApduInterface) = LpacJni.createContext(
++            byteArrayOf(0xA0.toByte(),0,0,0x05,0x59,0x10,0x10,0xFF.toByte(),
++                0xFF.toByte(),0xFF.toByte(),0xFF.toByte(),0x89.toByte(),0,0,0x01,0),
++            apdu,object : HttpInterface {
++                override fun transmit(url: String,tx: ByteArray,headers: Array<String>): HttpInterface.HttpResponse =
++                    error("HTTP is not part of read-only recovery")
++                override fun usePublicKeyIds(pkids: Array<String>) =
++                    error("Public-key discovery is not part of read-only recovery")
++            })
++        override fun init(context: Long) = LpacJni.euiccInit(context)
++        override fun eid(context: Long) = LpacJni.es10cGetEid(context)
++        override fun profiles(context: Long) = LpacJni.es10cGetProfilesInfo(context)
++        override fun next(profile: Long) = LpacJni.profilesNext(profile)
++        override fun iccid(profile: Long) = LpacJni.profileGetIccid(profile)
++        override fun state(profile: Long) = LpacJni.profileGetStateString(profile)
++        override fun free(head: Long) { LpacJni.profilesFree(head) }
++        override fun finish(context: Long) = LpacJni.euiccFini(context)
++        override fun destroy(context: Long) = LpacJni.destroyContext(context)
++    }
++    fun read(apdu: ApduInterface): Int = read(apdu,Jni)
++    internal fun read(apdu: ApduInterface,calls: Calls): Int {
++        val context=calls.create(apdu)
++        if (context == 0L) throw ReadFailure()
++        var initialized=false
++        try {
++            if (calls.init(context) != 0) throw ReadFailure()
++            initialized=true
++            if (calls.eid(context)?.matches(Regex("[0-9]{32}")) != true) throw ReadFailure()
++            val head=calls.profiles(context)
++            try {
++                val seen=mutableSetOf<String>()
++                var current=head
++                while (current != 0L) {
++                    val id=calls.iccid(current)
++                    if (id.isEmpty() || !seen.add(id) ||
++                        calls.state(current) !in listOf("enabled","disabled")) throw ReadFailure()
++                    current=calls.next(current)
++                }
++                return seen.size
++            } finally { calls.free(head) }
++        } finally {
++            try { if (initialized) calls.finish(context) }
++            finally { calls.destroy(context) }
++        }
++    }
++}
 diff --git a/libs/lpac-jni/src/main/java/net/typeblog/lpac_jni/impl/LocalProfileAssistantImpl.kt b/libs/lpac-jni/src/main/java/net/typeblog/lpac_jni/impl/LocalProfileAssistantImpl.kt
-index 91c572eae354fdc4e8ebb1731af21e037571e6fd..2290c9f70b17dd99c08f6054100f2888e335891e 100644
+index 91c572eae354fdc4e8ebb1731af21e037571e6fd..cea233bdf78bbb350036f404695de9f00a88ac7d 100644
 --- a/libs/lpac-jni/src/main/java/net/typeblog/lpac_jni/impl/LocalProfileAssistantImpl.kt
 +++ b/libs/lpac-jni/src/main/java/net/typeblog/lpac_jni/impl/LocalProfileAssistantImpl.kt
-@@ -273,7 +273,7 @@ class LocalProfileAssistantImpl(
+@@ -117,25 +117,27 @@ class LocalProfileAssistantImpl(
+             val head = LpacJni.es10cGetProfilesInfo(contextHandle)
+             var curr = head
+             val ret = mutableListOf<LocalProfileInfo>()
+-            while (curr != 0L) {
+-                val state = LocalProfileInfo.State.fromString(LpacJni.profileGetStateString(curr))
+-                val clazz = ProfileClass.fromString(LpacJni.profileGetClassString(curr))
+-                ret.add(
+-                    LocalProfileInfo(
+-                        LpacJni.profileGetIccid(curr),
+-                        state,
+-                        LpacJni.profileGetName(curr),
+-                        LpacJni.profileGetNickname(curr),
+-                        LpacJni.profileGetServiceProvider(curr),
+-                        LpacJni.profileGetIsdpAid(curr),
+-                        clazz
++            try {
++                while (curr != 0L) {
++                    val state = LocalProfileInfo.State.fromString(LpacJni.profileGetStateString(curr))
++                    val clazz = ProfileClass.fromString(LpacJni.profileGetClassString(curr))
++                    ret.add(
++                        LocalProfileInfo(
++                            LpacJni.profileGetIccid(curr),
++                            state,
++                            LpacJni.profileGetName(curr),
++                            LpacJni.profileGetNickname(curr),
++                            LpacJni.profileGetServiceProvider(curr),
++                            LpacJni.profileGetIsdpAid(curr),
++                            clazz
++                        )
+                     )
+-                )
+-                curr = LpacJni.profilesNext(curr)
++                    curr = LpacJni.profilesNext(curr)
++                }
++                return ret
++            } finally {
++                LpacJni.profilesFree(head)
+             }
+-
+-            LpacJni.profilesFree(curr)
+-            return ret
+         }
+ 
+     override val notifications: List<LocalProfileNotification>
+@@ -205,15 +207,15 @@ class LocalProfileAssistantImpl(
+         }
+ 
+     override fun enableProfile(iccid: String, refresh: Boolean): Boolean = lock.withLock {
+-        LpacJni.es10cEnableProfile(contextHandle, iccid, refresh) == 0
++        net.typeblog.lpac_jni.Es10cProfileResult.accepted(2, LpacJni.es10cEnableProfile(contextHandle, iccid, refresh))
+     }
+ 
+     override fun disableProfile(iccid: String, refresh: Boolean): Boolean = lock.withLock {
+-        LpacJni.es10cDisableProfile(contextHandle, iccid, refresh) == 0
++        net.typeblog.lpac_jni.Es10cProfileResult.accepted(3, LpacJni.es10cDisableProfile(contextHandle, iccid, refresh))
+     }
+ 
+     override fun deleteProfile(iccid: String): Boolean = lock.withLock {
+-        LpacJni.es10cDeleteProfile(contextHandle, iccid) == 0
++        net.typeblog.lpac_jni.Es10cProfileResult.accepted(4, LpacJni.es10cDeleteProfile(contextHandle, iccid))
+     }
+ 
+     override fun downloadProfile(input: ProfileDownloadInput, callback: ProfileDownloadCallback) = lock.withLock {
+@@ -273,7 +275,7 @@ class LocalProfileAssistantImpl(
  
      override fun euiccMemoryReset() {
          lock.withLock {
@@ -3751,3 +5240,134 @@ index 91c572eae354fdc4e8ebb1731af21e037571e6fd..2290c9f70b17dd99c08f6054100f2888
          }
      }
  
+diff --git a/libs/lpac-jni/src/main/jni/lpac-jni/lpac-jni.c b/libs/lpac-jni/src/main/jni/lpac-jni/lpac-jni.c
+index ca319db27c36ad4e786723dfbed00ab27ad70d64..06627c367628a39ec1fcaef138420d703f7fade8 100644
+--- a/libs/lpac-jni/src/main/jni/lpac-jni/lpac-jni.c
++++ b/libs/lpac-jni/src/main/jni/lpac-jni/lpac-jni.c
+@@ -135,6 +135,11 @@ Java_net_typeblog_lpac_1jni_LpacJni_es10cGetProfilesInfo(JNIEnv *env, jobject th
+     struct es10c_profile_info_list *info = NULL;
+ 
+     if (es10c_get_profiles_info(ctx, &info) < 0) {
++        // A failed read is not a successfully read empty eUICC.
++        if (!(*env)->ExceptionCheck(env)) {
++            jclass failure = (*env)->FindClass(env, "net/typeblog/lpac_jni/ProfileListReadException");
++            if (failure != NULL) (*env)->ThrowNew(env, failure, "Failed to read eSIM profile list");
++        }
+         return 0;
+     }
+ 
+diff --git a/libs/lpac-jni/src/test/java/net/typeblog/lpac_jni/ReadOnlyRecoveryHostTest.kt b/libs/lpac-jni/src/test/java/net/typeblog/lpac_jni/ReadOnlyRecoveryHostTest.kt
+new file mode 100644
+index 0000000000000000000000000000000000000000..8b7fa4ef265f5ea0a5e49d7e2f45921d0ca5fda1
+--- /dev/null
++++ b/libs/lpac-jni/src/test/java/net/typeblog/lpac_jni/ReadOnlyRecoveryHostTest.kt
+@@ -0,0 +1,66 @@
++package net.typeblog.lpac_jni
++
++fun main() {
++    var checks=0
++    fun verify(value: Boolean) {check(value);checks++}
++    class Apdu : ApduInterface {
++        var opened=false
++        override val valid: Boolean get()=opened
++        override fun connect() {}
++        override fun disconnect() {}
++        override fun logicalChannelOpen(aid: ByteArray): Int {check(!opened);opened=true;return 1}
++        override fun logicalChannelClose(handle: Int) {check(opened && handle == 1);opened=false}
++        override fun transmit(handle: Int,tx: ByteArray): ByteArray = error("No synthetic device execution")
++    }
++    class Calls(val fail: String?=null,val rows: Int=2) : ReadOnlyRecovery.Calls {
++        val events=mutableListOf<String>()
++        lateinit var apdu: ApduInterface
++        private fun step(name: String) {
++            events += name
++            if (fail == name) error("Synthetic $name failure")
++            if (fail == "cancel" && name == "eid") throw java.util.concurrent.CancellationException()
++        }
++        override fun create(apdu: ApduInterface): Long {
++            this.apdu=apdu;step("create");return if(fail == "no-context") 0 else 42
++        }
++        override fun init(context: Long): Int {
++            check(context == 42L);step("init")
++            if(fail == "init-negative") return -1
++            apdu.logicalChannelOpen(byteArrayOf(1));return 0
++        }
++        override fun eid(context: Long): String {
++            check(context == 42L);step("eid")
++            return if(fail == "bad-eid") "invalid" else "1".repeat(32)
++        }
++        override fun profiles(context: Long): Long {check(context == 42L);step("profiles");return if(rows == 0) 0 else 100}
++        override fun next(profile: Long): Long {step("next");return if(profile == 100L && rows > 1) 101 else 0}
++        override fun iccid(profile: Long): String {
++            step("iccid");return if(fail == "duplicate") "same" else "profile$profile"
++        }
++        override fun state(profile: Long): String {step("state");return if(fail == "bad-state") "unknown" else "disabled"}
++        override fun free(head: Long) {check(head == 0L || head == 100L);step("free")}
++        override fun finish(context: Long) {check(context == 42L);step("finish");apdu.logicalChannelClose(1)}
++        override fun destroy(context: Long) {check(context == 42L);step("destroy")}
++    }
++    val normal=Calls();val connection=Apdu()
++    verify(ReadOnlyRecovery.read(connection,normal) == 2)
++    verify(normal.events.count { it == "eid" } == 1 && normal.events.count { it == "profiles" } == 1)
++    verify(normal.events.takeLast(3) == listOf("free","finish","destroy") && !connection.valid)
++    val empty=Calls(rows=0);verify(ReadOnlyRecovery.read(Apdu(),empty) == 0)
++    verify(empty.events.takeLast(3) == listOf("free","finish","destroy"))
++    for (failure in listOf("create","no-context","init","init-negative","bad-eid","profiles","next","duplicate",
++        "bad-state","free","finish","destroy","cancel")) {
++        val calls=Calls(failure);val apdu=Apdu()
++        verify(runCatching { ReadOnlyRecovery.read(apdu,calls) }.isFailure)
++        if (failure == "create" || failure == "no-context") verify(calls.events == listOf("create"))
++        else {
++            verify(calls.events.last() == "destroy")
++            if (failure == "init" || failure == "init-negative") verify("finish" !in calls.events)
++            else verify("finish" in calls.events)
++        }
++        verify(calls.events.count { it == "create" } == 1)
++        verify(calls.events.count { it == "eid" } <= 1 && calls.events.count { it == "profiles" } <= 1)
++        if (failure == "bad-eid" || failure == "cancel") verify("profiles" !in calls.events)
++    }
++    println("READ_ONLY_RECOVERY_HOST_PASS checks=$checks")
++}
+diff --git a/libs/lpac-jni/src/test/native/ProfileListReadTest.c b/libs/lpac-jni/src/test/native/ProfileListReadTest.c
+new file mode 100644
+index 0000000000000000000000000000000000000000..e811c10abc7846d26e7a3adc1c29845eeb50e340
+--- /dev/null
++++ b/libs/lpac-jni/src/test/native/ProfileListReadTest.c
+@@ -0,0 +1,37 @@
++#include <assert.h>
++#include <string.h>
++#include <jni.h>
++#include <euicc/es10c.h>
++extern jlong Java_net_typeblog_lpac_1jni_LpacJni_es10cGetProfilesInfo(JNIEnv*,jobject,jlong);
++static int result, pending, find_calls, throw_calls;
++static struct es10c_profile_info_list row;
++static int nonempty;
++int es10c_get_profiles_info(struct euicc_ctx *ctx,struct es10c_profile_info_list **info) {
++    *info=nonempty?&row:0;return result;
++}
++static jboolean check_exception(JNIEnv *env) {return pending?JNI_TRUE:JNI_FALSE;}
++static jclass find_class(JNIEnv *env,const char *name) {
++    assert(!strcmp(name,"net/typeblog/lpac_jni/ProfileListReadException"));find_calls++;return (jclass)1;
++}
++static jint throw_new(JNIEnv *env,jclass cls,const char *message) {
++    assert(cls && strstr(message,"profile list"));throw_calls++;pending=1;return 0;
++}
++static void reset(void) {pending=find_calls=throw_calls=nonempty=0;}
++int main(void) {
++    struct JNINativeInterface table={0};
++    table.ExceptionCheck=check_exception;table.FindClass=find_class;table.ThrowNew=throw_new;
++    JNIEnv env=&table;
++    reset();result=-1;
++    assert(Java_net_typeblog_lpac_1jni_LpacJni_es10cGetProfilesInfo(&env,0,0)==0);
++    assert(pending && find_calls==1 && throw_calls==1);
++    reset();result=-1;pending=1;
++    assert(Java_net_typeblog_lpac_1jni_LpacJni_es10cGetProfilesInfo(&env,0,0)==0);
++    assert(pending && find_calls==0 && throw_calls==0);
++    reset();result=0;
++    assert(Java_net_typeblog_lpac_1jni_LpacJni_es10cGetProfilesInfo(&env,0,0)==0);
++    assert(!pending && !find_calls && !throw_calls);
++    reset();result=0;nonempty=1;
++    assert(Java_net_typeblog_lpac_1jni_LpacJni_es10cGetProfilesInfo(&env,0,0)==(jlong)&row);
++    assert(!pending && !find_calls && !throw_calls);
++    return 0;
++}

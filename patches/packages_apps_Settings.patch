@@ -41,10 +41,10 @@ index 0000000000000000000000000000000000000000..932254580e35e3309eca66f4327072cf
 +</resources>
 diff --git a/res/values/honor_ldy_an00_esim_flow.xml b/res/values/honor_ldy_an00_esim_flow.xml
 new file mode 100644
-index 0000000000000000000000000000000000000000..59c27ca365ab5a43a537358c0936080909c96578
+index 0000000000000000000000000000000000000000..8831f8e47f789a23783bd47e6df6b7bff4c9899c
 --- /dev/null
 +++ b/res/values/honor_ldy_an00_esim_flow.xml
-@@ -0,0 +1,18 @@
+@@ -0,0 +1,20 @@
 +<?xml version="1.0" encoding="utf-8"?>
 +<!-- Copyright (C) 2026 The LineageOS Project; SPDX-License-Identifier: Apache-2.0 -->
 +<resources>
@@ -62,6 +62,8 @@ index 0000000000000000000000000000000000000000..59c27ca365ab5a43a537358c09360809
 +    <string name="honor_esim_manage">Manage eSIMs</string>
 +    <string name="honor_esim_manage_title">Connect to manage eSIMs?</string>
 +    <string name="honor_esim_manage_message">eSIM and SIM2 share a connection. SIM2 will lose service while you manage eSIMs. SIM1 stays available. You can return to physical SIM2 in SIM settings when you finish.</string>
++    <string name="honor_esim_management_recovery">Open eSIM management to check the connection and restore access. Your downloaded profiles will not be erased.</string>
++    <string name="honor_esim_call_busy">End your call before switching between eSIM and physical SIM2. No SIM change was started.</string>
 +</resources>
 diff --git a/res/values/lineage_config.xml b/res/values/lineage_config.xml
 index c6aaf2d2556755271a080e008d2ab98dd51bc168..bdd3bee44df86da336dc3ada6f894c79334bf802 100644
@@ -1464,10 +1466,10 @@ index 0000000000000000000000000000000000000000..ce425da80949f779e6074d0f641b5553
 +}
 diff --git a/src/com/android/settings/network/HonorLdyAn00EsimSetupActivity.java b/src/com/android/settings/network/HonorLdyAn00EsimSetupActivity.java
 new file mode 100644
-index 0000000000000000000000000000000000000000..13076438649869b67529915300592ec0df06058f
+index 0000000000000000000000000000000000000000..6c62544dc5f8bdf4e319c16bd186c3c19b1c6b86
 --- /dev/null
 +++ b/src/com/android/settings/network/HonorLdyAn00EsimSetupActivity.java
-@@ -0,0 +1,128 @@
+@@ -0,0 +1,160 @@
 +/*
 + * Copyright (C) 2026 The LineageOS Project
 + * SPDX-License-Identifier: Apache-2.0
@@ -1486,7 +1488,7 @@ index 0000000000000000000000000000000000000000..13076438649869b67529915300592ec0
 +/** Uses the same SIM dialogs as SwitchToEsimConfirmDialogActivity; no bespoke dashboard. */
 +public final class HonorLdyAn00EsimSetupActivity extends SubscriptionActionDialogActivity
 +        implements ConfirmDialogFragment.OnConfirmListener {
-+    private static final int SELECT_EUICC = 1, SELECT_PHYSICAL = 2;
++    private static final int SELECT_EUICC = 1, SELECT_PHYSICAL = 2, OPEN_MANAGEMENT = 3;
 +    private HonorLdyAn00EsimSetupViewModel mModel;
 +    private int mDialogPhaseSerial = -1;
 +    private boolean mTestImage, mDialogShown, mErrorShown, mReturnPhysical, mManageEsims;
@@ -1546,13 +1548,28 @@ index 0000000000000000000000000000000000000000..13076438649869b67529915300592ec0
 +                }
 +            }
 +            case "KNOWN_BLANK" -> {
-+                if (state.getBoolean("can_return", false)) confirm(true, state.getInt("phase_serial", -1));
-+                else error(R.string.honor_esim_change_unconfirmed);
++                if (mReturnPhysical) {
++                    if (state.getBoolean("can_return", false)) confirm(true, state.getInt("phase_serial", -1));
++                    else error(R.string.honor_esim_change_unconfirmed);
++                } else {
++                    // No active profile is not a reason to hide management or force physical SIM2.
++                    // The LPA must qualify any new channel before listing or adding profiles.
++                    dismissProgressDialog();
++                    if (mModel.takeLpaLaunch()) {
++                        try {
++                            startActivity(HonorLdyAn00EsimEntry.INSTANCE.lpaIntent(true));
++                            finish();
++                        } catch (ActivityNotFoundException | SecurityException unavailable) {
++                            error(R.string.honor_esim_lpa_unavailable);
++                        }
++                    }
++                }
 +            }
 +            case "PHYSICAL_READY" -> {
 +                if (mReturnPhysical) { dismissProgressDialog(); finish(); }
 +                else confirm(false, state.getInt("phase_serial", -1));
 +            }
++            case "CALL_BUSY" -> error(R.string.honor_esim_call_busy);
 +            case "OBSERVATION_TIMEOUT" -> error(R.string.honor_esim_still_pending);
 +            default -> error(R.string.honor_esim_change_unconfirmed);
 +        }
@@ -1580,6 +1597,16 @@ index 0000000000000000000000000000000000000000..13076438649869b67529915300592ec0
 +    @Override public void onConfirm(int tag, boolean confirmed, int ignored) {
 +        mDialogShown = false;
 +        if (!confirmed) { finish(); return; }
++        if (tag == OPEN_MANAGEMENT) {
++            try {
++                startActivity(HonorLdyAn00EsimEntry.INSTANCE.lpaIntent(true));
++                finish();
++            } catch (ActivityNotFoundException | SecurityException unavailable) {
++                showErrorDialog(getString(R.string.honor_esim_error_title),
++                        getString(R.string.honor_esim_lpa_unavailable));
++            }
++            return;
++        }
 +        if (tag != SELECT_EUICC && tag != SELECT_PHYSICAL) { finish(); return; }
 +        mModel.choose(tag == SELECT_PHYSICAL, mTestImage, mDialogPhaseSerial);
 +    }
@@ -1593,15 +1620,22 @@ index 0000000000000000000000000000000000000000..13076438649869b67529915300592ec0
 +            if (fragment instanceof ConfirmDialogFragment dialog) dialog.dismiss();
 +        }
 +        mDialogShown = false;
-+        showErrorDialog(getString(R.string.honor_esim_error_title), getString(message));
++        if (message == R.string.honor_esim_change_unconfirmed
++                || message == R.string.honor_esim_still_pending) {
++            mDialogShown = true;
++            ConfirmDialogFragment.show(this, ConfirmDialogFragment.OnConfirmListener.class,
++                    OPEN_MANAGEMENT, getString(R.string.honor_esim_error_title),
++                    getString(message) + "\n\n" + getString(R.string.honor_esim_management_recovery),
++                    getString(R.string.honor_esim_manage), getString(R.string.sim_action_cancel));
++        } else showErrorDialog(getString(R.string.honor_esim_error_title), getString(message));
 +    }
 +}
 diff --git a/src/com/android/settings/network/HonorLdyAn00EsimSetupViewModel.java b/src/com/android/settings/network/HonorLdyAn00EsimSetupViewModel.java
 new file mode 100644
-index 0000000000000000000000000000000000000000..198ae84e5fb9e48a9519894256ba0aed9a3ba86a
+index 0000000000000000000000000000000000000000..b219c3013e4a77e373bcbcbcc1c67605fd942907
 --- /dev/null
 +++ b/src/com/android/settings/network/HonorLdyAn00EsimSetupViewModel.java
-@@ -0,0 +1,368 @@
+@@ -0,0 +1,373 @@
 +/*
 + * Copyright (C) 2026 The LineageOS Project
 + * SPDX-License-Identifier: Apache-2.0
@@ -1654,12 +1688,17 @@ index 0000000000000000000000000000000000000000..198ae84e5fb9e48a9519894256ba0aed
 +        Bundle state = msg.getData();
 +        boolean confirmationRequired = "CONFIRMATION_REQUIRED".equals(state.getString("state"));
 +        boolean noSelection = state.getBoolean("ready_without_selection", false);
-+        if (msg.arg1 != mRequestId && !((confirmationRequired || noSelection) && mChoiceSubmitted
++        boolean callBusy = "CALL_BUSY".equals(state.getString("state"));
++        if (msg.arg1 != mRequestId && !((confirmationRequired || noSelection || callBusy) && mChoiceSubmitted
 +                && msg.arg1 == mSelectionRequestId)) return true;
 +        if (msg.what != 1 || state.getInt("version") != 1) { stop(); return true; }
 +        String value = state.getString("state", "UNKNOWN");
 +        int phaseSerial = state.getInt("phase_serial", -1);
 +        if (phaseSerial < 0) { stop(); return true; }
++        if (callBusy && (!mChoiceSubmitted || msg.arg1 != mSelectionRequestId
++                || phaseSerial != mConsentPhaseSerial
++                || !state.containsKey("target_physical")
++                || state.getBoolean("target_physical") != mSelectedPhysical)) return true;
 +        mPhaseSerial = phaseSerial;
 +        if (confirmationRequired) {
 +            if (!mChoiceSubmitted || msg.arg1 != mSelectionRequestId) return true;
@@ -1719,7 +1758,7 @@ index 0000000000000000000000000000000000000000..198ae84e5fb9e48a9519894256ba0aed
 +                || value.equals("PHYSICAL_READY") || value.equals("KNOWN_BLANK"))) {
 +            android.util.Log.w("HonorEsimSetup","Backend refused: "+value
 +                    +" stage="+state.getString("backend_stage","UNREPORTED"));
-+            stop(); return true;
++            stop("CALL_BUSY".equals(value) ? "CALL_BUSY" : "UNAVAILABLE"); return true;
 +        }
 +        if (!mHasSnapshot && (value.equals("WORKING") || value.equals("EUICC_WAITING"))) {
 +            mDeadline = SystemClock.elapsedRealtime() + OBSERVATION_BUDGET_MS;

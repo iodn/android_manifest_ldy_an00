@@ -1,5 +1,5 @@
 diff --git a/Android.bp b/Android.bp
-index a343e32..54ac130 100644
+index a343e32a35376ace0fe91bcb0b61d7543609e7c0..54ac130ef3d12b8a001b7f59702548d40c408111 100644
 --- a/Android.bp
 +++ b/Android.bp
 @@ -34,6 +34,8 @@ android_app {
@@ -23,7 +23,7 @@ index a343e32..54ac130 100644
 +    aidl: { local_include_dirs: ["honor-lpa-lease/aidl"] },
 +}
 diff --git a/AndroidManifest.xml b/AndroidManifest.xml
-index 530c400..998c443 100644
+index 530c4008620a731cdd412fb298d2bd8552e6b329..998c44392646c1793164600f2940df2156864b71 100644
 --- a/AndroidManifest.xml
 +++ b/AndroidManifest.xml
 @@ -201,6 +201,9 @@
@@ -65,7 +65,7 @@ index 530c400..998c443 100644
  </manifest>
 diff --git a/LDY-AN00-ESIM-TRIAL-DRAFT.txt b/LDY-AN00-ESIM-TRIAL-DRAFT.txt
 new file mode 100644
-index 0000000..b9d739e
+index 0000000000000000000000000000000000000000..b9d739e261799da97680f88be96f06ebffcce08e
 --- /dev/null
 +++ b/LDY-AN00-ESIM-TRIAL-DRAFT.txt
 @@ -0,0 +1,126 @@
@@ -197,7 +197,7 @@ index 0000000..b9d739e
 +frameworks/opt/telephony worktree in a fresh normal producer before any image claim.
 diff --git a/esim-draft-contract/Android.bp b/esim-draft-contract/Android.bp
 new file mode 100644
-index 0000000..54f12b8
+index 0000000000000000000000000000000000000000..54f12b837f9a04cff540c3991607dedd99d87b34
 --- /dev/null
 +++ b/esim-draft-contract/Android.bp
 @@ -0,0 +1,54 @@
@@ -257,7 +257,7 @@ index 0000000..54f12b8
 +}
 diff --git a/esim-draft-contract/aidl/vendor/honor/hardware/hnradio/ApDsFlowInfoReport.aidl b/esim-draft-contract/aidl/vendor/honor/hardware/hnradio/ApDsFlowInfoReport.aidl
 new file mode 100644
-index 0000000..73eb83c
+index 0000000000000000000000000000000000000000..73eb83c7c4207218ce98b9b155b73d2332be0b22
 --- /dev/null
 +++ b/esim-draft-contract/aidl/vendor/honor/hardware/hnradio/ApDsFlowInfoReport.aidl
 @@ -0,0 +1,14 @@
@@ -277,7 +277,7 @@ index 0000000..73eb83c
 +}
 diff --git a/esim-draft-contract/aidl/vendor/honor/hardware/hnradio/DsFlowInfo.aidl b/esim-draft-contract/aidl/vendor/honor/hardware/hnradio/DsFlowInfo.aidl
 new file mode 100644
-index 0000000..a408296
+index 0000000000000000000000000000000000000000..a408296651b4fabbf2b4670125e87ab8ae62a02d
 --- /dev/null
 +++ b/esim-draft-contract/aidl/vendor/honor/hardware/hnradio/DsFlowInfo.aidl
 @@ -0,0 +1,13 @@
@@ -296,7 +296,7 @@ index 0000000..a408296
 +}
 diff --git a/esim-draft-contract/aidl/vendor/honor/hardware/hnradio/GeoLocCellInfo.aidl b/esim-draft-contract/aidl/vendor/honor/hardware/hnradio/GeoLocCellInfo.aidl
 new file mode 100644
-index 0000000..f064f67
+index 0000000000000000000000000000000000000000..f064f67de69252fdd62af5fe399002df7206b5f9
 --- /dev/null
 +++ b/esim-draft-contract/aidl/vendor/honor/hardware/hnradio/GeoLocCellInfo.aidl
 @@ -0,0 +1,16 @@
@@ -318,7 +318,7 @@ index 0000000..f064f67
 +}
 diff --git a/esim-draft-contract/aidl/vendor/honor/hardware/hnradio/HnNetCellInfo.aidl b/esim-draft-contract/aidl/vendor/honor/hardware/hnradio/HnNetCellInfo.aidl
 new file mode 100644
-index 0000000..d712a1b
+index 0000000000000000000000000000000000000000..d712a1b9f375a97c16f13f4b6a19e9f04b8c5768
 --- /dev/null
 +++ b/esim-draft-contract/aidl/vendor/honor/hardware/hnradio/HnNetCellInfo.aidl
 @@ -0,0 +1,21 @@
@@ -345,7 +345,7 @@ index 0000000..d712a1b
 +}
 diff --git a/esim-draft-contract/aidl/vendor/honor/hardware/hnradio/HnNetCellInfoV2.aidl b/esim-draft-contract/aidl/vendor/honor/hardware/hnradio/HnNetCellInfoV2.aidl
 new file mode 100644
-index 0000000..8e87d11
+index 0000000000000000000000000000000000000000..8e87d11a3bbe1d8d4efa5467b04b33ecf391f5f7
 --- /dev/null
 +++ b/esim-draft-contract/aidl/vendor/honor/hardware/hnradio/HnNetCellInfoV2.aidl
 @@ -0,0 +1,22 @@
@@ -373,7 +373,7 @@ index 0000000..8e87d11
 +}
 diff --git a/esim-draft-contract/aidl/vendor/honor/hardware/hnradio/IRadio.aidl b/esim-draft-contract/aidl/vendor/honor/hardware/hnradio/IRadio.aidl
 new file mode 100644
-index 0000000..d87d2e2
+index 0000000000000000000000000000000000000000..d87d2e2eb7be16ef9f161c5c5c14b0674b551697
 --- /dev/null
 +++ b/esim-draft-contract/aidl/vendor/honor/hardware/hnradio/IRadio.aidl
 @@ -0,0 +1,94 @@
@@ -473,7 +473,7 @@ index 0000000..d87d2e2
 +}
 diff --git a/esim-draft-contract/aidl/vendor/honor/hardware/hnradio/IRadioIndication.aidl b/esim-draft-contract/aidl/vendor/honor/hardware/hnradio/IRadioIndication.aidl
 new file mode 100644
-index 0000000..3ad8d64
+index 0000000000000000000000000000000000000000..3ad8d64eb79fa1d97544dd6a20d7f4ae3d474b0c
 --- /dev/null
 +++ b/esim-draft-contract/aidl/vendor/honor/hardware/hnradio/IRadioIndication.aidl
 @@ -0,0 +1,34 @@
@@ -513,7 +513,7 @@ index 0000000..3ad8d64
 +}
 diff --git a/esim-draft-contract/aidl/vendor/honor/hardware/hnradio/IRadioResponse.aidl b/esim-draft-contract/aidl/vendor/honor/hardware/hnradio/IRadioResponse.aidl
 new file mode 100644
-index 0000000..f96687b
+index 0000000000000000000000000000000000000000..f96687b598f209efc2ae967770e907df18d0cd87
 --- /dev/null
 +++ b/esim-draft-contract/aidl/vendor/honor/hardware/hnradio/IRadioResponse.aidl
 @@ -0,0 +1,96 @@
@@ -615,7 +615,7 @@ index 0000000..f96687b
 +}
 diff --git a/esim-draft-contract/aidl/vendor/honor/hardware/hnradio/IccIoResultEx.aidl b/esim-draft-contract/aidl/vendor/honor/hardware/hnradio/IccIoResultEx.aidl
 new file mode 100644
-index 0000000..06a8cd0
+index 0000000000000000000000000000000000000000..06a8cd07e2e4ddd9654036685d0a0595ff9e608a
 --- /dev/null
 +++ b/esim-draft-contract/aidl/vendor/honor/hardware/hnradio/IccIoResultEx.aidl
 @@ -0,0 +1,12 @@
@@ -633,7 +633,7 @@ index 0000000..06a8cd0
 +}
 diff --git a/esim-draft-contract/aidl/vendor/honor/hardware/hnradio/MsgPayload.aidl b/esim-draft-contract/aidl/vendor/honor/hardware/hnradio/MsgPayload.aidl
 new file mode 100644
-index 0000000..e09abd3
+index 0000000000000000000000000000000000000000..e09abd37325dc98e34f450dba554332bdebccd47
 --- /dev/null
 +++ b/esim-draft-contract/aidl/vendor/honor/hardware/hnradio/MsgPayload.aidl
 @@ -0,0 +1,12 @@
@@ -651,7 +651,7 @@ index 0000000..e09abd3
 +}
 diff --git a/esim-draft-contract/aidl/vendor/honor/hardware/hnradio/NeighboringCellSsbInfo.aidl b/esim-draft-contract/aidl/vendor/honor/hardware/hnradio/NeighboringCellSsbInfo.aidl
 new file mode 100644
-index 0000000..acd92ca
+index 0000000000000000000000000000000000000000..acd92ca61185983a6043188a423455d5a442b905
 --- /dev/null
 +++ b/esim-draft-contract/aidl/vendor/honor/hardware/hnradio/NeighboringCellSsbInfo.aidl
 @@ -0,0 +1,13 @@
@@ -670,7 +670,7 @@ index 0000000..acd92ca
 +}
 diff --git a/esim-draft-contract/aidl/vendor/honor/hardware/hnradio/NrCellSsbIds.aidl b/esim-draft-contract/aidl/vendor/honor/hardware/hnradio/NrCellSsbIds.aidl
 new file mode 100644
-index 0000000..561a978
+index 0000000000000000000000000000000000000000..561a9784436476629ab6f95b4a37a524738be56f
 --- /dev/null
 +++ b/esim-draft-contract/aidl/vendor/honor/hardware/hnradio/NrCellSsbIds.aidl
 @@ -0,0 +1,18 @@
@@ -694,7 +694,7 @@ index 0000000..561a978
 +}
 diff --git a/esim-draft-contract/aidl/vendor/honor/hardware/hnradio/RadioIndicationType.aidl b/esim-draft-contract/aidl/vendor/honor/hardware/hnradio/RadioIndicationType.aidl
 new file mode 100644
-index 0000000..8d1fe39
+index 0000000000000000000000000000000000000000..8d1fe39b76490af19d0222ee6936889afff15886
 --- /dev/null
 +++ b/esim-draft-contract/aidl/vendor/honor/hardware/hnradio/RadioIndicationType.aidl
 @@ -0,0 +1,9 @@
@@ -709,7 +709,7 @@ index 0000000..8d1fe39
 +}
 diff --git a/esim-draft-contract/aidl/vendor/honor/hardware/hnradio/RadioResponseInfo.aidl b/esim-draft-contract/aidl/vendor/honor/hardware/hnradio/RadioResponseInfo.aidl
 new file mode 100644
-index 0000000..6e24958
+index 0000000000000000000000000000000000000000..6e24958b007e2ecde7d71ffe500948847d98f2f8
 --- /dev/null
 +++ b/esim-draft-contract/aidl/vendor/honor/hardware/hnradio/RadioResponseInfo.aidl
 @@ -0,0 +1,10 @@
@@ -725,7 +725,7 @@ index 0000000..6e24958
 +}
 diff --git a/esim-draft-contract/aidl/vendor/honor/hardware/hnradio/SsbIdInfo.aidl b/esim-draft-contract/aidl/vendor/honor/hardware/hnradio/SsbIdInfo.aidl
 new file mode 100644
-index 0000000..cd372e8
+index 0000000000000000000000000000000000000000..cd372e8482d76ab58d1f44b7ce709a1b5a87e60e
 --- /dev/null
 +++ b/esim-draft-contract/aidl/vendor/honor/hardware/hnradio/SsbIdInfo.aidl
 @@ -0,0 +1,9 @@
@@ -740,7 +740,7 @@ index 0000000..cd372e8
 +}
 diff --git a/esim-draft-contract/aidl/vendor/honor/hardware/hnradio/VsimEvent.aidl b/esim-draft-contract/aidl/vendor/honor/hardware/hnradio/VsimEvent.aidl
 new file mode 100644
-index 0000000..0f20ebc
+index 0000000000000000000000000000000000000000..0f20ebcb18d81ae32acfbca42cbbea179b3fd456
 --- /dev/null
 +++ b/esim-draft-contract/aidl/vendor/honor/hardware/hnradio/VsimEvent.aidl
 @@ -0,0 +1,10 @@
@@ -756,7 +756,7 @@ index 0000000..0f20ebc
 +}
 diff --git a/honor-lpa-lease/aidl/com/honor/ldy_an00/lease/HonorLpaChannelResult.aidl b/honor-lpa-lease/aidl/com/honor/ldy_an00/lease/HonorLpaChannelResult.aidl
 new file mode 100644
-index 0000000..806b71b
+index 0000000000000000000000000000000000000000..806b71bf138fe8cc81388de7545636d4e5e423a7
 --- /dev/null
 +++ b/honor-lpa-lease/aidl/com/honor/ldy_an00/lease/HonorLpaChannelResult.aidl
 @@ -0,0 +1,7 @@
@@ -769,7 +769,7 @@ index 0000000..806b71b
 +}
 diff --git a/honor-lpa-lease/aidl/com/honor/ldy_an00/lease/HonorLpaLease.aidl b/honor-lpa-lease/aidl/com/honor/ldy_an00/lease/HonorLpaLease.aidl
 new file mode 100644
-index 0000000..4f7a2a2
+index 0000000000000000000000000000000000000000..4f7a2a27381156df5b6634d405ca26e1f42c6671
 --- /dev/null
 +++ b/honor-lpa-lease/aidl/com/honor/ldy_an00/lease/HonorLpaLease.aidl
 @@ -0,0 +1,15 @@
@@ -790,7 +790,7 @@ index 0000000..4f7a2a2
 +}
 diff --git a/honor-lpa-lease/aidl/com/honor/ldy_an00/lease/HonorLpaLeaseGrant.aidl b/honor-lpa-lease/aidl/com/honor/ldy_an00/lease/HonorLpaLeaseGrant.aidl
 new file mode 100644
-index 0000000..9c34dce
+index 0000000000000000000000000000000000000000..9c34dceb515b153a8637085a6b0e057566407123
 --- /dev/null
 +++ b/honor-lpa-lease/aidl/com/honor/ldy_an00/lease/HonorLpaLeaseGrant.aidl
 @@ -0,0 +1,7 @@
@@ -803,10 +803,10 @@ index 0000000..9c34dce
 +}
 diff --git a/honor-lpa-lease/aidl/com/honor/ldy_an00/lease/IHonorLpaLease.aidl b/honor-lpa-lease/aidl/com/honor/ldy_an00/lease/IHonorLpaLease.aidl
 new file mode 100644
-index 0000000..eeacd5b
+index 0000000000000000000000000000000000000000..6d3fac4291321d964e18c186e8c0c54ff253d84c
 --- /dev/null
 +++ b/honor-lpa-lease/aidl/com/honor/ldy_an00/lease/IHonorLpaLease.aidl
-@@ -0,0 +1,28 @@
+@@ -0,0 +1,41 @@
 +package com.honor.ldy_an00.lease;
 +import com.honor.ldy_an00.lease.HonorLpaLease;
 +import com.honor.ldy_an00.lease.HonorLpaLeaseGrant;
@@ -834,9 +834,22 @@ index 0000000..eeacd5b
 +    const int PREPARE_REFUSED = 3;
 +    // Version 3: read-only, process-live historical identity only. Never returns a lease or card ID.
 +    int prepareKnownBlankEndpoint(int physicalSlot, int port, int expectedCardId, IBinder client);
++    // Version 5: parsed, operation-specific card rejection; no reset or channel-drain proof.
++    boolean nativeRejected(in HonorLpaLease lease, IBinder client, int kind, int code);
++    // Protocol 6: explicit nondestructive recovery after a marked kernel restart.
++    const int RECOVERY_REFUSED = 0;
++    const int RECOVERY_NEED_RESTART = 1;
++    const int RECOVERY_READY = 2;
++    const int RECOVERY_IN_PROGRESS = 3;
++    const int RECOVERY_DONE = 4;
++    const int RECOVERY_REQUIRED = 5;
++    int armRecovery(String appJournalHash, IBinder client);
++    HonorLpaLeaseGrant acquireRecovery(String appJournalHash, IBinder client);
++    boolean finishRecovery(in HonorLpaLease lease, IBinder client, boolean completedAndDrained);
++    int recoveryStatus(String appJournalHash);
 +}
 diff --git a/proguard.flags b/proguard.flags
-index 3955b13..abedc4c 100644
+index 3955b134ae3229dfea48dcdf22d34c4b86d78dd2..abedc4c6e4f6cc4bdcc39e1ae7014ddf2c3d23b9 100644
 --- a/proguard.flags
 +++ b/proguard.flags
 @@ -18,4 +18,8 @@
@@ -852,7 +865,7 @@ index 3955b13..abedc4c 100644
 +-keep interface com.android.internal.telephony.honor.MtkSimTypeTransport$Listener { *; }
 diff --git a/src/com/android/internal/telephony/honor/AckTracker.java b/src/com/android/internal/telephony/honor/AckTracker.java
 new file mode 100644
-index 0000000..85b716f
+index 0000000000000000000000000000000000000000..85b716f4219106088bf8abe9b5eddbe3cf633a10
 --- /dev/null
 +++ b/src/com/android/internal/telephony/honor/AckTracker.java
 @@ -0,0 +1,17 @@
@@ -875,10 +888,10 @@ index 0000000..85b716f
 +}
 diff --git a/src/com/android/internal/telephony/honor/AtomicSepMuxStore.java b/src/com/android/internal/telephony/honor/AtomicSepMuxStore.java
 new file mode 100644
-index 0000000..6edbe17
+index 0000000000000000000000000000000000000000..11876209402f1378948e2ae38572fe238a351361
 --- /dev/null
 +++ b/src/com/android/internal/telephony/honor/AtomicSepMuxStore.java
-@@ -0,0 +1,92 @@
+@@ -0,0 +1,97 @@
 +/* Copyright (C) 2026 The LineageOS Project
 + * SPDX-License-Identifier: Apache-2.0 */
 +package com.android.internal.telephony.honor;
@@ -900,6 +913,7 @@ index 0000000..6edbe17
 +final class AtomicSepMuxStore implements SepMuxJournal.Store {
 +    private final File directory,base;
 +    private final AtomicFile file;
++    private int limit=128;
 +    AtomicSepMuxStore(Context context) throws IOException {
 +        this(context,"ldy-an00-sep-epoch");
 +    }
@@ -908,6 +922,10 @@ index 0000000..6edbe17
 +    }
 +    static AtomicSepMuxStore forLpaLease(Context context) throws IOException {
 +        return new AtomicSepMuxStore(context,"ldy-an00-lpa-operation");
++    }
++    static AtomicSepMuxStore forLpaRecovery(Context context) throws IOException {
++        AtomicSepMuxStore result=new AtomicSepMuxStore(context,"ldy-an00-lpa-recovery");
++        result.limit=256;return result;
 +    }
 +    private AtomicSepMuxStore(Context context,String name) throws IOException {
 +        Context de=context.createDeviceProtectedStorageContext();
@@ -936,8 +954,8 @@ index 0000000..6edbe17
 +            }
 +        }
 +        byte[] value;
-+        try(FileInputStream in=file.openRead()) {value=in.readNBytes(129);}
-+        if(value.length>128)throw new IOException("Oversize SEP journal");
++        try(FileInputStream in=file.openRead()) {value=in.readNBytes(limit+1);}
++        if(value.length>limit)throw new IOException("Oversize SEP journal");
 +        String text=new String(value,StandardCharsets.US_ASCII);
 +        if(!Arrays.equals(value,text.getBytes(StandardCharsets.US_ASCII)))
 +            throw new IOException("Non-ASCII SEP journal");
@@ -973,7 +991,7 @@ index 0000000..6edbe17
 +}
 diff --git a/src/com/android/internal/telephony/honor/EndpointPublication.java b/src/com/android/internal/telephony/honor/EndpointPublication.java
 new file mode 100644
-index 0000000..0cfe6c0
+index 0000000000000000000000000000000000000000..0cfe6c020db9a305dfd183e40f50d0a7166dfb71
 --- /dev/null
 +++ b/src/com/android/internal/telephony/honor/EndpointPublication.java
 @@ -0,0 +1,85 @@
@@ -1064,7 +1082,7 @@ index 0000000..0cfe6c0
 +}
 diff --git a/src/com/android/internal/telephony/honor/EuiccReadiness.java b/src/com/android/internal/telephony/honor/EuiccReadiness.java
 new file mode 100644
-index 0000000..e8f78af
+index 0000000000000000000000000000000000000000..e8f78afabb20fd813c3367c0bee5aa27777eded3
 --- /dev/null
 +++ b/src/com/android/internal/telephony/honor/EuiccReadiness.java
 @@ -0,0 +1,103 @@
@@ -1173,7 +1191,7 @@ index 0000000..e8f78af
 +}
 diff --git a/src/com/android/internal/telephony/honor/HonorEuiccReadinessObserver.java b/src/com/android/internal/telephony/honor/HonorEuiccReadinessObserver.java
 new file mode 100644
-index 0000000..3769bc7
+index 0000000000000000000000000000000000000000..3769bc78d0840ff3b9a2ec1c435c3bdc45b8a4d9
 --- /dev/null
 +++ b/src/com/android/internal/telephony/honor/HonorEuiccReadinessObserver.java
 @@ -0,0 +1,154 @@
@@ -1333,10 +1351,10 @@ index 0000000..3769bc7
 +}
 diff --git a/src/com/android/internal/telephony/honor/HonorLpaLeaseService.java b/src/com/android/internal/telephony/honor/HonorLpaLeaseService.java
 new file mode 100644
-index 0000000..7d7e61d
+index 0000000000000000000000000000000000000000..70413aa19a7dd84c8206cc1a01ea1ff7ca264a3e
 --- /dev/null
 +++ b/src/com/android/internal/telephony/honor/HonorLpaLeaseService.java
-@@ -0,0 +1,578 @@
+@@ -0,0 +1,742 @@
 +/* Copyright (C) 2026 The LineageOS Project. SPDX-License-Identifier: Apache-2.0 */
 +package com.android.internal.telephony.honor;
 +
@@ -1364,16 +1382,18 @@ index 0000000..7d7e61d
 +import java.util.concurrent.TimeUnit;
 +import java.util.concurrent.atomic.AtomicBoolean;
 +
-+/** Explicit bound service. No selector, profile operation, global Binder service or policy change. */
++/** Authenticated operation leases and explicit nondestructive recovery; no profile-operation replay. */
 +public final class HonorLpaLeaseService extends Service {
 +    private static final String PERMISSION="com.android.phone.permission.HONOR_LDY_AN00_LPA_LEASE";
 +    // Image-bound controlled trial only; hardware behavior remains unproven.
 +    private static final boolean LEASE_RUNTIME_QUALIFIED=true;
 +    private static final long LIFETIME_MS=10*60*1000;
 +    private static LpaOperationLease coordinator;
++    private static LpaRecoveryFence recoveryFence;
 +    private static final class Channel {
 +        final long id;
 +        HonorScopedApduChannel scoped;
++        int logical=-1;
 +        boolean closed;
 +        int closedCode;
 +        Channel(long id) {this.id=id;}
@@ -1393,6 +1413,7 @@ index 0000000..7d7e61d
 +        HonorScopedApduChannel.ReclamationRequest reclamationRequest;
 +        boolean lastProfileBefore,lastNativePositive;
 +        long nextChannel=1;
++        LpaRecoveryRead recoveryRead;
 +        final java.util.Map<Long,Channel> channels=new java.util.HashMap<>();
 +        boolean channelsClosed() {for(Channel c:channels.values()) if(!c.closed)return false;return true;}
 +        boolean channelActionAllowed(Channel channel,boolean close) {
@@ -1415,8 +1436,15 @@ index 0000000..7d7e61d
 +    }
 +    private Binding binding; // Controller thread only; a restart never reconstructs a live binding.
 +    private final LpaLeaseServiceLifetime lifetime=new LpaLeaseServiceLifetime();
++    static synchronized LpaRecoveryFence recoveryFence(Context context) throws IOException {
++        if(recoveryFence==null) recoveryFence=new LpaRecoveryFence(AtomicSepMuxStore.forLpaRecovery(context));
++        return recoveryFence;
++    }
 +    static synchronized LpaOperationLease leases(Context context) throws IOException {
-+        if (coordinator==null) coordinator=new LpaOperationLease(AtomicSepMuxStore.forLpaLease(context));
++        if (coordinator==null) {
++            coordinator=new LpaOperationLease(AtomicSepMuxStore.forLpaLease(context));
++            coordinator.blockForRecovery(recoveryFence(context));
++        }
 +        return coordinator;
 +    }
 +    private int caller() {
@@ -1452,6 +1480,12 @@ index 0000000..7d7e61d
 +        result.port=scope.port; result.cardId=scope.card; result.generation=scope.generation;
 +        result.routeSerial=scope.serial;result.observationSerial=scope.observationSerial; return result;
 +    }
++    private String recoveryJournals() throws IOException {
++        String lpa=AtomicSepMuxStore.forLpaLease(this).read();
++        String sep=new AtomicSepMuxStore(this).read();
++        if(!LpaOperationLease.validRecoveryHistory(lpa)) throw new IOException("Invalid operation history");
++        return (lpa==null ? "<ABSENT LPA>" : lpa)+"\0"+(sep==null ? "<ABSENT SEP>" : sep);
++    }
 +    private static EuiccReadiness.Epoch endpoint(int slot,int port,int card) {
 +        HonorSepTrialOwner owner=HonorSepTrialOwner.existingPreparedOwner();
 +        return owner==null ? null : owner.leaseEndpoint(slot,port,card);
@@ -1475,7 +1509,133 @@ index 0000000..7d7e61d
 +        }
 +    }
 +    private final IHonorLpaLease.Stub api=new IHonorLpaLease.Stub() {
-+        @Override public int protocolVersion() {caller();return 4;}
++        @Override public int recoveryStatus(String appHash) {
++            int uid=caller();AtomicBoolean cancelled=new AtomicBoolean();
++            return onController(()->{
++                var state=leases(HonorLpaLeaseService.this);
++                synchronized(state) {
++                    var fence=recoveryFence(HonorLpaLeaseService.this);
++                    String lpa=AtomicSepMuxStore.forLpaLease(HonorLpaLeaseService.this).read();
++                    if(!LpaOperationLease.validRecoveryHistory(lpa)) return RECOVERY_REFUSED;
++                    String sepState=SepMuxJournal.recoveryState(new AtomicSepMuxStore(HonorLpaLeaseService.this));
++                    boolean unresolvedSep=sepState.equals("PENDING") || sepState.equals("UNKNOWN");
++                    boolean scopeIdle=!cancelled.get() && binding==null && state.recoveryIdle();
++                    boolean idle=scopeIdle && HonorSepTrialOwner.recoveryAcknowledgementIdle();
++                    boolean clean=idle && !unresolvedSep && state.state()==LpaOperationLease.State.CLEAN
++                            && "L1 C\n".equals(lpa);
++                    int status=fence.status(LpaRecoveryFence.bootId(),appHash,uid,clean);
++                    if(status==RECOVERY_DONE) {
++                        fence.requireNormal();state.requireCycleQuiescent();return status;
++                    }
++                    // A prior attempt can be re-armed only after another verified kernel boot.
++                    // This permits a NEW read/restart attempt, never a CLEAN-outcome inference.
++                    if(status==RECOVERY_REQUIRED) return idle ? status : RECOVERY_REFUSED;
++                    if(status==RECOVERY_REFUSED && !fence.blocksNormal()) {
++                        if(sepState.equals("PENDING") && !HonorSepTrialOwner.recoveryAcknowledgementIdle())
++                            return RECOVERY_IN_PROGRESS;
++                        // UNKNOWN permits only restart INTENT, even if its old route admission remains pending.
++                        if(state.requiresPersistedRecovery() || unresolvedSep && idle
++                                || sepState.equals("UNKNOWN") && scopeIdle) return RECOVERY_REQUIRED;
++                        if(sepState.equals("PENDING") && !idle) return RECOVERY_IN_PROGRESS;
++                    }
++                    return status;
++                }
++            },cancelled,()->{},uid);
++        }
++        @Override public int armRecovery(String appHash,IBinder client) {
++            int uid=caller();AtomicBoolean cancelled=new AtomicBoolean();
++            return onController(()->{
++                LpaOperationLease state=leases(HonorLpaLeaseService.this);
++                synchronized(state) {
++                    if(cancelled.get() || client==null || !client.isBinderAlive()
++                            || state.state()==LpaOperationLease.State.ACTIVE) return RECOVERY_REFUSED;
++                    var fence=recoveryFence(HonorLpaLeaseService.this);
++                    String sepState=SepMuxJournal.recoveryState(new AtomicSepMuxStore(HonorLpaLeaseService.this));
++                    boolean unresolvedSep=sepState.equals("PENDING") || sepState.equals("UNKNOWN");
++                    boolean scopeIdle=binding==null && state.recoveryIdle();
++                    boolean idle=scopeIdle && HonorSepTrialOwner.recoveryAcknowledgementIdle();
++                    if(sepState.equals("PENDING") && !HonorSepTrialOwner.recoveryAcknowledgementIdle())
++                        return RECOVERY_REFUSED;
++                    if(!state.requiresPersistedRecovery() && !(idle && (unresolvedSep || fence.blocksNormal()))
++                            && !(scopeIdle && sepState.equals("UNKNOWN"))) return RECOVERY_REFUSED;
++                    // Arming is durable intent only. Existing unknown work is NOT declared drained.
++                    fence.arm(LpaRecoveryFence.bootId(),appHash,uid,recoveryJournals());
++                    state.blockForRecovery(fence);
++                    return RECOVERY_NEED_RESTART;
++                }
++            },cancelled,()->{},uid);
++        }
++        @Override public HonorLpaLeaseGrant acquireRecovery(String appHash,IBinder client) {
++            int uid=caller();AtomicBoolean cancelled=new AtomicBoolean();
++            LpaRecoveryFence ticket;
++            try {ticket=recoveryFence(HonorLpaLeaseService.this);}
++            catch(IOException failure) {return grant(3,null);}
++            boolean begun=onController(()->{
++                LpaOperationLease state=leases(HonorLpaLeaseService.this);
++                synchronized(state) {
++                    if(cancelled.get() || client==null || !client.isBinderAlive()
++                            || binding!=null || !state.recoveryQuiescent()) return false;
++                    SepMuxJournal.unresolvedHistory(new AtomicSepMuxStore(HonorLpaLeaseService.this));
++                    HonorSimRouteCallGuard.requireIdle();
++                    ticket.begin(LpaRecoveryFence.bootId(),appHash,uid,recoveryJournals());
++                    return true;
++                }
++            },cancelled,()->{},uid);
++            if(!begun) return grant(3,null);
++            EuiccReadiness.Snapshot observed;
++            try {observed=HonorSepTrialOwner.recover(ticket).get(35,TimeUnit.SECONDS);}
++            catch(Exception unknown) {
++                if(unknown instanceof InterruptedException) Thread.currentThread().interrupt();
++                return grant(3,null); // RUNNING remains durable; no second dispatch.
++            }
++            if(observed==null) return grant(3,null);
++            AtomicBoolean grantCancelled=new AtomicBoolean();
++            java.util.concurrent.atomic.AtomicReference<LpaOperationLease.Scope> recoveryGranted=new java.util.concurrent.atomic.AtomicReference<>();
++            return onController(()->{
++                LpaOperationLease state=leases(HonorLpaLeaseService.this);
++                synchronized(state) {
++                    ticket.requireRunning();
++                    HonorSepTrialOwner owner=HonorSepTrialOwner.existingPreparedOwner();
++                    if(grantCancelled.get() || !client.isBinderAlive() || owner==null) return grant(3,null);
++                    EuiccReadiness.Epoch current=endpoint(1,0,observed.publicCardId);
++                    var baseline=owner.leaseSnapshot(1,0,observed.publicCardId);
++                    if(current!=observed.epoch || baseline==null || !baseline.same(observed)) return grant(3,null);
++                    byte[] random=new byte[16];new SecureRandom().nextBytes(random);
++                    var scope=new LpaOperationLease.Scope(java.util.HexFormat.of().formatHex(random),uid,0,7,
++                            1,0,observed.publicCardId,current.generation,current.routeSerial,current.observationSerial);
++                    client.linkToDeath(()->abandonExact(scope,client),0);
++                    recoveryGranted.set(scope);
++                    state.acquireRecovery(scope,client,current,SystemClock.elapsedRealtime(),LIFETIME_MS,ticket);
++                    binding=new Binding(scope,client,baseline,current);
++                    binding.recoveryRead=new LpaRecoveryRead(baseline.privateEidForReconciliation());
++                    new Handler(UiccController.getInstance().getLooper()).postDelayed(()->abandonExact(scope,client),LIFETIME_MS);
++                    if(grantCancelled.get() || !client.isBinderAlive()) {state.abandon(scope,client);return grant(3,null);}
++                    return grant(1,parcel(scope));
++                }
++            },grantCancelled,()->{var exact=recoveryGranted.get();if(exact!=null)abandonExact(exact,client);},uid);
++        }
++        @Override public boolean finishRecovery(HonorLpaLease lease,IBinder client,boolean drained) {
++            var requested=scope(lease,caller());AtomicBoolean cancelled=new AtomicBoolean();
++            return onController(()->{
++                var state=leases(HonorLpaLeaseService.this);
++                synchronized(state) {
++                    requireBinding(requested,client);
++                    if(cancelled.get() || requested.operation!=7 || binding.recoveryRead==null
++                            || !binding.recoveryRead.complete() || !binding.channelsClosed()
++                            || binding.channels.size()!=1 || !drained) {state.abandon(requested,client);return false;}
++                    for(Channel channel:binding.channels.values())
++                        if(channel.closedCode!=HonorScopedApduChannel.CLOSED) {state.abandon(requested,client);return false;}
++                    var owner=HonorSepTrialOwner.existingPreparedOwner();
++                    var current=owner==null ? null : owner.leaseSnapshot(requested.slot,requested.port,requested.card);
++                    if(current==null || !current.same(binding.baseline)) {state.abandon(requested,client);return false;}
++                    boolean done=state.finishRecovery(requested,client,endpoint(requested.slot,requested.port,requested.card),
++                            SystemClock.elapsedRealtime(),true);
++                    if(done) {binding=null;owner.recoveryFinished();}
++                    return done;
++                }
++            },cancelled,()->abandonExact(requested,client),requested.uid);
++        }
++        @Override public int protocolVersion() {caller();return 6;}
 +        @Override public int prepareKnownBlankEndpoint(int slot,int port,int expectedCardId,IBinder client) {
 +            int uid=caller();
 +            if(slot!=1 || port!=0 || expectedCardId< -1 || client==null) return PREPARE_REFUSED;
@@ -1600,6 +1760,7 @@ index 0000000..7d7e61d
 +                    requireBinding(requested,client);
 +                    if(cancelled.get() || !state.check(requested,client,endpoint(requested.slot,requested.port,requested.card),SystemClock.elapsedRealtime()))
 +                        throw new IllegalStateException("No ready channel endpoint");
++                    if(requested.operation==7 && !binding.channels.isEmpty()) throw new IllegalStateException("One recovery channel only");
 +                    if(binding.nextChannel==Long.MAX_VALUE) throw new IllegalStateException("Channel identity exhausted");
 +                    Channel channel=new Channel(binding.nextChannel++);binding.channels.put(channel.id,channel);captured.set(channel);
 +                    java.util.concurrent.CompletableFuture<HonorLpaChannelResult> result=new java.util.concurrent.CompletableFuture<>();
@@ -1639,7 +1800,7 @@ index 0000000..7d7e61d
 +                    boolean canReset=kind<=4 || kind==8;
 +                    if(lastProfileBefore && kind!=3 && kind!=4) throw new IllegalArgumentException("Invalid last-profile proof kind");
 +                    boolean accepted=state.beginNative(requested,client,endpoint(requested.slot,requested.port,requested.card),
-+                            SystemClock.elapsedRealtime(),canReset);
++                            SystemClock.elapsedRealtime(),kind,canReset);
 +                    if(accepted) {
 +                        binding.lastNativeKind=kind;binding.lastProfileBefore=lastProfileBefore;
 +                        binding.lastNativePositive=false;
@@ -1662,6 +1823,20 @@ index 0000000..7d7e61d
 +                    boolean accepted=state.nativeReturned(requested,client,endpoint(requested.slot,requested.port,requested.card),
 +                            SystemClock.elapsedRealtime(),positive);
 +                    binding.lastNativePositive=accepted && positive;return accepted;
++                }
++            },cancelled,()->abandonExact(requested,client),requested.uid);
++        }
++        @Override public boolean nativeRejected(HonorLpaLease lease,IBinder client,int kind,int code) {
++            LpaOperationLease.Scope requested=scope(lease,caller());AtomicBoolean cancelled=new AtomicBoolean();
++            return onController(()->{
++                LpaOperationLease state=leases(HonorLpaLeaseService.this);
++                synchronized(state) {
++                    requireBinding(requested,client);
++                    if(cancelled.get()) { state.abandonIfOwned(requested,client);return false; }
++                    binding.lastNativePositive=false;
++                    if(binding.nativeStepLive!=null) binding.nativeStepLive.set(false);
++                    return state.nativeRejected(requested,client,endpoint(requested.slot,requested.port,requested.card),
++                            SystemClock.elapsedRealtime(),kind,code);
 +                }
 +            },cancelled,()->abandonExact(requested,client),requested.uid);
 +        }
@@ -1823,8 +1998,10 @@ index 0000000..7d7e61d
 +                synchronized(state) {
 +                    if(cancelled.get()) { state.abandon(requested,client);return false; }
 +                    requireBinding(requested,client);
-+                    return state.complete(requested,client,endpoint(requested.slot,requested.port,requested.card),
++                    boolean done=state.complete(requested,client,endpoint(requested.slot,requested.port,requested.card),
 +                            SystemClock.elapsedRealtime(),completedAndDrained && binding.channelsClosed());
++                    if(done) binding=null;
++                    return done;
 +                }
 +            },cancelled,()->abandonExact(requested,client),requested.uid);
 +        }
@@ -1854,6 +2031,10 @@ index 0000000..7d7e61d
 +                                || !state.channelAccess(scope,client,SystemClock.elapsedRealtime()))
 +                            throw new IllegalStateException("Unknown channel completion");
 +                        reply.code=outcome.code;reply.channel=outcome.channel;reply.data=outcome.data;
++                        if(scope.operation==7) {
++                            if(reply.code==HonorScopedApduChannel.OPENED) channel.logical=reply.channel;
++                            else if(reply.code==HonorScopedApduChannel.RESPONSE) binding.recoveryRead.response(reply.data);
++                        }
 +                        if(reply.code==HonorScopedApduChannel.RETIRED && !state.resetReturned(scope,client,SystemClock.elapsedRealtime()))
 +                            reply.code=HonorScopedApduChannel.UNKNOWN;
 +                        if(reply.code==HonorScopedApduChannel.CLOSED || reply.code==HonorScopedApduChannel.RETIRED) {
@@ -1883,6 +2064,7 @@ index 0000000..7d7e61d
 +                    HonorLpaChannelResult reply=new HonorLpaChannelResult();reply.handle=id;reply.code=channel.closedCode;result.complete(reply);return result;
 +                }
 +                android.os.Message callback=channelCallback(scope,client,channel,result);
++                if(scope.operation==7 && !close) binding.recoveryRead.request(command,channel.logical);
 +                if(close) channel.scoped.close(callback);else channel.scoped.transmit(command,callback);
 +                if(cancelled.get()) {channel.scoped.unknown();state.abandonIfOwned(scope,client);}
 +                return result;
@@ -1917,7 +2099,7 @@ index 0000000..7d7e61d
 +}
 diff --git a/src/com/android/internal/telephony/honor/HonorMtkSimTypeProbeOwner.java b/src/com/android/internal/telephony/honor/HonorMtkSimTypeProbeOwner.java
 new file mode 100644
-index 0000000..f5d365c
+index 0000000000000000000000000000000000000000..f5d365c0dcbc58fc95f93ba854969a1ad6742433
 --- /dev/null
 +++ b/src/com/android/internal/telephony/honor/HonorMtkSimTypeProbeOwner.java
 @@ -0,0 +1,237 @@
@@ -2160,10 +2342,10 @@ index 0000000..f5d365c
 +}
 diff --git a/src/com/android/internal/telephony/honor/HonorSepTrialAdapter.java b/src/com/android/internal/telephony/honor/HonorSepTrialAdapter.java
 new file mode 100644
-index 0000000..9490d5b
+index 0000000000000000000000000000000000000000..cdb3a8e9d7bdda0358026a82980a8275edffc24a
 --- /dev/null
 +++ b/src/com/android/internal/telephony/honor/HonorSepTrialAdapter.java
-@@ -0,0 +1,320 @@
+@@ -0,0 +1,332 @@
 +/* Copyright (C) 2026 The LineageOS Project. SPDX-License-Identifier: Apache-2.0 */
 +package com.android.internal.telephony.honor;
 +
@@ -2281,8 +2463,19 @@ index 0000000..9490d5b
 +        used=true;completionDurable=true; // Completed qualified readback phase, never a new modem transaction.
 +    }
 +    /** Both directions require explicit owner calls; no automatic reversal or retry. */
++    void requestRecovery(LpaRecoveryFence fence) throws RemoteException,java.io.IOException {
++        requireThread();fence.requireRunning();
++        HonorSimRouteCallGuard.requireIdle();
++        if(used || physicalUsed || stopped) throw new IllegalStateException("Recovery already dispatched");
++        used=true;target=SepMuxTrial.Selector.EUICC;generation=owner.generation();
++        admission=new TrialDispatchGate();admission.start(now());
++        commandSerial=owner.allocateSerial();
++        SepMuxTrial.Command command=model.beginRecovery(qualify(),commandSerial,generation,now());
++        dispatch(command);
++    }
 +    public void requestOneVisibilityTrial(SepMuxTrial.Selector next) throws RemoteException {
 +        requireThread();
++        HonorSimRouteCallGuard.requireIdle();
 +        if(next==null || (next==SepMuxTrial.Selector.EUICC && used)
 +                || (next==SepMuxTrial.Selector.PHYSICAL && (!canRequestPhysicalReturn() || physicalUsed)))
 +            throw new IllegalStateException("No repeated/unqualified trial");
@@ -2340,6 +2533,7 @@ index 0000000..9490d5b
 +            throw new IllegalStateException("Completion watchdog unavailable");
 +        owner.assertQualifiedExclusiveOwner();
 +        if(owner.generation()!=generation) throw new IllegalStateException("Owner changed");
++        HonorSimRouteCallGuard.requireIdle();
 +        commandSent=true;
 +        owner.radio().sendCommRequest(commandSerial,1005,payload);
 +    }
@@ -2486,10 +2680,10 @@ index 0000000..9490d5b
 +}
 diff --git a/src/com/android/internal/telephony/honor/HonorSepTrialOwner.java b/src/com/android/internal/telephony/honor/HonorSepTrialOwner.java
 new file mode 100644
-index 0000000..bfb1c65
+index 0000000000000000000000000000000000000000..ebe148169232e7e8b37e02cfc9cf8cb46157d112
 --- /dev/null
 +++ b/src/com/android/internal/telephony/honor/HonorSepTrialOwner.java
-@@ -0,0 +1,1110 @@
+@@ -0,0 +1,1200 @@
 +/*
 + * Copyright (C) 2026 The LineageOS Project
 + * SPDX-License-Identifier: Apache-2.0
@@ -2708,6 +2902,7 @@ index 0000000..bfb1c65
 +        }
 +    }
 +    private boolean euiccTrialUsed, physicalTrialUsed, uiRequestFailed;
++    private LpaRecoveryFence recoveryTicket;
 +    private final java.util.ArrayList<String> events=new java.util.ArrayList<>();
 +    private long generation=1;
 +    private volatile boolean alive=true, registered, preparationPending=true;
@@ -2754,6 +2949,10 @@ index 0000000..bfb1c65
 +            throw new IllegalStateException("External callback owner/clean completion epoch unqualified");
 +    }
 +    private static HonorSepTrialOwner prepareOnWorker(Looper looper,SepMuxAdmission environment) throws Exception {
++        return prepareOnWorker(looper,environment,null);
++    }
++    private static HonorSepTrialOwner prepareOnWorker(Looper looper,SepMuxAdmission environment,
++            LpaRecoveryFence recovery) throws Exception {
 +        requireCompletionOwnerQualification(); // STOP before metadata or callback registration.
 +        requirePhoneProcess(environment);
 +        IBinder b=ServiceManager.checkService("vendor.honor.hardware.hnradio.IRadio/slot2");
@@ -2761,10 +2960,15 @@ index 0000000..bfb1c65
 +        IRadio r=IRadio.Stub.asInterface(b);
 +        if(r.getInterfaceVersion()!=6 || !SepMuxTrial.VENDOR_HASH.equals(r.getInterfaceHash()))
 +            throw new IllegalStateException("Honor remote V6/hash mismatch");
-+        SepMuxJournal journal=new SepMuxJournal(new AtomicSepMuxStore(
-+                com.android.phone.PhoneGlobals.getInstance()));
-+        journal.requireClean(); // Unresolved/corrupt/unreadable storage refuses registration.
-+        HonorLpaLeaseService.leases(com.android.phone.PhoneGlobals.getInstance()).requireRouteAllowed();
++        AtomicSepMuxStore routeStore=new AtomicSepMuxStore(com.android.phone.PhoneGlobals.getInstance());
++        SepMuxJournal journal=recovery==null ? new SepMuxJournal(routeStore)
++                : SepMuxJournal.forRecovery(routeStore,recovery);
++        if(recovery==null) journal.requireClean();
++        else journal.requireRecoveryStart(recovery);
++        if(recovery==null) {
++            HonorLpaLeaseService.recoveryFence(com.android.phone.PhoneGlobals.getInstance()).requireNormal();
++            HonorLpaLeaseService.leases(com.android.phone.PhoneGlobals.getInstance()).requireRouteAllowed();
++        } else recovery.requireRunning();
 +        // An ACTIVE/UNKNOWN/restored-blank operation history also refuses callback registration.
 +        IBinder routeBinder=ServiceManager.checkService(MtkSimTypeTransport.DESCRIPTOR+"/slot2");
 +        if(routeBinder==null) throw new IllegalStateException("MTK route service unavailable");
@@ -2784,10 +2988,70 @@ index 0000000..bfb1c65
 +        instance.installConnectorPreparationHook();
 +        PhoneFactory.getPhone(1).mCi.registerForNotAvailable(instance,UNAVAILABLE,null);
 +        UiccController.getInstance().registerForIccChanged(instance,ICC,null);
-+        instance.startCleanRouteAdoption();
++        if(recovery==null) instance.startCleanRouteAdoption();
 +        if(instance.adoption!=null) preparationStatus="preparing CLEAN route readback";
 +        instance.record(SepMuxTrial.State.NEW,"Owner prepared; no mux command sent");
 +        return instance;
++    }
++    static java.util.concurrent.CompletableFuture<EuiccReadiness.Snapshot> recover(
++            LpaRecoveryFence fence) {
++        java.util.concurrent.CompletableFuture<EuiccReadiness.Snapshot> result=new java.util.concurrent.CompletableFuture<>();
++        HandlerThread thread=new HandlerThread("LdyAn00Recovery");thread.start();
++        new Handler(thread.getLooper()).post(()->{
++            try {
++                fence.requireRunning();
++                HonorSepTrialOwner owner=instance;
++                if(owner==null) {
++                    SepMuxAdmission environment=SepMuxAdmission.afterConsent(Build.TYPE,Build.IS_DEBUGGABLE,
++                            isTrustedDebugTestImage(),true,SELinux.isSELinuxEnforced());
++                    owner=prepareOnWorker(thread.getLooper(),environment,fence);
++                }
++                HonorSepTrialOwner exact=owner;
++                if(!exact.post(()->{
++                    try {
++                        exact.assertQualifiedExclusiveOwner();fence.requireRunning();
++                        exact.journal.requireRecoveryStart(fence);
++                        if(exact.endpoints.hasPendingAdmission() || !exact.leaseReads.isEmpty()
++                                || !exact.blankReads.isEmpty() || exact.blankRestorationRead!=null
++                                || exact.adoption!=null && exact.preparationPending)
++                            throw new IllegalStateException("Owner work outstanding");
++                        HonorSimRouteCallGuard.requireIdle();
++                        exact.recoveryTicket=fence;
++                        exact.closeReadiness(exact.endpoints.retireUi());
++                        exact.adapter=new HonorSepTrialAdapter(exact.getLooper(),PhoneFactory.getPhone(1),exact,exact);
++                        exact.admission=exact.endpoints.admit();
++                        exact.preparationPending=false;
++                        exact.adapter.requestRecovery(fence);
++                        exact.euiccTrialUsed=true;exact.physicalTrialUsed=false;
++                        exact.observedEuiccProof=null;exact.initialPhysicalObservation=null;
++                        exact.awaitRecoveryCard(fence,result,SystemClock.elapsedRealtime()+30_000);
++                    } catch(Exception refused) {result.complete(null);}
++                })) result.complete(null);
++            } catch(Exception refused) {result.complete(null);}
++            finally {if(instance==null || instance.getLooper()!=thread.getLooper()) thread.quitSafely();}
++        });
++        return result;
++    }
++    private void awaitRecoveryCard(LpaRecoveryFence fence,
++            java.util.concurrent.CompletableFuture<EuiccReadiness.Snapshot> result,long deadline) {
++        if(result.isDone()) return;
++        try {
++            fence.requireRunning();assertQualifiedExclusiveOwner();
++            if(SystemClock.elapsedRealtime()>=deadline
++                    || adapter.uiRouteState()==SharedSlotRouteTrial.State.UNKNOWN)
++                throw new IllegalStateException("Recovery completion unknown");
++            UiccController controller=UiccController.getInstance();
++            if(!controller.post(()->{
++                try {
++                    EuiccReadiness.Epoch epoch=endpoints.fence.get();
++                    var first=epoch==null ? null : HonorEuiccReadinessObserver.readCurrent(controller,epoch,0);
++                    var second=epoch==null ? null : HonorEuiccReadinessObserver.readCurrent(controller,epoch,0);
++                    if(first!=null && second!=null && first.valid(epoch) && first.same(second)
++                            && leaseEndpoint(1,0,first.publicCardId)==epoch) {result.complete(first);return;}
++                    postDelayed(()->awaitRecoveryCard(fence,result,deadline),100);
++                } catch(Exception refused) {result.complete(null);}
++            })) result.complete(null);
++        } catch(Exception refused) {result.complete(null);}
 +    }
 +    /** Same Phone process only; preserve the framework command's real card ID before slot lookup. */
 +    private void installConnectorPreparationHook() {
@@ -2996,7 +3260,10 @@ index 0000000..bfb1c65
 +            throws java.io.IOException {
 +        assertQualifiedExclusiveOwner();
 +        if(epoch!=generation)throw new java.io.IOException("Owner generation changed");
-+        operationLeases.requireRouteAllowed();
++        if(recoveryTicket==null) {
++            HonorLpaLeaseService.recoveryFence(com.android.phone.PhoneGlobals.getInstance()).requireNormal();
++            operationLeases.requireRouteAllowed();
++        } else recoveryTicket.requireRunning();
 +        journal.pending(epoch,serial,target);
 +    }
 +    @Override public void persistCompleted(long epoch,int serial,SharedSlotRouteTrial outcome)
@@ -3043,9 +3310,10 @@ index 0000000..bfb1c65
 +                    UiccController.getInstance().post(()->finishBlankRestoration(restore,false));return;
 +                }
 +                restore.token.query.onResponse(generation,serial,type,error,support,mode,reserved,SystemClock.elapsedRealtime());
-+                if(restore.token.query.state()==MtkSimTypeQuery.State.EUICC)
++                if(restore.token.query.state()==MtkSimTypeQuery.State.EUICC) {
++                    UiccController.getInstance().requestIccCardStatusRefresh(1);
 +                    post(()->dispatchBlankCardRead(restore));
-+                else UiccController.getInstance().post(()->finishBlankRestoration(restore,false));
++                } else UiccController.getInstance().post(()->finishBlankRestoration(restore,false));
 +            }
 +            return;
 +        }
@@ -3084,18 +3352,29 @@ index 0000000..bfb1c65
 +    }
 +    @Override public void unavailable() {observedLoss();}
 +    public void requestEuiccVisibilityOnce(int expectedPhaseSerial) {
-+        requestRoute(false,expectedPhaseSerial);
++        requestEuiccVisibilityOnce(expectedPhaseSerial,()->{});
++    }
++    public void requestEuiccVisibilityOnce(int expectedPhaseSerial,Runnable callBusyBeforeAdmission) {
++        requestRoute(false,expectedPhaseSerial,callBusyBeforeAdmission);
 +    }
 +    public void requestPhysicalSim2Once(int expectedPhaseSerial) {
-+        requestRoute(true,expectedPhaseSerial);
++        requestPhysicalSim2Once(expectedPhaseSerial,()->{});
 +    }
-+    private void requestRoute(boolean physical,int expectedPhaseSerial) {
++    public void requestPhysicalSim2Once(int expectedPhaseSerial,Runnable callBusyBeforeAdmission) {
++        requestRoute(true,expectedPhaseSerial,callBusyBeforeAdmission);
++    }
++    private void requestRoute(boolean physical,int expectedPhaseSerial,Runnable callBusyBeforeAdmission) {
 +        post(()->{
 +            // Consent names the snapshot shown by that dialog, not a later eligible cycle.
 +            if(expectedPhaseSerial<0 || expectedPhaseSerial!=serial-1
 +                    || preparationPending || endpoints.hasPendingAdmission()) return;
 +            try {
 +                assertQualifiedExclusiveOwner();
++                try {HonorSimRouteCallGuard.requireIdle();}
++                catch(HonorSimRouteCallGuard.CallBusy busy) {
++                    record(SepMuxTrial.State.NEW,"Active call; route request refused before admission");
++                    EndpointPublication.notifyKnown(callBusyBeforeAdmission);return;
++                }
 +                synchronized(operationLeases) {
 +                    operationLeases.requireRouteAllowed();
 +                    if(!leaseReads.isEmpty() || !blankReads.isEmpty())
@@ -3135,6 +3414,11 @@ index 0000000..bfb1c65
 +            }
 +        });
 +    }
++    static boolean recoveryAcknowledgementIdle() {
++        HonorSepTrialOwner current=instance;
++        return current==null || !(current.preparationPending || current.endpoints.hasPendingAdmission());
++    }
++    void recoveryFinished() {recoveryTicket=null;}
 +    private void loseOperationLease() {
 +        try { operationLeases.ownerLost(); } catch(java.io.IOException e) { /* UNKNOWN retained. */ }
 +    }
@@ -3600,9 +3884,47 @@ index 0000000..bfb1c65
 +        @Override public String getInterfaceHash(){return IRadioIndication.HASH;}
 +    };
 +}
+diff --git a/src/com/android/internal/telephony/honor/HonorSimRouteCallGuard.java b/src/com/android/internal/telephony/honor/HonorSimRouteCallGuard.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..60a450eae15480c2c4e1c208e32065db32f35f6f
+--- /dev/null
++++ b/src/com/android/internal/telephony/honor/HonorSimRouteCallGuard.java
+@@ -0,0 +1,32 @@
++/* Copyright (C) 2026 The LineageOS Project. SPDX-License-Identifier: Apache-2.0 */
++package com.android.internal.telephony.honor;
++
++import com.android.internal.telephony.Phone;
++import com.android.internal.telephony.PhoneConstants;
++import com.android.internal.telephony.PhoneFactory;
++
++/** Last-moment cached call-state admission for shared SIM power/route changes. */
++public final class HonorSimRouteCallGuard {
++    private HonorSimRouteCallGuard() {}
++    public static final class CallBusy extends IllegalStateException {
++        private CallBusy() {super("SIM route change blocked by call or emergency state");}
++    }
++    public static void requireIdle() {
++        Phone[] phones=PhoneFactory.getPhones();
++        if(phones==null || phones.length<2)
++            throw new IllegalStateException("SIM route call state unavailable");
++        for(Phone phone:phones) {
++            requireIdle(phone);
++            // Base getState includes IMS calls, but legacy emergency/ECM fields can differ.
++            Phone ims=phone.getImsPhone();
++            if(ims!=null) requireIdle(ims);
++        }
++    }
++    private static void requireIdle(Phone phone) {
++        if(phone==null) throw new IllegalStateException("SIM route call state unavailable");
++        PhoneConstants.State state=phone.getState();
++        if(state==null) throw new IllegalStateException("SIM route call state unavailable");
++        if(state!=PhoneConstants.State.IDLE || phone.isInEmergencyCall()
++                || phone.isInEcm() || phone.isInEmergencySmsMode()) throw new CallBusy();
++    }
++}
 diff --git a/src/com/android/internal/telephony/honor/LpaLeaseServiceLifetime.java b/src/com/android/internal/telephony/honor/LpaLeaseServiceLifetime.java
 new file mode 100644
-index 0000000..2a36dbe
+index 0000000000000000000000000000000000000000..2a36dbe7c8d5941e5f40610dcc804c1cb26cb73c
 --- /dev/null
 +++ b/src/com/android/internal/telephony/honor/LpaLeaseServiceLifetime.java
 @@ -0,0 +1,8 @@
@@ -3616,10 +3938,10 @@ index 0000000..2a36dbe
 +}
 diff --git a/src/com/android/internal/telephony/honor/LpaOperationLease.java b/src/com/android/internal/telephony/honor/LpaOperationLease.java
 new file mode 100644
-index 0000000..c75ec8f
+index 0000000000000000000000000000000000000000..101e5b904d877d555317f1394a4ac89f8dad5e58
 --- /dev/null
 +++ b/src/com/android/internal/telephony/honor/LpaOperationLease.java
-@@ -0,0 +1,277 @@
+@@ -0,0 +1,338 @@
 +/* Copyright (C) 2026 The LineageOS Project. SPDX-License-Identifier: Apache-2.0 */
 +package com.android.internal.telephony.honor;
 +
@@ -3681,11 +4003,13 @@ index 0000000..c75ec8f
 +    }
 +    private final SepMuxJournal.Store store;
 +    private State state;
++    private LpaRecoveryFence recovery,startupFence;
 +    private Scope scope;
 +    private Object client, endpoint;
 +    private long deadline;
 +    private NativePhase phase=NativePhase.IDLE;
 +    private boolean resetExpected,knownBlank;
++    private int lastNativeKind;
 +    // Created only at a successful live reset/drain boundary; never reconstructed from B.
 +    private Scope blankCompletion;
 +    static final class BlankRestoration {
@@ -3784,8 +4108,46 @@ index 0000000..c75ec8f
 +        // A previous process cannot prove its native operation or channels were drained.
 +        state=State.UNKNOWN;
 +        // Protocol4 appends READ provenance. Both schemas remain UNKNOWN after restart.
-+        if (!record.matches("L1 [AUB] [0-9a-f]{32}( [0-9]+){8}( (-1|[1-9][0-9]*))?\n"))
++        if (!unresolvedRecord(record))
 +            throw new IOException("Invalid operation lease journal");
++    }
++    private static boolean unresolvedRecord(String record) {
++        return record!=null && record.matches("L1 [AUB] [0-9a-f]{32}( [0-9]+){8}( (-1|[1-9][0-9]*))?\n");
++    }
++    static boolean validRecoveryHistory(String record) {
++        return record==null || record.equals("L1 C\n") || unresolvedRecord(record);
++    }
++    synchronized boolean recoveryIdle() {
++        return state!=State.ACTIVE && scope==null && client==null && endpoint==null
++                && phase==NativePhase.IDLE && restoration==null;
++    }
++    synchronized boolean requiresPersistedRecovery() throws IOException {
++        return state==State.UNKNOWN && unresolvedRecord(store.read());
++    }
++    synchronized boolean recoveryQuiescent() {
++        return state==State.UNKNOWN && scope==null && client==null && endpoint==null;
++    }
++    synchronized void blockForRecovery(LpaRecoveryFence fence) {
++        startupFence=fence;
++        if(fence.blocksNormal()) {retireFence();state=State.UNKNOWN;}
++    }
++    synchronized void acquireRecovery(Scope request,Object owner,Object currentEndpoint,long now,
++            long duration,LpaRecoveryFence fence) {
++        fence.requireRunning();
++        if(state!=State.UNKNOWN || scope!=null || client!=null || endpoint!=null
++                || request.operation!=7 || owner==null || currentEndpoint==null)
++            throw new IllegalStateException("Recovery is not quiescent");
++        recovery=fence;scope=request;client=owner;endpoint=currentEndpoint;
++        deadline=now+duration;phase=NativePhase.IDLE;state=State.ACTIVE;liveFence=new LiveFence(deadline);
++    }
++    synchronized boolean finishRecovery(Scope request,Object owner,Object currentEndpoint,long now,
++            boolean closed) throws IOException {
++        requireExact(request,owner);
++        if(recovery==null || request.operation!=7 || !closed
++                || !check(request,owner,currentEndpoint,now)) {unknown();return false;}
++        retireFence();state=State.UNKNOWN;
++        recovery.commit(store);state=State.CLEAN;
++        scope=null;client=null;endpoint=null;recovery=null;knownBlank=false;blankCompletion=null;return true;
 +    }
 +    synchronized void requireCycleQuiescent() {
 +        requireRouteAllowed();
@@ -3795,6 +4157,7 @@ index 0000000..c75ec8f
 +    synchronized boolean isKnownBlank() {return state==State.CLEAN && knownBlank;}
 +    synchronized State state() { return state; }
 +    synchronized void requireRouteAllowed() {
++        if(startupFence!=null) startupFence.requireNormal();
 +        if (state!=State.CLEAN || restoration!=null) throw new IllegalStateException("LPA operation active, unknown or restoring");
 +    }
 +    synchronized void acquire(Scope request,Object owner,Object currentEndpoint,long now,long duration)
@@ -3828,7 +4191,26 @@ index 0000000..c75ec8f
 +    synchronized boolean beginNative(Scope request,Object owner,Object currentEndpoint,long now,
 +            boolean expectedCardReset) throws IOException {
 +        if(!check(request,owner,currentEndpoint,now)) return false;
-+        phase=NativePhase.MUTATING;resetExpected=expectedCardReset;return true;
++        phase=NativePhase.MUTATING;resetExpected=expectedCardReset;lastNativeKind=0;return true;
++    }
++    synchronized boolean beginNative(Scope request,Object owner,Object currentEndpoint,long now,
++            int kind,boolean expectedCardReset) throws IOException {
++        if(!request.allowsNativeKind(kind)) throw new IllegalArgumentException("Native kind outside lease scope");
++        if(!beginNative(request,owner,currentEndpoint,now,expectedCardReset)) return false;
++        lastNativeKind=kind;return true;
++    }
++    /** Parsed card rejection proves no reset, not a successful mutation or channel drain. */
++    synchronized boolean nativeRejected(Scope request,Object owner,Object currentEndpoint,long now,
++            int kind,int code) throws IOException {
++        requireExact(request,owner);
++        if(state!=State.ACTIVE || phase!=NativePhase.MUTATING) return false;
++        boolean known=kind==2 && code>=1 && code<=5
++                || (kind==3 || kind==4) && code>=1 && code<=3;
++        if(!known || kind!=lastNativeKind || !request.allowsNativeKind(kind)
++                || now<0 || now>=deadline || endpoint!=currentEndpoint) {
++            unknown();return false;
++        }
++        phase=NativePhase.IDLE;resetExpected=false;lastNativeKind=0;return true;
 +    }
 +    synchronized boolean nativeReturned(Scope request,Object owner,Object currentEndpoint,long now,
 +            boolean positive) throws IOException {
@@ -3858,6 +4240,7 @@ index 0000000..c75ec8f
 +    synchronized boolean complete(Scope request,Object owner,Object currentEndpoint,long now,
 +            boolean nativeCompletedReconciledAndChannelsClosed) throws IOException {
 +        requireExact(request,owner);
++        if(request.operation==7) throw new IllegalStateException("Recovery requires its own completion");
 +        if(state==State.ACTIVE && phase!=NativePhase.IDLE) { unknown();return false; }
 +        if (!check(request,owner,currentEndpoint,now)) return false;
 +        if (!nativeCompletedReconciledAndChannelsClosed) { unknown(); return false; }
@@ -3894,12 +4277,155 @@ index 0000000..c75ec8f
 +    synchronized void ownerLost() throws IOException { if (state==State.ACTIVE || knownBlank) unknown(); }
 +    private void unknown() throws IOException {
 +        retireFence();restoration=null;blankCompletion=null;state=State.UNKNOWN; // Never reopen, including if publication fails.
-+        if (scope!=null) store.writeDurably("L1 U "+scope.fields()+"\n");
++        if (scope!=null && recovery==null) store.writeDurably("L1 U "+scope.fields()+"\n");
 +    }
++}
+diff --git a/src/com/android/internal/telephony/honor/LpaRecoveryFence.java b/src/com/android/internal/telephony/honor/LpaRecoveryFence.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..e5a00d5b5c7b26b6e1aa4a7fc10997fa1ce09091
+--- /dev/null
++++ b/src/com/android/internal/telephony/honor/LpaRecoveryFence.java
+@@ -0,0 +1,78 @@
++/* Copyright (C) 2026 The LineageOS Project. SPDX-License-Identifier: Apache-2.0 */
++package com.android.internal.telephony.honor;
++
++import java.io.IOException;
++import java.nio.charset.StandardCharsets;
++import java.security.MessageDigest;
++
++/** Durable kernel-restart fence; a separate positive CLEAN authority may acknowledge a lost reply. */
++final class LpaRecoveryFence {
++    private final SepMuxJournal.Store store;
++    private String record;
++    private boolean failed;
++    LpaRecoveryFence(SepMuxJournal.Store store) throws IOException {
++        this.store=store;record=store.read();
++        if(record!=null && !record.matches("R1 (ARMED|RUNNING|COMMITTING|DONE) [0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12} [0-9a-f]{64} [0-9a-f]{64} [0-9]+\n"))
++            throw new IOException("Invalid recovery fence");
++    }
++    static String hash(String value) {
++        try {return java.util.HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
++                .digest(value.getBytes(StandardCharsets.US_ASCII)));}
++        catch(java.security.NoSuchAlgorithmException impossible) {throw new AssertionError(impossible);}
++    }
++    static String bootId() throws IOException {
++        try(java.io.InputStream in=new java.io.FileInputStream("/proc/sys/kernel/random/boot_id")) {
++            byte[] bytes=in.readNBytes(38);
++            String id=new String(bytes,StandardCharsets.US_ASCII);
++            if(!id.matches("[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}\n"))
++                throw new IOException("Invalid Linux boot identity");
++            return id.trim();
++        }
++    }
++    synchronized boolean blocksNormal() {return failed || record!=null && !record.startsWith("R1 DONE ");}
++    synchronized void requireNormal() {
++        if(blocksNormal()) throw new IllegalStateException("Recovery is unresolved");
++    }
++    private String[] fields() {return record==null ? null : record.trim().split(" ");}
++    private boolean matches(String app,int uid) {
++        String[] f=fields();return f!=null && f[3].equals(app) && f[5].equals(Integer.toString(uid));
++    }
++    synchronized int status(String boot,String app,int uid,boolean durablyClean) {
++        if(failed) return 0;
++        // Positive Phone CLEAN authority also acknowledges a lost normal-finish reply.
++        if(durablyClean && !blocksNormal() && hash("A\n").equals(app)) return 4;
++        if(!matches(app,uid)) return 0;
++        String[] f=fields();
++        return switch(f[1]) {
++            case "ARMED" -> f[2].equals(boot) ? 1 : 2;
++            case "DONE" -> 0;
++            default -> f[2].equals(boot) ? 3 : 5;
++        };
++    }
++    synchronized void arm(String boot,String app,int uid,String journals) throws IOException {
++        String[] prior=fields();
++        if(failed || prior!=null && (prior[1].equals("RUNNING") || prior[1].equals("COMMITTING"))
++                && prior[2].equals(boot)) throw new IOException("Recovery attempt is unresolved in this boot");
++        if(!app.equals(hash("A\n")) || !boot.matches("[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}") || uid<0)
++            throw new IOException("Invalid recovery identity");
++        write("R1 ARMED "+boot+" "+app+" "+hash(journals)+" "+uid+"\n");
++    }
++    synchronized void begin(String boot,String app,int uid,String journals) throws IOException {
++        if(status(boot,app,uid,false)!=2 || !fields()[4].equals(hash(journals)))
++            throw new IOException("A marked kernel restart and unchanged journals are required");
++        write("R1 RUNNING "+boot+" "+app+" "+fields()[4]+" "+uid+"\n");
++    }
++    synchronized void requireRunning() {
++        if(failed || record==null || !record.startsWith("R1 RUNNING "))
++            throw new IllegalStateException("No recovery ticket");
++    }
++    synchronized void commit(SepMuxJournal.Store operation) throws IOException {
++        requireRunning();write(record.replace("RUNNING","COMMITTING"));
++        operation.writeDurably("L1 C\n");
++        write(record.replace("COMMITTING","DONE"));
++    }
++    private void write(String next) throws IOException {
++        // Poison memory before publication; failed I/O may never restore normal admission.
++        failed=true;record=next;store.writeDurably(next);failed=false;
++    }
++}
+diff --git a/src/com/android/internal/telephony/honor/LpaRecoveryRead.java b/src/com/android/internal/telephony/honor/LpaRecoveryRead.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..20eee9ca95c1a63fd547dff4dffe6d362cef119b
+--- /dev/null
++++ b/src/com/android/internal/telephony/honor/LpaRecoveryRead.java
+@@ -0,0 +1,53 @@
++/* Copyright (C) 2026 The LineageOS Project. SPDX-License-Identifier: Apache-2.0 */
++package com.android.internal.telephony.honor;
++
++/** Two fixed reads on one new channel. GET RESPONSE is authorized only by the preceding SW1=61. */
++final class LpaRecoveryRead {
++    private int stage,more=-1;
++    private boolean pending;
++    private final java.io.ByteArrayOutputStream bytes=new java.io.ByteArrayOutputStream();
++    private final String eid;
++    LpaRecoveryRead(String eid) {this.eid=eid;}
++    void request(byte[] command,int channel) {
++        if(pending || stage>=2 || command==null || channel<=0 || channel>19)
++            throw new IllegalStateException("No recovery read");
++        int cla=0x80|(channel&15);
++        byte[] expected=more>=0 ? new byte[]{(byte)cla,(byte)0xc0,0,0,(byte)more}
++                : stage==0 ? new byte[]{(byte)cla,(byte)0xe2,(byte)0x91,0,6,(byte)0xbf,0x3e,3,0x5c,1,0x5a}
++                : new byte[]{(byte)cla,(byte)0xe2,(byte)0x91,0,3,(byte)0xbf,0x2d,0};
++        if(!java.util.Arrays.equals(command,expected)) throw new IllegalArgumentException("Recovery permits only EID/profile reads");
++        pending=true;more=-1;
++    }
++    void response(byte[] data) {
++        if(!pending || data==null || data.length<2 || bytes.size()+data.length>65536)
++            throw new IllegalStateException("Unknown recovery response");
++        pending=false;bytes.write(data,0,data.length-2);
++        int sw1=data[data.length-2]&255,sw2=data[data.length-1]&255;
++        if(sw1==0x61) {more=sw2;return;}
++        if(sw1!=0x90 || sw2!=0) throw new IllegalStateException("Card read rejected");
++        byte[] body=bytes.toByteArray();
++        int[] outer=tlv(body,0,stage==0 ? 0xbf3e : 0xbf2d);
++        if(outer[1]!=body.length) throw new IllegalArgumentException("Trailing read data");
++        int[] inner=tlv(body,outer[0],stage==0 ? 0x5a : 0xa0);
++        if(inner[1]!=outer[1]) throw new IllegalArgumentException("Unexpected read response");
++        if(stage==0 && (inner[1]-inner[0]!=16
++                || !java.util.HexFormat.of().formatHex(java.util.Arrays.copyOfRange(body,inner[0],inner[1])).equals(eid)))
++            throw new IllegalArgumentException("Live card identity mismatch");
++        bytes.reset();stage++;
++    }
++    private static int[] tlv(byte[] data,int offset,int tag) {
++        int count=tag>255 ? 2 : 1;
++        if(offset+count>=data.length) throw new IllegalArgumentException("Short DER");
++        for(int i=count-1;i>=0;i--) if((data[offset++]&255)!=((tag>>(8*i))&255))
++            throw new IllegalArgumentException("Wrong DER tag");
++        int length=data[offset++]&255;
++        if((length&128)!=0) {
++            int n=length&127;
++            if(n<1 || n>2 || offset+n>data.length) throw new IllegalArgumentException("Invalid DER length");
++            length=0;while(n-->0) length=(length<<8)|(data[offset++]&255);
++        }
++        if(length>data.length-offset) throw new IllegalArgumentException("Truncated DER");
++        return new int[]{offset,offset+length};
++    }
++    boolean complete() {return stage==2 && !pending && more<0;}
 +}
 diff --git a/src/com/android/internal/telephony/honor/MtkSimCallbackOwner.java b/src/com/android/internal/telephony/honor/MtkSimCallbackOwner.java
 new file mode 100644
-index 0000000..c5fa6b1
+index 0000000000000000000000000000000000000000..c5fa6b12836f5845a97994e4c8b771e068eb0775
 --- /dev/null
 +++ b/src/com/android/internal/telephony/honor/MtkSimCallbackOwner.java
 @@ -0,0 +1,12 @@
@@ -3917,7 +4443,7 @@ index 0000000..c5fa6b1
 +}
 diff --git a/src/com/android/internal/telephony/honor/MtkSimSerials.java b/src/com/android/internal/telephony/honor/MtkSimSerials.java
 new file mode 100644
-index 0000000..689dd2e
+index 0000000000000000000000000000000000000000..689dd2e6a0d0de8b9ffff241fc3be46f7bb2cc98
 --- /dev/null
 +++ b/src/com/android/internal/telephony/honor/MtkSimSerials.java
 @@ -0,0 +1,43 @@
@@ -3966,7 +4492,7 @@ index 0000000..689dd2e
 +}
 diff --git a/src/com/android/internal/telephony/honor/MtkSimTypeQuery.java b/src/com/android/internal/telephony/honor/MtkSimTypeQuery.java
 new file mode 100644
-index 0000000..5c16897
+index 0000000000000000000000000000000000000000..5c1689724c8a31e80cdf9c37ded205ccdfe71a7b
 --- /dev/null
 +++ b/src/com/android/internal/telephony/honor/MtkSimTypeQuery.java
 @@ -0,0 +1,68 @@
@@ -4040,7 +4566,7 @@ index 0000000..5c16897
 +}
 diff --git a/src/com/android/internal/telephony/honor/MtkSimTypeTransport.java b/src/com/android/internal/telephony/honor/MtkSimTypeTransport.java
 new file mode 100644
-index 0000000..d3627b0
+index 0000000000000000000000000000000000000000..d3627b051d82178bc4b0e80d6edbafa133527ae0
 --- /dev/null
 +++ b/src/com/android/internal/telephony/honor/MtkSimTypeTransport.java
 @@ -0,0 +1,192 @@
@@ -4238,7 +4764,7 @@ index 0000000..d3627b0
 +}
 diff --git a/src/com/android/internal/telephony/honor/PhysicalSimEvidence.java b/src/com/android/internal/telephony/honor/PhysicalSimEvidence.java
 new file mode 100644
-index 0000000..8b18c9f
+index 0000000000000000000000000000000000000000..8b18c9f612b06a7126aa97a31fd664cb33b19924
 --- /dev/null
 +++ b/src/com/android/internal/telephony/honor/PhysicalSimEvidence.java
 @@ -0,0 +1,50 @@
@@ -4294,7 +4820,7 @@ index 0000000..8b18c9f
 +}
 diff --git a/src/com/android/internal/telephony/honor/SepMuxAdmission.java b/src/com/android/internal/telephony/honor/SepMuxAdmission.java
 new file mode 100644
-index 0000000..6c27edc
+index 0000000000000000000000000000000000000000..6c27edc241116adf5a9e22e1342f6be41a4c38c3
 --- /dev/null
 +++ b/src/com/android/internal/telephony/honor/SepMuxAdmission.java
 @@ -0,0 +1,32 @@
@@ -4332,10 +4858,10 @@ index 0000000..6c27edc
 +}
 diff --git a/src/com/android/internal/telephony/honor/SepMuxJournal.java b/src/com/android/internal/telephony/honor/SepMuxJournal.java
 new file mode 100644
-index 0000000..00f6a9f
+index 0000000000000000000000000000000000000000..fb0c8fea3df99b77b9318d9f75fde825e97a6160
 --- /dev/null
 +++ b/src/com/android/internal/telephony/honor/SepMuxJournal.java
-@@ -0,0 +1,95 @@
+@@ -0,0 +1,126 @@
 +/* Copyright (C) 2026 The LineageOS Project
 + * SPDX-License-Identifier: Apache-2.0 */
 +package com.android.internal.telephony.honor;
@@ -4353,8 +4879,13 @@ index 0000000..00f6a9f
 +    private boolean failed;
 +    private long generation;
 +    private int serial;
++    private LpaRecoveryFence recovery;
++    private boolean recoveryPending;
 +    public SepMuxJournal(Store store) throws IOException {
-+        this.store=store; record=store.read();
++        this(store,null,false);
++    }
++    private SepMuxJournal(Store store,LpaRecoveryFence recovery,boolean inspection) throws IOException {
++        this.recovery=recovery;this.store=store; record=store.read();
 +        if(record!=null && !record.matches("SEP1 (CLEAN|PENDING|UNKNOWN) [1-9][0-9]* [1-9][0-9]* [01]\\n"))
 +            throw new IOException("Corrupt SEP journal");
 +        if(record!=null) {
@@ -4364,11 +4895,28 @@ index 0000000..00f6a9f
 +                    throw new NumberFormatException();
 +            } catch(NumberFormatException e) {throw new IOException("Corrupt SEP epoch identity",e);}
 +        }
-+        requireClean();
++        if(!inspection) requireClean();
 +    }
 +    public void requireClean() throws IOException {
 +        if(failed || (record!=null && !record.startsWith("SEP1 CLEAN ")))
 +            throw new IOException("Unresolved SEP epoch; registration/dispatch refused");
++    }
++    static String recoveryState(Store store) throws IOException {
++        SepMuxJournal history=new SepMuxJournal(store,null,true);
++        return history.record==null ? "ABSENT" : history.record.trim().split(" ")[1];
++    }
++    static boolean unresolvedHistory(Store store) throws IOException {
++        String state=recoveryState(store);
++        return state.equals("PENDING") || state.equals("UNKNOWN");
++    }
++    static SepMuxJournal forRecovery(Store store,LpaRecoveryFence ticket) throws IOException {
++        ticket.requireRunning();
++        return new SepMuxJournal(store,ticket,true);
++    }
++    void requireRecoveryStart(LpaRecoveryFence ticket) throws IOException {
++        ticket.requireRunning();
++        if(recovery!=ticket) requireClean();
++        else if(failed || recoveryPending) throw new IOException("Recovery route already attempted");
 +    }
 +    static final class CleanRoute {
 +        final long generation;
@@ -4388,7 +4936,8 @@ index 0000000..00f6a9f
 +    }
 +    /** A setter serial is journaled before dispatch; clean history fences late older finals. */
 +    public int firstUnusedSerial() throws IOException {
-+        requireClean();
++        if(recovery==null) requireClean();
++        else {recovery.requireRunning();if(failed) throw new IOException("Recovery journal failed");}
 +        if(record==null) return 1;
 +        int previous=Integer.parseInt(record.trim().split(" ")[3]);
 +        if(previous==Integer.MAX_VALUE) throw new IOException("SEP serial identities exhausted");
@@ -4396,13 +4945,20 @@ index 0000000..00f6a9f
 +    }
 +    /** Must return successfully before ANY setter dispatch can occur. */
 +    public void pending(long generation,int serial,SepMuxTrial.Selector target) throws IOException {
-+        requireClean();
++        if(recovery==null) requireClean();
++        else {
++            recovery.requireRunning();
++            if(failed || recoveryPending || serial<firstUnusedSerial() || target!=SepMuxTrial.Selector.EUICC)
++                throw new IOException("Recovery requires one new persisted serial");
++            recoveryPending=true;
++        }
 +        if(generation<=0 || serial<=0 || target==null) throw new IOException("Invalid SEP epoch");
 +        this.generation=generation;this.serial=serial;
 +        write("SEP1 PENDING "+generation+" "+serial+" "+target.wire+"\n");
 +    }
 +    /** No EID/LPA requirement: known physical return remains a separate operation. */
 +    public void completed(long generation,int serial,SepMuxTrial outcome) throws IOException {
++        if(recovery!=null) throw new IOException("Recovery requires fresh route readback");
 +        if(failed || record==null || !record.startsWith("SEP1 PENDING ")
 +                || this.generation!=generation || this.serial!=serial
 +                || outcome==null || !outcome.completionMatches(generation,serial))
@@ -4417,6 +4973,7 @@ index 0000000..00f6a9f
 +                        Integer.parseInt(record.trim().split(" ")[4])))
 +            throw new IOException("Unqualified SEP route completion");
 +        write(record.replace("PENDING","CLEAN"));
++        recovery=null;
 +    }
 +    public void unknown(long generation,int serial) throws IOException {
 +        if(failed) throw new IOException("SEP journal failed");
@@ -4433,7 +4990,7 @@ index 0000000..00f6a9f
 +}
 diff --git a/src/com/android/internal/telephony/honor/SepMuxRouteAdoption.java b/src/com/android/internal/telephony/honor/SepMuxRouteAdoption.java
 new file mode 100644
-index 0000000..eb97f2f
+index 0000000000000000000000000000000000000000..eb97f2ff1b5198a548709afd1d6db96f0592ab31
 --- /dev/null
 +++ b/src/com/android/internal/telephony/honor/SepMuxRouteAdoption.java
 @@ -0,0 +1,69 @@
@@ -4508,7 +5065,7 @@ index 0000000..eb97f2f
 +}
 diff --git a/src/com/android/internal/telephony/honor/SepMuxTrial.java b/src/com/android/internal/telephony/honor/SepMuxTrial.java
 new file mode 100644
-index 0000000..2ccc964
+index 0000000000000000000000000000000000000000..2ccc9647cb2c363db8fa45f29e0e29d4c39ac71a
 --- /dev/null
 +++ b/src/com/android/internal/telephony/honor/SepMuxTrial.java
 @@ -0,0 +1,182 @@
@@ -4696,7 +5253,7 @@ index 0000000..2ccc964
 +}
 diff --git a/src/com/android/internal/telephony/honor/SepMuxUiProjection.java b/src/com/android/internal/telephony/honor/SepMuxUiProjection.java
 new file mode 100644
-index 0000000..0910947
+index 0000000000000000000000000000000000000000..09109478cc0604742cd58cc3954f3fdfb83f0aa5
 --- /dev/null
 +++ b/src/com/android/internal/telephony/honor/SepMuxUiProjection.java
 @@ -0,0 +1,31 @@
@@ -4733,10 +5290,10 @@ index 0000000..0910947
 +}
 diff --git a/src/com/android/internal/telephony/honor/SharedSlotRouteTrial.java b/src/com/android/internal/telephony/honor/SharedSlotRouteTrial.java
 new file mode 100644
-index 0000000..f2729e6
+index 0000000000000000000000000000000000000000..a43925d415197c93a7582c1821825f8afe8cea11
 --- /dev/null
 +++ b/src/com/android/internal/telephony/honor/SharedSlotRouteTrial.java
-@@ -0,0 +1,230 @@
+@@ -0,0 +1,238 @@
 +/* Copyright (C) 2026 The LineageOS Project. SPDX-License-Identifier: Apache-2.0 */
 +package com.android.internal.telephony.honor;
 +
@@ -4819,6 +5376,14 @@ index 0000000..f2729e6
 +        commandIssued=false;dispatched=false;responseConsumed=false;finalAccepted=false;adopted=false;
 +        completed=false;routeMatches=false;physicalPathMatches=false;physicalPresence=null;
 +        routeToken=null;route=null;cardToken=null;cardQueries=0;state=State.RESERVED;
++    }
++    /** Only the Phone owner can invoke this after its marked-kernel-restart ticket. */
++    SepMuxTrial.Command beginRecovery(SepMuxTrial.Evidence evidence,int commandSerial,
++            long epoch,long now) {
++        evidence.require();
++        if(state!=State.NEW || epoch<=0) throw new IllegalStateException("Recovery already used");
++        generation=epoch;reserve(commandSerial,SepMuxTrial.Selector.EUICC,now);
++        return command(now);
 +    }
 +    public SepMuxTrial.Command beginEuicc(SepMuxTrial.Evidence evidence,int commandSerial,
 +            SepMuxTrial.Baseline physical,long now) {
@@ -4969,7 +5534,7 @@ index 0000000..f2729e6
 +}
 diff --git a/src/com/android/internal/telephony/honor/TrialDispatchGate.java b/src/com/android/internal/telephony/honor/TrialDispatchGate.java
 new file mode 100644
-index 0000000..14a25d4
+index 0000000000000000000000000000000000000000..14a25d46e90456cf564ec98f7ab8874c760dcd56
 --- /dev/null
 +++ b/src/com/android/internal/telephony/honor/TrialDispatchGate.java
 @@ -0,0 +1,19 @@
@@ -4994,10 +5559,10 @@ index 0000000..14a25d4
 +}
 diff --git a/src/com/android/phone/HonorLdyAn00EsimSetupService.java b/src/com/android/phone/HonorLdyAn00EsimSetupService.java
 new file mode 100644
-index 0000000..1a8b8e2
+index 0000000000000000000000000000000000000000..fb23b0bb2761fc05836e90a0c49cda5db38a1dd0
 --- /dev/null
 +++ b/src/com/android/phone/HonorLdyAn00EsimSetupService.java
-@@ -0,0 +1,343 @@
+@@ -0,0 +1,391 @@
 +/*
 + * Copyright (C) 2026 The LineageOS Project
 + * SPDX-License-Identifier: Apache-2.0
@@ -5022,6 +5587,7 @@ index 0000000..1a8b8e2
 +import android.os.UserManager;
 +
 +import com.android.internal.telephony.honor.HonorSepTrialOwner;
++import com.android.internal.telephony.honor.HonorSimRouteCallGuard;
 +import com.android.internal.telephony.euicc.EuiccController;
 +import com.android.internal.telephony.euicc.HonorEuiccEndpointPreparation;
 +import com.android.internal.telephony.honor.HonorSepTrialOwner.UiSnapshot;
@@ -5037,6 +5603,26 @@ index 0000000..1a8b8e2
 +    // Phone-process lifetime, intentionally not reset when the UI disconnects or rotates.
 +    private static boolean sPreparationRequested, sOutboundRequested, sReturnRequested, sStopped;
 +    private static int sSelectedPhaseSerial = -1;
++    private static Selection sPendingSelection;
++    private static final class Selection {
++        final Object owner,request;
++        final int phase,previousPhase;
++        final boolean previousOutbound,previousReturn;
++        Selection(Object owner,Object request,int phase,int previousPhase,
++                boolean previousOutbound,boolean previousReturn) {
++            this.owner=owner;this.request=request;this.phase=phase;this.previousPhase=previousPhase;
++            this.previousOutbound=previousOutbound;this.previousReturn=previousReturn;
++        }
++    }
++    /** Only an exact early Owner NO_ADMISSION callback can release a consumed choice. */
++    private static boolean releaseNoAdmission(Selection selection,Object owner,Object request,int phase) {
++        if(selection==null || sPendingSelection!=selection || selection.owner!=owner
++                || selection.request!=request || selection.phase!=phase || sSelectedPhaseSerial!=phase)
++            return false;
++        sSelectedPhaseSerial=selection.previousPhase;
++        sOutboundRequested=selection.previousOutbound;sReturnRequested=selection.previousReturn;
++        sPendingSelection=null;return true;
++    }
 +    private volatile boolean mDestroyed;
 +    // v2 is profile readiness only. v1 route/snapshot messages keep their original contract.
 +    private static final int PREPARE_PROFILE_ENDPOINT = 4, CANCEL_PROFILE_PREPARATION = 5;
@@ -5126,6 +5712,12 @@ index 0000000..1a8b8e2
 +            reply(reply, "UNAVAILABLE", false); return;
 +        }
 +        boolean physical = msg.what == SELECT_PHYSICAL;
++        try { HonorSimRouteCallGuard.requireIdle(); }
++        catch (HonorSimRouteCallGuard.CallBusy busy) {
++            reply(reply,"CALL_BUSY",false,reply.phaseSerial,physical); return; // No choice or command.
++        } catch (RuntimeException unavailable) {
++            reply(reply, "UNAVAILABLE", false); return;
++        }
 +        HonorSepTrialOwner owner = HonorSepTrialOwner.existingPreparedOwner();
 +        if (owner != null) { select(owner, physical, caller, reply, false); return; }
 +        if (sPreparationRequested || sOutboundRequested || sReturnRequested) {
@@ -5259,13 +5851,33 @@ index 0000000..1a8b8e2
 +                    return;
 +                }
 +                try {
++                    HonorSimRouteCallGuard.requireIdle();
++                } catch (HonorSimRouteCallGuard.CallBusy busy) {
++                    reply(reply,"CALL_BUSY",state.canReturnPhysical,state.phaseSerial,physical); return;
++                } catch (RuntimeException unavailable) {
++                    reply(reply, "UNAVAILABLE", false); return;
++                }
++                try {
++                    Selection selection = new Selection(owner,reply,reply.phaseSerial,
++                            sSelectedPhaseSerial,sOutboundRequested,sReturnRequested);
++                    sPendingSelection=selection;
 +                    sSelectedPhaseSerial = reply.phaseSerial;
++                    Runnable callBusyBeforeAdmission = () -> owner.requestUiSnapshot(observed ->
++                            mProfileHandler.post(() -> {
++                                if(sStopped || HonorSepTrialOwner.existingPreparedOwner()!=owner
++                                        || observed.state==UiState.UNKNOWN
++                                        || !releaseNoAdmission(selection,owner,reply,observed.phaseSerial))
++                                    return;
++                                // Native work was never admitted; never clear a journal or retry.
++                                if(!mDestroyed && admitted(caller))
++                                    reply(reply,"CALL_BUSY",observed.canReturnPhysical,observed.phaseSerial,physical);
++                            }));
 +                    if (physical) {
 +                        sReturnRequested = true;
-+                        owner.requestPhysicalSim2Once(reply.phaseSerial);
++                        owner.requestPhysicalSim2Once(reply.phaseSerial,callBusyBeforeAdmission);
 +                    } else {
 +                        sOutboundRequested = true;
-+                        owner.requestEuiccVisibilityOnce(reply.phaseSerial);
++                        owner.requestEuiccVisibilityOnce(reply.phaseSerial,callBusyBeforeAdmission);
 +                    }
 +                    // UI disconnection never cancels, repeats, or reverses this operation.
 +                    snapshot(reply);
@@ -5328,7 +5940,8 @@ index 0000000..1a8b8e2
 +            data.putInt("consent_phase_serial", target.phaseSerial);
 +        }
 +        data.putInt("phase_serial", phaseSerial);
-+        if ("CONFIRMATION_REQUIRED".equals(state)) data.putBoolean("target_physical", physical);
++        if ("CONFIRMATION_REQUIRED".equals(state) || "CALL_BUSY".equals(state))
++            data.putBoolean("target_physical", physical);
 +        data.putString("state", state);
 +        HonorSepTrialOwner cachedOwner=HonorSepTrialOwner.existingPreparedOwner();
 +        data.putString("backend_stage",cachedOwner==null ? "OWNER_UNAVAILABLE" : cachedOwner.cachedReadStage());
@@ -5343,7 +5956,7 @@ index 0000000..1a8b8e2
 +}
 diff --git a/src/com/android/phone/LdyAn00EsimTrialActivity.java b/src/com/android/phone/LdyAn00EsimTrialActivity.java
 new file mode 100644
-index 0000000..7b1ba4b
+index 0000000000000000000000000000000000000000..7b1ba4b467784a7d626f23120bf2b49b31a8823f
 --- /dev/null
 +++ b/src/com/android/phone/LdyAn00EsimTrialActivity.java
 @@ -0,0 +1,131 @@
@@ -5478,9 +6091,71 @@ index 0000000..7b1ba4b
 +        output.append("\nOwner: "+HonorSepTrialOwner.existingOwnerState());
 +        if(owner!=null)output.append("\n"+owner.snapshot());}
 +}
+diff --git a/src/com/android/phone/euicc/EuiccUiDispatcherActivity.java b/src/com/android/phone/euicc/EuiccUiDispatcherActivity.java
+index 963232938732dd5dc9955d2d88dbd6c05ec99a07..7984a3ee6e28004190c2c89f8f9c8a00f616f534 100644
+--- a/src/com/android/phone/euicc/EuiccUiDispatcherActivity.java
++++ b/src/com/android/phone/euicc/EuiccUiDispatcherActivity.java
+@@ -24,7 +24,9 @@ import android.content.Intent;
+ import android.content.pm.ActivityInfo;
+ import android.content.pm.PackageManager;
+ import android.content.pm.ResolveInfo;
++import android.os.Build;
+ import android.os.Bundle;
++import android.os.SystemProperties;
+ import android.os.UserHandle;
+ import android.permission.LegacyPermissionManager;
+ import android.service.euicc.EuiccService;
+@@ -99,7 +101,11 @@ public class EuiccUiDispatcherActivity extends Activity {
+     @Nullable
+     Intent resolveEuiccUiIntent() {
+         EuiccManager euiccManager = (EuiccManager) getSystemService(Context.EUICC_SERVICE);
+-        if (euiccManager == null || !euiccManager.isEnabled()) {
++        // Management must also expose recovery when the shared physical SIM2 path is selected.
++        // Opening the selected UI grants no route, channel or profile mutation permission.
++        boolean honorManagement = EuiccManager.ACTION_MANAGE_EMBEDDED_SUBSCRIPTIONS.equals(
++                getIntent().getAction()) && isHonorSharedSlotManagement();
++        if (euiccManager == null || (!euiccManager.isEnabled() && !honorManagement)) {
+             Log.w(TAG, "eUICC not enabled");
+             return null;
+         }
+@@ -112,7 +118,7 @@ public class EuiccUiDispatcherActivity extends Activity {
+ 
+         ComponentName testEuiccUiComponent = ((TelephonyManager)
+                 getSystemService(Context.TELEPHONY_SERVICE)).getTestEuiccUiComponent();
+-        if (testEuiccUiComponent != null) {
++        if (testEuiccUiComponent != null && !honorManagement) {
+             Log.i(TAG, "Test mode: " + testEuiccUiComponent);
+             euiccUiIntent.setComponent(testEuiccUiComponent);
+             return euiccUiIntent;
+@@ -126,12 +132,25 @@ public class EuiccUiDispatcherActivity extends Activity {
+             return null;
+         }
+ 
++        if (honorManagement && getPackageManager().checkSignatures(
++                "android", activityInfo.packageName) != PackageManager.SIGNATURE_MATCH) {
++            Log.w(TAG, "Shared-slot management requires the platform-signed LPA");
++            return null;
++        }
++
+         grantDefaultPermissionsToLuiApp(activityInfo);
+ 
+         euiccUiIntent.setComponent(new ComponentName(activityInfo.packageName, activityInfo.name));
+         return euiccUiIntent;
+     }
+ 
++    @VisibleForTesting
++    boolean isHonorSharedSlotManagement() {
++        return UserHandle.myUserId() == 0 && "ldy_an00".equals(Build.DEVICE)
++                && "LDY-AN00".equals(Build.MODEL)
++                && SystemProperties.getBoolean("ro.lineage.ldy_an00.esim_bridge", false);
++    }
++
+     /** Called when dispatch fails. May be overridden to perform some operation here. */
+     protected void onDispatchFailure() {
+     }
 diff --git a/tests/host/com/android/internal/telephony/honor/CurrentRouteOwnerAsyncHostTest.java b/tests/host/com/android/internal/telephony/honor/CurrentRouteOwnerAsyncHostTest.java
 new file mode 100644
-index 0000000..07f7d9a
+index 0000000000000000000000000000000000000000..07f7d9aa083128f7a7ef801263e0bc1c38b41a5e
 --- /dev/null
 +++ b/tests/host/com/android/internal/telephony/honor/CurrentRouteOwnerAsyncHostTest.java
 @@ -0,0 +1,41 @@
@@ -5528,7 +6203,7 @@ index 0000000..07f7d9a
 \ No newline at end of file
 diff --git a/tests/host/com/android/internal/telephony/honor/CurrentRouteProofHostTest.java b/tests/host/com/android/internal/telephony/honor/CurrentRouteProofHostTest.java
 new file mode 100644
-index 0000000..82f24a4
+index 0000000000000000000000000000000000000000..82f24a4dc970f9d29bee4ff3784fe3465125d58e
 --- /dev/null
 +++ b/tests/host/com/android/internal/telephony/honor/CurrentRouteProofHostTest.java
 @@ -0,0 +1,110 @@
@@ -5644,7 +6319,7 @@ index 0000000..82f24a4
 +}
 diff --git a/tests/host/com/android/internal/telephony/honor/EmptyPhysicalAdapterHostTest.java b/tests/host/com/android/internal/telephony/honor/EmptyPhysicalAdapterHostTest.java
 new file mode 100644
-index 0000000..51862f6
+index 0000000000000000000000000000000000000000..51862f6dd91f7b746aec55ffc4ab6220c48bc2c5
 --- /dev/null
 +++ b/tests/host/com/android/internal/telephony/honor/EmptyPhysicalAdapterHostTest.java
 @@ -0,0 +1,85 @@
@@ -5735,7 +6410,7 @@ index 0000000..51862f6
 +}
 diff --git a/tests/host/com/android/internal/telephony/honor/EmptyPhysicalStateHostTest.java b/tests/host/com/android/internal/telephony/honor/EmptyPhysicalStateHostTest.java
 new file mode 100644
-index 0000000..b4dfc7c
+index 0000000000000000000000000000000000000000..b4dfc7cf9b77fd35b3080119e804295ed70657d9
 --- /dev/null
 +++ b/tests/host/com/android/internal/telephony/honor/EmptyPhysicalStateHostTest.java
 @@ -0,0 +1,46 @@
@@ -5785,9 +6460,54 @@ index 0000000..b4dfc7c
 +  System.out.println("PASS "+checks+" actual typed empty/present route evidence/model assertions; no HAL/raw-TLV/hardware proof");
 + }
 +}
+diff --git a/tests/host/com/android/internal/telephony/honor/HonorSimRouteCallGuardHostTest.java b/tests/host/com/android/internal/telephony/honor/HonorSimRouteCallGuardHostTest.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..dca1ab3b5f279e0cda64edc47e096b99e2f06024
+--- /dev/null
++++ b/tests/host/com/android/internal/telephony/honor/HonorSimRouteCallGuardHostTest.java
+@@ -0,0 +1,39 @@
++/* Copyright (C) 2026 The LineageOS Project. SPDX-License-Identifier: Apache-2.0 */
++package com.android.internal.telephony.honor;
++import com.android.internal.telephony.Phone;
++import com.android.internal.telephony.PhoneConstants;
++import com.android.internal.telephony.PhoneFactory;
++public final class HonorSimRouteCallGuardHostTest {
++ static int checks;
++ static void allow(){HonorSimRouteCallGuard.requireIdle();checks++;}
++ static void deny(){try{HonorSimRouteCallGuard.requireIdle();throw new AssertionError();}catch(IllegalStateException expected){checks++;}}
++ static void fresh(){PhoneFactory.unavailable=false;PhoneFactory.phones=new Phone[]{new Phone(),new Phone()};}
++ public static void main(String[] args) {
++  fresh();allow();
++  PhoneFactory.phones[0].state=PhoneConstants.State.OFFHOOK;
++  try{HonorSimRouteCallGuard.requireIdle();throw new AssertionError();}catch(HonorSimRouteCallGuard.CallBusy expected){checks++;}
++  fresh();PhoneFactory.phones[0].state=null;
++  try{HonorSimRouteCallGuard.requireIdle();throw new AssertionError();}
++  catch(HonorSimRouteCallGuard.CallBusy wrong){throw new AssertionError("Unknown is not confirmed busy");}
++  catch(IllegalStateException expected){checks++;}
++  for(int slot=0;slot<2;slot++)for(boolean ims:new boolean[]{false,true}) {
++   fresh();Phone target=PhoneFactory.phones[slot];
++   if(ims){target.ims=new Phone();target=target.ims;}allow();
++   for(PhoneConstants.State state:new PhoneConstants.State[]{PhoneConstants.State.RINGING,PhoneConstants.State.OFFHOOK}) {
++    target.state=state;deny();target.state=PhoneConstants.State.IDLE;allow();
++   } // OFFHOOK represents dialing/active/holding according to actual Phone API.
++   target.emergency=true;deny();target.emergency=false;
++   target.ecm=true;deny();target.ecm=false;
++   target.sms=true;deny();target.sms=false;
++   target.state=null;deny();target.state=PhoneConstants.State.IDLE;
++   target.unavailable=true;deny();target.unavailable=false;allow();
++  }
++  PhoneFactory.phones=null;deny();PhoneFactory.phones=new Phone[0];deny();
++  PhoneFactory.phones=new Phone[]{new Phone()};deny();
++  fresh();PhoneFactory.phones[0]=null;deny();fresh();PhoneFactory.phones[1]=null;deny();
++  fresh();PhoneFactory.unavailable=true;deny();PhoneFactory.unavailable=false;
++  fresh();PhoneFactory.phones=new Phone[]{new Phone(),new Phone(),new Phone()};
++  PhoneFactory.phones[2].state=PhoneConstants.State.OFFHOOK;deny();PhoneFactory.phones[2].state=PhoneConstants.State.IDLE;allow();
++  System.out.println("PASS "+checks+" actual production route call-guard host checks; no radio/call execution");
++ }
++}
 diff --git a/tests/host/com/android/internal/telephony/honor/KnownBlankConnectorHookHostTest.java b/tests/host/com/android/internal/telephony/honor/KnownBlankConnectorHookHostTest.java
 new file mode 100644
-index 0000000..c6668db
+index 0000000000000000000000000000000000000000..c6668dba97cdf6c7b5d3b63d9c10930914f442af
 --- /dev/null
 +++ b/tests/host/com/android/internal/telephony/honor/KnownBlankConnectorHookHostTest.java
 @@ -0,0 +1,69 @@
@@ -5862,7 +6582,7 @@ index 0000000..c6668db
 +}
 diff --git a/tests/host/com/android/internal/telephony/honor/KnownBlankOwnerAsyncHostTest.java b/tests/host/com/android/internal/telephony/honor/KnownBlankOwnerAsyncHostTest.java
 new file mode 100644
-index 0000000..3d1669a
+index 0000000000000000000000000000000000000000..3d1669a57e95d695cdd7842c0fbb4b1e5562b41a
 --- /dev/null
 +++ b/tests/host/com/android/internal/telephony/honor/KnownBlankOwnerAsyncHostTest.java
 @@ -0,0 +1,135 @@
@@ -6003,7 +6723,7 @@ index 0000000..3d1669a
 +}
 diff --git a/tests/host/com/android/internal/telephony/honor/KnownBlankRestorationHostTest.java b/tests/host/com/android/internal/telephony/honor/KnownBlankRestorationHostTest.java
 new file mode 100644
-index 0000000..be4bb45
+index 0000000000000000000000000000000000000000..be4bb451189bbf4d6b8563580d819872527b6468
 --- /dev/null
 +++ b/tests/host/com/android/internal/telephony/honor/KnownBlankRestorationHostTest.java
 @@ -0,0 +1,112 @@
@@ -6121,7 +6841,7 @@ index 0000000..be4bb45
 +}
 diff --git a/tests/host/com/android/internal/telephony/honor/KnownBlankServiceAsyncHostTest.java b/tests/host/com/android/internal/telephony/honor/KnownBlankServiceAsyncHostTest.java
 new file mode 100644
-index 0000000..00c2a0d
+index 0000000000000000000000000000000000000000..00c2a0d10f8fa096bb30028f2e0210cb167f0640
 --- /dev/null
 +++ b/tests/host/com/android/internal/telephony/honor/KnownBlankServiceAsyncHostTest.java
 @@ -0,0 +1,97 @@
@@ -6222,9 +6942,68 @@ index 0000000..00c2a0d
 +  System.out.println("PASS "+checks+" actual Service/Owner protocol3 permission/lifecycle/prepare/acquire checks with platform boundaries doubled; no Android Binder/modem claim");
 + }
 +}
+diff --git a/tests/host/com/android/internal/telephony/honor/LpaCardRejectionHostTest.java b/tests/host/com/android/internal/telephony/honor/LpaCardRejectionHostTest.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..52b613b060230a7118929bbd67624d60c7f06596
+--- /dev/null
++++ b/tests/host/com/android/internal/telephony/honor/LpaCardRejectionHostTest.java
+@@ -0,0 +1,53 @@
++/* Copyright (C) 2026 The LineageOS Project. SPDX-License-Identifier: Apache-2.0 */
++package com.android.internal.telephony.honor;
++public final class LpaCardRejectionHostTest {
++ static int checks;
++ static void ok(boolean value) {checks++;if(!value)throw new AssertionError("check "+checks);}
++ static final class Store implements SepMuxJournal.Store {
++  String record;public String read(){return record;}public void writeDurably(String value){record=value;}
++ }
++ static final class Fixture {
++  final Store store=new Store();
++  final Object owner=new Object(),endpoint=new Object();
++  final LpaOperationLease.Scope scope;
++  final LpaOperationLease lease=new LpaOperationLease(store);
++  Fixture(int kind)throws Exception {
++   scope=new LpaOperationLease.Scope("00000000000000000000000000000001",10055,0,kind==4?3:2,1,0,7,2,10);
++   lease.acquire(scope,owner,endpoint,0,100);
++   ok(lease.beginNative(scope,owner,endpoint,1,kind,true));
++  }
++  boolean reject(int kind,int code)throws Exception {return lease.nativeRejected(scope,owner,endpoint,2,kind,code);}
++ }
++ public static void main(String[] args)throws Exception {
++  // All parsed SGP rejections; no success/reset/blank proof or durable CLEAN yet.
++  for(int kind=2;kind<=4;kind++)for(int code=1;code<=(kind==2?5:3);code++) {
++   var f=new Fixture(kind);ok(f.reject(kind,code));
++   ok(f.lease.state()==LpaOperationLease.State.ACTIVE);
++   ok(f.store.record.startsWith("L1 A "));ok(!f.lease.isKnownBlank());
++   ok(!f.lease.resetReturned(f.scope,f.owner,3));
++   ok(f.lease.check(f.scope,f.owner,f.endpoint,3));
++   ok(f.lease.channelAccess(f.scope,f.owner,3));
++   try{f.lease.requireRouteAllowed();throw new AssertionError();}catch(IllegalStateException expected){checks++;}
++   ok(!f.reject(kind,code)); // Cannot consume the same mutation twice.
++   ok(f.lease.complete(f.scope,f.owner,f.endpoint,4,true));ok(f.store.record.equals("L1 C\n"));
++  }
++  for(int[] bad:new int[][]{{2,-1},{2,0},{2,6},{2,127},{3,4},{4,4},{1,1},{7,1}}) {
++   var f=new Fixture(2);ok(!f.reject(bad[0],bad[1]));ok(f.lease.state()==LpaOperationLease.State.UNKNOWN);
++  }
++  var f=new Fixture(2);ok(!f.reject(3,1));ok(f.lease.state()==LpaOperationLease.State.UNKNOWN); // Wrong last kind.
++  f=new Fixture(2);
++  var target=new LpaOperationLease.Scope(f.scope.token,10055,0,2,1,0,8,2,10);
++  try{f.lease.nativeRejected(target,f.owner,f.endpoint,2,2,1);throw new AssertionError();}catch(SecurityException expected){checks++;}
++  try{f.lease.nativeRejected(f.scope,new Object(),f.endpoint,2,2,1);throw new AssertionError();}catch(SecurityException expected){checks++;}
++  ok(f.reject(2,1)); // Wrong owner/target did not authorize a transition.
++  f=new Fixture(2);ok(!f.lease.nativeRejected(f.scope,f.owner,new Object(),2,2,1));ok(f.lease.state()==LpaOperationLease.State.UNKNOWN);
++  f=new Fixture(2);ok(!f.lease.nativeRejected(f.scope,f.owner,f.endpoint,100,2,1));ok(f.lease.state()==LpaOperationLease.State.UNKNOWN);
++  f=new Fixture(2);f.lease.abandon(f.scope,f.owner);ok(!f.reject(2,1));ok(f.lease.state()==LpaOperationLease.State.UNKNOWN);
++  f=new Fixture(2);ok(!f.lease.nativeReturned(f.scope,f.owner,f.endpoint,2,false));ok(!f.reject(2,1));
++  f=new Fixture(2);ok(f.reject(2,1));ok(!f.lease.complete(f.scope,f.owner,f.endpoint,3,false));ok(f.lease.state()==LpaOperationLease.State.UNKNOWN);
++  f=new Fixture(2);ok(f.reject(2,1));f.lease.cardEndpointRetired();ok(f.lease.state()==LpaOperationLease.State.UNKNOWN); // No reset exemption.
++  f=new Fixture(2);ok(f.lease.nativeReturned(f.scope,f.owner,f.endpoint,2,true));ok(!f.reject(2,1));ok(f.lease.resetReturned(f.scope,f.owner,3));
++  f=new Fixture(4);ok(!f.reject(2,1));ok(f.lease.state()==LpaOperationLease.State.UNKNOWN); // Outside DELETE scope.
++  System.out.println("PASS "+checks+" actual lease card-rejection checks; no Binder/native/hardware proof");
++ }
++}
 diff --git a/tests/host/com/android/internal/telephony/honor/LpaLeaseLiveFenceHostTest.java b/tests/host/com/android/internal/telephony/honor/LpaLeaseLiveFenceHostTest.java
 new file mode 100644
-index 0000000..ba508e6
+index 0000000000000000000000000000000000000000..ba508e64adf8850298b654b4f1e7005a099bc23e
 --- /dev/null
 +++ b/tests/host/com/android/internal/telephony/honor/LpaLeaseLiveFenceHostTest.java
 @@ -0,0 +1,30 @@
@@ -6260,7 +7039,7 @@ index 0000000..ba508e6
 +}
 diff --git a/tests/host/com/android/internal/telephony/honor/LpaOperationLeaseHostTest.java b/tests/host/com/android/internal/telephony/honor/LpaOperationLeaseHostTest.java
 new file mode 100644
-index 0000000..614b8a5
+index 0000000000000000000000000000000000000000..614b8a5d97f55c50bf04cfa90c21431b0057cce0
 --- /dev/null
 +++ b/tests/host/com/android/internal/telephony/honor/LpaOperationLeaseHostTest.java
 @@ -0,0 +1,108 @@
@@ -6374,7 +7153,7 @@ index 0000000..614b8a5
 +}
 diff --git a/tests/host/com/android/internal/telephony/honor/LpaReclaimedBindingHostTest.java b/tests/host/com/android/internal/telephony/honor/LpaReclaimedBindingHostTest.java
 new file mode 100644
-index 0000000..c9e33d6
+index 0000000000000000000000000000000000000000..c9e33d6a278d05fe9d021eb59b2fedacc4243954
 --- /dev/null
 +++ b/tests/host/com/android/internal/telephony/honor/LpaReclaimedBindingHostTest.java
 @@ -0,0 +1,62 @@
@@ -6442,7 +7221,7 @@ index 0000000..c9e33d6
 +}
 diff --git a/tests/host/com/android/internal/telephony/honor/RepeatedCycleStateHostTest.java b/tests/host/com/android/internal/telephony/honor/RepeatedCycleStateHostTest.java
 new file mode 100644
-index 0000000..5e09c21
+index 0000000000000000000000000000000000000000..5e09c21a8b8929f9a6c2571915791baa37f95ff7
 --- /dev/null
 +++ b/tests/host/com/android/internal/telephony/honor/RepeatedCycleStateHostTest.java
 @@ -0,0 +1,66 @@
@@ -6514,14 +7293,14 @@ index 0000000..5e09c21
 +}
 diff --git a/tests/host/empty-physical-fixtures/android/os/Build.java b/tests/host/empty-physical-fixtures/android/os/Build.java
 new file mode 100644
-index 0000000..7d553d2
+index 0000000000000000000000000000000000000000..7d553d2b663a3fa3f755cde8c83bca0fda8c9d3e
 --- /dev/null
 +++ b/tests/host/empty-physical-fixtures/android/os/Build.java
 @@ -0,0 +1 @@
 +package android.os; public class Build {public static final String TYPE="userdebug";}
 diff --git a/tests/host/empty-physical-fixtures/android/os/Handler.java b/tests/host/empty-physical-fixtures/android/os/Handler.java
 new file mode 100644
-index 0000000..d203a87
+index 0000000000000000000000000000000000000000..d203a87956ea47aa690387a4f61f87e4297c3936
 --- /dev/null
 +++ b/tests/host/empty-physical-fixtures/android/os/Handler.java
 @@ -0,0 +1,16 @@
@@ -6543,7 +7322,7 @@ index 0000000..d203a87
 +}
 diff --git a/tests/host/empty-physical-fixtures/android/os/Looper.java b/tests/host/empty-physical-fixtures/android/os/Looper.java
 new file mode 100644
-index 0000000..537bc35
+index 0000000000000000000000000000000000000000..537bc3580f81cf3c0ac7f1081bb2a2f5d849d339
 --- /dev/null
 +++ b/tests/host/empty-physical-fixtures/android/os/Looper.java
 @@ -0,0 +1,3 @@
@@ -6552,7 +7331,7 @@ index 0000000..537bc35
 +public static Looper myLooper(){return current;}public static void setForTest(Looper value){current=value;}}
 diff --git a/tests/host/empty-physical-fixtures/android/os/Message.java b/tests/host/empty-physical-fixtures/android/os/Message.java
 new file mode 100644
-index 0000000..1282256
+index 0000000000000000000000000000000000000000..1282256cf4143608219753ee19fbeaebf73f6c5a
 --- /dev/null
 +++ b/tests/host/empty-physical-fixtures/android/os/Message.java
 @@ -0,0 +1,3 @@
@@ -6561,14 +7340,14 @@ index 0000000..1282256
 +public Handler getTarget(){return target;}public void sendToTarget(){target.post(()->target.handleMessage(this));}}
 diff --git a/tests/host/empty-physical-fixtures/android/os/Process.java b/tests/host/empty-physical-fixtures/android/os/Process.java
 new file mode 100644
-index 0000000..effc89d
+index 0000000000000000000000000000000000000000..effc89dfd836265c2ae547aae9acd0fec816f339
 --- /dev/null
 +++ b/tests/host/empty-physical-fixtures/android/os/Process.java
 @@ -0,0 +1 @@
 +package android.os; public class Process {public static int myUid(){return 1001;}}
 diff --git a/tests/host/empty-physical-fixtures/android/os/RemoteException.java b/tests/host/empty-physical-fixtures/android/os/RemoteException.java
 new file mode 100644
-index 0000000..de29891
+index 0000000000000000000000000000000000000000..de29891f031d74e75fd9ab35ed950b39e79329df
 --- /dev/null
 +++ b/tests/host/empty-physical-fixtures/android/os/RemoteException.java
 @@ -0,0 +1,2 @@
@@ -6576,14 +7355,14 @@ index 0000000..de29891
 +public class RemoteException extends Exception {}
 diff --git a/tests/host/empty-physical-fixtures/android/os/SELinux.java b/tests/host/empty-physical-fixtures/android/os/SELinux.java
 new file mode 100644
-index 0000000..e281503
+index 0000000000000000000000000000000000000000..e2815035b9ba1810c7465f68ded95aeb1ba76634
 --- /dev/null
 +++ b/tests/host/empty-physical-fixtures/android/os/SELinux.java
 @@ -0,0 +1 @@
 +package android.os; public class SELinux {public static String getContext(){return "u:r:radio:s0";}public static boolean isSELinuxEnforced(){return true;}}
 diff --git a/tests/host/empty-physical-fixtures/android/os/SystemClock.java b/tests/host/empty-physical-fixtures/android/os/SystemClock.java
 new file mode 100644
-index 0000000..b256976
+index 0000000000000000000000000000000000000000..b2569765e11461c4949fa36ee5be9ece500ccc3b
 --- /dev/null
 +++ b/tests/host/empty-physical-fixtures/android/os/SystemClock.java
 @@ -0,0 +1,2 @@
@@ -6591,21 +7370,21 @@ index 0000000..b256976
 +public final class SystemClock {public static long elapsedRealtime(){return Handler.now;}}
 diff --git a/tests/host/empty-physical-fixtures/android/telephony/TelephonyManager.java b/tests/host/empty-physical-fixtures/android/telephony/TelephonyManager.java
 new file mode 100644
-index 0000000..a48a00d
+index 0000000000000000000000000000000000000000..a48a00d4a06388c8ef123e8309b1808a8044d720
 --- /dev/null
 +++ b/tests/host/empty-physical-fixtures/android/telephony/TelephonyManager.java
 @@ -0,0 +1 @@
 +package android.telephony; public class TelephonyManager {public static final int RADIO_POWER_UNAVAILABLE=2,RADIO_POWER_OFF=0,RADIO_POWER_ON=1;}
 diff --git a/tests/host/empty-physical-fixtures/android/util/ArrayMap.java b/tests/host/empty-physical-fixtures/android/util/ArrayMap.java
 new file mode 100644
-index 0000000..cb85254
+index 0000000000000000000000000000000000000000..cb85254695eabf431f7b5cb2cf0a7e257f93a52c
 --- /dev/null
 +++ b/tests/host/empty-physical-fixtures/android/util/ArrayMap.java
 @@ -0,0 +1 @@
 +package android.util; public class ArrayMap<K,V> extends java.util.LinkedHashMap<K,V>{}
 diff --git a/tests/host/empty-physical-fixtures/com/android/internal/telephony/CommandsInterface.java b/tests/host/empty-physical-fixtures/com/android/internal/telephony/CommandsInterface.java
 new file mode 100644
-index 0000000..1f1a896
+index 0000000000000000000000000000000000000000..1f1a896a1ade38206a4ce346a4a235ad8c039e1f
 --- /dev/null
 +++ b/tests/host/empty-physical-fixtures/com/android/internal/telephony/CommandsInterface.java
 @@ -0,0 +1,2 @@
@@ -6613,7 +7392,7 @@ index 0000000..1f1a896
 +public interface CommandsInterface {int getRadioState();void getIccCardStatus(android.os.Message response);}
 diff --git a/tests/host/empty-physical-fixtures/com/android/internal/telephony/Phone.java b/tests/host/empty-physical-fixtures/com/android/internal/telephony/Phone.java
 new file mode 100644
-index 0000000..82becb2
+index 0000000000000000000000000000000000000000..82becb278f8707bd0ac4a28613e085e2788d0c23
 --- /dev/null
 +++ b/tests/host/empty-physical-fixtures/com/android/internal/telephony/Phone.java
 @@ -0,0 +1,2 @@
@@ -6621,7 +7400,7 @@ index 0000000..82becb2
 +public class Phone {public CommandsInterface mCi;public int getPhoneId(){return 1;}}
 diff --git a/tests/host/empty-physical-fixtures/com/android/internal/telephony/uicc/IccCardStatus.java b/tests/host/empty-physical-fixtures/com/android/internal/telephony/uicc/IccCardStatus.java
 new file mode 100644
-index 0000000..8ecf6a4
+index 0000000000000000000000000000000000000000..8ecf6a49e8007c9ac9352cc7601a23102e4f0370
 --- /dev/null
 +++ b/tests/host/empty-physical-fixtures/com/android/internal/telephony/uicc/IccCardStatus.java
 @@ -0,0 +1,5 @@
@@ -6632,7 +7411,7 @@ index 0000000..8ecf6a4
 +}
 diff --git a/tests/host/empty-physical-fixtures/com/android/internal/telephony/uicc/UiccController.java b/tests/host/empty-physical-fixtures/com/android/internal/telephony/uicc/UiccController.java
 new file mode 100644
-index 0000000..6e970c9
+index 0000000000000000000000000000000000000000..6e970c92613c37acbb990c8a890d6fe7cbe40ed2
 --- /dev/null
 +++ b/tests/host/empty-physical-fixtures/com/android/internal/telephony/uicc/UiccController.java
 @@ -0,0 +1,4 @@
@@ -6642,7 +7421,7 @@ index 0000000..6e970c9
 + public int getSlotIdFromPhoneId(int id){return mapping;}public void requestIccCardStatusRefresh(int phone){refresh++;}}
 diff --git a/tests/host/empty-physical-fixtures/com/android/internal/telephony/uicc/UiccSlot.java b/tests/host/empty-physical-fixtures/com/android/internal/telephony/uicc/UiccSlot.java
 new file mode 100644
-index 0000000..504a191
+index 0000000000000000000000000000000000000000..504a19103b7b7d97fa7a929c0765b6ff17ea8376
 --- /dev/null
 +++ b/tests/host/empty-physical-fixtures/com/android/internal/telephony/uicc/UiccSlot.java
 @@ -0,0 +1,7 @@
@@ -6655,14 +7434,14 @@ index 0000000..504a191
 + public boolean isActive(){return active;}public boolean isPortActive(int port){return portActive;}public boolean isEuicc(){return euicc;}}
 diff --git a/tests/host/empty-physical-fixtures/com/android/telephony/Rlog.java b/tests/host/empty-physical-fixtures/com/android/telephony/Rlog.java
 new file mode 100644
-index 0000000..3557a51
+index 0000000000000000000000000000000000000000..3557a5102bfeefff29c7e71b6d9b1cd0f8881b13
 --- /dev/null
 +++ b/tests/host/empty-physical-fixtures/com/android/telephony/Rlog.java
 @@ -0,0 +1 @@
 +package com.android.telephony; public class Rlog {public static int d(String t,String m){return 0;}public static int e(String t,String m){return 0;}}
 diff --git a/tests/host/empty-physical-fixtures/vendor/honor/hardware/hnradio/IRadio.java b/tests/host/empty-physical-fixtures/vendor/honor/hardware/hnradio/IRadio.java
 new file mode 100644
-index 0000000..bdcd5fa
+index 0000000000000000000000000000000000000000..bdcd5fa6f5044b18ac2d5ae4bdeec691dee3dbee
 --- /dev/null
 +++ b/tests/host/empty-physical-fixtures/vendor/honor/hardware/hnradio/IRadio.java
 @@ -0,0 +1,2 @@
@@ -6670,7 +7449,7 @@ index 0000000..bdcd5fa
 +public interface IRadio {int getInterfaceVersion()throws android.os.RemoteException;String getInterfaceHash()throws android.os.RemoteException;void sendCommRequest(int serial,int id,MsgPayload payload)throws android.os.RemoteException;}
 diff --git a/tests/host/empty-physical-fixtures/vendor/honor/hardware/hnradio/MsgPayload.java b/tests/host/empty-physical-fixtures/vendor/honor/hardware/hnradio/MsgPayload.java
 new file mode 100644
-index 0000000..140c6ba
+index 0000000000000000000000000000000000000000..140c6bad734ce97678d1cce1edfe750bad846f47
 --- /dev/null
 +++ b/tests/host/empty-physical-fixtures/vendor/honor/hardware/hnradio/MsgPayload.java
 @@ -0,0 +1,2 @@
@@ -6678,14 +7457,14 @@ index 0000000..140c6ba
 +public class MsgPayload {public int nData;public int[] nDatas;public String strData;public String[] strDatas;public byte[] bytes;}
 diff --git a/tests/host/knownblank-restore-fixtures/android/app/Application.java b/tests/host/knownblank-restore-fixtures/android/app/Application.java
 new file mode 100644
-index 0000000..f0ea9c4
+index 0000000000000000000000000000000000000000..f0ea9c408c1949587ce71b13ba8f7cde4ec617b6
 --- /dev/null
 +++ b/tests/host/knownblank-restore-fixtures/android/app/Application.java
 @@ -0,0 +1 @@
 +package android.app;public class Application {public static String getProcessName(){return "com.android.phone";}}
 diff --git a/tests/host/knownblank-restore-fixtures/android/app/Service.java b/tests/host/knownblank-restore-fixtures/android/app/Service.java
 new file mode 100644
-index 0000000..2f7509d
+index 0000000000000000000000000000000000000000..2f7509d07251545b1c6e8301fb2e12d97fb0f194
 --- /dev/null
 +++ b/tests/host/knownblank-restore-fixtures/android/app/Service.java
 @@ -0,0 +1,2 @@
@@ -6693,7 +7472,7 @@ index 0000000..2f7509d
 +public class Service extends Context {public IBinder onBind(Intent i){return null;}public void onDestroy(){}}
 diff --git a/tests/host/knownblank-restore-fixtures/android/content/Context.java b/tests/host/knownblank-restore-fixtures/android/content/Context.java
 new file mode 100644
-index 0000000..9a38c89
+index 0000000000000000000000000000000000000000..9a38c89023cbb37ea7f3e4c91f0d7836211ac0a4
 --- /dev/null
 +++ b/tests/host/knownblank-restore-fixtures/android/content/Context.java
 @@ -0,0 +1,4 @@
@@ -6703,7 +7482,7 @@ index 0000000..9a38c89
 +public PackageManager getPackageManager(){return packages;}public String getPackageName(){return "com.android.phone";}}
 diff --git a/tests/host/knownblank-restore-fixtures/android/content/pm/PackageManager.java b/tests/host/knownblank-restore-fixtures/android/content/pm/PackageManager.java
 new file mode 100644
-index 0000000..b73c364
+index 0000000000000000000000000000000000000000..b73c3643678616d87c078e4253d35ffa924963af
 --- /dev/null
 +++ b/tests/host/knownblank-restore-fixtures/android/content/pm/PackageManager.java
 @@ -0,0 +1,4 @@
@@ -6713,7 +7492,7 @@ index 0000000..b73c364
 +public int checkSignatures(String a,String b){return signature;}}
 diff --git a/tests/host/knownblank-restore-fixtures/android/os/Binder.java b/tests/host/knownblank-restore-fixtures/android/os/Binder.java
 new file mode 100644
-index 0000000..643a71f
+index 0000000000000000000000000000000000000000..643a71f48449a3bf7848606283425e1954f46714
 --- /dev/null
 +++ b/tests/host/knownblank-restore-fixtures/android/os/Binder.java
 @@ -0,0 +1,3 @@
@@ -6722,14 +7501,14 @@ index 0000000..643a71f
 +public boolean isBinderAlive(){return true;}public IBinder asBinder(){return this;}}
 diff --git a/tests/host/knownblank-restore-fixtures/android/os/Build.java b/tests/host/knownblank-restore-fixtures/android/os/Build.java
 new file mode 100644
-index 0000000..ac8caee
+index 0000000000000000000000000000000000000000..ac8caeecac71c12ad108c2000df625b01618c6b7
 --- /dev/null
 +++ b/tests/host/knownblank-restore-fixtures/android/os/Build.java
 @@ -0,0 +1 @@
 +package android.os;public final class Build {public static String MODEL="LDY-AN00",DEVICE="ldy_an00",TYPE="userdebug";public static boolean IS_DEBUGGABLE=true;}
 diff --git a/tests/host/knownblank-restore-fixtures/android/os/Handler.java b/tests/host/knownblank-restore-fixtures/android/os/Handler.java
 new file mode 100644
-index 0000000..dd0b315
+index 0000000000000000000000000000000000000000..dd0b3152193298dcfb9e45129599f3f90d127e9c
 --- /dev/null
 +++ b/tests/host/knownblank-restore-fixtures/android/os/Handler.java
 @@ -0,0 +1,15 @@
@@ -6750,7 +7529,7 @@ index 0000000..dd0b315
 +}
 diff --git a/tests/host/knownblank-restore-fixtures/android/os/IBinder.java b/tests/host/knownblank-restore-fixtures/android/os/IBinder.java
 new file mode 100644
-index 0000000..f5f9c3d
+index 0000000000000000000000000000000000000000..f5f9c3d47febbc7cf32262ab08685ca8479ed6f5
 --- /dev/null
 +++ b/tests/host/knownblank-restore-fixtures/android/os/IBinder.java
 @@ -0,0 +1,3 @@
@@ -6759,7 +7538,7 @@ index 0000000..f5f9c3d
 +default boolean unlinkToDeath(DeathRecipient d,int flags){return true;}}
 diff --git a/tests/host/knownblank-restore-fixtures/android/os/Looper.java b/tests/host/knownblank-restore-fixtures/android/os/Looper.java
 new file mode 100644
-index 0000000..b60b409
+index 0000000000000000000000000000000000000000..b60b40939bfac311254b367344369062b533ba14
 --- /dev/null
 +++ b/tests/host/knownblank-restore-fixtures/android/os/Looper.java
 @@ -0,0 +1,4 @@
@@ -6769,7 +7548,7 @@ index 0000000..b60b409
 +public static void setForTest(Looper value){current=value;}}
 diff --git a/tests/host/knownblank-restore-fixtures/android/os/Message.java b/tests/host/knownblank-restore-fixtures/android/os/Message.java
 new file mode 100644
-index 0000000..1282256
+index 0000000000000000000000000000000000000000..1282256cf4143608219753ee19fbeaebf73f6c5a
 --- /dev/null
 +++ b/tests/host/knownblank-restore-fixtures/android/os/Message.java
 @@ -0,0 +1,3 @@
@@ -6778,28 +7557,28 @@ index 0000000..1282256
 +public Handler getTarget(){return target;}public void sendToTarget(){target.post(()->target.handleMessage(this));}}
 diff --git a/tests/host/knownblank-restore-fixtures/android/os/Process.java b/tests/host/knownblank-restore-fixtures/android/os/Process.java
 new file mode 100644
-index 0000000..a20dddc
+index 0000000000000000000000000000000000000000..a20dddc3ee56ab865876fe28b64beb4d9626c35d
 --- /dev/null
 +++ b/tests/host/knownblank-restore-fixtures/android/os/Process.java
 @@ -0,0 +1 @@
 +package android.os;public final class Process {public static int uid=1001;public static int myUid(){return uid;}}
 diff --git a/tests/host/knownblank-restore-fixtures/android/os/SELinux.java b/tests/host/knownblank-restore-fixtures/android/os/SELinux.java
 new file mode 100644
-index 0000000..0593ca8
+index 0000000000000000000000000000000000000000..0593ca8979faa81c3feffba27bb7d796aa2474a0
 --- /dev/null
 +++ b/tests/host/knownblank-restore-fixtures/android/os/SELinux.java
 @@ -0,0 +1 @@
 +package android.os;public final class SELinux {public static boolean isSELinuxEnforced(){return true;}public static String getContext(){return "u:r:radio:s0";}}
 diff --git a/tests/host/knownblank-restore-fixtures/android/os/SystemClock.java b/tests/host/knownblank-restore-fixtures/android/os/SystemClock.java
 new file mode 100644
-index 0000000..f39fa79
+index 0000000000000000000000000000000000000000..f39fa790dde0569a94f804c918017fd321f163dd
 --- /dev/null
 +++ b/tests/host/knownblank-restore-fixtures/android/os/SystemClock.java
 @@ -0,0 +1 @@
 +package android.os;public final class SystemClock {public static long uptimeMillis(){return Handler.now;}public static long elapsedRealtime(){return Handler.now;}}
 diff --git a/tests/host/knownblank-restore-fixtures/android/os/SystemProperties.java b/tests/host/knownblank-restore-fixtures/android/os/SystemProperties.java
 new file mode 100644
-index 0000000..ebd18ee
+index 0000000000000000000000000000000000000000..ebd18ee062b4923a2d6e7b7c46a07f4a198d1f27
 --- /dev/null
 +++ b/tests/host/knownblank-restore-fixtures/android/os/SystemProperties.java
 @@ -0,0 +1,3 @@
@@ -6808,7 +7587,7 @@ index 0000000..ebd18ee
 +return name.equals("ro.lineage.ldy_an00.esim_bridge")?enabled:fallback;}}
 diff --git a/tests/host/knownblank-restore-fixtures/android/util/Log.java b/tests/host/knownblank-restore-fixtures/android/util/Log.java
 new file mode 100644
-index 0000000..4ce8939
+index 0000000000000000000000000000000000000000..4ce893916273af81aebc92fdb7ac32b321e35500
 --- /dev/null
 +++ b/tests/host/knownblank-restore-fixtures/android/util/Log.java
 @@ -0,0 +1 @@
@@ -6816,28 +7595,28 @@ index 0000000..4ce8939
 \ No newline at end of file
 diff --git a/tests/host/knownblank-restore-fixtures/com/android/internal/telephony/CommandsInterface.java b/tests/host/knownblank-restore-fixtures/com/android/internal/telephony/CommandsInterface.java
 new file mode 100644
-index 0000000..edb53b2
+index 0000000000000000000000000000000000000000..edb53b26ffb0522158711c3f1cb8db2ce0eab888
 --- /dev/null
 +++ b/tests/host/knownblank-restore-fixtures/com/android/internal/telephony/CommandsInterface.java
 @@ -0,0 +1 @@
 +package com.android.internal.telephony;import android.os.*;public interface CommandsInterface {void getIccCardStatus(Message result);void registerForNotAvailable(Handler h,int what,Object obj);}
 diff --git a/tests/host/knownblank-restore-fixtures/com/android/internal/telephony/Phone.java b/tests/host/knownblank-restore-fixtures/com/android/internal/telephony/Phone.java
 new file mode 100644
-index 0000000..bb25a45
+index 0000000000000000000000000000000000000000..bb25a45d3a0830d180dff97910aca510a8854e86
 --- /dev/null
 +++ b/tests/host/knownblank-restore-fixtures/com/android/internal/telephony/Phone.java
 @@ -0,0 +1 @@
 +package com.android.internal.telephony;public class Phone {public CommandsInterface mCi;}
 diff --git a/tests/host/knownblank-restore-fixtures/com/android/internal/telephony/PhoneFactory.java b/tests/host/knownblank-restore-fixtures/com/android/internal/telephony/PhoneFactory.java
 new file mode 100644
-index 0000000..b6e654b
+index 0000000000000000000000000000000000000000..b6e654b1adbafef3965e52366bf93cc068d2d06d
 --- /dev/null
 +++ b/tests/host/knownblank-restore-fixtures/com/android/internal/telephony/PhoneFactory.java
 @@ -0,0 +1 @@
 +package com.android.internal.telephony;public final class PhoneFactory {public static Phone[] phones;public static Phone[] getPhones(){return phones;}public static Phone getPhone(int id){return phones[id];}}
 diff --git a/tests/host/knownblank-restore-fixtures/com/android/internal/telephony/euicc/EuiccConnector.java b/tests/host/knownblank-restore-fixtures/com/android/internal/telephony/euicc/EuiccConnector.java
 new file mode 100644
-index 0000000..880b13e
+index 0000000000000000000000000000000000000000..880b13e842f7ad19ddf98ea746b1f78e8469471c
 --- /dev/null
 +++ b/tests/host/knownblank-restore-fixtures/com/android/internal/telephony/euicc/EuiccConnector.java
 @@ -0,0 +1,4 @@
@@ -6847,7 +7626,7 @@ index 0000000..880b13e
 +s.applicationInfo.uid=PackageManager.selectedUid;return s;}}
 diff --git a/tests/host/knownblank-restore-fixtures/com/android/internal/telephony/honor/HonorEuiccReadinessObserver.java b/tests/host/knownblank-restore-fixtures/com/android/internal/telephony/honor/HonorEuiccReadinessObserver.java
 new file mode 100644
-index 0000000..cac04df
+index 0000000000000000000000000000000000000000..cac04dfe122953f582fe0cc3a3313f82116d0773
 --- /dev/null
 +++ b/tests/host/knownblank-restore-fixtures/com/android/internal/telephony/honor/HonorEuiccReadinessObserver.java
 @@ -0,0 +1,11 @@
@@ -6864,7 +7643,7 @@ index 0000000..cac04df
 +}
 diff --git a/tests/host/knownblank-restore-fixtures/com/android/internal/telephony/honor/HonorSepTrialAdapter.java b/tests/host/knownblank-restore-fixtures/com/android/internal/telephony/honor/HonorSepTrialAdapter.java
 new file mode 100644
-index 0000000..a3feceb
+index 0000000000000000000000000000000000000000..a3fecebaaeb449372b0c684521679863458a0572
 --- /dev/null
 +++ b/tests/host/knownblank-restore-fixtures/com/android/internal/telephony/honor/HonorSepTrialAdapter.java
 @@ -0,0 +1,9 @@
@@ -6880,7 +7659,7 @@ index 0000000..a3feceb
 \ No newline at end of file
 diff --git a/tests/host/knownblank-restore-fixtures/com/android/internal/telephony/honor/MtkSimTypeTransport.java b/tests/host/knownblank-restore-fixtures/com/android/internal/telephony/honor/MtkSimTypeTransport.java
 new file mode 100644
-index 0000000..4463975
+index 0000000000000000000000000000000000000000..44639750446865f460fb796c90383da4563fb415
 --- /dev/null
 +++ b/tests/host/knownblank-restore-fixtures/com/android/internal/telephony/honor/MtkSimTypeTransport.java
 @@ -0,0 +1,9 @@
@@ -6895,7 +7674,7 @@ index 0000000..4463975
 +}
 diff --git a/tests/host/knownblank-restore-fixtures/com/android/internal/telephony/uicc/AnswerToReset.java b/tests/host/knownblank-restore-fixtures/com/android/internal/telephony/uicc/AnswerToReset.java
 new file mode 100644
-index 0000000..bb78afa
+index 0000000000000000000000000000000000000000..bb78afa177eae96644e98abcc7d3bbd36ab73c3a
 --- /dev/null
 +++ b/tests/host/knownblank-restore-fixtures/com/android/internal/telephony/uicc/AnswerToReset.java
 @@ -0,0 +1,2 @@
@@ -6903,7 +7682,7 @@ index 0000000..bb78afa
 +public static AnswerToReset parseAtr(String atr){return "EUICC".equals(atr)?new AnswerToReset():null;}public boolean isEuiccSupported(){return true;}}
 diff --git a/tests/host/knownblank-restore-fixtures/com/android/internal/telephony/uicc/IccCardStatus.java b/tests/host/knownblank-restore-fixtures/com/android/internal/telephony/uicc/IccCardStatus.java
 new file mode 100644
-index 0000000..1550f07
+index 0000000000000000000000000000000000000000..1550f0746f511ea57d6e413c47e1c9c192f33ebb
 --- /dev/null
 +++ b/tests/host/knownblank-restore-fixtures/com/android/internal/telephony/uicc/IccCardStatus.java
 @@ -0,0 +1,3 @@
@@ -6912,14 +7691,14 @@ index 0000000..1550f07
 +public CardState mCardState;public String atr,eid;public IccSlotPortMapping mSlotPortMapping=new IccSlotPortMapping();}
 diff --git a/tests/host/knownblank-restore-fixtures/com/android/internal/telephony/uicc/IccSlotPortMapping.java b/tests/host/knownblank-restore-fixtures/com/android/internal/telephony/uicc/IccSlotPortMapping.java
 new file mode 100644
-index 0000000..2426743
+index 0000000000000000000000000000000000000000..24267436158af09c8bb347c36c55581b4a419d83
 --- /dev/null
 +++ b/tests/host/knownblank-restore-fixtures/com/android/internal/telephony/uicc/IccSlotPortMapping.java
 @@ -0,0 +1 @@
 +package com.android.internal.telephony.uicc;public class IccSlotPortMapping {public int mPhysicalSlotIndex=1,mPortIndex=0;}
 diff --git a/tests/host/knownblank-restore-fixtures/com/android/internal/telephony/uicc/UiccController.java b/tests/host/knownblank-restore-fixtures/com/android/internal/telephony/uicc/UiccController.java
 new file mode 100644
-index 0000000..a1a286f
+index 0000000000000000000000000000000000000000..a1a286f5730f6ce8adc2ec935fbb08c6bc5b6be9
 --- /dev/null
 +++ b/tests/host/knownblank-restore-fixtures/com/android/internal/telephony/uicc/UiccController.java
 @@ -0,0 +1,3 @@
@@ -6928,14 +7707,14 @@ index 0000000..a1a286f
 +public int refreshes; public void requestIccCardStatusRefresh(int id){refreshes++;} public UiccController(Looper l){super(l);}public static UiccController getInstance(){return instance;}public UiccSlot getUiccSlotForPhone(int id){return slot;}}
 diff --git a/tests/host/knownblank-restore-fixtures/com/android/internal/telephony/uicc/UiccSlot.java b/tests/host/knownblank-restore-fixtures/com/android/internal/telephony/uicc/UiccSlot.java
 new file mode 100644
-index 0000000..80de14b
+index 0000000000000000000000000000000000000000..80de14b135a2113cdfd7b35862ed808f405e28f0
 --- /dev/null
 +++ b/tests/host/knownblank-restore-fixtures/com/android/internal/telephony/uicc/UiccSlot.java
 @@ -0,0 +1 @@
 +package com.android.internal.telephony.uicc;public class UiccSlot {public boolean unknown;public IccCardStatus.CardState state=IccCardStatus.CardState.CARDSTATE_PRESENT;public boolean isStateUnknown(){return unknown;}public IccCardStatus.CardState getCardState(){return state;}}
 diff --git a/tests/host/knownblank-restore-fixtures/com/android/phone/PhoneGlobals.java b/tests/host/knownblank-restore-fixtures/com/android/phone/PhoneGlobals.java
 new file mode 100644
-index 0000000..d9167d1
+index 0000000000000000000000000000000000000000..d9167d196cdadb4a3c3f6ef0202fd7668026d0ef
 --- /dev/null
 +++ b/tests/host/knownblank-restore-fixtures/com/android/phone/PhoneGlobals.java
 @@ -0,0 +1,2 @@
@@ -6943,7 +7722,7 @@ index 0000000..d9167d1
 +private static final PhoneGlobals instance=new PhoneGlobals();public static PhoneGlobals getInstance(){return instance;}}
 diff --git a/tests/host/ldy_an00_esim/AckTrackerTest.java b/tests/host/ldy_an00_esim/AckTrackerTest.java
 new file mode 100644
-index 0000000..3b42d7c
+index 0000000000000000000000000000000000000000..3b42d7c962abd5782c1fc978c7d4163f5e31c1d5
 --- /dev/null
 +++ b/tests/host/ldy_an00_esim/AckTrackerTest.java
 @@ -0,0 +1,19 @@
@@ -6969,7 +7748,7 @@ index 0000000..3b42d7c
 \ No newline at end of file
 diff --git a/tests/host/ldy_an00_esim/EndpointPublicationTest.java b/tests/host/ldy_an00_esim/EndpointPublicationTest.java
 new file mode 100644
-index 0000000..ec019de
+index 0000000000000000000000000000000000000000..ec019de32ec8d8eac4fffb7701eb1b5aaddd5d3a
 --- /dev/null
 +++ b/tests/host/ldy_an00_esim/EndpointPublicationTest.java
 @@ -0,0 +1,89 @@
@@ -7064,7 +7843,7 @@ index 0000000..ec019de
 +}
 diff --git a/tests/host/ldy_an00_esim/EuiccReadinessTest.java b/tests/host/ldy_an00_esim/EuiccReadinessTest.java
 new file mode 100644
-index 0000000..512ff14
+index 0000000000000000000000000000000000000000..512ff141150aba60f3b88aa88510bf98138be122
 --- /dev/null
 +++ b/tests/host/ldy_an00_esim/EuiccReadinessTest.java
 @@ -0,0 +1,114 @@
@@ -7184,7 +7963,7 @@ index 0000000..512ff14
 +}
 diff --git a/tests/host/ldy_an00_esim/MtkSimSerialsTest.java b/tests/host/ldy_an00_esim/MtkSimSerialsTest.java
 new file mode 100644
-index 0000000..57ae199
+index 0000000000000000000000000000000000000000..57ae199fe46dd1a6eeb4b400574c64bf8a4f7711
 --- /dev/null
 +++ b/tests/host/ldy_an00_esim/MtkSimSerialsTest.java
 @@ -0,0 +1,80 @@
@@ -7270,7 +8049,7 @@ index 0000000..57ae199
 +}
 diff --git a/tests/host/ldy_an00_esim/MtkSimTypeQueryTest.java b/tests/host/ldy_an00_esim/MtkSimTypeQueryTest.java
 new file mode 100644
-index 0000000..cc28890
+index 0000000000000000000000000000000000000000..cc2889029f99d60592ffac9289ee407b647e2f92
 --- /dev/null
 +++ b/tests/host/ldy_an00_esim/MtkSimTypeQueryTest.java
 @@ -0,0 +1,89 @@
@@ -7365,7 +8144,7 @@ index 0000000..cc28890
 +}
 diff --git a/tests/host/ldy_an00_esim/SepMuxAdmissionTest.java b/tests/host/ldy_an00_esim/SepMuxAdmissionTest.java
 new file mode 100644
-index 0000000..4a42581
+index 0000000000000000000000000000000000000000..4a425815cc15850c48cdb468eacf0f44482e0ccf
 --- /dev/null
 +++ b/tests/host/ldy_an00_esim/SepMuxAdmissionTest.java
 @@ -0,0 +1,51 @@
@@ -7422,7 +8201,7 @@ index 0000000..4a42581
 +}
 diff --git a/tests/host/ldy_an00_esim/SepMuxDeadlineTest.java b/tests/host/ldy_an00_esim/SepMuxDeadlineTest.java
 new file mode 100644
-index 0000000..eab90f8
+index 0000000000000000000000000000000000000000..eab90f81cc0d2940a29858befb5680c20a8388fb
 --- /dev/null
 +++ b/tests/host/ldy_an00_esim/SepMuxDeadlineTest.java
 @@ -0,0 +1,66 @@
@@ -7494,7 +8273,7 @@ index 0000000..eab90f8
 +}
 diff --git a/tests/host/ldy_an00_esim/SepMuxJournalTest.java b/tests/host/ldy_an00_esim/SepMuxJournalTest.java
 new file mode 100644
-index 0000000..1c1625a
+index 0000000000000000000000000000000000000000..1c1625a79ad8e6f107a51d7d6584bdd8af600253
 --- /dev/null
 +++ b/tests/host/ldy_an00_esim/SepMuxJournalTest.java
 @@ -0,0 +1,91 @@
@@ -7591,7 +8370,7 @@ index 0000000..1c1625a
 +}
 diff --git a/tests/host/ldy_an00_esim/SepMuxRouteAdoptionTest.java b/tests/host/ldy_an00_esim/SepMuxRouteAdoptionTest.java
 new file mode 100644
-index 0000000..b3e11cf
+index 0000000000000000000000000000000000000000..b3e11cf78f0b9c61136cc4c10fc49030c0792bce
 --- /dev/null
 +++ b/tests/host/ldy_an00_esim/SepMuxRouteAdoptionTest.java
 @@ -0,0 +1,78 @@
@@ -7675,7 +8454,7 @@ index 0000000..b3e11cf
 +}
 diff --git a/tests/host/ldy_an00_esim/SepMuxTrialTest.java b/tests/host/ldy_an00_esim/SepMuxTrialTest.java
 new file mode 100644
-index 0000000..4da7d48
+index 0000000000000000000000000000000000000000..4da7d48e6f85baa91047e99eacac414700185ee1
 --- /dev/null
 +++ b/tests/host/ldy_an00_esim/SepMuxTrialTest.java
 @@ -0,0 +1,177 @@
@@ -7858,7 +8637,7 @@ index 0000000..4da7d48
 +}
 diff --git a/tests/host/ldy_an00_esim/SepMuxUiProjectionTest.java b/tests/host/ldy_an00_esim/SepMuxUiProjectionTest.java
 new file mode 100644
-index 0000000..859b567
+index 0000000000000000000000000000000000000000..859b5670d25023f1f2ece05c82feeca70b7b03f9
 --- /dev/null
 +++ b/tests/host/ldy_an00_esim/SepMuxUiProjectionTest.java
 @@ -0,0 +1,128 @@
@@ -7992,7 +8771,7 @@ index 0000000..859b567
 +}
 diff --git a/tests/host/ldy_an00_esim/SharedSlotRouteTrialTest.java b/tests/host/ldy_an00_esim/SharedSlotRouteTrialTest.java
 new file mode 100644
-index 0000000..c3e7b6a
+index 0000000000000000000000000000000000000000..c3e7b6ab1e7316548974fb906b02258764255900
 --- /dev/null
 +++ b/tests/host/ldy_an00_esim/SharedSlotRouteTrialTest.java
 @@ -0,0 +1,165 @@
@@ -8163,7 +8942,7 @@ index 0000000..c3e7b6a
 +}
 diff --git a/tests/host/ldy_an00_esim/TrialDispatchGateTest.java b/tests/host/ldy_an00_esim/TrialDispatchGateTest.java
 new file mode 100644
-index 0000000..157c54f
+index 0000000000000000000000000000000000000000..157c54f8be7c541f13cf1024835edb94d6992de1
 --- /dev/null
 +++ b/tests/host/ldy_an00_esim/TrialDispatchGateTest.java
 @@ -0,0 +1,15 @@
@@ -8183,9 +8962,47 @@ index 0000000..157c54f
 + }
 +}
 \ No newline at end of file
+diff --git a/tests/host/route-call-guard-fixtures/com/android/internal/telephony/Phone.java b/tests/host/route-call-guard-fixtures/com/android/internal/telephony/Phone.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..b1aa9037bfdf309699ebe1d28be38f4fc067d560
+--- /dev/null
++++ b/tests/host/route-call-guard-fixtures/com/android/internal/telephony/Phone.java
+@@ -0,0 +1,12 @@
++package com.android.internal.telephony;
++/** Host-only cached Phone/IMS facts, not Android call or radio execution. */
++public class Phone {
++ public PhoneConstants.State state=PhoneConstants.State.IDLE;
++ public boolean emergency,ecm,sms,unavailable;
++ public Phone ims;
++ public PhoneConstants.State getState(){if(unavailable)throw new IllegalStateException();return state;}
++ public boolean isInEmergencyCall(){return emergency;}
++ public boolean isInEcm(){return ecm;}
++ public boolean isInEmergencySmsMode(){return sms;}
++ public Phone getImsPhone(){return ims;}
++}
+diff --git a/tests/host/route-call-guard-fixtures/com/android/internal/telephony/PhoneConstants.java b/tests/host/route-call-guard-fixtures/com/android/internal/telephony/PhoneConstants.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..b1026d7e9f8786068cb07f2136bed6169bd609cc
+--- /dev/null
++++ b/tests/host/route-call-guard-fixtures/com/android/internal/telephony/PhoneConstants.java
+@@ -0,0 +1,2 @@
++package com.android.internal.telephony;
++public final class PhoneConstants { public enum State { IDLE, RINGING, OFFHOOK } }
+diff --git a/tests/host/route-call-guard-fixtures/com/android/internal/telephony/PhoneFactory.java b/tests/host/route-call-guard-fixtures/com/android/internal/telephony/PhoneFactory.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..c2c19e1c34e1f3166e6b3cd7c3d0a4c3970351c1
+--- /dev/null
++++ b/tests/host/route-call-guard-fixtures/com/android/internal/telephony/PhoneFactory.java
+@@ -0,0 +1,6 @@
++package com.android.internal.telephony;
++public final class PhoneFactory {
++ public static Phone[] phones;
++ public static boolean unavailable;
++ public static Phone[] getPhones(){if(unavailable)throw new IllegalStateException();return phones;}
++}
 diff --git a/tests/src/com/android/internal/telephony/honor/MtkSimTypeTransportTest.java b/tests/src/com/android/internal/telephony/honor/MtkSimTypeTransportTest.java
 new file mode 100644
-index 0000000..ec2207f
+index 0000000000000000000000000000000000000000..ec2207ffb8bf9e2051fe168dc64634ab301d5b7d
 --- /dev/null
 +++ b/tests/src/com/android/internal/telephony/honor/MtkSimTypeTransportTest.java
 @@ -0,0 +1,230 @@
@@ -8419,3 +9236,90 @@ index 0000000..ec2207f
 +        }
 +    }
 +}
+diff --git a/tests/src/com/android/phone/euicc/EuiccUiDispatcherActivityTest.java b/tests/src/com/android/phone/euicc/EuiccUiDispatcherActivityTest.java
+index 1bd118a56407b334629e1ef568d81e8cc0d8d802..5e78e7f4a006b85c198048b05f90fcc4cfa75581 100644
+--- a/tests/src/com/android/phone/euicc/EuiccUiDispatcherActivityTest.java
++++ b/tests/src/com/android/phone/euicc/EuiccUiDispatcherActivityTest.java
+@@ -20,9 +20,11 @@ import static org.junit.Assert.assertNotNull;
+ import static org.junit.Assert.assertNull;
+ import static org.mockito.Mockito.when;
+ 
++import android.content.ComponentName;
+ import android.content.Context;
+ import android.content.Intent;
+ import android.content.pm.ActivityInfo;
++import android.content.pm.PackageManager;
+ import android.service.euicc.EuiccService;
+ import android.telephony.TelephonyManager;
+ import android.telephony.euicc.EuiccManager;
+@@ -50,6 +52,8 @@ public class EuiccUiDispatcherActivityTest {
+     }
+ 
+     @Mock private Context mMockContext;
++    @Mock private PackageManager mPackageManager;
++    private boolean mHonorSharedSlot;
+     @Mock private EuiccManager mMockEuiccManager;
+     @Mock private TelephonyManager mTelephonyManager;
+     private ActivityInfo mActivityInfo = ACTIVITY_INFO;
+@@ -59,6 +63,9 @@ public class EuiccUiDispatcherActivityTest {
+     @Before
+     public void setUp() {
+         MockitoAnnotations.initMocks(this);
++        when(mMockContext.getPackageManager()).thenReturn(mPackageManager);
++        when(mPackageManager.checkSignatures("android", "test.package"))
++                .thenReturn(PackageManager.SIGNATURE_MATCH);
+         when(mMockEuiccManager.isEnabled()).thenReturn(true);
+         when(mMockContext.getSystemService(Context.EUICC_SERVICE)).thenReturn(mMockEuiccManager);
+         when(mMockContext.getSystemService(Context.TELEPHONY_SERVICE))
+@@ -79,6 +86,41 @@ public class EuiccUiDispatcherActivityTest {
+         assertNull(mActivity.resolveEuiccUiIntent());
+     }
+ 
++    @Test
++    public void testResolveEuiccUiIntent_disabledHonorManage() {
++        mHonorSharedSlot = true;
++        when(mMockEuiccManager.isEnabled()).thenReturn(false);
++        assertNotNull(mActivity.resolveEuiccUiIntent());
++    }
++
++    @Test
++    public void testResolveEuiccUiIntent_disabledHonorProvisionStillDenied() {
++        mHonorSharedSlot = true;
++        mIntent = PROVISION_INTENT;
++        when(mMockEuiccManager.isEnabled()).thenReturn(false);
++        assertNull(mActivity.resolveEuiccUiIntent());
++    }
++
++    @Test
++    public void testResolveEuiccUiIntent_honorManageIgnoresTestComponent() {
++        mHonorSharedSlot = true;
++        when(mMockEuiccManager.isEnabled()).thenReturn(false);
++        when(mTelephonyManager.getTestEuiccUiComponent())
++                .thenReturn(new ComponentName("other.package", "OtherActivity"));
++        Intent intent = mActivity.resolveEuiccUiIntent();
++        assertNotNull(intent);
++        assertEquals(new ComponentName("test.package", "TestClass"), intent.getComponent());
++    }
++
++    @Test
++    public void testResolveEuiccUiIntent_honorManageRequiresPlatformSignature() {
++        mHonorSharedSlot = true;
++        when(mMockEuiccManager.isEnabled()).thenReturn(false);
++        when(mPackageManager.checkSignatures("android", "test.package"))
++                .thenReturn(PackageManager.SIGNATURE_NO_MATCH);
++        assertNull(mActivity.resolveEuiccUiIntent());
++    }
++
+     @Test
+     public void testResolveEuiccUiIntent_nullAction() {
+         mIntent = new Intent();
+@@ -139,6 +181,9 @@ public class EuiccUiDispatcherActivityTest {
+             attachBaseContext(mMockContext);
+         }
+ 
++        @Override
++        boolean isHonorSharedSlotManagement() { return mHonorSharedSlot; }
++
+         @Override
+         public Intent getIntent() {
+             return mIntent;
