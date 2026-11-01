@@ -91,11 +91,16 @@ Reported green/locked boot properties do not establish stock verified-boot secur
 
 ## Updates
 
-After a compatible native installation, updates will use
-**Settings > System > Updater**. A reboot is required to run the new version;
+The installed image already checks this repository's GitHub update feed through
+**Settings > System > Updater**. Newer compatible releases appear after their
+signed OTA package and feed entry are published. A reboot runs the new version;
 Virtual A/B merge completes afterward. Do not switch slots manually after merge.
-The initial installer is not an OTA ZIP. The feed remains empty until a
-compatible signed OTA package has passed testing.
+
+Each available update offers **Recent changes**, opening the notes for that
+specific GitHub release before installation.
+
+The first-install ZIP and OTA ZIP are separate downloads. The repository and
+release assets must be public for normal on-device checks and downloads.
 
 ## Source
 

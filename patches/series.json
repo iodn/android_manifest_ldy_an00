@@ -150,6 +150,18 @@
       }
     },
     {
+      "path": "packages/apps/Updater",
+      "revision": "3b2443a670afc4712cdedf5b0dba3c1f9e06807c",
+      "tree": "a515329ff46ed3e0232fd34435ddfa21a75b8eca",
+      "base_revision": "6d50e0bf1b16fe7bca818375a3e734f4959e2e57",
+      "patch": "packages_apps_Updater.patch",
+      "patch_sha256": "9c233d088acdbc4e61b636008024c4482db668c7e954e2b5d011fd488888af6a",
+      "patch_tree_verified": true,
+      "remote_url": "https://github.com/LineageOS/android_packages_apps_Updater",
+      "target_snapshot_revision": "3b2443a670afc4712cdedf5b0dba3c1f9e06807c",
+      "target_snapshot_tree": "a515329ff46ed3e0232fd34435ddfa21a75b8eca"
+    },
+    {
       "path": "packages/services/Telephony",
       "revision": "e07290a9c6ac95158dffff6ca56f0563581305f2",
       "tree": "e2c73111318cae604c7724fd42668d8f6f1b7ee1",

@@ -1,0 +1,126 @@
+diff --git a/app/src/main/java/org/lineageos/updater/data/UpdatesRepository.kt b/app/src/main/java/org/lineageos/updater/data/UpdatesRepository.kt
+index c9e2350..a040f9e 100644
+--- a/app/src/main/java/org/lineageos/updater/data/UpdatesRepository.kt
++++ b/app/src/main/java/org/lineageos/updater/data/UpdatesRepository.kt
+@@ -61,7 +61,7 @@ class UpdatesRepository(
+ 
+         val networkIds = networkUpdates.map { it.downloadId }.toSet()
+ 
+-        if (localUpdates.isNotEmpty() && networkUpdates.any { it.downloadId !in localUpdates }) {
++        if (networkUpdates.any { it.downloadId !in localUpdates }) {
+             notificationHelper.showNewUpdatesNotification()
+         }
+ 
+diff --git a/app/src/main/java/org/lineageos/updater/updates/action/UpdateAction.kt b/app/src/main/java/org/lineageos/updater/updates/action/UpdateAction.kt
+index 90bc450..d6a346f 100644
+--- a/app/src/main/java/org/lineageos/updater/updates/action/UpdateAction.kt
++++ b/app/src/main/java/org/lineageos/updater/updates/action/UpdateAction.kt
+@@ -26,6 +26,7 @@ enum class UpdateActionType(@param:StringRes val titleRes: Int) {
+ 
+     DELETE(R.string.menu_delete_update),
+     EXPORT(R.string.menu_export_update),
++    VIEW_CHANGELOG(R.string.show_changelog),
+     VIEW_DOWNLOADS(R.string.menu_view_downloads) {
+         override fun title(context: Context) =
+             context.getString(titleRes, context.getString(R.string.brand_name))
+diff --git a/app/src/main/java/org/lineageos/updater/updates/action/UpdateActionHandler.kt b/app/src/main/java/org/lineageos/updater/updates/action/UpdateActionHandler.kt
+index 8c0ab12..cd00081 100644
+--- a/app/src/main/java/org/lineageos/updater/updates/action/UpdateActionHandler.kt
++++ b/app/src/main/java/org/lineageos/updater/updates/action/UpdateActionHandler.kt
+@@ -24,6 +24,7 @@ import org.lineageos.updater.misc.Utils
+ import org.lineageos.updater.util.BatteryMonitor.BatteryState
+ import org.lineageos.updater.util.InstallUtils
+ import org.lineageos.updater.util.StringUtil
++import org.lineageos.updater.util.releaseNotesUrl
+ import java.time.format.FormatStyle
+ 
+ class UpdateActionHandler(
+@@ -194,6 +195,10 @@ class UpdateActionHandler(
+                 )
+             )
+ 
++            UpdateActionType.VIEW_CHANGELOG -> releaseNotesUrl(update.downloadUrl)?.let { url ->
++                activity.startActivity(Intent(Intent.ACTION_VIEW, url.toUri()))
++            }
++
+             UpdateActionType.VIEW_DOWNLOADS -> activity.startActivity(
+                 Intent(
+                     Intent.ACTION_VIEW,
+diff --git a/app/src/main/java/org/lineageos/updater/updates/state/UpdateItemStateMapper.kt b/app/src/main/java/org/lineageos/updater/updates/state/UpdateItemStateMapper.kt
+index 1b97368..385fe16 100644
+--- a/app/src/main/java/org/lineageos/updater/updates/state/UpdateItemStateMapper.kt
++++ b/app/src/main/java/org/lineageos/updater/updates/state/UpdateItemStateMapper.kt
+@@ -19,6 +19,7 @@ import org.lineageos.updater.updates.action.UpdateActions
+ import org.lineageos.updater.util.InstallUtils
+ import org.lineageos.updater.util.NetworkMonitor.NetworkState
+ import org.lineageos.updater.util.StringUtil
++import org.lineageos.updater.util.releaseNotesUrl
+ 
+ class UpdateItemStateMapper(
+     private val context: Context,
+@@ -159,6 +160,9 @@ class UpdateItemStateMapper(
+                 if (state.canDelete) {
+                     add(action(type = UpdateActionType.DELETE, enabled = !state.isBusy))
+                 }
++                if (releaseNotesUrl(update.downloadUrl) != null) {
++                    add(action(UpdateActionType.VIEW_CHANGELOG, enabled = networkState.isOnline))
++                }
+                 if (update.downloadUrl != null) {
+                     add(action(UpdateActionType.VIEW_DOWNLOADS))
+                 }
+diff --git a/app/src/main/java/org/lineageos/updater/util/ReleaseNotes.kt b/app/src/main/java/org/lineageos/updater/util/ReleaseNotes.kt
+new file mode 100644
+index 0000000..f2143f6
+--- /dev/null
++++ b/app/src/main/java/org/lineageos/updater/util/ReleaseNotes.kt
+@@ -0,0 +1,26 @@
++/*
++ * SPDX-License-Identifier: Apache-2.0
++ */
++
++package org.lineageos.updater.util
++
++import java.net.URI
++
++fun releaseNotesUrl(downloadUrl: String?): String? {
++    val uri = try {
++        URI(downloadUrl ?: return null)
++    } catch (_: IllegalArgumentException) {
++        return null
++    } catch (_: java.net.URISyntaxException) {
++        return null
++    }
++    if (uri.scheme != "https" || uri.host != "github.com" || uri.userInfo != null ||
++        uri.port != -1 || uri.rawQuery != null || uri.rawFragment != null) return null
++    val prefix = "/iodn/android_manifest_ldy_an00/releases/download/"
++    val path = uri.rawPath ?: return null
++    if (!path.startsWith(prefix)) return null
++    val parts = path.removePrefix(prefix).split('/')
++    if (parts.size != 2 || !Regex("lineage-[A-Za-z0-9._-]+").matches(parts[0]) ||
++        parts[1].isBlank()) return null
++    return "https://github.com/iodn/android_manifest_ldy_an00/releases/tag/${parts[0]}"
++}
+diff --git a/app/src/main/res/values/config.xml b/app/src/main/res/values/config.xml
+index b4f696a..5f13622 100644
+--- a/app/src/main/res/values/config.xml
++++ b/app/src/main/res/values/config.xml
+@@ -17,5 +17,5 @@
+     <color name="brand_sheen">#EADDFF</color>
+ 
+     <!-- URL template for opening the device-specific downloads page from the update menu. -->
+-    <string name="menu_downloads_url" translatable="false">https://download.lineageos.org/devices/<xliff:g id="device_name">%1$s</xliff:g>/builds</string>
++    <string name="menu_downloads_url" translatable="false">https://github.com/iodn/android_manifest_ldy_an00/releases</string>
+ </resources>
+diff --git a/app/src/main/res/values/strings.xml b/app/src/main/res/values/strings.xml
+index df56e15..158e7e3 100644
+--- a/app/src/main/res/values/strings.xml
++++ b/app/src/main/res/values/strings.xml
+@@ -91,7 +91,7 @@
+     <string name="menu_stream_updates_summary">Install updates while downloading. Disable to save update packages for export.</string>
+     <string name="menu_delete_update">Delete</string>
+     <string name="menu_export_update">Export update</string>
+-    <string name="menu_changelog_url" translatable="false">https://download.lineageos.org/<xliff:g id="device_name">%1$s</xliff:g>/changes</string>
++    <string name="menu_changelog_url" translatable="false">https://github.com/iodn/android_manifest_ldy_an00/releases</string>
+     <string name="menu_view_downloads">View on <xliff:g id="brand_name" example="LineageOS">%1$s</xliff:g> Downloads</string>
+     <string name="menu_metered_network_warning">Metered network warning</string>
+     <string name="menu_metered_network_warning_summary">Warn before downloading over mobile data</string>
