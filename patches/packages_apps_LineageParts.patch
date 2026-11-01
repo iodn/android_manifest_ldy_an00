@@ -1,0 +1,75 @@
+diff --git a/res/values/strings.xml b/res/values/strings.xml
+index 9a0010f..20ea051 100644
+--- a/res/values/strings.xml
++++ b/res/values/strings.xml
+@@ -265,6 +265,7 @@
+     <!-- Power menu -->
+     <string name="power_menu_title">Power menu</string>
+     <string name="power_menu_items_title">Power menu items</string>
++    <string name="power_menu_lockdown_title">Lockdown</string>
+     <string name="power_menu_screenshot_title">Screenshot</string>
+     <string name="power_menu_screenshot_summary">Long-press for partial screenshot</string>
+     <string name="power_menu_airplane_title">Airplane mode</string>
+diff --git a/res/xml/power_menu_settings.xml b/res/xml/power_menu_settings.xml
+index 83c3628..c7754c7 100644
+--- a/res/xml/power_menu_settings.xml
++++ b/res/xml/power_menu_settings.xml
+@@ -12,6 +12,10 @@
+             android:key="power_menu_items"
+             android:title="@string/power_menu_items_title">
+ 
++        <CheckBoxPreference
++            android:key="lockdown"
++            android:title="@string/power_menu_lockdown_title" />
++
+         <CheckBoxPreference
+             android:key="screenshot"
+             android:title="@string/power_menu_screenshot_title"
+diff --git a/src/org/lineageos/lineageparts/input/PowerMenuActions.java b/src/org/lineageos/lineageparts/input/PowerMenuActions.java
+index 4ab2b0a..b4a0b61 100644
+--- a/src/org/lineageos/lineageparts/input/PowerMenuActions.java
++++ b/src/org/lineageos/lineageparts/input/PowerMenuActions.java
+@@ -40,6 +40,7 @@ public class PowerMenuActions extends SettingsPreferenceFragment {
+ 
+     private PreferenceCategory mPowerMenuItemsCategory;
+ 
++    private CheckBoxPreference mLockdownPref;
+     private CheckBoxPreference mScreenshotPref;
+     private CheckBoxPreference mAirplanePref;
+     private CheckBoxPreference mUsersPref;
+@@ -69,7 +70,9 @@ public class PowerMenuActions extends SettingsPreferenceFragment {
+         mPowerMenuItemsCategory = findPreference(CATEGORY_POWER_MENU_ITEMS);
+ 
+         for (String action : PowerMenuConstants.getAllActions()) {
+-            if (action.equals(GLOBAL_ACTION_KEY_SCREENSHOT)) {
++            if (action.equals(GLOBAL_ACTION_KEY_LOCKDOWN)) {
++                mLockdownPref = findPreference(GLOBAL_ACTION_KEY_LOCKDOWN);
++            } else if (action.equals(GLOBAL_ACTION_KEY_SCREENSHOT)) {
+                 mScreenshotPref = findPreference(GLOBAL_ACTION_KEY_SCREENSHOT);
+             } else if (action.equals(GLOBAL_ACTION_KEY_AIRPLANE)) {
+                 mAirplanePref = findPreference(GLOBAL_ACTION_KEY_AIRPLANE);
+@@ -94,6 +97,11 @@ public class PowerMenuActions extends SettingsPreferenceFragment {
+     public void onStart() {
+         super.onStart();
+ 
++        if (mLockdownPref != null) {
++            mLockdownPref.setChecked(mLineageGlobalActions.userConfigContains(
++                    GLOBAL_ACTION_KEY_LOCKDOWN));
++        }
++
+         if (mScreenshotPref != null) {
+             mScreenshotPref.setChecked(mLineageGlobalActions.userConfigContains(
+                     GLOBAL_ACTION_KEY_SCREENSHOT));
+@@ -159,7 +167,11 @@ public class PowerMenuActions extends SettingsPreferenceFragment {
+     public boolean onPreferenceTreeClick(Preference preference) {
+         boolean value;
+ 
+-        if (preference == mScreenshotPref) {
++        if (preference == mLockdownPref) {
++            value = mLockdownPref.isChecked();
++            mLineageGlobalActions.updateUserConfig(value, GLOBAL_ACTION_KEY_LOCKDOWN);
++
++        } else if (preference == mScreenshotPref) {
+             value = mScreenshotPref.isChecked();
+             mLineageGlobalActions.updateUserConfig(value, GLOBAL_ACTION_KEY_SCREENSHOT);
+ 

@@ -122,6 +122,18 @@
       "remote_url": "https://android.googlesource.com/platform/packages/apps/DeviceDiagnostics"
     },
     {
+      "path": "packages/apps/LineageParts",
+      "revision": "eeff09291a083faa017596018e61f81e530d7e3b",
+      "tree": "16376f339cf6c4b8e705ce2633be2ce565560561",
+      "base_revision": "fdcb4ba35d92eefbdcca96580fb9e8ac8901ed60",
+      "patch": "packages_apps_LineageParts.patch",
+      "patch_sha256": "b7569f465c35be1a6741030d66594b55462edaa46eb06ec35a7e8c100b88f48d",
+      "patch_tree_verified": true,
+      "remote_url": "https://github.com/LineageOS/android_packages_apps_LineageParts",
+      "target_snapshot_revision": "eeff09291a083faa017596018e61f81e530d7e3b",
+      "target_snapshot_tree": "16376f339cf6c4b8e705ce2633be2ce565560561"
+    },
+    {
       "path": "packages/apps/OpenEUICC",
       "revision": "03f64de980e9899ee1ff2cd87c7ec8e1b92c3465",
       "tree": "efcb0da744ea64e58e4e596bfe9c81538e767daf",
