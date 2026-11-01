@@ -17,8 +17,11 @@ This release supports the following installation baseline:
 | --- | --- |
 | Device | HONOR LDY-AN00 (stock codename HNLDY-M) |
 | Storage layout | Verified 512 GB variant |
-| Installed stock firmware | 10.0.0.113(C00E100R101P1) |
+| Tested stock baseline | 10.0.0.113(C00E100R101P1) |
 | Bootloader | [Qualified LK patch](https://github.com/iodn/honor-ldy-an00-lk-unlock) installed and boot-tested on both slots |
+
+GhostLock's vulnerable code was also found in **10.0.0.170**; older releases may
+be affected. ROM installation still requires the tested baseline above.
 
 The installer requires the exact configuration above and stops on a mismatch.
 It installs the maintained kernel, Lineage Recovery and Android system, while
