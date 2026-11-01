@@ -9,7 +9,7 @@ Versioned firmware downloads are published under [Releases](https://github.com/i
 Fresh installation and boot have been tested with optional Google apps.
 The release is signed, and SELinux is enforcing.
 
-## Compatibility
+## Before you start
 
 This release supports the following installation baseline:
 
@@ -20,8 +20,6 @@ This release supports the following installation baseline:
 | Tested stock baseline | 10.0.0.113(C00E100R101P1) |
 | Bootloader | [Qualified LK patch](https://github.com/iodn/honor-ldy-an00-lk-unlock) installed and boot-tested on both slots |
 
-Official downloads and GhostLock status are listed in the
-[firmware table](https://github.com/iodn/honor-ldy-an00-ghostlock#firmware-downloads-and-ghostlock-status).
 ROM installation still requires the tested baseline above.
 
 The installer requires the exact configuration above and stops on a mismatch.
@@ -32,8 +30,6 @@ The Android system security patch is **2026-10-01**; the retained vendor patch i
 **2025-12-01**. The Android patch level does not describe all retained vendor
 components or kernel fixes. Do not relock the bootloader or install an Honor OTA over this
 installation.
-
-## Installation requirements
 
 - Linux x86_64 with USB access and at least 22 GB free for the stock recovery set.
 - Python 3.11 or newer, OpenSSL, PyUSB and ADB.
@@ -160,6 +156,8 @@ their existing licenses and notices. Review proprietary-component redistribution
 terms before publishing binary releases.
 
 </details>
+
+[Official HONOR firmware downloads](https://github.com/iodn/honor-ldy-an00-ghostlock#firmware-downloads-and-ghostlock-status).
 
 ## Reporting a problem
 
