@@ -20,8 +20,8 @@ This release supports the following installation baseline:
 | Tested stock baseline | 10.0.0.113(C00E100R101P1) |
 | Bootloader | [Qualified LK patch](https://github.com/iodn/honor-ldy-an00-lk-unlock) installed and boot-tested on both slots |
 
-GhostLock's vulnerable code was also found in **10.0.0.170**; older releases may
-be affected. ROM installation still requires the tested baseline above.
+See the [GhostLock firmware table](https://github.com/iodn/honor-ldy-an00-ghostlock#firmware-downloads-and-ghostlock-status) for vulnerable versions.
+ROM installation still requires the tested baseline above.
 
 The installer requires the exact configuration above and stops on a mismatch.
 It installs the maintained kernel, Lineage Recovery and Android system, while
