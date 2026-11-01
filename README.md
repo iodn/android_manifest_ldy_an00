@@ -4,7 +4,7 @@ Unofficial **LineageOS 24.0 / Android 17** for **HONOR LDY-AN00**.
 This repository hosts the installation tools, build manifest and update feed.
 Versioned firmware downloads are published under [Releases](https://github.com/iodn/android_manifest_ldy_an00/releases).
 
-**Current release:** [LineageOS 24.0 - 2026-10-31](https://github.com/iodn/android_manifest_ldy_an00/releases/tag/lineage-24.0-20261031-UNOFFICIAL-ldy_an00).
+**Current release:** [LineageOS 24.0 - 2026-11-01](https://github.com/iodn/android_manifest_ldy_an00/releases/tag/lineage-24.0-20261101-UNOFFICIAL-ldy_an00).
 
 Fresh installation and boot have been tested with optional Google apps.
 The release is signed, and SELinux is enforcing.
@@ -99,8 +99,9 @@ Virtual A/B merge completes afterward. Do not switch slots manually after merge.
 Each available update offers **Recent changes**, opening the notes for that
 specific GitHub release before installation.
 
-The first-install ZIP and OTA ZIP are separate downloads. The repository and
-release assets must be public for normal on-device checks and downloads.
+The first-install ZIP is for initial setup; future OTA packages are separate.
+The repository and release assets must be public for normal on-device checks
+and downloads.
 
 ## Source
 
