@@ -4,10 +4,10 @@ Unofficial **LineageOS 24.0 / Android 17** for **HONOR LDY-AN00**.
 This repository hosts the installation tools, build manifest and update feed.
 Versioned firmware downloads are published under [Releases](https://github.com/iodn/android_manifest_ldy_an00/releases).
 
-**Current release:** [LineageOS 24.0 - 2026-10-28](https://github.com/iodn/android_manifest_ldy_an00/releases/tag/lineage-24.0-20261028-UNOFFICIAL-ldy_an00).
+**Current release:** [LineageOS 24.0 - 2026-10-31](https://github.com/iodn/android_manifest_ldy_an00/releases/tag/lineage-24.0-20261031-UNOFFICIAL-ldy_an00).
 
-This unofficial release has passed a fresh installation and boot test, signing
-checks and partition readback verification. SELinux is enforcing.
+Fresh installation and boot have been tested with optional Google apps.
+The release is signed, and SELinux is enforcing.
 
 ## Compatibility
 
@@ -18,23 +18,15 @@ This release supports the following installation baseline:
 | Device | HONOR LDY-AN00 (stock codename HNLDY-M) |
 | Storage layout | Verified 512 GB variant |
 | Installed stock firmware | 10.0.0.113(C00E100R101P1) |
-| Bootloader | Qualified LK unlock patch installed and boot-tested on both slots |
+| Bootloader | [Qualified LK patch](https://github.com/iodn/honor-ldy-an00-lk-unlock) installed and boot-tested on both slots |
 
-The storage requirement refers to the partition layout checked by this installer,
-not an Android storage-capacity limit. Other capacities and stock firmware versions
-have not been validated and are not currently supported by this package. The
-installer stops if their layout or partition hashes differ; do not bypass those
-checks or downgrade firmware solely to satisfy them.
-
-An unlocked bootloader is necessary, but does not by itself establish
-compatibility. This package installs the Android system while retaining Honor's
-kernel, vendor firmware and other device-specific components. The stock version
-therefore matters. Broader support requires validating those components and the
-installation layout for each additional configuration.
+The installer requires the exact configuration above and stops on a mismatch.
+It installs the maintained kernel, Lineage Recovery and Android system, while
+retaining matching stock vendor firmware. Do not bypass its checks.
 
 The Android system security patch is **2026-10-01**; the retained vendor patch is
-**2025-12-01**. The system patch level does not upgrade retained kernel/vendor
-security fixes. Do not relock the bootloader or install an Honor OTA over this
+**2025-12-01**. The Android patch level does not describe all retained vendor
+components or kernel fixes. Do not relock the bootloader or install an Honor OTA over this
 installation.
 
 ## Installation requirements
@@ -75,8 +67,27 @@ If installation stops, preserve the journal and follow the packaged README;
 do not blindly retry, reboot or switch slots.
 
 The installer verifies the signed package, exact stock baseline and written
-partitions. It keeps one stock recovery set and preserves LK, the kernel,
+partitions. It keeps one stock recovery set and preserves your patched LK,
 vendor firmware and calibration/security partitions.
+
+## Optional Google apps
+
+Google apps are not included. Use an **Android 17 / ARM64** package listed in
+the [LineageOS guide](https://wiki.lineageos.org/gapps/). Verify its download
+against the package publisher's checksum.
+
+Run `bash flash.sh --reboot-recovery` instead of `bash flash.sh`. In recovery,
+select **Apply update > Apply from ADB**, then run:
+
+```sh
+adb sideload <google-apps-package>.zip
+```
+
+Confirm the prompt for the verified add-on package, then select **Reboot system**.
+Install Google apps **before the first Android boot**; adding them later requires
+a factory reset. This release disables runtime filesystem verification globally
+to support recovery add-ons.
+Reported green/locked boot properties do not establish stock verified-boot security.
 
 ## Updates
 
@@ -90,9 +101,11 @@ compatible signed OTA package has passed testing.
 
 | Repository | Purpose |
 | --- | --- |
-| This repository | Manifest, upstream adaptations, installation tools and releases |
+| This repository | Manifest, upstream adaptations, kernel recipes, installation tools and releases |
 | [Device tree](https://github.com/iodn/android_device_honor_ldy_an00) | Device configuration and device-specific IMS integration |
 | [Vendor configuration](https://github.com/iodn/android_vendor_honor_ldy_an00) | Required proprietary-input definitions and inventories |
+
+The matching kernel source archive is included with each binary release.
 
 <details>
 <summary>Build integration and release maintenance</summary>
@@ -150,12 +163,3 @@ Provide the build identifier and reproduction steps. Remove phone numbers,
 subscriber identifiers, eSIM activation codes, credentials and personal data from
 logs before sharing them. This is an unofficial project, independent of HONOR
 and the LineageOS project.
-
-The first-install tool keeps one stock recovery set per device. Completed runs
-record it for reuse; unchanged boot-chain partitions are verified without backup
-copies. An existing verified set can be selected with `--stock-backup`.
-
-First installation requires a fresh layout receipt from `tools/prepare_layout.py`
-while Android root is available, before entering bootloader fastboot. The tool
-validates the GPT and exact partition sizes without another firmware backup.
-The install ZIP includes the complete instructions.
