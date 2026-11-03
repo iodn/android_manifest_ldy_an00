@@ -21,10 +21,10 @@ index 9d6cefd..a723398 100644
      public String toString() {
          return "[CallForwardInfo: status=" + (status == 0 ? " not active " : " active ")
 diff --git a/src/java/com/android/internal/telephony/ProxyController.java b/src/java/com/android/internal/telephony/ProxyController.java
-index c911197..348559e 100644
+index c911197..d0a740f 100644
 --- a/src/java/com/android/internal/telephony/ProxyController.java
 +++ b/src/java/com/android/internal/telephony/ProxyController.java
-@@ -98,6 +98,19 @@ public class ProxyController {
+@@ -98,6 +98,23 @@ public class ProxyController {
  
      private String[] mCurrentLogicalModemIds;
      private String[] mNewLogicalModemIds;
@@ -33,18 +33,22 @@ index c911197..348559e 100644
 +    private boolean mExplicitMappingRollback;
 +    private boolean mExplicitMappingTimeoutCleanup;
 +    private String[] mExplicitOriginalLogicalModemIds;
++    private int[] mExplicitOriginalRadioAccessFamily;
++    private RadioCapability[] mExplicitObservedCapabilities;
++    private RadioCapability[] mExplicitFinishExpected;
++    private boolean mExplicitNoChange;
 +    private boolean[][] mExplicitResponsesSeen;
 +    private boolean mExplicitFinishing;
 +    private boolean mExplicitAbortBeforeApply;
 +    private boolean mExplicitApplyIssued;
 +    private boolean mExplicitFinishFailed;
-+    public enum PrimaryCapabilityResult { VERIFIED_COMMIT, VERIFIED_ROLLBACK, UNKNOWN }
++    public enum PrimaryCapabilityResult { VERIFIED_COMMIT, VERIFIED_NO_CHANGE, VERIFIED_ROLLBACK, UNKNOWN }
 +    private Message mExplicitCompletion;
 +    private PrimaryCapabilityResult mExplicitOutcome = PrimaryCapabilityResult.UNKNOWN;
  
      // Allows the generation of unique Id's for radio capability request session  id
      @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
-@@ -239,7 +252,71 @@ public class ProxyController {
+@@ -239,7 +256,76 @@ public class ProxyController {
          return mSmsController;
      }
  
@@ -91,6 +95,8 @@ index c911197..348559e 100644
 +            clearTransaction();
 +            mExplicitModemMapping = true;
 +            mExplicitOriginalLogicalModemIds = current.clone();
++            mExplicitOriginalRadioAccessFamily = new int[] {
++                    rafs[0].getRadioAccessFamily(), rafs[1].getRadioAccessFamily()};
 +            mExplicitCompletion = onComplete;
 +            mWakeLock.acquire();
 +            return doSetRadioCapabilities(rafs, desired);
@@ -110,13 +116,16 @@ index c911197..348559e 100644
 +    private boolean doSetRadioCapabilities(RadioAccessFamily[] rafs, String[] logicalModemIds) {
 +        if (mExplicitModemMapping) {
 +            mExplicitResponsesSeen = new boolean[5][2];
++            mExplicitObservedCapabilities = new RadioCapability[2];
++            mExplicitFinishExpected = new RadioCapability[2];
++            mExplicitNoChange = false;
 +            mExplicitFinishing = false;
 +            mExplicitApplyIssued = false;
 +        }
          // A new sessionId for this transaction
          mRadioCapabilitySessionId = mUniqueIdGenerator.getAndIncrement();
  
-@@ -265,7 +342,8 @@ public class ProxyController {
+@@ -265,7 +351,8 @@ public class ProxyController {
                  mCurrentLogicalModemIds[phoneId] = mPhones[phoneId].getModemUuId();
                  // get the logical mode corresponds to new raf requested and pass the
                  // same as part of SET_RADIO_CAP APPLY phase
@@ -126,7 +135,7 @@ index c911197..348559e 100644
                  logd("setRadioCapability: mOldRadioAccessFamily[" + phoneId + "]="
                          + mOldRadioAccessFamily[phoneId]);
                  logd("setRadioCapability: mNewRadioAccessFamily[" + phoneId + "]="
-@@ -321,6 +399,12 @@ public class ProxyController {
+@@ -321,6 +408,12 @@ public class ProxyController {
      };
  
      private void onMultiSimConfigChanged() {
@@ -139,7 +148,7 @@ index c911197..348559e 100644
          int oldPhoneCount = mPhones.length;
          mPhones = PhoneFactory.getPhones();
  
-@@ -341,6 +425,26 @@ public class ProxyController {
+@@ -341,6 +434,28 @@ public class ProxyController {
          }
      }
  
@@ -158,6 +167,8 @@ index c911197..348559e 100644
 +                || (phase == 0
 +                && (mExplicitFinishing || (mSetRadioAccessFamilyStatus[id] != SET_RC_STATUS_APPLYING
 +                        && mSetRadioAccessFamilyStatus[id] != SET_RC_STATUS_FAIL)))
++                || (phase == RadioCapability.RC_PHASE_APPLY
++                && (!mExplicitApplyIssued || mExplicitFinishing))
 +                || (phase == RadioCapability.RC_PHASE_FINISH && !mExplicitFinishing)) return false;
 +        mExplicitResponsesSeen[phase][id] = true;
 +        return true;
@@ -166,7 +177,7 @@ index c911197..348559e 100644
      /**
       * Handle START response
       * @param msg obj field isa RadioCapability
-@@ -348,6 +452,8 @@ public class ProxyController {
+@@ -348,6 +463,8 @@ public class ProxyController {
      private void onStartRadioCapabilityResponse(Message msg) {
          synchronized (mSetRadioAccessFamilyStatus) {
              AsyncResult ar = (AsyncResult)msg.obj;
@@ -175,7 +186,7 @@ index c911197..348559e 100644
              // Abort here only in Single SIM case, in Multi SIM cases
              // send FINISH with failure so that below layers can re-bind
              // old logical modems.
-@@ -395,6 +501,17 @@ public class ProxyController {
+@@ -395,6 +512,17 @@ public class ProxyController {
              }
  
              if (mRadioAccessFamilyStatusCounter == 0) {
@@ -193,7 +204,7 @@ index c911197..348559e 100644
                  HashSet<String> modemsInUse = new HashSet<String>(mNewLogicalModemIds.length);
                  for (String modemId : mNewLogicalModemIds) {
                      if (!modemsInUse.add(modemId)) {
-@@ -410,13 +527,16 @@ public class ProxyController {
+@@ -410,13 +538,16 @@ public class ProxyController {
                  } else {
                      // All logical modem accepted the new radio access family, issue the APPLY
                      resetRadioAccessFamilyStatusCounter();
@@ -211,15 +222,32 @@ index c911197..348559e 100644
                              RadioCapability.RC_STATUS_NONE,
                              EVENT_APPLY_RC_RESPONSE);
  
-@@ -434,6 +554,7 @@ public class ProxyController {
+@@ -434,6 +565,16 @@ public class ProxyController {
       */
      private void onApplyRadioCapabilityResponse(Message msg) {
          RadioCapability rc = (RadioCapability) ((AsyncResult) msg.obj).result;
 +        if (!acceptExplicitResponse(msg, rc, RadioCapability.RC_PHASE_APPLY)) return;
++        if (mExplicitModemMapping && (((AsyncResult) msg.obj).exception != null || rc == null
++                || rc.getStatus() == RadioCapability.RC_STATUS_FAIL)) {
++            synchronized (mSetRadioAccessFamilyStatus) {
++                mSetRadioAccessFamilyStatus[msg.arg1 - 1] = SET_RC_STATUS_FAIL;
++                mTransactionFailed = true;
++            }
++            finishExplicitApplyIfReady();
++            return;
++        }
          if ((rc == null) || (rc.getSession() != mRadioCapabilitySessionId)) {
              logd("onApplyRadioCapabilityResponse: Ignore session=" + mRadioCapabilitySessionId
                      + " rc=" + rc);
-@@ -459,6 +580,7 @@ public class ProxyController {
+@@ -451,6 +592,7 @@ public class ProxyController {
+         } else {
+             logd("onApplyRadioCapabilityResponse: Valid start expecting notification rc=" + rc);
+         }
++        if (mExplicitModemMapping) finishExplicitApplyIfReady();
+     }
+ 
+     /**
+@@ -459,6 +601,7 @@ public class ProxyController {
       */
      private void onNotificationRadioCapabilityChanged(Message msg) {
          RadioCapability rc = (RadioCapability) ((AsyncResult) msg.obj).result;
@@ -227,8 +255,25 @@ index c911197..348559e 100644
          if ((rc == null) || (rc.getSession() != mRadioCapabilitySessionId)) {
              logd("onNotificationRadioCapabilityChanged: Ignore session=" + mRadioCapabilitySessionId
                      + " rc=" + rc);
-@@ -475,7 +597,10 @@ public class ProxyController {
+@@ -473,9 +616,27 @@ public class ProxyController {
+                 return;
+             }
  
++            if (mExplicitModemMapping) {
++                int id = rc.getPhoneId();
++                mExplicitObservedCapabilities[id] = rc;
++                if (((AsyncResult) msg.obj).exception != null
++                        || rc.getStatus() != RadioCapability.RC_STATUS_SUCCESS) {
++                    mSetRadioAccessFamilyStatus[id] = SET_RC_STATUS_FAIL;
++                    mTransactionFailed = true;
++                } else {
++                    mSetRadioAccessFamilyStatus[id] = SET_RC_STATUS_SUCCESS;
++                }
++                mRadioAccessFamilyStatusCounter--;
++                finishExplicitApplyIfReady();
++                return;
++            }
++
              int id = rc.getPhoneId();
              if ((((AsyncResult) msg.obj).exception != null) ||
 -                    (rc.getStatus() == RadioCapability.RC_STATUS_FAIL)) {
@@ -239,7 +284,43 @@ index c911197..348559e 100644
                  logd("onNotificationRadioCapabilityChanged: phoneId=" + id + " status=FAIL");
                  mSetRadioAccessFamilyStatus[id] = SET_RC_STATUS_FAIL;
                  mTransactionFailed = true;
-@@ -504,6 +629,7 @@ public class ProxyController {
+@@ -496,6 +657,35 @@ public class ProxyController {
+         }
+     }
+ 
++    private void finishExplicitApplyIfReady() {
++        synchronized (mSetRadioAccessFamilyStatus) {
++            if (!mExplicitModemMapping || mExplicitFinishing
++                    || mRadioAccessFamilyStatusCounter != 0
++                    || !mExplicitResponsesSeen[RadioCapability.RC_PHASE_APPLY][0]
++                    || !mExplicitResponsesSeen[RadioCapability.RC_PHASE_APPLY][1]) return;
++            boolean desired = true;
++            boolean original = true;
++            for (int i = 0; i < 2; i++) {
++                RadioCapability rc = mExplicitObservedCapabilities[i];
++                desired &= rc != null && rc.getRadioAccessFamily() == mNewRadioAccessFamily[i]
++                        && mNewLogicalModemIds[i].equals(rc.getLogicalModemUuid());
++                original &= rc != null
++                        && rc.getRadioAccessFamily() == mExplicitOriginalRadioAccessFamily[i]
++                        && mExplicitOriginalLogicalModemIds[i].equals(rc.getLogicalModemUuid());
++            }
++            if (!desired && !(original && !mExplicitMappingRollback)) mTransactionFailed = true;
++            if (!mTransactionFailed) {
++                mExplicitNoChange = original && !desired && !mExplicitMappingRollback;
++                // Preserve the stock callbacks using only the complete, actual modem tuple.
++                for (int i = 0; i < 2; i++) {
++                    mPhoneSwitcher.onRadioCapChanged(i);
++                    mPhones[i].radioCapabilityUpdated(mExplicitObservedCapabilities[i], true);
++                }
++            }
++            issueFinish(mRadioCapabilitySessionId);
++        }
++    }
++
+     /**
+      * Handle the FINISH Phase response
+      * @param msg obj field isa RadioCapability
+@@ -504,6 +694,7 @@ public class ProxyController {
          synchronized (mSetRadioAccessFamilyStatus) {
              AsyncResult ar = (AsyncResult)  msg.obj;
              RadioCapability rc = (RadioCapability) ((AsyncResult) msg.obj).result;
@@ -247,19 +328,25 @@ index c911197..348559e 100644
              // Added exception condition on finish to continue to revert if exception occurred.
              // Checking session validity during exception is not valid
              if (ar.exception == null
-@@ -515,6 +641,11 @@ public class ProxyController {
+@@ -515,6 +706,17 @@ public class ProxyController {
              if (ar.exception != null) {
                  logd("onFinishRadioCapabilityResponse got exception=" + ar.exception);
              }
 +            // FINISH deliberately echoes the requested FAIL status during cleanup.
-+            if (mExplicitModemMapping && ar.exception != null) {
-+                mExplicitFinishFailed = true;
-+                mTransactionFailed = true;
++            if (mExplicitModemMapping) {
++                RadioCapability expected = mExplicitFinishExpected[msg.arg1 - 1];
++                if (ar.exception != null || rc == null || expected == null
++                        || rc.getRadioAccessFamily() != expected.getRadioAccessFamily()
++                        || !expected.getLogicalModemUuid().equals(rc.getLogicalModemUuid())
++                        || rc.getStatus() != expected.getStatus()) {
++                    mExplicitFinishFailed = true;
++                    mTransactionFailed = true;
++                }
 +            }
              logd(" onFinishRadioCapabilityResponse mRadioAccessFamilyStatusCounter="
                      + mRadioAccessFamilyStatusCounter);
              mRadioAccessFamilyStatusCounter--;
-@@ -532,6 +663,14 @@ public class ProxyController {
+@@ -532,6 +734,14 @@ public class ProxyController {
          }
  
          synchronized(mSetRadioAccessFamilyStatus) {
@@ -274,7 +361,7 @@ index c911197..348559e 100644
              // timed-out.  Clean up as best we can
              for (int i = 0; i < mPhones.length; i++) {
                  logd("RadioCapability timeout: mSetRadioAccessFamilyStatus[" + i + "]=" +
-@@ -547,11 +686,23 @@ public class ProxyController {
+@@ -547,28 +757,43 @@ public class ProxyController {
  
              // send FINISH request with fail status and then uniqueDifferentId
              mTransactionFailed = true;
@@ -298,7 +385,38 @@ index c911197..348559e 100644
          // Issue FINISH
          synchronized(mSetRadioAccessFamilyStatus) {
              for (int i = 0; i < mPhones.length; i++) {
-@@ -583,6 +734,22 @@ public class ProxyController {
+                 logd("issueFinish: phoneId=" + i + " sessionId=" + sessionId
+                         + " mTransactionFailed=" + mTransactionFailed);
+                 mRadioAccessFamilyStatusCounter++;
+-                sendRadioCapabilityRequest(
+-                        i,
+-                        sessionId,
+-                        RadioCapability.RC_PHASE_FINISH,
+-                        (mTransactionFailed ? mOldRadioAccessFamily[i] :
+-                        mNewRadioAccessFamily[i]),
+-                        (mTransactionFailed ? mCurrentLogicalModemIds[i] :
+-                        mNewLogicalModemIds[i]),
+-                        (mTransactionFailed ? RadioCapability.RC_STATUS_FAIL :
+-                        RadioCapability.RC_STATUS_SUCCESS),
+-                        EVENT_FINISH_RC_RESPONSE);
++                int raf = mTransactionFailed ? mOldRadioAccessFamily[i]
++                        : mExplicitNoChange ? mExplicitOriginalRadioAccessFamily[i]
++                        : mNewRadioAccessFamily[i];
++                String uuid = mTransactionFailed ? mCurrentLogicalModemIds[i]
++                        : mExplicitNoChange ? mExplicitOriginalLogicalModemIds[i]
++                        : mNewLogicalModemIds[i];
++                int status = mTransactionFailed ? RadioCapability.RC_STATUS_FAIL
++                        : RadioCapability.RC_STATUS_SUCCESS;
++                if (mExplicitModemMapping) {
++                    mExplicitFinishExpected[i] = new RadioCapability(i, sessionId,
++                            RadioCapability.RC_PHASE_FINISH, raf, uuid, status);
++                }
++                sendRadioCapabilityRequest(i, sessionId, RadioCapability.RC_PHASE_FINISH,
++                        raf, uuid, status, EVENT_FINISH_RC_RESPONSE);
+                 if (mTransactionFailed) {
+                     logd("issueFinish: phoneId: " + i + " status: FAIL");
+                     // At least one failed, mark them all failed.
+@@ -583,6 +808,22 @@ public class ProxyController {
          // Create the intent to broadcast
          Intent intent;
          logd("onFinishRadioCapabilityResponse: success=" + !mTransactionFailed);
@@ -321,19 +439,21 @@ index c911197..348559e 100644
          if (!mTransactionFailed) {
              ArrayList<RadioAccessFamily> phoneRAFList = new ArrayList<RadioAccessFamily>();
              for (int i = 0; i < mPhones.length; i++) {
-@@ -598,7 +765,10 @@ public class ProxyController {
+@@ -598,7 +839,12 @@ public class ProxyController {
              // make messages about the old transaction obsolete (specifically the timeout)
              mRadioCapabilitySessionId = mUniqueIdGenerator.getAndIncrement();
  
 -            // Reinitialize
 +            // Reinitialize before posting the explicit request's completion.
 +            if (mExplicitModemMapping) {
-+                mExplicitOutcome = PrimaryCapabilityResult.VERIFIED_COMMIT;
++                mExplicitOutcome = mExplicitNoChange
++                        ? PrimaryCapabilityResult.VERIFIED_NO_CHANGE
++                        : PrimaryCapabilityResult.VERIFIED_COMMIT;
 +            }
              clearTransaction();
          } else {
              intent = new Intent(TelephonyIntents.ACTION_SET_RADIO_CAPABILITY_FAILED);
-@@ -608,7 +778,15 @@ public class ProxyController {
+@@ -608,7 +854,15 @@ public class ProxyController {
              for (int phoneId = 0; phoneId < mPhones.length; phoneId++) {
                  rafs[phoneId] = new RadioAccessFamily(phoneId, mOldRadioAccessFamily[phoneId]);
              }
@@ -350,7 +470,7 @@ index c911197..348559e 100644
          }
  
          // Broadcast that we're done
-@@ -619,7 +797,22 @@ public class ProxyController {
+@@ -619,7 +873,26 @@ public class ProxyController {
      // Clear this transaction
      private void clearTransaction() {
          logd("clearTransaction");
@@ -365,6 +485,10 @@ index c911197..348559e 100644
 +            mExplicitMappingRollback = false;
 +            mExplicitMappingTimeoutCleanup = false;
 +            mExplicitOriginalLogicalModemIds = null;
++            mExplicitOriginalRadioAccessFamily = null;
++            mExplicitObservedCapabilities = null;
++            mExplicitFinishExpected = null;
++            mExplicitNoChange = false;
 +            mExplicitResponsesSeen = null;
 +            mExplicitFinishing = false;
 +            mExplicitAbortBeforeApply = false;
@@ -373,7 +497,7 @@ index c911197..348559e 100644
              for (int i = 0; i < mPhones.length; i++) {
                  logd("clearTransaction: phoneId=" + i + " status=IDLE");
                  mSetRadioAccessFamilyStatus[i] = SET_RC_STATUS_IDLE;
-@@ -633,6 +826,7 @@ public class ProxyController {
+@@ -633,6 +906,7 @@ public class ProxyController {
                  mWakeLock.release();
              }
          }
@@ -381,7 +505,7 @@ index c911197..348559e 100644
      }
  
      /**
-@@ -656,8 +850,12 @@ public class ProxyController {
+@@ -656,8 +930,12 @@ public class ProxyController {
              int radioFamily, String logicalModemId, int status, int eventId) {
          RadioCapability requestRC = new RadioCapability(
                  phoneId, sessionId, rcPhase, radioFamily, logicalModemId, status);
@@ -396,6 +520,19 @@ index c911197..348559e 100644
      }
  
      // This method will return max number of raf bits supported from the raf
+diff --git a/src/java/com/android/internal/telephony/RadioModemProxy.java b/src/java/com/android/internal/telephony/RadioModemProxy.java
+index 61ce7ea..6d83abe 100644
+--- a/src/java/com/android/internal/telephony/RadioModemProxy.java
++++ b/src/java/com/android/internal/telephony/RadioModemProxy.java
+@@ -265,7 +265,7 @@ public class RadioModemProxy extends RadioServiceProxy {
+                     new android.hardware.radio.modem.RadioCapability();
+             halRc.session = rc.getSession();
+             halRc.phase = rc.getPhase();
+-            halRc.raf = rc.getRadioAccessFamily();
++            halRc.raf = RILUtils.convertToHalRadioAccessFamilyAidl(rc.getRadioAccessFamily());
+             halRc.logicalModemUuid = RILUtils.convertNullToEmptyString(rc.getLogicalModemUuid());
+             halRc.status = rc.getStatus();
+             mModemProxy.setRadioCapability(serial, halRc);
 diff --git a/src/java/com/android/internal/telephony/euicc/EuiccConnector.java b/src/java/com/android/internal/telephony/euicc/EuiccConnector.java
 index b919bdd..243b432 100644
 --- a/src/java/com/android/internal/telephony/euicc/EuiccConnector.java
@@ -3386,6 +3523,270 @@ index 0000000..7d7e0da
 + void iccCloseLogicalChannel(int channel,boolean es10,Message response){if(!es10)throw new AssertionError();closed.add(channel);pending.add(new Pending(2,channel,response));}
 + void deliver(int kind,Object value,Throwable error){if(pending.isEmpty()||pending.get(0).kind!=kind)throw new AssertionError("unexpected native dispatch");Message m=pending.remove(0).target;lastDelivered=m;AsyncResult.forMessage(m,value,error);m.sendToTarget();Handler.runReady();}
 +}
+diff --git a/tests/host/test_radio_modem_proxy_raf.py b/tests/host/test_radio_modem_proxy_raf.py
+new file mode 100644
+index 0000000..e0a43ed
+--- /dev/null
++++ b/tests/host/test_radio_modem_proxy_raf.py
+@@ -0,0 +1,258 @@
++#!/usr/bin/env python3
++"""Test the actual outgoing method and generated AIDL parcelable on a host JVM.
++
++Parcel and radio endpoints are deterministic host adapters. No Binder driver,
++modem library, Android process or device is contacted.
++"""
++import argparse
++import hashlib
++import json
++import re
++import shutil
++import subprocess
++from pathlib import Path
++
++
++def method(source, signature):
++    start = source.index(signature)
++    opening = source.index("{", start)
++    depth = 1
++    end = opening + 1
++    while depth:
++        depth += (source[end] == "{") - (source[end] == "}")
++        end += 1
++    return source[start:end]
++
++
++def main():
++    parser = argparse.ArgumentParser(description=__doc__)
++    parser.add_argument("--framework-base", type=Path, required=True)
++    parser.add_argument("--hardware-interfaces", type=Path, required=True)
++    parser.add_argument("--telephony-enums", type=Path, required=True)
++    parser.add_argument("--generated-modem-aidl", type=Path, required=True)
++    parser.add_argument("--jdk", type=Path, required=True)
++    parser.add_argument("--output", type=Path, required=True)
++    args = parser.parse_args()
++    root = Path(__file__).resolve().parents[2]
++    sources = root / "src/java/com/android/internal/telephony"
++    proxy = sources / "RadioModemProxy.java"
++    ril = sources / "RILUtils.java"
++    # A mutation control recreates the observed missing-conversion defect even after commit.
++    signature = "public void setRadioCapability(int serial, RadioCapability rc)"
++    new_method = method(proxy.read_text(), signature)
++    old_method = new_method.replace(
++        "RILUtils.convertToHalRadioAccessFamilyAidl(rc.getRadioAccessFamily())",
++        "rc.getRadioAccessFamily()", 1)
++    if old_method == new_method:
++        raise AssertionError("Required AIDL conversion is missing")
++    converters = [
++        method(ril.read_text(), "public static int convertToHalRadioAccessFamilyAidl("),
++        method(ril.read_text(), "public static int convertHalNetworkTypeBitMask("),
++        method(ril.read_text(), "public static String convertNullToEmptyString("),
++    ]
++    tm_file = args.framework_base / "telephony/java/android/telephony/TelephonyManager.java"
++    tm = tm_file.read_text()
++    network_types = dict(re.findall(r"public static final int NETWORK_TYPE_(\w+)\s*=\s*(\d+)\s*;", tm))
++    network_types.update(dict(re.findall(r"NETWORK_TYPE_(\w+)\s*=\s*(\d+)\s*;", args.telephony_enums.read_text())))
++    needed = sorted(set(re.findall(r"NETWORK_TYPE_BITMASK_(\w+)", "\n".join(converters))))
++    tm_fields = "\n".join(
++        "public static final long NETWORK_TYPE_BITMASK_%s = 1L << (%s - 1);" % (name, network_types[name])
++        for name in needed
++    )
++    technology_file = args.hardware_interfaces / "radio/aidl/android/hardware/radio/RadioTechnology.aidl"
++    technology_body = re.sub(r"/\*.*?\*/", "", technology_file.read_text(), flags=re.S)
++    technology_body = technology_body.split("enum RadioTechnology {", 1)[1].split("}", 1)[0]
++    technologies = {}
++    next_value = 0
++    for entry in technology_body.split(","):
++        entry = entry.strip()
++        if not entry:
++            continue
++        match = re.fullmatch(r"(\w+)(?:\s*=\s*(\d+))?", entry)
++        if not match:
++            raise ValueError("Unsupported RadioTechnology enum entry: " + entry)
++        if match.group(2):
++            next_value = int(match.group(2))
++        technologies[match.group(1)] = str(next_value)
++        next_value += 1
++    raf_file = args.hardware_interfaces / "radio/aidl/android/hardware/radio/RadioAccessFamily.aidl"
++    rafs = re.findall(r"^\s*(\w+)\s*=\s*1\s*<<\s*RadioTechnology\.(\w+)", raf_file.read_text(), re.M)
++    raf_fields = "\n".join(
++        "public static final int %s = 1 << %s;" % (name, technologies[technology])
++        for name, technology in rafs
++    )
++    source_dir = args.output / "src"
++    source_dir.mkdir(parents=True, exist_ok=True)
++
++    def put(name, value):
++        target = source_dir / name
++        target.parent.mkdir(parents=True, exist_ok=True)
++        target.write_text(value)
++
++    put("android/telephony/TelephonyManager.java",
++        "package android.telephony; public class TelephonyManager {"
++        "public @interface NetworkTypeBitMask {} public static final int NETWORK_TYPE_UNKNOWN=0;"
++        + tm_fields + "}")
++    put("android/telephony/ServiceState.java",
++        "package android.telephony; public class ServiceState {"
++        "public static final int RIL_RADIO_TECHNOLOGY_IWLAN=" + technologies["IWLAN"] + ";}")
++    put("android/hardware/radio/RadioAccessFamily.java",
++        "package android.hardware.radio; public class RadioAccessFamily {" + raf_fields + "}")
++    for version in ("V1_0", "V1_4"):
++        put("android/hardware/radio/" + version + "/RadioAccessFamily.java",
++            "package android.hardware.radio." + version + "; public class RadioAccessFamily"
++            " extends android.hardware.radio.RadioAccessFamily {}")
++    put("android/os/RemoteException.java",
++        "package android.os; public class RemoteException extends Exception {}")
++    put("android/os/BadParcelableException.java",
++        "package android.os; public class BadParcelableException extends RuntimeException {"
++        "public BadParcelableException(String value) {super(value);}}")
++    put("android/os/Parcelable.java", """package android.os;
++public interface Parcelable {
++    int PARCELABLE_STABILITY_VINTF=1;
++    int getStability();
++    void writeToParcel(Parcel parcel,int flags);
++    int describeContents();
++    interface Creator<T> {T createFromParcel(Parcel parcel);T[] newArray(int size);}
++}""")
++    put("android/os/Parcel.java", """package android.os;
++import java.nio.ByteBuffer;
++import java.nio.ByteOrder;
++import java.nio.charset.StandardCharsets;
++public final class Parcel {
++    private final ByteBuffer data=ByteBuffer.allocate(4096).order(ByteOrder.LITTLE_ENDIAN);
++    private int size;
++    public int dataPosition() {return data.position();}
++    public void setDataPosition(int position) {data.position(position);}
++    public void writeInt(int value) {data.putInt(value);size=Math.max(size,data.position());}
++    public int readInt() {return data.getInt();}
++    public void writeString(String value) {
++        if(value==null) {writeInt(-1);return;}
++        writeInt(value.length());
++        data.put(value.getBytes(StandardCharsets.UTF_16LE));data.putShort((short)0);
++        while((data.position()&3)!=0)data.put((byte)0);
++        size=Math.max(size,data.position());
++    }
++    public String readString() {
++        int length=readInt();if(length<0)return null;
++        byte[] bytes=new byte[length*2];data.get(bytes);data.getShort();
++        while((data.position()&3)!=0)data.get();
++        return new String(bytes,StandardCharsets.UTF_16LE);
++    }
++    public byte[] marshall() {return java.util.Arrays.copyOf(data.array(),size);}
++}""")
++    generated = args.generated_modem_aidl / "RadioCapability.java"
++    destination = source_dir / "android/hardware/radio/modem/RadioCapability.java"
++    destination.parent.mkdir(parents=True, exist_ok=True)
++    shutil.copyfile(generated, destination)  # Exact generated code, not a hand-written serializer.
++    put("android/hardware/radio/modem/IRadioModem.java", """package android.hardware.radio.modem;
++public interface IRadioModem {
++    void setRadioCapability(int serial,RadioCapability capability) throws android.os.RemoteException;
++}""")
++    put("android/hardware/radio/V1_0/RadioCapability.java", """package android.hardware.radio.V1_0;
++public class RadioCapability {public int session,phase,raf,status;public String logicalModemUuid;}""")
++    put("android/hardware/radio/V1_0/IRadio.java", """package android.hardware.radio.V1_0;
++public interface IRadio {
++    void setRadioCapability(int serial,RadioCapability capability) throws android.os.RemoteException;
++}""")
++    put("com/android/internal/telephony/RadioCapability.java", """package com.android.internal.telephony;
++public final class RadioCapability {
++    final int session,phase,raf,status;final String uuid;
++    RadioCapability(int session,int phase,int raf,String uuid,int status) {
++        this.session=session;this.phase=phase;this.raf=raf;this.uuid=uuid;this.status=status;
++    }
++    public int getSession(){return session;}public int getPhase(){return phase;}
++    public int getRadioAccessFamily(){return raf;}public String getLogicalModemUuid(){return uuid;}
++    public int getStatus(){return status;}
++}""")
++    put("com/android/internal/telephony/RILUtils.java",
++        "package com.android.internal.telephony; import android.telephony.TelephonyManager;"
++        "import android.telephony.ServiceState; public class RILUtils {"
++        + "\n".join(converters) + "}")
++    for name, body in (("RadioModemProxy", new_method), ("RadioModemProxyOriginal", old_method)):
++        put("com/android/internal/telephony/" + name + ".java",
++            "package com.android.internal.telephony; import android.os.RemoteException;"
++            "public class " + name + " {"
++            "boolean empty,aidl=true; android.hardware.radio.modem.IRadioModem mModemProxy;"
++            "android.hardware.radio.V1_0.IRadio mRadioProxy;"
++            "boolean isEmpty(){return empty;}boolean isAidl(){return aidl;}" + body + "}")
++    put("com/android/internal/telephony/OutboundRafHostTest.java", """package com.android.internal.telephony;
++import android.os.Parcel;
++import java.nio.ByteBuffer;
++import java.nio.ByteOrder;
++public final class OutboundRafHostTest {
++    static int checks;
++    static void require(boolean value) {if(!value)throw new AssertionError("check "+checks);checks++;}
++    static final class Modem implements android.hardware.radio.modem.IRadioModem {
++        byte[] bytes;int serial,calls;android.hardware.radio.modem.RadioCapability decoded;
++        public void setRadioCapability(int serial,android.hardware.radio.modem.RadioCapability capability) {
++            this.serial=serial;calls++;
++            Parcel parcel=new Parcel();capability.writeToParcel(parcel,0);bytes=parcel.marshall();
++            parcel.setDataPosition(0);
++            decoded=android.hardware.radio.modem.RadioCapability.CREATOR.createFromParcel(parcel);
++        }
++    }
++    public static void main(String[] arguments)throws Exception {
++        Modem modem=new Modem();RadioModemProxy proxy=new RadioModemProxy();proxy.mModemProxy=modem;
++        for(int phase:new int[]{1,2,4})for(int status:new int[]{0,1,2}) {
++            String uuid=phase==2?"0":"modem_sys1_ps0_nr1";
++            RadioCapability request=new RadioCapability(195806710,phase,561156,uuid,status);
++            proxy.setRadioCapability(901,request);
++            require(modem.serial==901);
++            require(ByteBuffer.wrap(modem.bytes).order(ByteOrder.LITTLE_ENDIAN).getInt(12)==1130504);
++            require(modem.decoded.raf==1130504);
++            require(RILUtils.convertHalNetworkTypeBitMask(modem.decoded.raf)==561156);
++            require(modem.decoded.session==195806710&&modem.decoded.phase==phase);
++            require(modem.decoded.status==status&&modem.decoded.logicalModemUuid.equals(uuid));
++            require(request.getRadioAccessFamily()==561156);
++        }
++        int[][] masks={{1,2,1},{2,4,2},{4,8,4},{4096,16384,4096},
++            {32768,65536,32768},{524288,1048576,524288},{262144,16384,4096},{0,1,0}};
++        for(int[] item:masks) {
++            proxy.setRadioCapability(902,new RadioCapability(7,2,item[0],"1",0));
++            require(modem.decoded.raf==item[1]);
++            require(RILUtils.convertHalNetworkTypeBitMask(modem.decoded.raf)==item[2]);
++        }
++        proxy.setRadioCapability(903,new RadioCapability(7,4,561156,null,2));
++        require(modem.decoded.logicalModemUuid.equals(""));
++        int prior=modem.calls;proxy.empty=true;
++        proxy.setRadioCapability(904,new RadioCapability(7,1,561156,"0",0));
++        require(modem.calls==prior);
++        RadioModemProxyOriginal old=new RadioModemProxyOriginal();old.mModemProxy=modem;
++        old.setRadioCapability(905,new RadioCapability(7,2,561156,"0",0));
++        require(modem.decoded.raf==561156);
++        require(RILUtils.convertHalNetworkTypeBitMask(modem.decoded.raf)==278530);
++        System.out.println("OUTBOUND_RAF_SERIALIZATION_PASS checks="+checks);
++    }
++}""")
++    classes = args.output / "classes"
++    commands = [
++        [str(args.jdk / "bin/javac"), "-d", str(classes),
++         *map(str, sorted(source_dir.rglob("*.java")))],
++        [str(args.jdk / "bin/java"), "-ea", "-cp", str(classes),
++         "com.android.internal.telephony.OutboundRafHostTest"],
++    ]
++    results = []
++    for command in commands:
++        process = subprocess.run(command, capture_output=True, text=True)
++        results.append(dict(argv=command, exit=process.returncode,
++                            output=process.stdout + process.stderr))
++        print(process.stdout + process.stderr, end="")
++        if process.returncode:
++            break
++    pins = [proxy, ril, tm_file, args.telephony_enums, technology_file, raf_file, generated]
++    receipt = {
++        "scope": "Exact production outgoing method/converters and unchanged generated AIDL writer/reader; deterministic host Parcel/radio adapters, no Binder driver.",
++        "inputs": [{"path": str(path), "sha256": hashlib.sha256(path.read_bytes()).hexdigest()}
++                   for path in pins],
++        "commands": results,
++        "passed": len(results) == 2 and all(row["exit"] == 0 for row in results),
++        "hidl": "Same asymmetry inspected, unchanged because this device uses AIDL.",
++        "noDeviceActions": True,
++    }
++    (args.output / "RESULT.json").write_text(json.dumps(receipt, indent=2) + "\n")
++    raise SystemExit(0 if receipt["passed"] else 1)
++
++
++if __name__ == "__main__":
++    main()
 diff --git a/tests/telephonytests/src/com/android/internal/telephony/ProxyControllerPrimaryMappingTest.java b/tests/telephonytests/src/com/android/internal/telephony/ProxyControllerPrimaryMappingTest.java
 new file mode 100644
 index 0000000..393ddff

@@ -2352,10 +2352,10 @@ index 0000000..f5d365c
 +}
 diff --git a/src/com/android/internal/telephony/honor/HonorPrimaryDataPreference.java b/src/com/android/internal/telephony/honor/HonorPrimaryDataPreference.java
 new file mode 100644
-index 0000000..b51f29d
+index 0000000..397ef08
 --- /dev/null
 +++ b/src/com/android/internal/telephony/honor/HonorPrimaryDataPreference.java
-@@ -0,0 +1,249 @@
+@@ -0,0 +1,253 @@
 +/*
 + * Copyright (C) 2026 The LineageOS Project
 + * SPDX-License-Identifier: Apache-2.0
@@ -2533,10 +2533,14 @@ index 0000000..b51f29d
 +                            savedSub,
 +                            SubscriptionManager.getDefaultDataSubscriptionId(),
 +                            active);
++            boolean noChange =
++                    HonorPrimaryDataSelection.settledNoChange(
++                            context, target, target < 0 ? -1 : active[target]);
 +            if (target < 0 || !phones[target].isRadioOn()) return;
 +            for (Phone phone : phones) {
 +                if (!phone.isRadioAvailable() || phone.getRadioCapability() == null) return;
 +            }
++            if (noChange) return;
 +            String uuid = phones[target].getRadioCapability().getLogicalModemUuid();
 +            boolean bootstrap = savedSlot < 0 && savedSub < 0;
 +            if (uuid != null && uuid.contains("ps0")) {
@@ -2607,10 +2611,10 @@ index 0000000..b51f29d
 +}
 diff --git a/src/com/android/internal/telephony/honor/HonorPrimaryDataSelection.java b/src/com/android/internal/telephony/honor/HonorPrimaryDataSelection.java
 new file mode 100644
-index 0000000..eb68f58
+index 0000000..cae0336
 --- /dev/null
 +++ b/src/com/android/internal/telephony/honor/HonorPrimaryDataSelection.java
-@@ -0,0 +1,220 @@
+@@ -0,0 +1,341 @@
 +/*
 + * Copyright (C) 2026 The LineageOS Project
 + * SPDX-License-Identifier: Apache-2.0
@@ -2642,7 +2646,68 @@ index 0000000..eb68f58
 +        UNKNOWN
 +    }
 +
++    // Process-local observation only; explicit selections always run the stock protocol.
++    private static NoChange settledNoChange;
++
 +    private HonorPrimaryDataSelection() {}
++
++    static boolean settledNoChange(Context context, int phoneId, int subId) {
++        NoChange previous = settledNoChange;
++        if (previous == null) return false;
++        try {
++            if (previous.same(NoChange.capture(context, phoneId, subId))) return true;
++        } catch (RuntimeException unavailable) {
++            // An unavailable identity cannot prove that a prior observation still applies.
++        }
++        settledNoChange = null;
++        return false;
++    }
++
++    private static final class NoChange {
++        final Snapshot assignment;
++        final int target, subId, dds, savedSlot, savedSub;
++        final int[] active;
++
++        NoChange(Context context, int target, int subId, Phone[] phones) {
++            assignment = Snapshot.capture(phones);
++            this.target = target;
++            this.subId = subId;
++            dds = SubscriptionManager.getDefaultDataSubscriptionId();
++            savedSlot =
++                    Settings.System.getInt(
++                            context.getContentResolver(), "switch_dual_card_slots", -1);
++            savedSub =
++                    Settings.System.getInt(
++                            context.getContentResolver(), "last_main_card_subid", -1);
++            active = new int[2];
++            SubscriptionManager subscriptions = context.getSystemService(SubscriptionManager.class);
++            for (int i = 0; i < 2; i++) {
++                active[i] =
++                        subscriptions.getActiveSubscriptionInfo(assignment.subIds[i]) == null
++                                ? -1
++                                : assignment.subIds[i];
++                if (active[i] >= 0
++                        && (assignment.cards[i] == null
++                                || assignment.profiles[i] == null
++                                || assignment.profiles[i].isEmpty()))
++                    throw new IllegalStateException("Card identity unavailable");
++            }
++        }
++
++        static NoChange capture(Context context, int target, int subId) {
++            return new NoChange(context, target, subId, PhoneFactory.getPhones());
++        }
++
++        boolean same(NoChange other) {
++            return target == other.target
++                    && subId == other.subId
++                    && dds == other.dds
++                    && savedSlot == other.savedSlot
++                    && savedSub == other.savedSub
++                    && java.util.Arrays.equals(active, other.active)
++                    && assignment.sameAssignment(other.assignment);
++        }
++    }
 +
 +    public static void select(Context context, int subId, Consumer<Result> completion) {
 +        UiccController.getInstance().post(() -> begin(context, subId, completion, true));
@@ -2683,6 +2748,12 @@ index 0000000..eb68f58
 +            if (phoneId < 0 || phoneId >= phones.length || before.subIds[phoneId] != subId)
 +                throw new IllegalStateException("Subscription changed");
 +            int oldDds = SubscriptionManager.getDefaultDataSubscriptionId();
++            int oldSlot =
++                    Settings.System.getInt(
++                            context.getContentResolver(), "switch_dual_card_slots", -1);
++            int oldSub =
++                    Settings.System.getInt(
++                            context.getContentResolver(), "last_main_card_subid", -1);
 +            leases = HonorLpaLeaseService.leases(context);
 +            synchronized (leases) {
 +                HonorLpaLeaseService.recoveryFence(context).requireNormal();
@@ -2697,6 +2768,7 @@ index 0000000..eb68f58
 +                    return;
 +                }
 +                token = leases.beginPrimarySelection();
++                settledNoChange = null;
 +            }
 +            LpaOperationLease reserved = leases;
 +            Object exactToken = token;
@@ -2726,14 +2798,35 @@ index 0000000..eb68f58
 +                                            && before.sameAssignment(after)) {
 +                                        settled = true;
 +                                        result = Result.REFUSED;
-+                                    } else if (outcome == PrimaryCapabilityResult.VERIFIED_COMMIT
-+                                            && before.sameSubscriptionsAndRafs(after)
-+                                            && after.primary == phoneId) {
++                                    } else if ((outcome == PrimaryCapabilityResult.VERIFIED_COMMIT
++                                                    && before.sameSubscriptionsAndRafs(after)
++                                                    && after.primary == phoneId)
++                                            || (outcome
++                                                            == PrimaryCapabilityResult
++                                                                    .VERIFIED_NO_CHANGE
++                                                    && before.sameAssignment(after))) {
 +                                        // Successful capability completion is not permission to
 +                                        // override a newer choice.
 +                                        settled = true;
 +                                        HonorSimRouteCallGuard.requireIdle();
-+                                        if (subscriptions.getActiveSubscriptionInfo(subId) == null
++                                        if ((!commitData
++                                                        && (Settings.System.getInt(
++                                                                                context
++                                                                                        .getContentResolver(),
++                                                                                "switch_dual_card_slots",
++                                                                                -1)
++                                                                        != oldSlot
++                                                                || Settings.System.getInt(
++                                                                                context
++                                                                                        .getContentResolver(),
++                                                                                "last_main_card_subid",
++                                                                                -1)
++                                                                        != oldSub
++                                                                || SubscriptionManager
++                                                                                .getDefaultDataSubscriptionId()
++                                                                        != oldDds))
++                                                || subscriptions.getActiveSubscriptionInfo(subId)
++                                                        == null
 +                                                || (commitData
 +                                                        && SubscriptionManager
 +                                                                        .getDefaultDataSubscriptionId()
@@ -2761,6 +2854,23 @@ index 0000000..eb68f58
 +                                } finally {
 +                                    reserved.finishPrimarySelection(exactToken, settled);
 +                                    completion.accept(result);
++                                    if (result == Result.COMMITTED
++                                            && outcome
++                                                    == PrimaryCapabilityResult.VERIFIED_NO_CHANGE) {
++                                        // Capture after the owner records bootstrap USER intent.
++                                        // Missing identity disables suppression, never the
++                                        // selection.
++                                        try {
++                                            NoChange observation =
++                                                    NoChange.capture(context, phoneId, subId);
++                                            settledNoChange =
++                                                    before.sameAssignment(observation.assignment)
++                                                            ? observation
++                                                            : null;
++                                        } catch (RuntimeException unavailable) {
++                                            settledNoChange = null;
++                                        }
++                                    }
 +                                }
 +                                return true;
 +                            });
@@ -2786,13 +2896,22 @@ index 0000000..eb68f58
 +
 +    private static final class Snapshot {
 +        final int[] subIds, rafs;
-+        final String[] uuids;
++        final String[] uuids, profiles;
++        final Object[] cards;
 +        final int primary;
 +
-+        private Snapshot(int[] subIds, int[] rafs, String[] uuids, int primary) {
++        private Snapshot(
++                int[] subIds,
++                int[] rafs,
++                String[] uuids,
++                String[] profiles,
++                Object[] cards,
++                int primary) {
 +            this.subIds = subIds;
 +            this.rafs = rafs;
 +            this.uuids = uuids;
++            this.profiles = profiles;
++            this.cards = cards;
 +            this.primary = primary;
 +        }
 +
@@ -2800,13 +2919,16 @@ index 0000000..eb68f58
 +            if (phones == null || phones.length != 2)
 +                throw new IllegalStateException("Two phones required");
 +            int[] subIds = new int[2], rafs = new int[2];
-+            String[] uuids = new String[2];
++            String[] uuids = new String[2], profiles = new String[2];
++            Object[] cards = new Object[2];
 +            int primary = -1;
 +            for (int i = 0; i < 2; i++) {
 +                Phone phone = phones[i];
 +                RadioCapability capability = phone == null ? null : phone.getRadioCapability();
 +                if (capability == null) throw new IllegalStateException("Capability unavailable");
 +                subIds[i] = phone.getSubId();
++                profiles[i] = phone.getFullIccSerialNumber();
++                cards[i] = UiccController.getInstance().getUiccCardForPhone(i);
 +                rafs[i] = capability.getRadioAccessFamily();
 +                uuids[i] = capability.getLogicalModemUuid();
 +                if (uuids[i] == null || uuids[i].isEmpty())
@@ -2818,12 +2940,15 @@ index 0000000..eb68f58
 +            }
 +            if (primary < 0 || uuids[0].equals(uuids[1]))
 +                throw new IllegalStateException("Ambiguous mapping");
-+            return new Snapshot(subIds, rafs, uuids, primary);
++            return new Snapshot(subIds, rafs, uuids, profiles, cards, primary);
 +        }
 +
 +        boolean sameSubscriptionsAndRafs(Snapshot other) {
 +            return java.util.Arrays.equals(subIds, other.subIds)
-+                    && java.util.Arrays.equals(rafs, other.rafs);
++                    && java.util.Arrays.equals(rafs, other.rafs)
++                    && java.util.Arrays.equals(profiles, other.profiles)
++                    && cards[0] == other.cards[0]
++                    && cards[1] == other.cards[1];
 +        }
 +
 +        boolean sameAssignment(Snapshot other) {

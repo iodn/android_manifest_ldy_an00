@@ -89,15 +89,15 @@
     },
     {
       "path": "frameworks/opt/telephony",
-      "revision": "b0d199712f85c9977ffe6a6e1ed331b8c5e6703c",
-      "tree": "2dca7245e6bd20d96a3c3cd5a09919ec05fd7f1c",
+      "revision": "4f63629ec0024e6b01d0f4a3b0baaeea3624c737",
+      "tree": "5779f29a0112b0e1ce30d83c9a90d00541f74135",
       "base_revision": "bcbc6a3347cf9ac639ef633c2ad4a9cebd160df1",
       "patch": "patches/frameworks_opt_telephony.patch",
-      "patch_sha256": "70d91efcdbfe8fb47560585659893305e3a78b6c2c866574baa916934aa6f977",
+      "patch_sha256": "6548e639328e9409609b6e88065a0cebe815f4e3fac5878cd4d325e11f870a04",
       "patch_tree_verified": true,
       "remote_url": "https://github.com/LineageOS/android_frameworks_opt_telephony",
-      "target_snapshot_revision": "b0d199712f85c9977ffe6a6e1ed331b8c5e6703c",
-      "target_snapshot_tree": "2dca7245e6bd20d96a3c3cd5a09919ec05fd7f1c"
+      "target_snapshot_revision": "4f63629ec0024e6b01d0f4a3b0baaeea3624c737",
+      "target_snapshot_tree": "5779f29a0112b0e1ce30d83c9a90d00541f74135"
     },
     {
       "path": "hardware/honor/ldy_an00/ims",
@@ -233,15 +233,15 @@
     },
     {
       "path": "packages/services/Telephony",
-      "revision": "108577b56fdb106c6a92642e0e4c4774e22c84df",
-      "tree": "94d0f104a3452fd9300e470a4dd2c0368cab671a",
+      "revision": "26ba1c74dfb9abd031cbaa38ee0fbfdd05a6f072",
+      "tree": "4f199b025e7008edf29c1aba63575c59698759d3",
       "base_revision": "2d0e6fb0059b8c1cab748f6f04453c9955a14fe3",
       "patch": "patches/packages_services_Telephony.patch",
-      "patch_sha256": "b15627b11f74349162877d1d016767c3aa388c59db2bf0ebe87606e034a5a58a",
+      "patch_sha256": "bf39d86c89b687abe895738534b31ab32c279e221d72103350c44fa06c9ddc28",
       "patch_tree_verified": true,
       "remote_url": "https://github.com/LineageOS/android_packages_services_Telephony",
-      "target_snapshot_revision": "108577b56fdb106c6a92642e0e4c4774e22c84df",
-      "target_snapshot_tree": "94d0f104a3452fd9300e470a4dd2c0368cab671a"
+      "target_snapshot_revision": "26ba1c74dfb9abd031cbaa38ee0fbfdd05a6f072",
+      "target_snapshot_tree": "4f199b025e7008edf29c1aba63575c59698759d3"
     },
     {
       "path": "prebuilts/openeuicc-deps",
