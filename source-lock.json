@@ -89,13 +89,15 @@
     },
     {
       "path": "frameworks/opt/telephony",
-      "revision": "b9cf08ef89f39f6bb6a93fdc7b17144f035bcf2a",
-      "tree": "03a980ee214a52a33e94350dafaa2742e106616a",
+      "revision": "b0d199712f85c9977ffe6a6e1ed331b8c5e6703c",
+      "tree": "2dca7245e6bd20d96a3c3cd5a09919ec05fd7f1c",
       "base_revision": "bcbc6a3347cf9ac639ef633c2ad4a9cebd160df1",
       "patch": "patches/frameworks_opt_telephony.patch",
-      "patch_sha256": "c84b55f0c9c51bc886833d321e412411eea92fcc748d4420dd70f4f6e2ec614b",
+      "patch_sha256": "70d91efcdbfe8fb47560585659893305e3a78b6c2c866574baa916934aa6f977",
       "patch_tree_verified": true,
-      "remote_url": "https://github.com/LineageOS/android_frameworks_opt_telephony"
+      "remote_url": "https://github.com/LineageOS/android_frameworks_opt_telephony",
+      "target_snapshot_revision": "b0d199712f85c9977ffe6a6e1ed331b8c5e6703c",
+      "target_snapshot_tree": "2dca7245e6bd20d96a3c3cd5a09919ec05fd7f1c"
     },
     {
       "path": "hardware/honor/ldy_an00/ims",
@@ -203,15 +205,15 @@
     },
     {
       "path": "packages/apps/Settings",
-      "revision": "6df78cb0d395ad586c33f5c41dfd3dee0e825351",
-      "tree": "884f3553ace31fda60cf4e8fcbfb13d3830f955c",
+      "revision": "4770485eea3d8cd88b351028fc70c506c8a3d7c2",
+      "tree": "8f51b58505d233aaa6ebda899361a5a24d8644ee",
       "base_revision": "0b97deb37dcba757a3130899273fb4c298702f00",
       "patch": "patches/packages_apps_Settings.patch",
-      "patch_sha256": "72938fc8aea08a4d4be838e4f91a04700405d5437dc5484d1bb62d06835334aa",
+      "patch_sha256": "f433ecd8364dc1b815dbe2d4b29f41ebb2724e40efaeebbf409a2489d5ee9c4d",
       "patch_tree_verified": true,
       "remote_url": "https://github.com/LineageOS/android_packages_apps_Settings",
-      "target_snapshot_revision": "6df78cb0d395ad586c33f5c41dfd3dee0e825351",
-      "target_snapshot_tree": "884f3553ace31fda60cf4e8fcbfb13d3830f955c",
+      "target_snapshot_revision": "4770485eea3d8cd88b351028fc70c506c8a3d7c2",
+      "target_snapshot_tree": "8f51b58505d233aaa6ebda899361a5a24d8644ee",
       "historical_public_snapshot": {
         "revision": "8397134ae4ee640f1a26eb9f12d9eddb91650b89",
         "tree": "5f22ecf62a013dbae9b9d336782b93681ddf3489"
@@ -231,15 +233,15 @@
     },
     {
       "path": "packages/services/Telephony",
-      "revision": "e07290a9c6ac95158dffff6ca56f0563581305f2",
-      "tree": "e2c73111318cae604c7724fd42668d8f6f1b7ee1",
+      "revision": "04f574f217392902d9c228bbf363f47e584a9f4b",
+      "tree": "d1fdfc6076ec8b3eb1cd2f40292515d98cc37de5",
       "base_revision": "2d0e6fb0059b8c1cab748f6f04453c9955a14fe3",
       "patch": "patches/packages_services_Telephony.patch",
-      "patch_sha256": "d52d3fb85778dd65c398d980835ea663b68d7c48aed2d124fba0c7e020c3e9e2",
+      "patch_sha256": "a8dcb401b81f8f68238facd7709c54ee92bb9407eeaa04a37ce0c8d19905f76e",
       "patch_tree_verified": true,
       "remote_url": "https://github.com/LineageOS/android_packages_services_Telephony",
-      "target_snapshot_revision": "e07290a9c6ac95158dffff6ca56f0563581305f2",
-      "target_snapshot_tree": "e2c73111318cae604c7724fd42668d8f6f1b7ee1"
+      "target_snapshot_revision": "04f574f217392902d9c228bbf363f47e584a9f4b",
+      "target_snapshot_tree": "d1fdfc6076ec8b3eb1cd2f40292515d98cc37de5"
     },
     {
       "path": "prebuilts/openeuicc-deps",

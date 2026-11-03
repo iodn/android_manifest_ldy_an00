@@ -20,6 +20,382 @@ index 9d6cefd..a723398 100644
      @Override
      public String toString() {
          return "[CallForwardInfo: status=" + (status == 0 ? " not active " : " active ")
+diff --git a/src/java/com/android/internal/telephony/ProxyController.java b/src/java/com/android/internal/telephony/ProxyController.java
+index c911197..348559e 100644
+--- a/src/java/com/android/internal/telephony/ProxyController.java
++++ b/src/java/com/android/internal/telephony/ProxyController.java
+@@ -98,6 +98,19 @@ public class ProxyController {
+ 
+     private String[] mCurrentLogicalModemIds;
+     private String[] mNewLogicalModemIds;
++    // Only the explicit primary-slot path uses these bounded recovery states.
++    private boolean mExplicitModemMapping;
++    private boolean mExplicitMappingRollback;
++    private boolean mExplicitMappingTimeoutCleanup;
++    private String[] mExplicitOriginalLogicalModemIds;
++    private boolean[][] mExplicitResponsesSeen;
++    private boolean mExplicitFinishing;
++    private boolean mExplicitAbortBeforeApply;
++    private boolean mExplicitApplyIssued;
++    private boolean mExplicitFinishFailed;
++    public enum PrimaryCapabilityResult { VERIFIED_COMMIT, VERIFIED_ROLLBACK, UNKNOWN }
++    private Message mExplicitCompletion;
++    private PrimaryCapabilityResult mExplicitOutcome = PrimaryCapabilityResult.UNKNOWN;
+ 
+     // Allows the generation of unique Id's for radio capability request session  id
+     @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
+@@ -239,7 +252,71 @@ public class ProxyController {
+         return mSmsController;
+     }
+ 
++    /**
++     * Moves the existing primary logical modem without changing either phone's RAF.
++     * The reviewed device-specific caller must serialize this with SIM/eUICC routing.
++     * This is not used by the generic AOSP RAF mapping path.
++     * False rejects synchronously without a callback. True posts exactly one completion,
++     * preserving its cookie in AsyncResult.userObj. UNKNOWN must retain route exclusion.
++     */
++    public boolean setPrimaryRadioCapability(int primaryPhoneId, Message onComplete) {
++        synchronized (mSetRadioAccessFamilyStatus) {
++            if (mPhones.length != 2 || primaryPhoneId < 0 || primaryPhoneId >= 2
++                    || onComplete == null || onComplete.getTarget() == null) return false;
++            String[] current = new String[2];
++            int primaryModemPhone = -1;
++            RadioAccessFamily[] rafs = new RadioAccessFamily[2];
++            for (int i = 0; i < 2; i++) {
++                Phone phone = mPhones[i];
++                if (mSetRadioAccessFamilyStatus[i] != SET_RC_STATUS_IDLE
++                        || phone == null || phone.getRadioCapability() == null
++                        || phone.getState() != PhoneConstants.State.IDLE
++                        || (phone.getImsPhone() != null
++                        && phone.getImsPhone().getState() != PhoneConstants.State.IDLE)) {
++                    return false;
++                }
++                current[i] = phone.getModemUuId();
++                if (current[i] == null || current[i].isEmpty()
++                        || phone.getRadioAccessFamily() == RadioAccessFamily.RAF_UNKNOWN) return false;
++                if (current[i].contains("ps0")) {
++                    if (primaryModemPhone != -1) return false;
++                    primaryModemPhone = i;
++                }
++                rafs[i] = new RadioAccessFamily(i, phone.getRadioAccessFamily());
++            }
++            if (primaryModemPhone == -1 || current[0].equals(current[1])) return false;
++            if (primaryModemPhone == primaryPhoneId) {
++                postPrimaryCapabilityResult(onComplete, PrimaryCapabilityResult.VERIFIED_COMMIT);
++                return true;
++            }
++            String[] desired = current.clone();
++            desired[primaryPhoneId] = current[primaryModemPhone];
++            desired[1 - primaryPhoneId] = current[1 - primaryModemPhone];
++            clearTransaction();
++            mExplicitModemMapping = true;
++            mExplicitOriginalLogicalModemIds = current.clone();
++            mExplicitCompletion = onComplete;
++            mWakeLock.acquire();
++            return doSetRadioCapabilities(rafs, desired);
++        }
++    }
++
++    private static void postPrimaryCapabilityResult(Message completion,
++            PrimaryCapabilityResult result) {
++        AsyncResult.forMessage(completion, result, null);
++        completion.sendToTarget();
++    }
++
+     private boolean doSetRadioCapabilities(RadioAccessFamily[] rafs) {
++        return doSetRadioCapabilities(rafs, null);
++    }
++
++    private boolean doSetRadioCapabilities(RadioAccessFamily[] rafs, String[] logicalModemIds) {
++        if (mExplicitModemMapping) {
++            mExplicitResponsesSeen = new boolean[5][2];
++            mExplicitFinishing = false;
++            mExplicitApplyIssued = false;
++        }
+         // A new sessionId for this transaction
+         mRadioCapabilitySessionId = mUniqueIdGenerator.getAndIncrement();
+ 
+@@ -265,7 +342,8 @@ public class ProxyController {
+                 mCurrentLogicalModemIds[phoneId] = mPhones[phoneId].getModemUuId();
+                 // get the logical mode corresponds to new raf requested and pass the
+                 // same as part of SET_RADIO_CAP APPLY phase
+-                mNewLogicalModemIds[phoneId] = getLogicalModemIdFromRaf(requestedRaf);
++                mNewLogicalModemIds[phoneId] = logicalModemIds == null
++                        ? getLogicalModemIdFromRaf(requestedRaf) : logicalModemIds[phoneId];
+                 logd("setRadioCapability: mOldRadioAccessFamily[" + phoneId + "]="
+                         + mOldRadioAccessFamily[phoneId]);
+                 logd("setRadioCapability: mNewRadioAccessFamily[" + phoneId + "]="
+@@ -321,6 +399,12 @@ public class ProxyController {
+     };
+ 
+     private void onMultiSimConfigChanged() {
++        if (mExplicitModemMapping) {
++            mRadioCapabilitySessionId = mUniqueIdGenerator.getAndIncrement();
++            mContext.sendBroadcastAsUser(new Intent(
++                    TelephonyIntents.ACTION_SET_RADIO_CAPABILITY_FAILED), UserHandle.ALL,
++                    android.Manifest.permission.READ_PHONE_STATE);
++        }
+         int oldPhoneCount = mPhones.length;
+         mPhones = PhoneFactory.getPhones();
+ 
+@@ -341,6 +425,26 @@ public class ProxyController {
+         }
+     }
+ 
++    // Solicited Message.arg1=phoneId+1 marks this path even after its transaction ends.
++    private boolean acceptExplicitResponse(Message msg, RadioCapability rc, int phase) {
++        if (!mExplicitModemMapping) return phase == 0 || msg.arg1 == 0;
++        int id = phase == 0 ? (rc == null ? -1 : rc.getPhoneId()) : msg.arg1 - 1;
++        if (id < 0 || id >= 2 || (phase != 0 && msg.arg2 != mRadioCapabilitySessionId)
++                || (rc != null && (rc.getPhoneId() != id
++                        || rc.getSession() != mRadioCapabilitySessionId
++                        || rc.getPhase() != (phase == 0
++                                ? RadioCapability.RC_PHASE_UNSOL_RSP : phase)))
++                || mExplicitResponsesSeen[phase][id]) return false;
++        if ((phase == RadioCapability.RC_PHASE_START
++                && mSetRadioAccessFamilyStatus[id] != SET_RC_STATUS_STARTING)
++                || (phase == 0
++                && (mExplicitFinishing || (mSetRadioAccessFamilyStatus[id] != SET_RC_STATUS_APPLYING
++                        && mSetRadioAccessFamilyStatus[id] != SET_RC_STATUS_FAIL)))
++                || (phase == RadioCapability.RC_PHASE_FINISH && !mExplicitFinishing)) return false;
++        mExplicitResponsesSeen[phase][id] = true;
++        return true;
++    }
++
+     /**
+      * Handle START response
+      * @param msg obj field isa RadioCapability
+@@ -348,6 +452,8 @@ public class ProxyController {
+     private void onStartRadioCapabilityResponse(Message msg) {
+         synchronized (mSetRadioAccessFamilyStatus) {
+             AsyncResult ar = (AsyncResult)msg.obj;
++            if (!acceptExplicitResponse(msg, (RadioCapability) ar.result,
++                    RadioCapability.RC_PHASE_START)) return;
+             // Abort here only in Single SIM case, in Multi SIM cases
+             // send FINISH with failure so that below layers can re-bind
+             // old logical modems.
+@@ -395,6 +501,17 @@ public class ProxyController {
+             }
+ 
+             if (mRadioAccessFamilyStatusCounter == 0) {
++                if (mExplicitModemMapping) {
++                    for (Phone phone : mPhones) {
++                        if (phone.getState() != PhoneConstants.State.IDLE
++                                || (phone.getImsPhone() != null && phone.getImsPhone().getState()
++                                        != PhoneConstants.State.IDLE)) {
++                            // Never compete with a new call, especially an emergency call.
++                            mExplicitAbortBeforeApply = true;
++                            mTransactionFailed = true;
++                        }
++                    }
++                }
+                 HashSet<String> modemsInUse = new HashSet<String>(mNewLogicalModemIds.length);
+                 for (String modemId : mNewLogicalModemIds) {
+                     if (!modemsInUse.add(modemId)) {
+@@ -410,13 +527,16 @@ public class ProxyController {
+                 } else {
+                     // All logical modem accepted the new radio access family, issue the APPLY
+                     resetRadioAccessFamilyStatusCounter();
++                    if (mExplicitModemMapping) mExplicitApplyIssued = true;
+                     for (int i = 0; i < mPhones.length; i++) {
+                         sendRadioCapabilityRequest(
+                             i,
+                             mRadioCapabilitySessionId,
+                             RadioCapability.RC_PHASE_APPLY,
+                             mNewRadioAccessFamily[i],
+-                            mNewLogicalModemIds[i],
++                            mExplicitModemMapping
++                                    ? (mNewLogicalModemIds[i].contains("ps0") ? "0" : "1")
++                                    : mNewLogicalModemIds[i],
+                             RadioCapability.RC_STATUS_NONE,
+                             EVENT_APPLY_RC_RESPONSE);
+ 
+@@ -434,6 +554,7 @@ public class ProxyController {
+      */
+     private void onApplyRadioCapabilityResponse(Message msg) {
+         RadioCapability rc = (RadioCapability) ((AsyncResult) msg.obj).result;
++        if (!acceptExplicitResponse(msg, rc, RadioCapability.RC_PHASE_APPLY)) return;
+         if ((rc == null) || (rc.getSession() != mRadioCapabilitySessionId)) {
+             logd("onApplyRadioCapabilityResponse: Ignore session=" + mRadioCapabilitySessionId
+                     + " rc=" + rc);
+@@ -459,6 +580,7 @@ public class ProxyController {
+      */
+     private void onNotificationRadioCapabilityChanged(Message msg) {
+         RadioCapability rc = (RadioCapability) ((AsyncResult) msg.obj).result;
++        if (!acceptExplicitResponse(msg, rc, 0)) return;
+         if ((rc == null) || (rc.getSession() != mRadioCapabilitySessionId)) {
+             logd("onNotificationRadioCapabilityChanged: Ignore session=" + mRadioCapabilitySessionId
+                     + " rc=" + rc);
+@@ -475,7 +597,10 @@ public class ProxyController {
+ 
+             int id = rc.getPhoneId();
+             if ((((AsyncResult) msg.obj).exception != null) ||
+-                    (rc.getStatus() == RadioCapability.RC_STATUS_FAIL)) {
++                    (rc.getStatus() == RadioCapability.RC_STATUS_FAIL)
++                    || (mExplicitModemMapping && (rc.getRadioAccessFamily()
++                            != mNewRadioAccessFamily[id] || !mNewLogicalModemIds[id]
++                                    .equals(rc.getLogicalModemUuid())))) {
+                 logd("onNotificationRadioCapabilityChanged: phoneId=" + id + " status=FAIL");
+                 mSetRadioAccessFamilyStatus[id] = SET_RC_STATUS_FAIL;
+                 mTransactionFailed = true;
+@@ -504,6 +629,7 @@ public class ProxyController {
+         synchronized (mSetRadioAccessFamilyStatus) {
+             AsyncResult ar = (AsyncResult)  msg.obj;
+             RadioCapability rc = (RadioCapability) ((AsyncResult) msg.obj).result;
++            if (!acceptExplicitResponse(msg, rc, RadioCapability.RC_PHASE_FINISH)) return;
+             // Added exception condition on finish to continue to revert if exception occurred.
+             // Checking session validity during exception is not valid
+             if (ar.exception == null
+@@ -515,6 +641,11 @@ public class ProxyController {
+             if (ar.exception != null) {
+                 logd("onFinishRadioCapabilityResponse got exception=" + ar.exception);
+             }
++            // FINISH deliberately echoes the requested FAIL status during cleanup.
++            if (mExplicitModemMapping && ar.exception != null) {
++                mExplicitFinishFailed = true;
++                mTransactionFailed = true;
++            }
+             logd(" onFinishRadioCapabilityResponse mRadioAccessFamilyStatusCounter="
+                     + mRadioAccessFamilyStatusCounter);
+             mRadioAccessFamilyStatusCounter--;
+@@ -532,6 +663,14 @@ public class ProxyController {
+         }
+ 
+         synchronized(mSetRadioAccessFamilyStatus) {
++            if (mExplicitModemMapping && mExplicitMappingTimeoutCleanup) {
++                mRadioCapabilitySessionId = mUniqueIdGenerator.getAndIncrement();
++                clearTransaction();
++                mContext.sendBroadcastAsUser(new Intent(
++                        TelephonyIntents.ACTION_SET_RADIO_CAPABILITY_FAILED), UserHandle.ALL,
++                        android.Manifest.permission.READ_PHONE_STATE);
++                return;
++            }
+             // timed-out.  Clean up as best we can
+             for (int i = 0; i < mPhones.length; i++) {
+                 logd("RadioCapability timeout: mSetRadioAccessFamilyStatus[" + i + "]=" +
+@@ -547,11 +686,23 @@ public class ProxyController {
+ 
+             // send FINISH request with fail status and then uniqueDifferentId
+             mTransactionFailed = true;
++            if (mExplicitModemMapping) {
++                mExplicitResponsesSeen[RadioCapability.RC_PHASE_FINISH] = new boolean[2];
++            }
+             issueFinish(mRadioCapabilitySessionId);
++            if (mExplicitModemMapping) {
++                mExplicitMappingTimeoutCleanup = true;
++                mHandler.sendMessageDelayed(mHandler.obtainMessage(EVENT_TIMEOUT,
++                        mRadioCapabilitySessionId, 0), SET_RC_TIMEOUT_WAITING_MSEC);
++            }
+         }
+     }
+ 
+     private void issueFinish(int sessionId) {
++        if (mExplicitModemMapping) {
++            mExplicitFinishing = true;
++            mExplicitFinishFailed = false;
++        }
+         // Issue FINISH
+         synchronized(mSetRadioAccessFamilyStatus) {
+             for (int i = 0; i < mPhones.length; i++) {
+@@ -583,6 +734,22 @@ public class ProxyController {
+         // Create the intent to broadcast
+         Intent intent;
+         logd("onFinishRadioCapabilityResponse: success=" + !mTransactionFailed);
++        if (mExplicitModemMapping && (mExplicitMappingRollback || mExplicitAbortBeforeApply)) {
++            // START never moves the modem: a pre-APPLY call abort needs cleanup, not a new APPLY.
++            boolean unchanged = mExplicitAbortBeforeApply && !mExplicitMappingRollback
++                    && !mExplicitApplyIssued
++                    && !mExplicitFinishFailed && !mExplicitMappingTimeoutCleanup;
++            boolean restored = mExplicitMappingRollback && !mTransactionFailed
++                    && !mExplicitMappingTimeoutCleanup;
++            mExplicitOutcome = unchanged || restored ? PrimaryCapabilityResult.VERIFIED_ROLLBACK
++                    : PrimaryCapabilityResult.UNKNOWN;
++            mRadioCapabilitySessionId = mUniqueIdGenerator.getAndIncrement();
++            clearTransaction();
++            mContext.sendBroadcastAsUser(new Intent(
++                    TelephonyIntents.ACTION_SET_RADIO_CAPABILITY_FAILED), UserHandle.ALL,
++                    android.Manifest.permission.READ_PHONE_STATE);
++            return;
++        }
+         if (!mTransactionFailed) {
+             ArrayList<RadioAccessFamily> phoneRAFList = new ArrayList<RadioAccessFamily>();
+             for (int i = 0; i < mPhones.length; i++) {
+@@ -598,7 +765,10 @@ public class ProxyController {
+             // make messages about the old transaction obsolete (specifically the timeout)
+             mRadioCapabilitySessionId = mUniqueIdGenerator.getAndIncrement();
+ 
+-            // Reinitialize
++            // Reinitialize before posting the explicit request's completion.
++            if (mExplicitModemMapping) {
++                mExplicitOutcome = PrimaryCapabilityResult.VERIFIED_COMMIT;
++            }
+             clearTransaction();
+         } else {
+             intent = new Intent(TelephonyIntents.ACTION_SET_RADIO_CAPABILITY_FAILED);
+@@ -608,7 +778,15 @@ public class ProxyController {
+             for (int phoneId = 0; phoneId < mPhones.length; phoneId++) {
+                 rafs[phoneId] = new RadioAccessFamily(phoneId, mOldRadioAccessFamily[phoneId]);
+             }
+-            doSetRadioCapabilities(rafs);
++            if (mExplicitModemMapping) {
++                // Never infer a rollback UUID from equal RAFs or partially updated Phone caches.
++                String[] originalModems = mExplicitOriginalLogicalModemIds.clone();
++                mExplicitMappingRollback = true;
++                mExplicitMappingTimeoutCleanup = false;
++                doSetRadioCapabilities(rafs, originalModems);
++            } else {
++                doSetRadioCapabilities(rafs);
++            }
+         }
+ 
+         // Broadcast that we're done
+@@ -619,7 +797,22 @@ public class ProxyController {
+     // Clear this transaction
+     private void clearTransaction() {
+         logd("clearTransaction");
++        Message completion;
++        PrimaryCapabilityResult outcome;
+         synchronized(mSetRadioAccessFamilyStatus) {
++            completion = mExplicitCompletion;
++            outcome = mExplicitOutcome;
++            mExplicitCompletion = null;
++            mExplicitOutcome = PrimaryCapabilityResult.UNKNOWN;
++            mExplicitModemMapping = false;
++            mExplicitMappingRollback = false;
++            mExplicitMappingTimeoutCleanup = false;
++            mExplicitOriginalLogicalModemIds = null;
++            mExplicitResponsesSeen = null;
++            mExplicitFinishing = false;
++            mExplicitAbortBeforeApply = false;
++            mExplicitApplyIssued = false;
++            mExplicitFinishFailed = false;
+             for (int i = 0; i < mPhones.length; i++) {
+                 logd("clearTransaction: phoneId=" + i + " status=IDLE");
+                 mSetRadioAccessFamilyStatus[i] = SET_RC_STATUS_IDLE;
+@@ -633,6 +826,7 @@ public class ProxyController {
+                 mWakeLock.release();
+             }
+         }
++        if (completion != null) postPrimaryCapabilityResult(completion, outcome);
+     }
+ 
+     /**
+@@ -656,8 +850,12 @@ public class ProxyController {
+             int radioFamily, String logicalModemId, int status, int eventId) {
+         RadioCapability requestRC = new RadioCapability(
+                 phoneId, sessionId, rcPhase, radioFamily, logicalModemId, status);
+-        mPhones[phoneId].setRadioCapability(
+-                requestRC, mHandler.obtainMessage(eventId));
++        Message response = mHandler.obtainMessage(eventId);
++        if (mExplicitModemMapping) {
++            response.arg1 = phoneId + 1;
++            response.arg2 = sessionId;
++        }
++        mPhones[phoneId].setRadioCapability(requestRC, response);
+     }
+ 
+     // This method will return max number of raf bits supported from the raf
 diff --git a/src/java/com/android/internal/telephony/euicc/EuiccConnector.java b/src/java/com/android/internal/telephony/euicc/EuiccConnector.java
 index b919bdd..243b432 100644
 --- a/src/java/com/android/internal/telephony/euicc/EuiccConnector.java
@@ -3009,6 +3385,402 @@ index 0000000..7d7e0da
 +  if(!es10)throw new AssertionError("ES10 flag lost");commands.add(String.format("%02X%02X%02X%02X%02X%s",cla,ins,p1,p2,p3,data==null?"":data));pending.add(new Pending(4,channel,response));}
 + void iccCloseLogicalChannel(int channel,boolean es10,Message response){if(!es10)throw new AssertionError();closed.add(channel);pending.add(new Pending(2,channel,response));}
 + void deliver(int kind,Object value,Throwable error){if(pending.isEmpty()||pending.get(0).kind!=kind)throw new AssertionError("unexpected native dispatch");Message m=pending.remove(0).target;lastDelivered=m;AsyncResult.forMessage(m,value,error);m.sendToTarget();Handler.runReady();}
++}
+diff --git a/tests/telephonytests/src/com/android/internal/telephony/ProxyControllerPrimaryMappingTest.java b/tests/telephonytests/src/com/android/internal/telephony/ProxyControllerPrimaryMappingTest.java
+new file mode 100644
+index 0000000..393ddff
+--- /dev/null
++++ b/tests/telephonytests/src/com/android/internal/telephony/ProxyControllerPrimaryMappingTest.java
+@@ -0,0 +1,390 @@
++/*
++ * Copyright (C) 2026 The LineageOS Project
++ * SPDX-License-Identifier: Apache-2.0
++ */
++package com.android.internal.telephony;
++
++import static android.telephony.RadioAccessFamily.RAF_GSM;
++import static android.telephony.RadioAccessFamily.RAF_LTE;
++import static org.junit.Assert.assertEquals;
++import static org.junit.Assert.assertFalse;
++import static org.junit.Assert.assertTrue;
++import static org.junit.Assert.assertSame;
++import static org.mockito.ArgumentMatchers.any;
++import static org.mockito.Mockito.atLeastOnce;
++import static org.mockito.Mockito.doReturn;
++import static org.mockito.Mockito.never;
++import static org.mockito.Mockito.times;
++import static org.mockito.Mockito.verify;
++
++import android.content.Intent;
++import android.os.UserHandle;
++import android.os.AsyncResult;
++import android.os.Handler;
++import android.os.Message;
++import android.testing.AndroidTestingRunner;
++import android.testing.TestableLooper;
++
++import androidx.test.filters.SmallTest;
++
++import org.junit.After;
++import org.junit.Before;
++import org.junit.Test;
++import org.junit.runner.RunWith;
++import org.mockito.ArgumentCaptor;
++import java.util.ArrayList;
++import java.util.List;
++
++/** Drives the real ProxyController callback state machine; no modem calls. */
++@RunWith(AndroidTestingRunner.class)
++@TestableLooper.RunWithLooper
++@SmallTest
++public class ProxyControllerPrimaryMappingTest extends TelephonyTest {
++    private static final int RAF = RAF_GSM | RAF_LTE;
++    private ProxyController mController;
++    private Handler mCapabilityHandler;
++    private int mCapabilityEvent;
++    private final Object mCookie = new Object();
++    private final List<ProxyController.PrimaryCapabilityResult> mResults = new ArrayList<>();
++
++    @Before
++    public void setUp() throws Exception {
++        super.setUp(getClass().getSimpleName());
++        replaceInstance(ProxyController.class, "sProxyController", null, null);
++        replaceInstance(PhoneFactory.class, "sPhones", null, new Phone[] {mPhone, mPhone2});
++        doReturn(2).when(mTelephonyManager).getPhoneCount();
++        configurePhone(mPhone, 0, "modem_ps0");
++        configurePhone(mPhone2, 1, "modem_ps1");
++        mController = new ProxyController(mContext, mFeatureFlags);
++        ArgumentCaptor<Handler> handlers = ArgumentCaptor.forClass(Handler.class);
++        ArgumentCaptor<Integer> events = ArgumentCaptor.forClass(Integer.class);
++        verify(mPhone).registerForRadioCapabilityChanged(handlers.capture(), events.capture(), any());
++        mCapabilityHandler = handlers.getValue();
++        mCapabilityEvent = events.getValue();
++    }
++
++    private void configurePhone(Phone phone, int id, String uuid) {
++        doReturn(RAF).when(phone).getRadioAccessFamily();
++        doReturn(uuid).when(phone).getModemUuId();
++        doReturn(new RadioCapability(id, 0, 0, RAF, uuid, 0))
++                .when(phone).getRadioCapability();
++        doReturn(PhoneConstants.State.IDLE).when(phone).getState();
++        doReturn(null).when(phone).getImsPhone();
++    }
++
++    @After
++    public void tearDown() throws Exception {
++        mController = null;
++        super.tearDown();
++    }
++
++    private boolean requestPrimary(int phoneId) {
++        Handler completion = new Handler(mController.mHandler.getLooper(), message -> {
++            AsyncResult result = (AsyncResult) message.obj;
++            assertSame(mCookie, result.userObj);
++            mResults.add((ProxyController.PrimaryCapabilityResult) result.result);
++            return true;
++        });
++        return mController.setPrimaryRadioCapability(phoneId, completion.obtainMessage(1, mCookie));
++    }
++
++    private void assertOutcome(ProxyController.PrimaryCapabilityResult outcome) {
++        assertEquals(1, mResults.size());
++        assertEquals(outcome, mResults.get(0));
++    }
++
++    private RadioCapability lastRequest(Phone phone) {
++        ArgumentCaptor<RadioCapability> requests = ArgumentCaptor.forClass(RadioCapability.class);
++        verify(phone, atLeastOnce()).setRadioCapability(requests.capture(), any());
++        return requests.getValue();
++    }
++
++    private void replyToLast(Phone phone, boolean fail) {
++        ArgumentCaptor<RadioCapability> requests = ArgumentCaptor.forClass(RadioCapability.class);
++        ArgumentCaptor<Message> replies = ArgumentCaptor.forClass(Message.class);
++        verify(phone, atLeastOnce()).setRadioCapability(requests.capture(), replies.capture());
++        RadioCapability request = requests.getValue();
++        RadioCapability response = new RadioCapability(request.getPhoneId(), request.getSession(),
++                request.getPhase(), request.getRadioAccessFamily(), request.getLogicalModemUuid(),
++                fail ? RadioCapability.RC_STATUS_FAIL : RadioCapability.RC_STATUS_SUCCESS);
++        Message reply = Message.obtain(replies.getValue());
++        AsyncResult.forMessage(reply, response, null);
++        reply.sendToTarget();
++        processAllMessages();
++    }
++
++    private void startResponses() {
++        replyToLast(mPhone, false);
++        replyToLast(mPhone2, false);
++    }
++
++    private void notification(Phone phone, boolean fail) {
++        RadioCapability request = lastRequest(phone);
++        String uuid = request.getLogicalModemUuid();
++        if ("0".equals(uuid) || "1".equals(uuid)) uuid = "modem_ps" + uuid;
++        RadioCapability response = new RadioCapability(request.getPhoneId(), request.getSession(),
++                RadioCapability.RC_PHASE_UNSOL_RSP, request.getRadioAccessFamily(), uuid,
++                fail ? RadioCapability.RC_STATUS_FAIL : RadioCapability.RC_STATUS_SUCCESS);
++        mCapabilityHandler.obtainMessage(mCapabilityEvent,
++                new AsyncResult(null, response, null)).sendToTarget();
++        processAllMessages();
++    }
++
++    private void finishResponses(boolean fail) {
++        replyToLast(mPhone, fail);
++        replyToLast(mPhone2, fail);
++    }
++
++    private void assertNoDoneBroadcast() {
++        ArgumentCaptor<Intent> intents = ArgumentCaptor.forClass(Intent.class);
++        verify(mContext, atLeastOnce()).sendBroadcastAsUser(intents.capture(),
++                any(UserHandle.class), any(String.class));
++        for (Intent intent : intents.getAllValues()) {
++            assertFalse(TelephonyIntents.ACTION_SET_RADIO_CAPABILITY_DONE.equals(intent.getAction()));
++        }
++    }
++
++    private void timeout(int session) {
++        mController.mHandler.obtainMessage(ProxyController.EVENT_TIMEOUT, session, 0)
++                .sendToTarget();
++        processAllMessages();
++    }
++
++    @Test
++    public void equalRafPrimaryMoveCommitsUsingDistinctExistingUuids() {
++        assertTrue(requestPrimary(1));
++        assertEquals(RadioCapability.RC_PHASE_START, lastRequest(mPhone).getPhase());
++        startResponses();
++        assertEquals("1", lastRequest(mPhone).getLogicalModemUuid());
++        assertEquals("0", lastRequest(mPhone2).getLogicalModemUuid());
++        assertEquals(RAF, lastRequest(mPhone).getRadioAccessFamily());
++        notification(mPhone, false);
++        notification(mPhone2, false);
++        assertEquals(RadioCapability.RC_PHASE_FINISH, lastRequest(mPhone).getPhase());
++        finishResponses(false);
++        assertFalse(mController.isWakeLockHeld());
++        verify(mPhone, times(3)).setRadioCapability(any(), any());
++        assertOutcome(ProxyController.PrimaryCapabilityResult.VERIFIED_COMMIT);
++    }
++
++    @Test
++    public void failedApplyRollsBackExactOriginalUuidPermutationOnce() {
++        assertTrue(requestPrimary(1));
++        startResponses();
++        notification(mPhone, true);
++        notification(mPhone2, false);
++        finishResponses(true);
++        assertEquals(RadioCapability.RC_PHASE_START, lastRequest(mPhone).getPhase());
++        startResponses();
++        assertEquals("0", lastRequest(mPhone).getLogicalModemUuid());
++        assertEquals("1", lastRequest(mPhone2).getLogicalModemUuid());
++        notification(mPhone, false);
++        notification(mPhone2, false);
++        finishResponses(false);
++        assertFalse(mController.isWakeLockHeld());
++        verify(mPhone, times(6)).setRadioCapability(any(), any());
++        assertNoDoneBroadcast();
++        assertOutcome(ProxyController.PrimaryCapabilityResult.VERIFIED_ROLLBACK);
++    }
++
++    @Test
++    public void timeoutAfterApplyWithFinishAcksStillRunsOriginalUuidRollback() {
++        assertTrue(requestPrimary(1));
++        startResponses();
++        timeout(lastRequest(mPhone).getSession());
++        assertEquals(RadioCapability.RC_PHASE_FINISH, lastRequest(mPhone).getPhase());
++        finishResponses(true);
++        assertEquals(RadioCapability.RC_PHASE_START, lastRequest(mPhone).getPhase());
++        startResponses();
++        assertEquals("0", lastRequest(mPhone).getLogicalModemUuid());
++        assertEquals("1", lastRequest(mPhone2).getLogicalModemUuid());
++        notification(mPhone, false);
++        notification(mPhone2, false);
++        finishResponses(false);
++        assertFalse(mController.isWakeLockHeld());
++        assertNoDoneBroadcast();
++        assertOutcome(ProxyController.PrimaryCapabilityResult.VERIFIED_ROLLBACK);
++    }
++
++    @Test
++    public void lostFinishEndsAfterCleanupWatchdogWithoutInfiniteRequests() {
++        assertTrue(requestPrimary(1));
++        timeout(lastRequest(mPhone).getSession());
++        int cleanupSession = lastRequest(mPhone).getSession();
++        timeout(cleanupSession);
++        assertFalse(mController.isWakeLockHeld());
++        verify(mPhone, times(2)).setRadioCapability(any(), any());
++        timeout(cleanupSession);
++        verify(mPhone, times(2)).setRadioCapability(any(), any());
++        assertOutcome(ProxyController.PrimaryCapabilityResult.UNKNOWN);
++    }
++
++    @Test
++    public void failedRollbackIsTerminalWithoutAnotherRestore() {
++        assertTrue(requestPrimary(1));
++        startResponses();
++        notification(mPhone, true);
++        notification(mPhone2, false);
++        finishResponses(true);
++        startResponses();
++        notification(mPhone, true);
++        notification(mPhone2, false);
++        finishResponses(true);
++        assertFalse(mController.isWakeLockHeld());
++        verify(mPhone, times(6)).setRadioCapability(any(), any());
++        assertNoDoneBroadcast();
++        assertOutcome(ProxyController.PrimaryCapabilityResult.UNKNOWN);
++    }
++
++    @Test
++    public void duplicateStartAndNotificationCannotAdvancePhaseTwice() {
++        assertTrue(requestPrimary(1));
++        replyToLast(mPhone, false);
++        replyToLast(mPhone, false);
++        assertEquals(RadioCapability.RC_PHASE_START, lastRequest(mPhone2).getPhase());
++        replyToLast(mPhone2, false);
++        notification(mPhone, false);
++        notification(mPhone, false);
++        assertEquals(RadioCapability.RC_PHASE_APPLY, lastRequest(mPhone2).getPhase());
++        notification(mPhone2, false);
++        finishResponses(false);
++        assertFalse(mController.isWakeLockHeld());
++        verify(mPhone, times(3)).setRadioCapability(any(), any());
++    }
++
++    @Test
++    public void malformedPhoneIdNotificationIsIgnoredWithoutCounterAdvance() {
++        assertTrue(requestPrimary(1));
++        startResponses();
++        RadioCapability request = lastRequest(mPhone);
++        RadioCapability invalid = new RadioCapability(2, request.getSession(),
++                RadioCapability.RC_PHASE_UNSOL_RSP, RAF, "modem_ps0", RadioCapability.RC_STATUS_SUCCESS);
++        mCapabilityHandler.obtainMessage(mCapabilityEvent,
++                new AsyncResult(null, invalid, null)).sendToTarget();
++        processAllMessages();
++        notification(mPhone, false);
++        assertEquals(RadioCapability.RC_PHASE_APPLY, lastRequest(mPhone2).getPhase());
++        notification(mPhone2, false);
++        finishResponses(false);
++        assertFalse(mController.isWakeLockHeld());
++    }
++
++    @Test
++    public void mismatchedSuccessUuidStartsRollbackInsteadOfCommitting() {
++        assertTrue(requestPrimary(1));
++        startResponses();
++        RadioCapability request = lastRequest(mPhone);
++        RadioCapability wrong = new RadioCapability(0, request.getSession(),
++                RadioCapability.RC_PHASE_UNSOL_RSP, RAF, "unexpected_ps1", RadioCapability.RC_STATUS_SUCCESS);
++        mCapabilityHandler.obtainMessage(mCapabilityEvent,
++                new AsyncResult(null, wrong, null)).sendToTarget();
++        processAllMessages();
++        notification(mPhone2, false);
++        finishResponses(true);
++        startResponses();
++        assertEquals("0", lastRequest(mPhone).getLogicalModemUuid());
++        notification(mPhone, false);
++        notification(mPhone2, false);
++        finishResponses(false);
++        assertNoDoneBroadcast();
++    }
++
++    @Test
++    public void alreadyPrimaryPostsOneCookiePreservingCompletionWithoutRadioRequests() {
++        assertTrue(requestPrimary(0));
++        processAllMessages();
++        assertOutcome(ProxyController.PrimaryCapabilityResult.VERIFIED_COMMIT);
++        verify(mPhone, never()).setRadioCapability(any(), any());
++        verify(mPhone2, never()).setRadioCapability(any(), any());
++    }
++
++    @Test
++    public void callStartingAfterStartAbortsBeforeAnyApply() {
++        assertTrue(requestPrimary(1));
++        replyToLast(mPhone, false);
++        doReturn(PhoneConstants.State.OFFHOOK).when(mPhone2).getState();
++        replyToLast(mPhone2, false);
++        assertEquals(RadioCapability.RC_PHASE_FINISH, lastRequest(mPhone).getPhase());
++        assertEquals("modem_ps0", lastRequest(mPhone).getLogicalModemUuid());
++        finishResponses(true);
++        verify(mPhone, times(2)).setRadioCapability(any(), any());
++        assertFalse(mController.isWakeLockHeld());
++        assertOutcome(ProxyController.PrimaryCapabilityResult.VERIFIED_ROLLBACK);
++        assertNoDoneBroadcast();
++    }
++
++    @Test
++    public void callStartingDuringRollbackCannotClaimOriginalAssignmentRestored() {
++        assertTrue(requestPrimary(1));
++        startResponses();
++        notification(mPhone, true);
++        notification(mPhone2, false);
++        finishResponses(true);
++        replyToLast(mPhone, false);
++        doReturn(PhoneConstants.State.OFFHOOK).when(mPhone2).getState();
++        replyToLast(mPhone2, false);
++        assertEquals(RadioCapability.RC_PHASE_FINISH, lastRequest(mPhone).getPhase());
++        finishResponses(false);
++        assertOutcome(ProxyController.PrimaryCapabilityResult.UNKNOWN);
++        assertNoDoneBroadcast();
++    }
++
++    @Test
++    public void mismatchedSuccessRafCannotCommit() {
++        assertTrue(requestPrimary(1));
++        startResponses();
++        RadioCapability request = lastRequest(mPhone);
++        RadioCapability wrong = new RadioCapability(0, request.getSession(),
++                RadioCapability.RC_PHASE_UNSOL_RSP, RAF_GSM, "modem_ps1",
++                RadioCapability.RC_STATUS_SUCCESS);
++        mCapabilityHandler.obtainMessage(mCapabilityEvent,
++                new AsyncResult(null, wrong, null)).sendToTarget();
++        processAllMessages();
++        notification(mPhone2, false);
++        finishResponses(true);
++        startResponses();
++        assertEquals("0", lastRequest(mPhone).getLogicalModemUuid());
++        notification(mPhone, false);
++        notification(mPhone2, false);
++        finishResponses(false);
++        assertOutcome(ProxyController.PrimaryCapabilityResult.VERIFIED_ROLLBACK);
++        assertNoDoneBroadcast();
++    }
++
++    @Test
++    public void wrongNotificationPhaseCannotAdvanceCounter() {
++        assertTrue(requestPrimary(1));
++        startResponses();
++        RadioCapability request = lastRequest(mPhone);
++        RadioCapability wrong = new RadioCapability(0, request.getSession(),
++                RadioCapability.RC_PHASE_APPLY, RAF, "modem_ps1", RadioCapability.RC_STATUS_SUCCESS);
++        mCapabilityHandler.obtainMessage(mCapabilityEvent,
++                new AsyncResult(null, wrong, null)).sendToTarget();
++        processAllMessages();
++        notification(mPhone2, false);
++        assertEquals(RadioCapability.RC_PHASE_APPLY, lastRequest(mPhone).getPhase());
++        notification(mPhone, false);
++        finishResponses(false);
++        assertOutcome(ProxyController.PrimaryCapabilityResult.VERIFIED_COMMIT);
++    }
++
++    @Test
++    public void duplicateUuidRefusedWithoutAnyRadioRequest() {
++        configurePhone(mPhone2, 1, "modem_ps0");
++        assertFalse(requestPrimary(1));
++        processAllMessages();
++        assertTrue(mResults.isEmpty());
++        assertFalse(mController.isWakeLockHeld());
++        verify(mPhone, never()).setRadioCapability(any(), any());
++        verify(mPhone2, never()).setRadioCapability(any(), any());
++    }
++
++    @Test
++    public void activeCallOrInvalidPrimaryRefused() {
++        assertFalse(requestPrimary(-1));
++        doReturn(PhoneConstants.State.OFFHOOK).when(mPhone2).getState();
++        assertFalse(requestPrimary(1));
++        verify(mPhone, never()).setRadioCapability(any(), any());
++        verify(mPhone2, never()).setRadioCapability(any(), any());
++    }
 +}
 diff --git a/tests/telephonytests/src/com/android/internal/telephony/uicc/UiccControllerTest.java b/tests/telephonytests/src/com/android/internal/telephony/uicc/UiccControllerTest.java
 index 990b28a..9be5dd9 100644
