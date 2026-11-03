@@ -233,15 +233,15 @@
     },
     {
       "path": "packages/services/Telephony",
-      "revision": "04f574f217392902d9c228bbf363f47e584a9f4b",
-      "tree": "d1fdfc6076ec8b3eb1cd2f40292515d98cc37de5",
+      "revision": "108577b56fdb106c6a92642e0e4c4774e22c84df",
+      "tree": "94d0f104a3452fd9300e470a4dd2c0368cab671a",
       "base_revision": "2d0e6fb0059b8c1cab748f6f04453c9955a14fe3",
       "patch": "patches/packages_services_Telephony.patch",
-      "patch_sha256": "a8dcb401b81f8f68238facd7709c54ee92bb9407eeaa04a37ce0c8d19905f76e",
+      "patch_sha256": "b15627b11f74349162877d1d016767c3aa388c59db2bf0ebe87606e034a5a58a",
       "patch_tree_verified": true,
       "remote_url": "https://github.com/LineageOS/android_packages_services_Telephony",
-      "target_snapshot_revision": "04f574f217392902d9c228bbf363f47e584a9f4b",
-      "target_snapshot_tree": "d1fdfc6076ec8b3eb1cd2f40292515d98cc37de5"
+      "target_snapshot_revision": "108577b56fdb106c6a92642e0e4c4774e22c84df",
+      "target_snapshot_tree": "94d0f104a3452fd9300e470a4dd2c0368cab671a"
     },
     {
       "path": "prebuilts/openeuicc-deps",

@@ -2607,10 +2607,10 @@ index 0000000..b51f29d
 +}
 diff --git a/src/com/android/internal/telephony/honor/HonorPrimaryDataSelection.java b/src/com/android/internal/telephony/honor/HonorPrimaryDataSelection.java
 new file mode 100644
-index 0000000..d200c9f
+index 0000000..eb68f58
 --- /dev/null
 +++ b/src/com/android/internal/telephony/honor/HonorPrimaryDataSelection.java
-@@ -0,0 +1,206 @@
+@@ -0,0 +1,220 @@
 +/*
 + * Copyright (C) 2026 The LineageOS Project
 + * SPDX-License-Identifier: Apache-2.0
@@ -2621,6 +2621,7 @@ index 0000000..d200c9f
 +import android.os.AsyncResult;
 +import android.os.Build;
 +import android.os.Handler;
++import android.provider.Settings;
 +import android.telephony.SubscriptionManager;
 +
 +import com.android.internal.telephony.Phone;
@@ -2663,6 +2664,19 @@ index 0000000..d200c9f
 +                throw new IllegalStateException("Inactive subscription");
 +            int phoneId = SubscriptionManager.getPhoneId(subId);
 +            Phone[] phones = PhoneFactory.getPhones();
++            if (phones == null || phones.length != 2 || phoneId < 0 || phoneId >= phones.length)
++                throw new IllegalStateException("Target phone unavailable");
++            if (Settings.Global.getInt(
++                                    context.getContentResolver(),
++                                    Settings.Global.AIRPLANE_MODE_ON,
++                                    0)
++                            != 0
++                    || !phones[phoneId].isRadioOn())
++                throw new IllegalStateException("Target radio is off");
++            for (Phone phone : phones) {
++                if (phone == null || !phone.isRadioAvailable())
++                    throw new IllegalStateException("Radio unavailable");
++            }
 +            Snapshot before = Snapshot.capture(phones);
 +            if (before.rafs[0] != before.rafs[1])
 +                throw new IllegalStateException("Equal RAF cohort required");
