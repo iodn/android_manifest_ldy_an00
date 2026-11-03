@@ -87,7 +87,15 @@ def geometry(m,dynamic):
     need(m.get("super_partition_size")=="17574133760","Unexpected super size")
     need(m.get("super_qti_dynamic_partitions_group_size")=="17569939456","Unexpected dynamic group")
     for key in LISTS:need(tuple(m[key].split())==tuple(dynamic),"Unexpected dynamic ownership")
-    need(m.get("virtual_ab_cow_version")=="3" and m.get("virtual_ab_compression_method")=="none","COW contract changed")
+    need(m.get("virtual_ab")=="true","Virtual A/B contract changed")
+    compression=m.get("virtual_ab_compression","false")
+    need(compression in ("true","false"),"Unexpected VABC flag")
+    if compression=="true":
+        need(m.get("virtual_ab_cow_version")=="3" and m.get("virtual_ab_compression_method")=="none","COW contract changed")
+    else:
+        need(m.get("virtual_ab_cow_version") in (None,"","3") and not m.get("virtual_ab_compression_method"),
+             "Kernel snapshot metadata retains userspace COW settings")
+    return compression=="true"
 
 def variants(entries,allow_known=False):
     for n,i in entries.items():
@@ -154,7 +162,7 @@ def project(source,expected,out,contract,contract_sha,directory):
         ix=names(z);shipping_five(z);kernel(z,c);variants(ix,True)
         need(tuple(z.read("META/ab_partitions.txt").decode().split())==FIVE,"Compiler META AB list")
         m,d=(parse(z.read(n)) for n in META)
-        geometry(m,DYNAMIC);geometry(d,DYNAMIC)
+        need(geometry(m,DYNAMIC)==geometry(d,DYNAMIC),"Snapshot metadata modes differ")
         need(m.get("avb_vbmeta_system")=="system","System child must own system only")
         need(m.get("avb_vbmeta_system_dlkm")=="system_dlkm" and
              m.get("avb_vbmeta_system_dlkm_rollback_index_location")=="28","Dedicated DLKM child contract")
@@ -197,11 +205,13 @@ def assemble(signed,expected,projection_receipt,projection_sha,out,contract,cont
         need({n for n in ix if n.startswith("IMAGES/") and n.endswith(".img")}==
              {"IMAGES/system.img","IMAGES/vbmeta_system.img","IMAGES/vbmeta.img"},"Unexpected signed projection images")
         m,d=(parse(z.read(n)) for n in META)
-        geometry(m,("system",));geometry(d,("system",))
+        mode=geometry(m,("system",))
+        need(mode==geometry(d,("system",)),"Snapshot metadata modes differ")
         need(m.get("avb_vbmeta_system")=="system" and m.get("avb_vbmeta_system_key_path")==OWNER and
              m.get("avb_vbmeta_system_rollback_index_location")=="2" and
              m.get("avb_vbmeta_system_algorithm")=="SHA256_RSA4096","Signed system owner metadata")
-        original=proof["original_misc"];geometry(original,DYNAMIC)
+        original=proof["original_misc"]
+        need(mode==geometry(original,DYNAMIC),"Snapshot contract changed during signing")
         final=dict(m)
         for key in LISTS:final[key]=original[key];d[key]=proof["original_dynamic"][key]
         final.update(no_boot="false",boot_images="boot.img",boot_size=str(next(r["partition_bytes"] for r in c["inputs"] if r["partition"]=="boot")),

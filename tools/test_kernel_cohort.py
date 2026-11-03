@@ -39,6 +39,7 @@ class KernelCohortTest(unittest.TestCase):
                        super_qti_dynamic_partitions_group_size="17569939456",
                        dynamic_partition_list="system system_dlkm",
                        super_qti_dynamic_partitions_partition_list="system system_dlkm",
+                       virtual_ab="true", virtual_ab_compression="true",
                        virtual_ab_cow_version="3", virtual_ab_compression_method="none")
         misc = dict(dynamic, avb_vbmeta_system="system",
                     avb_boot_rollback_index_location="1",
@@ -79,6 +80,110 @@ class KernelCohortTest(unittest.TestCase):
         proof = cohort.project(source, cohort.sha(source), projected, self.contract,
                                self.contract_sha, self.inputs)
         return projected, proof
+
+    def set_snapshot_metadata(self, mode, keys=cohort.META):
+        for key in keys:
+            values=cohort.parse(self.entries[key])
+            values["virtual_ab_compression"]=mode
+            if mode != "true":
+                values.pop("virtual_ab_cow_version",None)
+                values.pop("virtual_ab_compression_method",None)
+            self.entries[key]=cohort.encode(values)
+
+    def test_kernel_snapshot_projection_preserves_explicit_false(self):
+        self.set_snapshot_metadata("false")
+        projected,_=self.project()
+        with zipfile.ZipFile(projected) as z:
+            for key in cohort.META:
+                values=cohort.parse(z.read(key))
+                self.assertEqual(values["virtual_ab_compression"],"false")
+                self.assertNotIn("virtual_ab_cow_version",values)
+
+    def test_kernel_snapshot_projection_preserves_absent_false(self):
+        self.set_snapshot_metadata("false")
+        for key in cohort.META:
+            values=cohort.parse(self.entries[key]);values.pop("virtual_ab_compression")
+            self.entries[key]=cohort.encode(values)
+        projected,_=self.project()
+        with zipfile.ZipFile(projected) as z:
+            for key in cohort.META:
+                self.assertNotIn("virtual_ab_compression",cohort.parse(z.read(key)))
+
+    def test_kernel_mode_accepts_inherited_default_cow_version(self):
+        self.set_snapshot_metadata("false")
+        for key in cohort.META:
+            values=cohort.parse(self.entries[key]);values["virtual_ab_cow_version"]="3";values.pop("virtual_ab_compression")
+            self.entries[key]=cohort.encode(values)
+        projected,_=self.project()
+        with zipfile.ZipFile(projected) as z:
+            for key in cohort.META:
+                values=cohort.parse(z.read(key))
+                self.assertNotIn("virtual_ab_compression",values)
+                self.assertEqual(values["virtual_ab_cow_version"],"3")
+                self.assertNotIn("virtual_ab_compression_method",values)
+
+    def test_kernel_mode_rejects_unqualified_cow_version(self):
+        self.set_snapshot_metadata("false")
+        values=cohort.parse(self.entries[cohort.META[0]])
+        values["virtual_ab_cow_version"]="2"
+        self.entries[cohort.META[0]]=cohort.encode(values)
+        with self.assertRaisesRegex(ValueError,"retains userspace COW"):
+            self.project()
+
+    def test_snapshot_metadata_modes_must_match(self):
+        self.set_snapshot_metadata("false",[cohort.META[0]])
+        with self.assertRaisesRegex(ValueError,"Snapshot metadata modes differ"):
+            self.project()
+
+    def test_kernel_mode_rejects_userspace_cow_knobs(self):
+        for key in cohort.META:
+            values=cohort.parse(self.entries[key]);values["virtual_ab_compression"]="false"
+            self.entries[key]=cohort.encode(values)
+        with self.assertRaisesRegex(ValueError,"retains userspace COW"):
+            self.project()
+
+    def test_vabc_rejects_unqualified_cow_or_compression(self):
+        original=self.entries[cohort.META[0]]
+        for changes in [{"virtual_ab_cow_version":"2"},{"virtual_ab_compression_method":"gz"}]:
+            with self.subTest(changes=changes):
+                values=cohort.parse(original);values.update(changes)
+                self.entries[cohort.META[0]]=cohort.encode(values)
+                with self.assertRaisesRegex(ValueError,"COW contract changed"):
+                    self.project()
+
+    def test_snapshot_flag_values_are_not_coerced(self):
+        original=self.entries[cohort.META[0]]
+        for value in ["TRUE","0",""]:
+            with self.subTest(value=value):
+                values=cohort.parse(original);values["virtual_ab_compression"]=value
+                self.entries[cohort.META[0]]=cohort.encode(values)
+                with self.assertRaisesRegex(ValueError,"Unexpected VABC flag"):
+                    self.project()
+
+    def test_virtual_ab_must_remain_enabled(self):
+        values=cohort.parse(self.entries[cohort.META[0]]);values["virtual_ab"]="false"
+        self.entries[cohort.META[0]]=cohort.encode(values)
+        with self.assertRaisesRegex(ValueError,"Virtual A/B contract changed"):
+            self.project()
+
+    def test_signing_cannot_change_snapshot_mode(self):
+        projected,proof=self.project()
+        receipt=self.root/"projection.json";receipt.write_text(json.dumps(proof))
+        with zipfile.ZipFile(projected) as z:
+            signed={key:z.read(key) for key in z.namelist()}
+        for key in cohort.META:
+            values=cohort.parse(signed[key]);values["virtual_ab_compression"]="false"
+            values.pop("virtual_ab_cow_version");values.pop("virtual_ab_compression_method")
+            if key==cohort.META[0]:
+                values.update(avb_vbmeta_system_key_path=cohort.OWNER,
+                              avb_vbmeta_system_algorithm="SHA256_RSA4096",
+                              avb_vbmeta_system_rollback_index_location="2")
+            signed[key]=cohort.encode(values)
+        signed["META/care_map.pb"]=b"fixture-map"
+        source=self.write("mode-changed.zip",signed)
+        with self.assertRaisesRegex(ValueError,"Snapshot contract changed during signing"):
+            cohort.assemble(source,cohort.sha(source),receipt,cohort.sha(receipt),
+                            self.root/"assembled.zip",self.contract,self.contract_sha,self.inputs,{})
 
     def test_partition_build_ids_and_projection_preserve_shipping_properties(self):
         projected, proof = self.project()
