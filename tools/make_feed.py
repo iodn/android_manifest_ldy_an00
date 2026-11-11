@@ -11,10 +11,17 @@ import zipfile
 import validate_ota_vendor_retention
 
 
-def entry(package, url):
+def entry(package, url, *, kernel_admission=None, kernel_admission_sha256=None):
     if urlparse(url).scheme != 'https' or not urlparse(url).netloc:
         raise ValueError('An absolute HTTPS release-asset URL is required')
-    validate_ota_vendor_retention.validate_zip(package)
+    authenticated = None
+    if kernel_admission is None and kernel_admission_sha256 is None:
+        validate_ota_vendor_retention.validate_zip(package)
+    elif kernel_admission is not None and kernel_admission_sha256 is not None:
+        from validate_ota_kernel_cohort import validate_zip
+        authenticated = validate_zip(package, kernel_admission, kernel_admission_sha256)
+    else:
+        raise ValueError("Kernel admission and expected SHA256 must be supplied together")
     with zipfile.ZipFile(package) as archive:
         metadata = dict(line.split('=', 1) for line in
                         archive.read('META-INF/com/android/metadata').decode().splitlines()
@@ -26,6 +33,8 @@ def entry(package, url):
             raise ValueError('Incomplete payload properties')
     with package.open('rb') as stream:
         digest = hashlib.file_digest(stream, 'sha256').hexdigest()
+    if authenticated is not None and digest != authenticated['ota_sha256']:
+        raise ValueError('OTA changed after authenticated kernel admission')
     return [{
         'datetime': int(metadata['post-timestamp']),
         'files': [{
@@ -47,8 +56,11 @@ def main():
     parser.add_argument('package', type=Path)
     parser.add_argument('--url', required=True)
     parser.add_argument('--output', type=Path, required=True)
+    parser.add_argument('--kernel-admission', type=Path)
+    parser.add_argument('--kernel-admission-sha256')
     args = parser.parse_args()
-    result = entry(args.package, args.url)
+    result = entry(args.package, args.url, kernel_admission=args.kernel_admission,
+                   kernel_admission_sha256=args.kernel_admission_sha256)
     with args.output.open('x') as stream:
         json.dump(result, stream, indent=2)
         stream.write('\n')

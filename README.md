@@ -4,10 +4,12 @@ Unofficial **LineageOS 24.0 / Android 17** for **HONOR LDY-AN00**.
 This repository hosts the installation tools, build manifest and update feed.
 Versioned firmware downloads are published under [Releases](https://github.com/iodn/android_manifest_ldy_an00/releases).
 
-**Current release:** [LineageOS 24.0 - 2026-11-01](https://github.com/iodn/android_manifest_ldy_an00/releases/tag/lineage-24.0-20261101-UNOFFICIAL-ldy_an00).
+**First installation:** [2026-11-01 installer](https://github.com/iodn/android_manifest_ldy_an00/releases/tag/lineage-24.0-20261101-UNOFFICIAL-ldy_an00).
+**Latest OTA:** [2026-11-11 update](https://github.com/iodn/android_manifest_ldy_an00/releases/tag/lineage-24.0-20261111-UNOFFICIAL-ldy_an00) (publication pending).
 
-Fresh installation and boot have been tested with optional Google apps.
-The release is signed, and SELinux is enforcing.
+The November 1 installer was boot-tested with optional Google apps and enforcing
+SELinux. The new OTA and kernel require their own verification; host checks do
+not establish hardware qualification.
 
 ## Before you start
 
@@ -26,7 +28,8 @@ The installer requires the exact configuration above and stops on a mismatch.
 It installs the maintained kernel, Lineage Recovery and Android system, while
 retaining matching stock vendor firmware. Do not bypass its checks.
 
-The Android system security patch is **2026-10-01**; the retained vendor patch is
+The November 1 installer has Android security patch **2026-10-01**; the new
+November 11 OTA targets **2026-11-01**. The retained vendor patch remains
 **2025-12-01**. The Android patch level does not describe all retained vendor
 components or kernel fixes. Do not relock the bootloader or install an Honor OTA over this
 installation.
@@ -39,8 +42,9 @@ Installation erases user data. Back up personal files before starting.
 
 ## First installation
 
-Download the complete installer ZIP and `SHA256SUMS` from the matching
-[GitHub release](https://github.com/iodn/android_manifest_ldy_an00/releases).
+Download the complete installer ZIP and `SHA256SUMS` from the
+[November 1 first-install release](https://github.com/iodn/android_manifest_ldy_an00/releases/tag/lineage-24.0-20261101-UNOFFICIAL-ldy_an00).
+The latest OTA ZIP is an update for an existing installation, not an installer.
 A source checkout does not contain installation images.
 
 1. Save personal files; installation erases user data.
@@ -129,7 +133,8 @@ The patch runner checks pinned upstream bases, patch hashes and resulting Git
 source trees. It does not commit or push. Preserve applied changes before syncing.
 Supply the excluded, matching proprietary inputs before building. The pinned
 repository layout has passed a cached integration rebuild. Every new release
-requires signature checks and hardware qualification before publication.
+requires signature and compatibility checks. State hardware-test coverage
+separately; the new kernel's hardware trial is still pending.
 
 Read-only container builds can use `tools/prepare_repo_config_cache.py` to redirect
 `repo` JSON caches into the build output. Mount the generated adapter over
@@ -171,3 +176,62 @@ Provide the build identifier and reproduction steps. Remove phone numbers,
 subscriber identifiers, eSIM activation codes, credentials and personal data from
 logs before sharing them. This is an unofficial project, independent of HONOR
 and the LineageOS project.
+
+
+## Owned-kernel OTA feed admission
+
+The default make_feed.py invocation retains its exact system + vbmeta_system
+metadata admission. It does not gain signature or kernel authorization implicitly.
+
+The explicit owned-kernel invocation is:
+
+    python3 tools/make_feed.py UPDATE.zip --url HTTPS_RELEASE_ASSET_URL \
+      --kernel-admission REVIEWED_ADMISSION.json \
+      --kernel-admission-sha256 REVIEWER_SUPPLIED_SHA256 \
+      --output NEW_FEED.json
+
+The expected admission digest must come from the release review, never the OTA.
+No valid release admission is supplied with the source. No visibility, publishing,
+device access or installation occurs in this tool.
+
+The externally pinned admission uses schema ldy-kernel-ota-feed-v1 and contains:
+- ota_sha256: actual final whole OTA SHA256.
+- cohort: pinned existing owned-inputs JSON row; cohort_directory: exact three
+  regular kernel images. Existing schema_version=1, inputs and all hash/size
+  checks from kernel_cohort.cohort remain required.
+- avb_proof: pinned independently reviewed cryptographic verification receipt.
+- certificate: pinned public release certificate (DER identity remains CERT_SHA).
+- signature_verifier: pinned official check_ota_package_signature.py.
+- delta_generator: pinned official payload verifier executable.
+- verifier_dependencies: pinned actual verifier runtime source closure, including
+  its common.py. Dependencies must be determined from the actual chosen runtime.
+
+A pinned file row has path, bytes, sha256. All are actual immutable artifacts,
+not future placeholders. The external AVB receipt schema
+ldy-owned-kernel-avb-chain-v1 has cohort_sha256, images keyed by the three
+partitions (bytes, sha256), retained_parent (image pin, unchanged=true,
+chains_verified=true), verified_inputs, verification_transcripts and
+image_signature_verified for the exact three partitions. The release reviewer
+must independently review the cryptographic commands/transcripts and retained
+parent chain/key facts before authorizing this receipt digest. These fields are
+not a substitute for running AVB verification; this tool rehashes that evidence
+and does not implement another AVB verifier.
+
+Admission authenticates whole ZIP and A/B payload/metadata signatures using the
+official verifier and fixed public certificate. The payload must be exactly:
+boot, system, system_dlkm, vbmeta_system, vbmeta_system_dlkm. Its kernel
+new_partition_info hashes and sizes must equal the actual three trusted images.
+The reviewed system postinstall is mandatory in FIVE mode; default TWO behavior
+remains unchanged. Dynamic geometry remains the existing group size, members system and
+system_dlkm only. FILE_HASH/SIZE and METADATA_HASH/SIZE are recomputed. Full
+activation metadata length includes the CrAU2 signature bytes separately.
+
+vendor_boot, init_boot, recovery, main vbmeta, LK, vendor, ODM and calibration
+are outside this contract. A required expansion needs a separate reviewed
+contract; it cannot be accomplished by changing the package's metadata.
+
+Tests use synthetic images and explicit crypto boundary doubles. Their success
+proves rejection/joins, not a real release's RSA/AVB verification. Actual release
+signatures, module compatibility and retained parent trust remain separate
+mandatory evidence. No runtime, OEM trust or universal addon.d/GApps survival
+claim follows from feed admission.

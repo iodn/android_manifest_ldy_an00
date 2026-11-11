@@ -25,7 +25,7 @@ def read_exact(stream, count):
         raise AdmissionError("truncated payload metadata")
     return data
 
-def validate_stream(stream, payload_size):
+def validate_stream(stream, payload_size, *, kernel_images=None):
     header = read_exact(stream, 24)
     magic, major, manifest_size, signature_size = struct.unpack(">4sQQI", header)
     if magic != b"CrAU" or major != 2:
@@ -45,8 +45,31 @@ def validate_stream(stream, payload_size):
     if not manifest.IsInitialized():
         raise AdmissionError("uninitialized manifest protobuf")
     names = [item.partition_name for item in manifest.partitions]
-    if len(names) != 2 or set(names) != EXPECTED_PARTITIONS:
-        raise AdmissionError("payload must update exactly system and vbmeta_system")
+    expected = EXPECTED_PARTITIONS
+    dynamic = ["system"]
+    if kernel_images is not None:
+        if set(kernel_images) != {"boot", "system_dlkm", "vbmeta_system_dlkm"}:
+            raise AdmissionError("exactly three trusted kernel images required")
+        expected = expected | set(kernel_images)
+        dynamic = ["system", "system_dlkm"]
+    if len(names) != len(expected) or set(names) != expected:
+        raise AdmissionError("payload must update exactly " + ", ".join(sorted(expected)))
+    if kernel_images is not None:
+        for partition in manifest.partitions:
+            if partition.partition_name not in kernel_images:
+                continue
+            image = kernel_images[partition.partition_name]
+            info = partition.new_partition_info
+            if (not partition.HasField("new_partition_info")
+                    or not info.HasField("size") or not info.HasField("hash")
+                    or info.size != image["bytes"]
+                    or info.hash.hex() != image["sha256"]):
+                raise AdmissionError("payload kernel image hash/size differs from trusted cohort")
+    if kernel_images is not None:
+        system = next(p for p in manifest.partitions if p.partition_name == "system")
+        if (not system.run_postinstall or not system.postinstall_path
+                or not system.postinstall_optional):
+            raise AdmissionError("owned-kernel OTA must retain reviewed system postinstall")
     for partition in manifest.partitions:
         try:
             validate_postinstall_partition(partition)
@@ -61,7 +84,7 @@ def validate_stream(stream, payload_size):
         raise AdmissionError("exactly one owned dynamic group required")
     group = groups[0]
     if (group.name != GROUP_NAME or group.size != GROUP_BYTES
-            or list(group.partition_names) != ["system"]):
+            or list(group.partition_names) != dynamic):
         raise AdmissionError("dynamic group geometry/membership differs")
     return {
         "status": "OTA_VENDOR_COHORT_RETENTION_METADATA_OK",
@@ -78,7 +101,7 @@ def validate_stream(stream, payload_size):
                  "verify operation contents, validate source cohort, or prove installation safe."
     }
 
-def validate_zip(path):
+def validate_zip(path, *, kernel_images=None):
     with zipfile.ZipFile(path) as archive:
         entries = [entry for entry in archive.infolist() if entry.filename == "payload.bin"]
         if len(entries) != 1:
@@ -87,7 +110,7 @@ def validate_zip(path):
         if entry.flag_bits & 1 or entry.is_dir():
             raise AdmissionError("encrypted/directory payload refused")
         with archive.open(entry) as stream:
-            return validate_stream(stream, entry.file_size)
+            return validate_stream(stream, entry.file_size, kernel_images=kernel_images)
 
 if __name__ == "__main__":
     if len(sys.argv) != 2:
