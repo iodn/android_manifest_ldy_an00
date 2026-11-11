@@ -1,8 +1,8 @@
 diff --git a/res/values/strings.xml b/res/values/strings.xml
-index 9a0010f232549133bbf56776b0f61c42a1c2a44c..15858188321723c6b3c4d98f78014415a0e0f8b2 100644
+index 92ae00dbd8a37a9e907b6939e30b6e2099fb5ee7..1bcc9f5bfa99f4df50c376ce809e35da7321e945 100644
 --- a/res/values/strings.xml
 +++ b/res/values/strings.xml
-@@ -265,6 +265,7 @@
+@@ -266,6 +266,7 @@
      <!-- Power menu -->
      <string name="power_menu_title">Power menu</string>
      <string name="power_menu_items_title">Power menu items</string>
@@ -10,7 +10,7 @@ index 9a0010f232549133bbf56776b0f61c42a1c2a44c..15858188321723c6b3c4d98f78014415
      <string name="power_menu_screenshot_title">Screenshot</string>
      <string name="power_menu_screenshot_summary">Long-press for partial screenshot</string>
      <string name="power_menu_airplane_title">Airplane mode</string>
-@@ -274,6 +275,8 @@
+@@ -275,6 +276,8 @@
      <string name="power_menu_bug_report_unavailable_for_user">Bug reporting is disabled for non-primary users.</string>
      <string name="power_menu_emergency_title">Emergency</string>
      <string name="power_menu_devicecontrols_title">Device controls</string>

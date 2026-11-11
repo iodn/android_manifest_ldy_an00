@@ -1,5 +1,5 @@
 diff --git a/libs/gui/SurfaceComposerClient.cpp b/libs/gui/SurfaceComposerClient.cpp
-index d10624d..854f4b4 100644
+index d10624df614c6d0f0e523c1359190b859296a70d..854f4b4f5b202899540f2109a097dde4e1b09fab 100644
 --- a/libs/gui/SurfaceComposerClient.cpp
 +++ b/libs/gui/SurfaceComposerClient.cpp
 @@ -2830,6 +2830,16 @@ status_t SurfaceComposerClient::getDisplayState(const sp<IBinder>& display,
@@ -20,7 +20,7 @@ index d10624d..854f4b4 100644
                                                       ui::StaticDisplayInfo* outInfo) {
      using Tag = android::gui::DeviceProductInfo::ManufactureOrModelDate::Tag;
 diff --git a/libs/gui/aidl/android/gui/ISurfaceComposer.aidl b/libs/gui/aidl/android/gui/ISurfaceComposer.aidl
-index ce8091a..9ad1cd5 100644
+index ce8091a9156e3fa1c678926b4e648c02bf65673d..9ad1cd5f4c92a9b89d00c9339a153a0ec6dc87f3 100644
 --- a/libs/gui/aidl/android/gui/ISurfaceComposer.aidl
 +++ b/libs/gui/aidl/android/gui/ISurfaceComposer.aidl
 @@ -56,6 +56,7 @@ import android.gui.SchedulingPolicy;
@@ -45,7 +45,7 @@ index ce8091a..9ad1cd5 100644
  }
 diff --git a/libs/gui/aidl/android/gui/SurfaceViewGeometryRow.aidl b/libs/gui/aidl/android/gui/SurfaceViewGeometryRow.aidl
 new file mode 100644
-index 0000000..a3a5efd
+index 0000000000000000000000000000000000000000..a3a5efd43bb0b399e7136d53c00f2771b55ce46b
 --- /dev/null
 +++ b/libs/gui/aidl/android/gui/SurfaceViewGeometryRow.aidl
 @@ -0,0 +1,28 @@
@@ -79,7 +79,7 @@ index 0000000..a3a5efd
 +}
 diff --git a/libs/gui/aidl/android/gui/VisibleSurfaceViewGeometry.aidl b/libs/gui/aidl/android/gui/VisibleSurfaceViewGeometry.aidl
 new file mode 100644
-index 0000000..47e76fc
+index 0000000000000000000000000000000000000000..47e76fc5764ce5e86df348b7072091ae2c3e22d4
 --- /dev/null
 +++ b/libs/gui/aidl/android/gui/VisibleSurfaceViewGeometry.aidl
 @@ -0,0 +1,34 @@
@@ -118,7 +118,7 @@ index 0000000..47e76fc
 +    SurfaceViewGeometryRow[] rows;
 +}
 diff --git a/libs/gui/include/gui/SurfaceComposerClient.h b/libs/gui/include/gui/SurfaceComposerClient.h
-index 068c080..ee24300 100644
+index 068c0804e209e0a2e9df6b85ae23c62ee447f8ca..ee243001b06401bec1453fb61b2aedf36d44a76e 100644
 --- a/libs/gui/include/gui/SurfaceComposerClient.h
 +++ b/libs/gui/include/gui/SurfaceComposerClient.h
 @@ -49,6 +49,7 @@
@@ -140,7 +140,7 @@ index 068c080..ee24300 100644
      // Get immutable information about given physical display.
      static status_t getStaticDisplayInfo(int64_t, ui::StaticDisplayInfo*);
 diff --git a/libs/ui/Gralloc5.cpp b/libs/ui/Gralloc5.cpp
-index d4ec87d..aa4b5ef 100644
+index d4ec87d53536393def1a62aeba0148ffa7997435..aa4b5efe7c90d4da253385e6439025ea57a2a817 100644
 --- a/libs/ui/Gralloc5.cpp
 +++ b/libs/ui/Gralloc5.cpp
 @@ -320,6 +320,25 @@ void Gralloc5Mapper::preload() {
@@ -178,7 +178,7 @@ index d4ec87d..aa4b5ef 100644
      if (value.has_value()) {
          *outSmpte2094_50 = std::move(*value);
 diff --git a/libs/ui/include/ui/Gralloc5.h b/libs/ui/include/ui/Gralloc5.h
-index 3df1ade..c662a8d 100644
+index 3df1ade278a424c910bd17fb31178028c6792993..c662a8de1b80d77d24419c72862629083e09f4a7 100644
 --- a/libs/ui/include/ui/Gralloc5.h
 +++ b/libs/ui/include/ui/Gralloc5.h
 @@ -171,6 +171,7 @@ private:
@@ -190,7 +190,7 @@ index 3df1ade..c662a8d 100644
  
  class Gralloc5Allocator : public GrallocAllocator {
 diff --git a/services/surfaceflinger/Android.bp b/services/surfaceflinger/Android.bp
-index f69e5bc..285e61d 100644
+index f69e5bc1ab7ebb92167ebb13f30f1c547182ec90..285e61d86375710980d6b96c2e544c963060eed8 100644
 --- a/services/surfaceflinger/Android.bp
 +++ b/services/surfaceflinger/Android.bp
 @@ -157,6 +157,7 @@ cc_defaults {
@@ -219,7 +219,7 @@ index f69e5bc..285e61d 100644
          "BackgroundExecutor.cpp",
 diff --git a/services/surfaceflinger/HdrLayerInfoTypes.h b/services/surfaceflinger/HdrLayerInfoTypes.h
 new file mode 100644
-index 0000000..f075bbf
+index 0000000000000000000000000000000000000000..f075bbfb2cd454ade8b23740051f7dbd636df984
 --- /dev/null
 +++ b/services/surfaceflinger/HdrLayerInfoTypes.h
 @@ -0,0 +1,18 @@
@@ -242,7 +242,7 @@ index 0000000..f075bbf
 +
 +} // namespace android
 diff --git a/services/surfaceflinger/Scheduler/FrameTimeline.cpp b/services/surfaceflinger/Scheduler/FrameTimeline.cpp
-index 2302425..f95d2d1 100644
+index 2302425e98c352cff5f9ff0911f2d0bf458b3fac..f95d2d1d482b5a2fea822fa768eced6d0d12b5ba 100644
 --- a/services/surfaceflinger/Scheduler/FrameTimeline.cpp
 +++ b/services/surfaceflinger/Scheduler/FrameTimeline.cpp
 @@ -1998,6 +1998,26 @@ nsecs_t FrameTimeline::DisplayFrame::trace(pid_t surfaceFlingerPid, nsecs_t mono
@@ -273,7 +273,7 @@ index 2302425..f95d2d1 100644
      if (layerIds.empty()) {
          return 0.0f;
 diff --git a/services/surfaceflinger/Scheduler/FrameTimeline.h b/services/surfaceflinger/Scheduler/FrameTimeline.h
-index f9442f6..7dfbc12 100644
+index f9442f6a715c0b7de3df95189f7ff42ee1ee0f38..7dfbc12332acd8471d408a6b06d982bf680c2a5b 100644
 --- a/services/surfaceflinger/Scheduler/FrameTimeline.h
 +++ b/services/surfaceflinger/Scheduler/FrameTimeline.h
 @@ -16,6 +16,8 @@
@@ -305,7 +305,7 @@ index f9442f6..7dfbc12 100644
      void reset() override;
      void onLayerDestroyed(int32_t layerId) override;
 diff --git a/services/surfaceflinger/Scheduler/MessageQueue.cpp b/services/surfaceflinger/Scheduler/MessageQueue.cpp
-index fb39e88..441125b 100644
+index fb39e8839fbccb03625de85e59e991226811a90b..441125b132b4d493131e12c277896e22f9946e52 100644
 --- a/services/surfaceflinger/Scheduler/MessageQueue.cpp
 +++ b/services/surfaceflinger/Scheduler/MessageQueue.cpp
 @@ -190,8 +190,21 @@ void MessageQueue::scheduleConfigure() {
@@ -364,7 +364,7 @@ index fb39e88..441125b 100644
  
  } // namespace android::impl
 diff --git a/services/surfaceflinger/Scheduler/MessageQueue.h b/services/surfaceflinger/Scheduler/MessageQueue.h
-index 7c18d31..7e669b3 100644
+index 7c18d31c62fcfd084e88dd9773d86a0c6e1307c8..7e669b3004f046b0973786dc92ab37a6ceb467f2 100644
 --- a/services/surfaceflinger/Scheduler/MessageQueue.h
 +++ b/services/surfaceflinger/Scheduler/MessageQueue.h
 @@ -127,11 +127,16 @@ private:
@@ -397,7 +397,7 @@ index 7c18d31..7e669b3 100644
  
      std::optional<scheduler::ScheduleResult> getScheduledFrameResult() const override;
 diff --git a/services/surfaceflinger/Scheduler/RefreshRateSelector.cpp b/services/surfaceflinger/Scheduler/RefreshRateSelector.cpp
-index 0b11899..a26a931 100644
+index 0b11899defe82dde458453f43a8112026d6926ed..a26a931f50d9baca3f6fe6bb8390fb306ae65e81 100644
 --- a/services/surfaceflinger/Scheduler/RefreshRateSelector.cpp
 +++ b/services/surfaceflinger/Scheduler/RefreshRateSelector.cpp
 @@ -1493,6 +1493,11 @@ bool RefreshRateSelector::isPolicyValidLocked(const Policy& policy) const {
@@ -413,7 +413,7 @@ index 0b11899..a26a931 100644
      Policy oldPolicy;
      PhysicalDisplayId displayId;
 diff --git a/services/surfaceflinger/Scheduler/RefreshRateSelector.h b/services/surfaceflinger/Scheduler/RefreshRateSelector.h
-index 2d1415c..fabbb8f 100644
+index 2d1415c9a5158f2c66135d224da79cd9dacd9253..fabbb8f01e9d5c3bcc567bf814e8caa0beae7313 100644
 --- a/services/surfaceflinger/Scheduler/RefreshRateSelector.h
 +++ b/services/surfaceflinger/Scheduler/RefreshRateSelector.h
 @@ -144,6 +144,7 @@ public:
@@ -425,7 +425,7 @@ index 2d1415c..fabbb8f 100644
      // Returns true if mode is allowed by the current policy.
      bool isModeAllowed(const FrameRateMode&) const EXCLUDES(mLock);
 diff --git a/services/surfaceflinger/Scheduler/Scheduler.cpp b/services/surfaceflinger/Scheduler/Scheduler.cpp
-index d53c93d..47c2b88 100644
+index d53c93d3768244231c8976b18e21ef83b265b37d..47c2b88b514aaa628128ae8c84f099c6a941d8bb 100644
 --- a/services/surfaceflinger/Scheduler/Scheduler.cpp
 +++ b/services/surfaceflinger/Scheduler/Scheduler.cpp
 @@ -413,7 +413,7 @@ void Scheduler::onFrameSignal(ICompositor& compositor, VsyncId vsyncId,
@@ -472,7 +472,7 @@ index d53c93d..47c2b88 100644
      const bool isPacesetter =
              FTL_FAKE_GUARD(kMainThreadContext,
 diff --git a/services/surfaceflinger/Scheduler/Scheduler.h b/services/surfaceflinger/Scheduler/Scheduler.h
-index 47772a8..4c9a50d 100644
+index 47772a8f01b40d6e0277320c13ced2a26febed7c..4c9a50d14c03bbe67787777de4007fee9aa2ea9a 100644
 --- a/services/surfaceflinger/Scheduler/Scheduler.h
 +++ b/services/surfaceflinger/Scheduler/Scheduler.h
 @@ -124,6 +124,13 @@ public:
@@ -507,7 +507,7 @@ index 47772a8..4c9a50d 100644
              REQUIRES(kMainThreadContext, mDisplayLock) EXCLUDES(mVsyncConfigLock);
  
 diff --git a/services/surfaceflinger/Scheduler/VsyncConfiguration.cpp b/services/surfaceflinger/Scheduler/VsyncConfiguration.cpp
-index 1fb97ce..ad4362d 100644
+index 1fb97ce91f27b965d898db4a35d843bb61a10abf..ad4362d1ebef4e22b698bb213646c082ae7d411d 100644
 --- a/services/surfaceflinger/Scheduler/VsyncConfiguration.cpp
 +++ b/services/surfaceflinger/Scheduler/VsyncConfiguration.cpp
 @@ -287,7 +287,37 @@ nsecs_t appDurationToOffset(std::chrono::nanoseconds appDuration,
@@ -591,7 +591,7 @@ index 1fb97ce..ad4362d 100644
                              .sfWorkDuration = sfDuration,
                              .appWorkDuration = appDuration,
 diff --git a/services/surfaceflinger/Scheduler/VsyncConfiguration.h b/services/surfaceflinger/Scheduler/VsyncConfiguration.h
-index c2225f3..6447648 100644
+index c2225f32071426875ec1dea032cc5d8152cf58cf..64476480ef95aab74e92d0795c353f2df131372f 100644
 --- a/services/surfaceflinger/Scheduler/VsyncConfiguration.h
 +++ b/services/surfaceflinger/Scheduler/VsyncConfiguration.h
 @@ -44,6 +44,8 @@ public:
@@ -629,7 +629,7 @@ index c2225f3..6447648 100644
      const nsecs_t mAppDuration;
  
 diff --git a/services/surfaceflinger/Scheduler/VsyncModulator.cpp b/services/surfaceflinger/Scheduler/VsyncModulator.cpp
-index e26c99c..e17c4cf 100644
+index e26c99ca449c08ecb3b243d471c14eaae8567c28..e17c4cf665647ac761518c4da968e56c6323751f 100644
 --- a/services/surfaceflinger/Scheduler/VsyncModulator.cpp
 +++ b/services/surfaceflinger/Scheduler/VsyncModulator.cpp
 @@ -211,6 +211,13 @@ bool VsyncModulator::isVsyncConfigEarly() const {
@@ -647,7 +647,7 @@ index e26c99c..e17c4cf 100644
      std::lock_guard<std::mutex> lock(mMutex);
      StringAppendF(&result, " Early Wakeup Requests (count=%zu):\n", mEarlyWakeupRequests.size());
 diff --git a/services/surfaceflinger/Scheduler/VsyncModulator.h b/services/surfaceflinger/Scheduler/VsyncModulator.h
-index f238ba9..0015afb 100644
+index f238ba9cf8fd5b797eeabdf53770949209ee0d6f..0015afb4a25614c1c28f4c62f53cfccb04a4abb7 100644
 --- a/services/surfaceflinger/Scheduler/VsyncModulator.h
 +++ b/services/surfaceflinger/Scheduler/VsyncModulator.h
 @@ -57,6 +57,7 @@ public:
@@ -659,7 +659,7 @@ index f238ba9..0015afb 100644
      VsyncConfig getVsyncConfig() const EXCLUDES(mMutex);
  
 diff --git a/services/surfaceflinger/Scheduler/include/scheduler/FrameTargeter.h b/services/surfaceflinger/Scheduler/include/scheduler/FrameTargeter.h
-index 9f62bc9..10b713c 100644
+index 9f62bc967073fbb759cf87c3c4fd9806f0ab4063..10b713cfed94d5c1f533f5ebc6e43682899e8d83 100644
 --- a/services/surfaceflinger/Scheduler/include/scheduler/FrameTargeter.h
 +++ b/services/surfaceflinger/Scheduler/include/scheduler/FrameTargeter.h
 @@ -85,6 +85,7 @@ protected:
@@ -679,7 +679,7 @@ index 9f62bc9..10b713c 100644
  
      void beginFrame(const BeginFrameArgs&, const IVsyncSource&);
 diff --git a/services/surfaceflinger/Scheduler/src/FrameTargeter.cpp b/services/surfaceflinger/Scheduler/src/FrameTargeter.cpp
-index 15e7f8c..fcbc8c3 100644
+index 15e7f8ca0e4953d15330631f269217d48a8eb920..fcbc8c37decd82f739ca4945870e0d9393833957 100644
 --- a/services/surfaceflinger/Scheduler/src/FrameTargeter.cpp
 +++ b/services/surfaceflinger/Scheduler/src/FrameTargeter.cpp
 @@ -15,6 +15,7 @@
@@ -728,7 +728,7 @@ index 15e7f8c..fcbc8c3 100644
      mDebugPresentTimeDelay = args.debugPresentTimeDelay;
  
 diff --git a/services/surfaceflinger/Scheduler/tests/FrameTargeterTest.cpp b/services/surfaceflinger/Scheduler/tests/FrameTargeterTest.cpp
-index 427a15a..a4a5bf2 100644
+index 427a15a7e2ebb8646b553157e268d80062405be9..a4a5bf2e9cb82e580998ed2ff125d1ad6e115ed8 100644
 --- a/services/surfaceflinger/Scheduler/tests/FrameTargeterTest.cpp
 +++ b/services/surfaceflinger/Scheduler/tests/FrameTargeterTest.cpp
 @@ -67,7 +67,8 @@ public:
@@ -808,7 +808,7 @@ index 427a15a..a4a5bf2 100644
      VsyncId vsyncId{111};
      TimePoint frameBeginTime(1000ms);
 diff --git a/services/surfaceflinger/SurfaceFlinger.cpp b/services/surfaceflinger/SurfaceFlinger.cpp
-index 9128394..aae92a4 100644
+index 9128394aa18b24846745d673566117732774fb07..aae92a4e3bd0df98a68980e23af50d3be978b55a 100644
 --- a/services/surfaceflinger/SurfaceFlinger.cpp
 +++ b/services/surfaceflinger/SurfaceFlinger.cpp
 @@ -24,6 +24,8 @@
@@ -1333,7 +1333,7 @@ index 9128394..aae92a4 100644
                          hdrInfo.layerInfo.numberOfHdrLayers++;
                          const auto displayFrame = outputLayer->getState().displayFrame;
 diff --git a/services/surfaceflinger/SurfaceFlinger.h b/services/surfaceflinger/SurfaceFlinger.h
-index 9d8ef03..fd94085 100644
+index 9d8ef0345470fb6f9cd8b2644dcf525507f02976..fd940853c02440ee79e31af95ad4e5d8cbe74922 100644
 --- a/services/surfaceflinger/SurfaceFlinger.h
 +++ b/services/surfaceflinger/SurfaceFlinger.h
 @@ -129,6 +129,7 @@
@@ -1423,7 +1423,7 @@ index 9d8ef03..fd94085 100644
      binder::Status getDynamicDisplayInfoFromId(int64_t displayId,
 diff --git a/services/surfaceflinger/ldy_an00_composerext/Android.bp b/services/surfaceflinger/ldy_an00_composerext/Android.bp
 new file mode 100644
-index 0000000..eada4f2
+index 0000000000000000000000000000000000000000..eada4f2902ffcccf76c47c84456814fd3fac2282
 --- /dev/null
 +++ b/services/surfaceflinger/ldy_an00_composerext/Android.bp
 @@ -0,0 +1,91 @@
@@ -1520,7 +1520,7 @@ index 0000000..eada4f2
 +}
 diff --git a/services/surfaceflinger/ldy_an00_composerext/ComposerExtClient.cpp b/services/surfaceflinger/ldy_an00_composerext/ComposerExtClient.cpp
 new file mode 100644
-index 0000000..5cae836
+index 0000000000000000000000000000000000000000..5cae8366018e8a773367a68ec0dc607831e66b74
 --- /dev/null
 +++ b/services/surfaceflinger/ldy_an00_composerext/ComposerExtClient.cpp
 @@ -0,0 +1,202 @@
@@ -1728,7 +1728,7 @@ index 0000000..5cae836
 +}  // namespace android::surfaceflinger::ldy_an00
 diff --git a/services/surfaceflinger/ldy_an00_composerext/ComposerExtCodec.cpp b/services/surfaceflinger/ldy_an00_composerext/ComposerExtCodec.cpp
 new file mode 100644
-index 0000000..ec82424
+index 0000000000000000000000000000000000000000..ec8242472c8371fc38c1522764fa7ca79185743f
 --- /dev/null
 +++ b/services/surfaceflinger/ldy_an00_composerext/ComposerExtCodec.cpp
 @@ -0,0 +1,63 @@
@@ -1797,7 +1797,7 @@ index 0000000..ec82424
 +}  // namespace android::surfaceflinger::ldy_an00
 diff --git a/services/surfaceflinger/ldy_an00_composerext/ComposerExtDispatch.cpp b/services/surfaceflinger/ldy_an00_composerext/ComposerExtDispatch.cpp
 new file mode 100644
-index 0000000..ca56af5
+index 0000000000000000000000000000000000000000..ca56af514231e57bdfafb61f12dd39de84aa337e
 --- /dev/null
 +++ b/services/surfaceflinger/ldy_an00_composerext/ComposerExtDispatch.cpp
 @@ -0,0 +1,43 @@
@@ -1846,7 +1846,7 @@ index 0000000..ca56af5
 +}  // namespace android::surfaceflinger::ldy_an00
 diff --git a/services/surfaceflinger/ldy_an00_composerext/ComposerExtOwner.cpp b/services/surfaceflinger/ldy_an00_composerext/ComposerExtOwner.cpp
 new file mode 100644
-index 0000000..1ac2673
+index 0000000000000000000000000000000000000000..1ac2673bf09868dc4b01a2280f645138a12958a7
 --- /dev/null
 +++ b/services/surfaceflinger/ldy_an00_composerext/ComposerExtOwner.cpp
 @@ -0,0 +1,411 @@
@@ -2263,7 +2263,7 @@ index 0000000..1ac2673
 +} // namespace android::surfaceflinger::ldy_an00
 diff --git a/services/surfaceflinger/ldy_an00_composerext/ComposerExtTiming.cpp b/services/surfaceflinger/ldy_an00_composerext/ComposerExtTiming.cpp
 new file mode 100644
-index 0000000..7ad4d19
+index 0000000000000000000000000000000000000000..7ad4d195ca829d0a48cc55dd716ecf815402a507
 --- /dev/null
 +++ b/services/surfaceflinger/ldy_an00_composerext/ComposerExtTiming.cpp
 @@ -0,0 +1,77 @@
@@ -2346,7 +2346,7 @@ index 0000000..7ad4d19
 +} // namespace android::surfaceflinger::ldy_an00
 diff --git a/services/surfaceflinger/ldy_an00_composerext/README.txt b/services/surfaceflinger/ldy_an00_composerext/README.txt
 new file mode 100644
-index 0000000..c65b880
+index 0000000000000000000000000000000000000000..c65b8805caa9590ce7264858db2625b66314ecb5
 --- /dev/null
 +++ b/services/surfaceflinger/ldy_an00_composerext/README.txt
 @@ -0,0 +1,78 @@
@@ -2430,7 +2430,7 @@ index 0000000..c65b880
 +Soong client link, SurfaceFlinger integration or hardware behavior is claimed by them.
 diff --git a/services/surfaceflinger/ldy_an00_composerext/SfCpuPolicyBridge.cpp b/services/surfaceflinger/ldy_an00_composerext/SfCpuPolicyBridge.cpp
 new file mode 100644
-index 0000000..3ce7dd2
+index 0000000000000000000000000000000000000000..3ce7dd21ab8e81994bc3d1eefd260b661e02e351
 --- /dev/null
 +++ b/services/surfaceflinger/ldy_an00_composerext/SfCpuPolicyBridge.cpp
 @@ -0,0 +1,432 @@
@@ -2868,7 +2868,7 @@ index 0000000..3ce7dd2
 +} // namespace android::surfaceflinger::ldy_an00
 diff --git a/services/surfaceflinger/ldy_an00_composerext/aidl/vendor/mediatek/hardware/composer_ext/IComposerExt.aidl b/services/surfaceflinger/ldy_an00_composerext/aidl/vendor/mediatek/hardware/composer_ext/IComposerExt.aidl
 new file mode 100644
-index 0000000..1607a2e
+index 0000000000000000000000000000000000000000..1607a2edb437555b5d2e3343af66c9add7bf60a5
 --- /dev/null
 +++ b/services/surfaceflinger/ldy_an00_composerext/aidl/vendor/mediatek/hardware/composer_ext/IComposerExt.aidl
 @@ -0,0 +1,14 @@
@@ -2888,7 +2888,7 @@ index 0000000..1607a2e
 +}
 diff --git a/services/surfaceflinger/ldy_an00_composerext/aidl/vendor/mediatek/hardware/composer_ext/IComposerExtCallback.aidl b/services/surfaceflinger/ldy_an00_composerext/aidl/vendor/mediatek/hardware/composer_ext/IComposerExtCallback.aidl
 new file mode 100644
-index 0000000..2d123e9
+index 0000000000000000000000000000000000000000..2d123e9b441497ff03fd3e7f592715d7ea4cb4df
 --- /dev/null
 +++ b/services/surfaceflinger/ldy_an00_composerext/aidl/vendor/mediatek/hardware/composer_ext/IComposerExtCallback.aidl
 @@ -0,0 +1,11 @@
@@ -2905,7 +2905,7 @@ index 0000000..2d123e9
 +}
 diff --git a/services/surfaceflinger/ldy_an00_composerext/aidl/vendor/mediatek/hardware/composer_ext/parcelable_perform.aidl b/services/surfaceflinger/ldy_an00_composerext/aidl/vendor/mediatek/hardware/composer_ext/parcelable_perform.aidl
 new file mode 100644
-index 0000000..cb32ee0
+index 0000000000000000000000000000000000000000..cb32ee0859b68f486bc95e0b51338d1cecf6677f
 --- /dev/null
 +++ b/services/surfaceflinger/ldy_an00_composerext/aidl/vendor/mediatek/hardware/composer_ext/parcelable_perform.aidl
 @@ -0,0 +1,10 @@
@@ -2921,7 +2921,7 @@ index 0000000..cb32ee0
 +}
 diff --git a/services/surfaceflinger/ldy_an00_composerext/aidl/vendor/mediatek/hardware/composer_ext/parcelable_registerClient.aidl b/services/surfaceflinger/ldy_an00_composerext/aidl/vendor/mediatek/hardware/composer_ext/parcelable_registerClient.aidl
 new file mode 100644
-index 0000000..b41b176
+index 0000000000000000000000000000000000000000..b41b176e8bc00656b660ced5027b7b5aa0357bf0
 --- /dev/null
 +++ b/services/surfaceflinger/ldy_an00_composerext/aidl/vendor/mediatek/hardware/composer_ext/parcelable_registerClient.aidl
 @@ -0,0 +1,7 @@
@@ -2934,7 +2934,7 @@ index 0000000..b41b176
 +}
 diff --git a/services/surfaceflinger/ldy_an00_composerext/include/ldy_an00/ComposerExtClient.h b/services/surfaceflinger/ldy_an00_composerext/include/ldy_an00/ComposerExtClient.h
 new file mode 100644
-index 0000000..17a94cf
+index 0000000000000000000000000000000000000000..17a94cf8509ddcfb35e4b5e84d672f7d82462bc9
 --- /dev/null
 +++ b/services/surfaceflinger/ldy_an00_composerext/include/ldy_an00/ComposerExtClient.h
 @@ -0,0 +1,67 @@
@@ -3007,7 +3007,7 @@ index 0000000..17a94cf
 +}  // namespace android::surfaceflinger::ldy_an00
 diff --git a/services/surfaceflinger/ldy_an00_composerext/include/ldy_an00/ComposerExtCodec.h b/services/surfaceflinger/ldy_an00_composerext/include/ldy_an00/ComposerExtCodec.h
 new file mode 100644
-index 0000000..7d568c9
+index 0000000000000000000000000000000000000000..7d568c9a4ad5d111bf18ee264046964223b26ffc
 --- /dev/null
 +++ b/services/surfaceflinger/ldy_an00_composerext/include/ldy_an00/ComposerExtCodec.h
 @@ -0,0 +1,23 @@
@@ -3036,7 +3036,7 @@ index 0000000..7d568c9
 +}  // namespace android::surfaceflinger::ldy_an00
 diff --git a/services/surfaceflinger/ldy_an00_composerext/include/ldy_an00/ComposerExtGate.h b/services/surfaceflinger/ldy_an00_composerext/include/ldy_an00/ComposerExtGate.h
 new file mode 100644
-index 0000000..542896f
+index 0000000000000000000000000000000000000000..542896f853dc2f233b38b0dcd5897d0b292ed72f
 --- /dev/null
 +++ b/services/surfaceflinger/ldy_an00_composerext/include/ldy_an00/ComposerExtGate.h
 @@ -0,0 +1,67 @@
@@ -3109,7 +3109,7 @@ index 0000000..542896f
 +}  // namespace android::surfaceflinger::ldy_an00
 diff --git a/services/surfaceflinger/ldy_an00_composerext/include/ldy_an00/ComposerExtOwner.h b/services/surfaceflinger/ldy_an00_composerext/include/ldy_an00/ComposerExtOwner.h
 new file mode 100644
-index 0000000..5bb3043
+index 0000000000000000000000000000000000000000..5bb3043701dfce336810597b442d4480877dc09b
 --- /dev/null
 +++ b/services/surfaceflinger/ldy_an00_composerext/include/ldy_an00/ComposerExtOwner.h
 @@ -0,0 +1,82 @@
@@ -3197,7 +3197,7 @@ index 0000000..5bb3043
 +} // namespace android
 diff --git a/services/surfaceflinger/ldy_an00_composerext/include/ldy_an00/ComposerExtTiming.h b/services/surfaceflinger/ldy_an00_composerext/include/ldy_an00/ComposerExtTiming.h
 new file mode 100644
-index 0000000..2e2da35
+index 0000000000000000000000000000000000000000..2e2da351216fa9a728a290a69f30a24c5e08cb06
 --- /dev/null
 +++ b/services/surfaceflinger/ldy_an00_composerext/include/ldy_an00/ComposerExtTiming.h
 @@ -0,0 +1,43 @@
@@ -3246,7 +3246,7 @@ index 0000000..2e2da35
 +} // namespace android::surfaceflinger::ldy_an00
 diff --git a/services/surfaceflinger/ldy_an00_composerext/include/ldy_an00/SfCpuPolicyBridge.h b/services/surfaceflinger/ldy_an00_composerext/include/ldy_an00/SfCpuPolicyBridge.h
 new file mode 100644
-index 0000000..9719e0f
+index 0000000000000000000000000000000000000000..9719e0f11d0f02b5c486573a887633e6255a85c1
 --- /dev/null
 +++ b/services/surfaceflinger/ldy_an00_composerext/include/ldy_an00/SfCpuPolicyBridge.h
 @@ -0,0 +1,124 @@
@@ -3376,7 +3376,7 @@ index 0000000..9719e0f
 +} // namespace android::surfaceflinger::ldy_an00
 diff --git a/services/surfaceflinger/ldy_an00_composerext/include/ldy_an00/SfCpuPolicyHistory.h b/services/surfaceflinger/ldy_an00_composerext/include/ldy_an00/SfCpuPolicyHistory.h
 new file mode 100644
-index 0000000..c8e44f0
+index 0000000000000000000000000000000000000000..c8e44f0cc3393d98a9f09ba0f08c83ee7ab81823
 --- /dev/null
 +++ b/services/surfaceflinger/ldy_an00_composerext/include/ldy_an00/SfCpuPolicyHistory.h
 @@ -0,0 +1,27 @@
@@ -3409,7 +3409,7 @@ index 0000000..c8e44f0
 +} // namespace android::surfaceflinger::ldy_an00
 diff --git a/services/surfaceflinger/ldy_an00_composerext/tests/ComposerExtClientTest.cpp b/services/surfaceflinger/ldy_an00_composerext/tests/ComposerExtClientTest.cpp
 new file mode 100644
-index 0000000..fda200b
+index 0000000000000000000000000000000000000000..fda200b718b01a1bad358ae2e82a181fe1d897a9
 --- /dev/null
 +++ b/services/surfaceflinger/ldy_an00_composerext/tests/ComposerExtClientTest.cpp
 @@ -0,0 +1,135 @@
@@ -3550,7 +3550,7 @@ index 0000000..fda200b
 +}
 diff --git a/services/surfaceflinger/ldy_an00_composerext/tests/ComposerExtTimingHostTest.cpp b/services/surfaceflinger/ldy_an00_composerext/tests/ComposerExtTimingHostTest.cpp
 new file mode 100644
-index 0000000..b25d33e
+index 0000000000000000000000000000000000000000..b25d33e1b0a01ccb950a9580cf177ddf3ae8bab2
 --- /dev/null
 +++ b/services/surfaceflinger/ldy_an00_composerext/tests/ComposerExtTimingHostTest.cpp
 @@ -0,0 +1,54 @@
@@ -3610,7 +3610,7 @@ index 0000000..b25d33e
 +}
 diff --git a/services/surfaceflinger/ldy_an00_composerext/tests/SfCpuPolicyBridgeFake.cpp b/services/surfaceflinger/ldy_an00_composerext/tests/SfCpuPolicyBridgeFake.cpp
 new file mode 100644
-index 0000000..1c5e866
+index 0000000000000000000000000000000000000000..1c5e86613d8fa7dc87e9ff439ff7e89aeebf4a39
 --- /dev/null
 +++ b/services/surfaceflinger/ldy_an00_composerext/tests/SfCpuPolicyBridgeFake.cpp
 @@ -0,0 +1,91 @@
@@ -3707,7 +3707,7 @@ index 0000000..1c5e866
 +}
 diff --git a/services/surfaceflinger/ldy_an00_composerext/tests/SfCpuPolicyBridgeHostTest.cpp b/services/surfaceflinger/ldy_an00_composerext/tests/SfCpuPolicyBridgeHostTest.cpp
 new file mode 100644
-index 0000000..d743a39
+index 0000000000000000000000000000000000000000..d743a3967833e3703e26c126b7999c595b323dbb
 --- /dev/null
 +++ b/services/surfaceflinger/ldy_an00_composerext/tests/SfCpuPolicyBridgeHostTest.cpp
 @@ -0,0 +1,174 @@
@@ -3886,7 +3886,7 @@ index 0000000..d743a39
 +              << " fakePluginOnly noDevicePolicyCalls\n";
 +}
 diff --git a/services/surfaceflinger/tests/unittests/Android.bp b/services/surfaceflinger/tests/unittests/Android.bp
-index da3590b..26aec76 100644
+index da3590b4f2a429e7f01325b14733d3e3304ea98b..26aec760e933be2940682e498fc6e4fdfbb08b02 100644
 --- a/services/surfaceflinger/tests/unittests/Android.bp
 +++ b/services/surfaceflinger/tests/unittests/Android.bp
 @@ -86,6 +86,7 @@ cc_test {
@@ -3906,7 +3906,7 @@ index da3590b..26aec76 100644
          "librenderengine",
          "librenderengine_mocks",
 diff --git a/services/surfaceflinger/tests/unittests/FrameTimelineTest.cpp b/services/surfaceflinger/tests/unittests/FrameTimelineTest.cpp
-index 0d8f0be..7e22824 100644
+index 0d8f0be57059193504124e9ac68384ce97e65f1b..7e228240847e637796e905ece443912b43c5f35b 100644
 --- a/services/surfaceflinger/tests/unittests/FrameTimelineTest.cpp
 +++ b/services/surfaceflinger/tests/unittests/FrameTimelineTest.cpp
 @@ -275,6 +275,39 @@ public:
@@ -3951,7 +3951,7 @@ index 0d8f0be..7e22824 100644
      EXPECT_EQ(getPredictions().size(), 1u);
 diff --git a/services/surfaceflinger/tests/unittests/HdrLayerInfoTypesTest.cpp b/services/surfaceflinger/tests/unittests/HdrLayerInfoTypesTest.cpp
 new file mode 100644
-index 0000000..207bbb5
+index 0000000000000000000000000000000000000000..207bbb5d4132c0287e988add3075dc2680d5f5ee
 --- /dev/null
 +++ b/services/surfaceflinger/tests/unittests/HdrLayerInfoTypesTest.cpp
 @@ -0,0 +1,32 @@
@@ -3988,7 +3988,7 @@ index 0000000..207bbb5
 +}
 +} // namespace android
 diff --git a/services/surfaceflinger/tests/unittests/MessageQueueTest.cpp b/services/surfaceflinger/tests/unittests/MessageQueueTest.cpp
-index 5710e63..3534c51 100644
+index 5710e63b28e6b39939457f8a5dbf94430db9d197..3534c51124087f64d21302a1b64a7ec0f2cdc3f9 100644
 --- a/services/surfaceflinger/tests/unittests/MessageQueueTest.cpp
 +++ b/services/surfaceflinger/tests/unittests/MessageQueueTest.cpp
 @@ -110,6 +110,71 @@ TEST_F(MessageQueueTest, commit) {
@@ -4064,7 +4064,7 @@ index 5710e63..3534c51 100644
      InSequence s;
      const auto timing = scheduler::VSyncDispatch::ScheduleTiming{.workDuration = kDuration.ns(),
 diff --git a/services/surfaceflinger/tests/unittests/SurfaceFlinger_DisplayModeSwitching.cpp b/services/surfaceflinger/tests/unittests/SurfaceFlinger_DisplayModeSwitching.cpp
-index 0e4c3e0..abe2502 100644
+index 0e4c3e08ce0f0893783ce483ef6b67f50d459e41..abe250276916f68c9d5ebae5babf61d20b9fb810 100644
 --- a/services/surfaceflinger/tests/unittests/SurfaceFlinger_DisplayModeSwitching.cpp
 +++ b/services/surfaceflinger/tests/unittests/SurfaceFlinger_DisplayModeSwitching.cpp
 @@ -661,6 +661,144 @@ TEST_P(DisplayModeSwitchingTest, updateWorkDuration) {
@@ -4213,7 +4213,7 @@ index 0e4c3e0..abe2502 100644
  
  } // namespace
 diff --git a/services/surfaceflinger/tests/unittests/TestableSurfaceFlinger.h b/services/surfaceflinger/tests/unittests/TestableSurfaceFlinger.h
-index d842716..1d5b0b0 100644
+index d84271630c56cc03cec1579f8d5ee77e1b0d33e0..1d5b0b040f59aa2525f30bd0be3ff1f4f67927a6 100644
 --- a/services/surfaceflinger/tests/unittests/TestableSurfaceFlinger.h
 +++ b/services/surfaceflinger/tests/unittests/TestableSurfaceFlinger.h
 @@ -387,7 +387,7 @@ public:
@@ -4254,7 +4254,7 @@ index d842716..1d5b0b0 100644
          sp<IBinder> applyToken = sp<BBinder>::make();
          return mFlinger->setDesiredDisplayModeSpecs(applyToken, {specs});
 diff --git a/services/surfaceflinger/tests/unittests/VsyncModulatorTest.cpp b/services/surfaceflinger/tests/unittests/VsyncModulatorTest.cpp
-index 4b66d25..576fda5 100644
+index 4b66d25f0fe1419c1462a44d62007543f361a564..576fda5914a297a38c1d6a458a35d46e772e1b06 100644
 --- a/services/surfaceflinger/tests/unittests/VsyncModulatorTest.cpp
 +++ b/services/surfaceflinger/tests/unittests/VsyncModulatorTest.cpp
 @@ -87,6 +87,27 @@ protected:

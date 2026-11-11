@@ -1,5 +1,5 @@
 diff --git a/libsnapshot/include/libsnapshot/snapshot.h b/libsnapshot/include/libsnapshot/snapshot.h
-index a03d854..73127cf 100644
+index a03d854726b9a3f19df4616363b8c367e5414dd5..73127cfcbfc46eeb7b00c09652e9d59e166c5098 100644
 --- a/libsnapshot/include/libsnapshot/snapshot.h
 +++ b/libsnapshot/include/libsnapshot/snapshot.h
 @@ -419,6 +419,7 @@ class SnapshotManager final : public ISnapshotManager {
@@ -11,7 +11,7 @@ index a03d854..73127cf 100644
      FRIEND_TEST(SnapshotTest, FlashSuperDuringUpdate);
      FRIEND_TEST(SnapshotTest, MapPartialSnapshot);
 diff --git a/libsnapshot/snapshot.cpp b/libsnapshot/snapshot.cpp
-index 4609724..a026b2b 100644
+index 4609724d90222f874d672c091f9760f0262f105c..a026b2b61771701dc412594bf740dd760f3432b4 100644
 --- a/libsnapshot/snapshot.cpp
 +++ b/libsnapshot/snapshot.cpp
 @@ -2325,10 +2325,10 @@ bool SnapshotManager::PerformInitTransition(InitTransition transition,
@@ -28,7 +28,7 @@ index 4609724..a026b2b 100644
          uint cow_op_merge_size = GetUpdateCowOpMergeSize(lock.get());
          if (cow_op_merge_size != 0) {
 diff --git a/libsnapshot/snapshot_test.cpp b/libsnapshot/snapshot_test.cpp
-index d6a4937..05d0a5f 100644
+index d6a49377214047a05ec4d43026f8b48501837867..05d0a5f1cf4d3620c8b30f368550ee11e9d6b550 100644
 --- a/libsnapshot/snapshot_test.cpp
 +++ b/libsnapshot/snapshot_test.cpp
 @@ -2622,6 +2622,7 @@ TEST_F(SnapshotTest, FlagCheck) {

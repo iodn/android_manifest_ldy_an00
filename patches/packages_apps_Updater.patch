@@ -1,5 +1,5 @@
 diff --git a/app/src/main/java/org/lineageos/updater/data/UpdatesRepository.kt b/app/src/main/java/org/lineageos/updater/data/UpdatesRepository.kt
-index c9e2350..a040f9e 100644
+index c9e2350df8dfed5c65778c2dd00d1cbb3103bd10..a040f9e3872555a34a0718c709fc6c845574395d 100644
 --- a/app/src/main/java/org/lineageos/updater/data/UpdatesRepository.kt
 +++ b/app/src/main/java/org/lineageos/updater/data/UpdatesRepository.kt
 @@ -61,7 +61,7 @@ class UpdatesRepository(
@@ -12,7 +12,7 @@ index c9e2350..a040f9e 100644
          }
  
 diff --git a/app/src/main/java/org/lineageos/updater/updates/action/UpdateAction.kt b/app/src/main/java/org/lineageos/updater/updates/action/UpdateAction.kt
-index 90bc450..d6a346f 100644
+index 90bc450a8f15c17e36e3b392ba1f2a8b1551b593..d6a346f848418d5f1d57cbfd40480308a8c7b362 100644
 --- a/app/src/main/java/org/lineageos/updater/updates/action/UpdateAction.kt
 +++ b/app/src/main/java/org/lineageos/updater/updates/action/UpdateAction.kt
 @@ -26,6 +26,7 @@ enum class UpdateActionType(@param:StringRes val titleRes: Int) {
@@ -24,7 +24,7 @@ index 90bc450..d6a346f 100644
          override fun title(context: Context) =
              context.getString(titleRes, context.getString(R.string.brand_name))
 diff --git a/app/src/main/java/org/lineageos/updater/updates/action/UpdateActionHandler.kt b/app/src/main/java/org/lineageos/updater/updates/action/UpdateActionHandler.kt
-index 8c0ab12..cd00081 100644
+index 8c0ab12dc77a3a51db9ca3bf1a4b4cd2c696a6ac..cd00081c100198307e0af0a9b6ac2986cabf3b3f 100644
 --- a/app/src/main/java/org/lineageos/updater/updates/action/UpdateActionHandler.kt
 +++ b/app/src/main/java/org/lineageos/updater/updates/action/UpdateActionHandler.kt
 @@ -24,6 +24,7 @@ import org.lineageos.updater.misc.Utils
@@ -47,7 +47,7 @@ index 8c0ab12..cd00081 100644
                  Intent(
                      Intent.ACTION_VIEW,
 diff --git a/app/src/main/java/org/lineageos/updater/updates/state/UpdateItemStateMapper.kt b/app/src/main/java/org/lineageos/updater/updates/state/UpdateItemStateMapper.kt
-index 1b97368..385fe16 100644
+index 1b97368a411c14eda3ea7ab897e33f110ae9a7c2..385fe1653d35ae1aa84c535f02e3fddb76967657 100644
 --- a/app/src/main/java/org/lineageos/updater/updates/state/UpdateItemStateMapper.kt
 +++ b/app/src/main/java/org/lineageos/updater/updates/state/UpdateItemStateMapper.kt
 @@ -19,6 +19,7 @@ import org.lineageos.updater.updates.action.UpdateActions
@@ -70,7 +70,7 @@ index 1b97368..385fe16 100644
                  }
 diff --git a/app/src/main/java/org/lineageos/updater/util/ReleaseNotes.kt b/app/src/main/java/org/lineageos/updater/util/ReleaseNotes.kt
 new file mode 100644
-index 0000000..f2143f6
+index 0000000000000000000000000000000000000000..f2143f6334355a08b46163722a5481652060bc09
 --- /dev/null
 +++ b/app/src/main/java/org/lineageos/updater/util/ReleaseNotes.kt
 @@ -0,0 +1,26 @@
@@ -101,7 +101,7 @@ index 0000000..f2143f6
 +    return "https://github.com/iodn/android_manifest_ldy_an00/releases/tag/${parts[0]}"
 +}
 diff --git a/app/src/main/res/values/config.xml b/app/src/main/res/values/config.xml
-index b4f696a..5f13622 100644
+index b4f696a568376d4e57a9e608d5169eb6fb24919d..5f1362203d8b07893e9ab4182e999683eb801fb0 100644
 --- a/app/src/main/res/values/config.xml
 +++ b/app/src/main/res/values/config.xml
 @@ -17,5 +17,5 @@
@@ -112,7 +112,7 @@ index b4f696a..5f13622 100644
 +    <string name="menu_downloads_url" translatable="false">https://github.com/iodn/android_manifest_ldy_an00/releases</string>
  </resources>
 diff --git a/app/src/main/res/values/strings.xml b/app/src/main/res/values/strings.xml
-index df56e15..158e7e3 100644
+index df56e15283e927c3147e62f2d6d450d3249e7e70..158e7e3940087363c9b67206e2fc876110a39015 100644
 --- a/app/src/main/res/values/strings.xml
 +++ b/app/src/main/res/values/strings.xml
 @@ -91,7 +91,7 @@

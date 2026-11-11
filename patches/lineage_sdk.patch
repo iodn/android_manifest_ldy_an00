@@ -134,10 +134,10 @@ index b424e3261ddbb0d257e0da3c8bd2b4387d530654..9ff8a770d81dbae3a0f7dd7f0fe3edbc
              mSavedTargetTime = 0;
              mEstimatedFullTime = 0;
 diff --git a/sdk/src/java/lineageos/providers/LineageSettings.java b/sdk/src/java/lineageos/providers/LineageSettings.java
-index f52b4220f9784a119d86754fb4f84a8115645787..4ce9ac2d90d5f7437ae89ed8bcf0184b55fe2d27 100644
+index 215cc7a2ef597ae8abf4ecd1e2ae4008e941a6cf..3b53048aba43f00c237ce081c3825799f6bb2256 100644
 --- a/sdk/src/java/lineageos/providers/LineageSettings.java
 +++ b/sdk/src/java/lineageos/providers/LineageSettings.java
-@@ -2819,6 +2819,17 @@ public final class LineageSettings {
+@@ -2822,6 +2822,17 @@ public final class LineageSettings {
           */
          public static final String ADVANCED_REBOOT = "advanced_reboot";
  
@@ -155,7 +155,7 @@ index f52b4220f9784a119d86754fb4f84a8115645787..4ce9ac2d90d5f7437ae89ed8bcf0184b
          /**
           * Whether detail view for the location tile is enabled
           * @hide
-@@ -3010,6 +3021,8 @@ public final class LineageSettings {
+@@ -3013,6 +3024,8 @@ public final class LineageSettings {
          public static final Map<String, Validator> VALIDATORS =
                  new ArrayMap<String, Validator>();
          static {

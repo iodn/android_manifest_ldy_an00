@@ -1,5 +1,5 @@
 diff --git a/AndroidManifest.xml b/AndroidManifest.xml
-index 051cd2e35bb9ac7b3c5626b3f5cb4c12ed8766e0..ff3ce42d63be1ef43c3887820bef73bbea36d772 100644
+index e45bc1b23bf66abe198c3c9aac4d468cc21cc028..5133463f4636337c32f8e62e140dcdc488e11c9a 100644
 --- a/AndroidManifest.xml
 +++ b/AndroidManifest.xml
 @@ -928,6 +928,16 @@
@@ -4524,12 +4524,12 @@ index 0000000000000000000000000000000000000000..563c55a3eb05f6bc578cf764efabe73f
 +    }
 +}
 diff --git a/tests/robotests/src/com/android/settings/biometrics/fingerprint/FingerprintEnrollFindSensorTest.java b/tests/robotests/src/com/android/settings/biometrics/fingerprint/FingerprintEnrollFindSensorTest.java
-index 2055909e6fb73e6baa0d1bdaa2f748f494fc31b5..6319aae7181e50fec3db155f1e0ac6f70f75f443 100644
+index 79817ba834725a500f23c77243088a42c68022e2..37c6f53ed917c4135e7191f4a4caa12747323724 100644
 --- a/tests/robotests/src/com/android/settings/biometrics/fingerprint/FingerprintEnrollFindSensorTest.java
 +++ b/tests/robotests/src/com/android/settings/biometrics/fingerprint/FingerprintEnrollFindSensorTest.java
-@@ -208,6 +208,7 @@ public class FingerprintEnrollFindSensorTest {
-                 TYPE_STANDALONE,
+@@ -209,6 +209,7 @@ public class FingerprintEnrollFindSensorTest {
                  false /* halControlsIllumination */,
+                 false /* halHandlesDisplayTouches */,
                  true /* resetLockoutRequiresHardwareAuthToken */,
 +                false /* halHandlesDisplayTouches */,
                  List.of(sensorLocationInternal));
@@ -6842,40 +6842,3 @@ index 0000000000000000000000000000000000000000..2a7ed2678686ee9c3a1159268e73d7df
 +        verify(context, never()).startActivity(any(Intent.class));
 +    }
 +}
-diff --git a/tests/robotests/src/com/android/settings/password/ChooseLockPatternTest.java b/tests/robotests/src/com/android/settings/password/ChooseLockPatternTest.java
-index e764fce424ce611504dfc1343da345cda4cffcd5..0b1c664436c752b1ad39d5770ac0d6da03e10058 100644
---- a/tests/robotests/src/com/android/settings/password/ChooseLockPatternTest.java
-+++ b/tests/robotests/src/com/android/settings/password/ChooseLockPatternTest.java
-@@ -175,6 +175,7 @@ public class ChooseLockPatternTest {
- 
-     private LockscreenCredential createPattern(String patternString) {
-         return LockscreenCredential.createPattern(LockPatternUtils.byteArrayToPattern(
--                patternString.getBytes()));
-+                patternString.getBytes(), LockPatternUtils.PATTERN_SIZE_DEFAULT),
-+                LockPatternUtils.PATTERN_SIZE_DEFAULT);
-     }
- }
-diff --git a/tests/robotests/src/com/android/settings/password/ConfirmLockPatternTest.java b/tests/robotests/src/com/android/settings/password/ConfirmLockPatternTest.java
-index 30774b0a41aa7f5c9b7844cda7369b190879d4a5..ad5f4cb11973d140746a0090361bb6f313958ac1 100644
---- a/tests/robotests/src/com/android/settings/password/ConfirmLockPatternTest.java
-+++ b/tests/robotests/src/com/android/settings/password/ConfirmLockPatternTest.java
-@@ -373,7 +373,8 @@ public class ConfirmLockPatternTest {
-         assertThat(clearButton.getText().toString()).isEqualTo(
-                 mContext.getString(R.string.lockpattern_retry_button_text));
- 
--        List<LockPatternView.Cell> pattern = List.of(LockPatternView.Cell.of(0, 0));
-+        List<LockPatternView.Cell> pattern = List.of(LockPatternView.Cell.of(0, 0,
-+                LockPatternUtils.PATTERN_SIZE_DEFAULT));
-         lockPatternView.setPattern(LockPatternView.DisplayMode.Correct, pattern);
-         clearButton.performClick();
-         assertThat(lockPatternView.isEmpty()).isTrue();
-@@ -443,7 +444,8 @@ public class ConfirmLockPatternTest {
-     }
- 
-     private void triggerOnPatternDetected(LockPatternView lockPatternView) {
--        List<LockPatternView.Cell> pattern = List.of(LockPatternView.Cell.of(0, 0));
-+        List<LockPatternView.Cell> pattern = List.of(LockPatternView.Cell.of(0, 0,
-+                LockPatternUtils.PATTERN_SIZE_DEFAULT));
-         lockPatternView.setPattern(LockPatternView.DisplayMode.Correct, pattern);
-         ReflectionHelpers.callInstanceMethod(lockPatternView, "notifyPatternDetected");
-     }

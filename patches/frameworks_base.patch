@@ -6358,7 +6358,7 @@ index fbed45d0b35c827a2d56ecabde5bece12559ac38..c338b0d68ffd93bd907b0b59ef7ce50b
 +    boolean isAudioEffectAutoAttachSuppressed();
  }
 diff --git a/packages/SystemUI/src/com/android/systemui/globalactions/GlobalActionsDialogLite.java b/packages/SystemUI/src/com/android/systemui/globalactions/GlobalActionsDialogLite.java
-index 26c5a40aad4a3e5cc029194fab9ca8062a57abfd..558be5804d9509f0df4702bec90bb480c1700407 100644
+index 8ef6345cf946104087a2b5f74a1141748884a0ca..ce07179b88866de05338b716a38f5f7d4215798c 100644
 --- a/packages/SystemUI/src/com/android/systemui/globalactions/GlobalActionsDialogLite.java
 +++ b/packages/SystemUI/src/com/android/systemui/globalactions/GlobalActionsDialogLite.java
 @@ -674,6 +674,13 @@ public class GlobalActionsDialogLite implements DialogInterface.OnDismissListene
@@ -6668,7 +6668,7 @@ index cf45eb8b31784722cbb02d6ae9c89f302f65dec3..1f0cca3c045e8d53827e15ec6a9a3990
          try {
              final ClientMonitorCallbackConverter listener = getListener();
 diff --git a/services/core/java/com/android/server/biometrics/sensors/face/aidl/FaceProvider.java b/services/core/java/com/android/server/biometrics/sensors/face/aidl/FaceProvider.java
-index a70664cfe76bd62159c989e46c9066aa88051b94..69c32f5f83283ccb4645e202830b9321b4468d02 100644
+index 547193f684289048b0895f23095f7f2192b93865..e7d9a000b87ebf54a4a8c9a009a8dbf6bd180295 100644
 --- a/services/core/java/com/android/server/biometrics/sensors/face/aidl/FaceProvider.java
 +++ b/services/core/java/com/android/server/biometrics/sensors/face/aidl/FaceProvider.java
 @@ -35,6 +35,7 @@ import android.hardware.biometrics.ITestSessionCallback;
@@ -6679,7 +6679,7 @@ index a70664cfe76bd62159c989e46c9066aa88051b94..69c32f5f83283ccb4645e202830b9321
  import android.hardware.face.Face;
  import android.hardware.face.FaceAuthenticateOptions;
  import android.hardware.face.FaceEnrollOptions;
-@@ -539,11 +540,30 @@ public class FaceProvider implements IBinder.DeathRecipient, ServiceProvider {
+@@ -540,11 +541,30 @@ public class FaceProvider implements IBinder.DeathRecipient, ServiceProvider {
                      mBiometricContext, maxTemplatesPerUser, debugConsent, options,
                      mAuthenticationStateListeners,
                      mFaceSensors.get(sensorId).getFaceUtilsInstance());
@@ -9063,10 +9063,10 @@ index 76a714c47f2efe5061d6a7290e9c34a95a95f583..b3aef1dd02f4c8c29c093a69312b2aef
              ensureLegacyCreated();
              mLegacyGlobalActions.showDialog(mKeyguardShowing, mDeviceProvisioned);
 diff --git a/services/core/java/com/android/server/policy/PhoneWindowManager.java b/services/core/java/com/android/server/policy/PhoneWindowManager.java
-index c7fb1180689a1bd25089898ecd66864cbb005dd7..d045dbc95406260e5de51ba7e6179a91956f7bdc 100644
+index e17c6ae561d5bc1bf4310de92333acfdafe0b32c..363c3b591477b4181317dee543152dfdc0da46fb 100644
 --- a/services/core/java/com/android/server/policy/PhoneWindowManager.java
 +++ b/services/core/java/com/android/server/policy/PhoneWindowManager.java
-@@ -1673,6 +1673,9 @@ public class PhoneWindowManager implements WindowManagerPolicy {
+@@ -1674,6 +1674,9 @@ public class PhoneWindowManager implements WindowManagerPolicy {
                  break;
              case LONG_PRESS_POWER_GLOBAL_ACTIONS:
                  mPowerKeyHandled = true;
@@ -9076,7 +9076,7 @@ index c7fb1180689a1bd25089898ecd66864cbb005dd7..d045dbc95406260e5de51ba7e6179a91
                  performHapticFeedback(HapticFeedbackConstants.LONG_PRESS_POWER_BUTTON,
                          "Power - Long Press - Global Actions");
                  showGlobalActions();
-@@ -1732,6 +1735,9 @@ public class PhoneWindowManager implements WindowManagerPolicy {
+@@ -1733,6 +1736,9 @@ public class PhoneWindowManager implements WindowManagerPolicy {
                  break;
              case VERY_LONG_PRESS_POWER_GLOBAL_ACTIONS:
                  mPowerKeyHandled = true;
@@ -9086,7 +9086,7 @@ index c7fb1180689a1bd25089898ecd66864cbb005dd7..d045dbc95406260e5de51ba7e6179a91
                  performHapticFeedback(HapticFeedbackConstants.LONG_PRESS_POWER_BUTTON,
                          "Power - Very Long Press - Show Global Actions");
                  showGlobalActions();
-@@ -2109,7 +2115,17 @@ public class PhoneWindowManager implements WindowManagerPolicy {
+@@ -2110,7 +2116,17 @@ public class PhoneWindowManager implements WindowManagerPolicy {
          mHandler.sendEmptyMessage(MSG_DISPATCH_SHOW_GLOBAL_ACTIONS);
      }
  
@@ -9104,7 +9104,7 @@ index c7fb1180689a1bd25089898ecd66864cbb005dd7..d045dbc95406260e5de51ba7e6179a91
          if (mGlobalActions == null) {
              mGlobalActions = mGlobalActionsFactory.get();
          }
-@@ -4207,7 +4223,7 @@ public class PhoneWindowManager implements WindowManagerPolicy {
+@@ -4244,7 +4260,7 @@ public class PhoneWindowManager implements WindowManagerPolicy {
                  }
                  break;
              case KeyGestureEvent.KEY_GESTURE_TYPE_GLOBAL_ACTIONS:
