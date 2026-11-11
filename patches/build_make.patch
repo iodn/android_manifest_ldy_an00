@@ -1,0 +1,106 @@
+diff --git a/tools/releasetools/ota_utils.py b/tools/releasetools/ota_utils.py
+index d94c5c3..3ac5851 100644
+--- a/tools/releasetools/ota_utils.py
++++ b/tools/releasetools/ota_utils.py
+@@ -251,6 +251,28 @@ def UpdateDeviceState(device_state, build_info, boot_variable_values,
+ 
+   UpdatePartitionStates(device_state.partition_state)
+ 
++  # Kernel-only boot images have no ramdisk build.prop. Use the release
++  # timestamp as their OTA version only when explicitly enabled by the device.
++  if (is_post_build and build_info.info_dict.get('kernel_only_boot_ota') == 'true'):
++    if 'boot' not in build_info.info_dict.get('ab_partitions', []):
++      raise ValueError('kernel_only_boot_ota requires boot in ab_partitions')
++    boot_header = common.ReadBytesFromInputFile(
++        build_info.info_dict['boot.build.prop'].input_file, 'IMAGES/boot.img')[:44]
++    if (len(boot_header) != 44 or boot_header[:8] != b'ANDROID!' or
++        struct.unpack_from('<I', boot_header, 40)[0] not in (3, 4) or
++        struct.unpack_from('<I', boot_header, 12)[0] != 0):
++      raise ValueError('kernel_only_boot_ota requires a v3/v4 boot without ramdisk')
++    if any(p.partition_name == 'boot' for p in device_state.partition_state):
++      raise ValueError('kernel_only_boot_ota must not override an existing boot version')
++    version = build_info.GetBuildProp('ro.build.date.utc')
++    if not version.isdecimal() or int(version) <= 0:
++      raise ValueError('kernel-only boot OTA version must be a positive timestamp')
++    state = device_state.partition_state.add()
++    state.partition_name = 'boot'
++    state.version = version
++    state.device.extend(sorted(build_devices))
++    state.build.extend(sorted(build_fingerprints))
++
+   if is_post_build:
+     device_state.sdk_level = build_info.GetBuildProp(
+         'ro.build.version.sdk')
+diff --git a/tools/releasetools/test_ota_utils.py b/tools/releasetools/test_ota_utils.py
+index 9a82e6f..31603cb 100644
+--- a/tools/releasetools/test_ota_utils.py
++++ b/tools/releasetools/test_ota_utils.py
+@@ -54,3 +54,68 @@ class TestZipEntryOffset(unittest.TestCase):
+       (offset, size) = ota_utils.GetZipEntryOffset(zfp, zinfo)
+       self.assertEqual(size, zinfo.file_size)
+       self.assertEqual(offset, zipfile.sizeFileHeader+len(zinfo.filename) + 28)
++
++
++class TestKernelOnlyBootMetadata(unittest.TestCase):
++  def setUp(self):
++    from types import SimpleNamespace
++    from unittest.mock import Mock
++    import struct
++    self.info = Mock()
++    self.info.is_ab = True
++    self.info.info_dict = {
++        'kernel_only_boot_ota': 'true', 'ab_partitions': ['boot'],
++        'boot.build.prop': SimpleNamespace(build_props={}, input_file='target.zip')}
++    self.info.GetBuildProp.side_effect = lambda name: {
++        'ro.build.date.utc': '1794392614',
++        'ro.build.version.incremental': '20261111.102334',
++        'ro.build.version.sdk': '37',
++        'ro.build.version.security_patch': '2026-11-01'}[name]
++    self.header = bytearray(44)
++    self.header[:8] = b'ANDROID!'
++    struct.pack_into('<I', self.header, 40, 4)
++
++  def generate(self, post=True):
++    from unittest.mock import patch
++    state = ota_utils.ota_metadata_pb2.DeviceState()
++    with patch.object(ota_utils, 'ComputeRuntimeBuildInfos', return_value=[]), \
++         patch.object(ota_utils, 'CalculateRuntimeDevicesAndFingerprints',
++                      return_value=({'ldy_an00'}, {'test/fingerprint'})), \
++         patch.object(ota_utils.common, 'ReadBytesFromInputFile',
++                      return_value=bytes(self.header)):
++      ota_utils.UpdateDeviceState(state, self.info, {}, post)
++    return state
++
++  def test_kernel_only_boot_gets_release_timestamp(self):
++    state = self.generate()
++    self.assertEqual(len(state.partition_state), 1)
++    self.assertEqual(state.partition_state[0].partition_name, 'boot')
++    self.assertEqual(state.partition_state[0].version, '1794392614')
++
++  def test_precondition_is_not_invented(self):
++    self.assertEqual(len(self.generate(False).partition_state), 0)
++
++  def test_disabled_fallback_preserves_standard_behavior(self):
++    del self.info.info_dict['kernel_only_boot_ota']
++    self.assertEqual(len(self.generate().partition_state), 0)
++
++  def test_missing_boot_refused(self):
++    self.info.info_dict['ab_partitions'] = []
++    with self.assertRaisesRegex(ValueError, 'requires boot'):
++      self.generate()
++
++  def test_nonempty_ramdisk_and_legacy_headers_refused(self):
++    import struct
++    for offset, value in ((12, 1), (40, 2)):
++      old = bytes(self.header)
++      struct.pack_into('<I', self.header, offset, value)
++      with self.assertRaisesRegex(ValueError, 'without ramdisk'):
++        self.generate()
++      self.header[:] = old
++
++  def test_invalid_release_timestamp_refused(self):
++    original = self.info.GetBuildProp.side_effect
++    for value in ('', '0', '-1', 'invalid'):
++      self.info.GetBuildProp.side_effect = lambda key: value if key == 'ro.build.date.utc' else original(key)
++      with self.assertRaisesRegex(ValueError, 'positive timestamp'):
++        self.generate()

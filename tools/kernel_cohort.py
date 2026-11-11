@@ -214,7 +214,7 @@ def assemble(signed,expected,projection_receipt,projection_sha,out,contract,cont
         need(mode==geometry(original,DYNAMIC),"Snapshot contract changed during signing")
         final=dict(m)
         for key in LISTS:final[key]=original[key];d[key]=proof["original_dynamic"][key]
-        final.update(no_boot="false",boot_images="boot.img",boot_size=str(next(r["partition_bytes"] for r in c["inputs"] if r["partition"]=="boot")),
+        final.update(kernel_only_boot_ota="true",no_boot="false",boot_images="boot.img",boot_size=str(next(r["partition_bytes"] for r in c["inputs"] if r["partition"]=="boot")),
           building_system_dlkm_image="false",system_dlkm_size="33554432",system_dlkm_fs_type="erofs",
           partial_ota_update_partitions_list=" ".join(FIVE),avb_custom_vbmeta_images_partition_list="system_dlkm",
           avb_boot_algorithm="SHA256_RSA4096",avb_boot_key_path=OWNER,avb_boot_rollback_index="0",

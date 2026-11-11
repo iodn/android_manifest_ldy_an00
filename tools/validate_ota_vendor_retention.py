@@ -77,6 +77,12 @@ def validate_stream(stream, payload_size, *, kernel_images=None):
             raise AdmissionError(str(error)) from error
     if not manifest.HasField("partial_update") or not manifest.partial_update:
         raise AdmissionError("partial_update must explicitly be true")
+    versioned = {"boot", "system", "system_dlkm"} if kernel_images is not None else {"system"}
+    for partition in manifest.partitions:
+        if partition.partition_name in versioned:
+            if (not partition.HasField("version") or not partition.version.isdecimal()
+                    or int(partition.version) <= 0):
+                raise AdmissionError("missing/invalid partial OTA version: " + partition.partition_name)
     if not manifest.HasField("dynamic_partition_metadata"):
         raise AdmissionError("missing dynamic partition metadata")
     groups = manifest.dynamic_partition_metadata.groups

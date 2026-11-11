@@ -53,7 +53,9 @@ class ReleaseChecks(unittest.TestCase):
             archive.writestr('payload_properties.txt', 'FILE_HASH=a\nMETADATA_HASH=b\n')
             manifest = retention.metadata.DeltaArchiveManifest()
             for name in ['system', 'vbmeta_system']:
-                manifest.partitions.add().partition_name = name
+                part = manifest.partitions.add(partition_name=name)
+                if name == "system":
+                    part.version = "1793098709"
             manifest.partial_update = True
             group = manifest.dynamic_partition_metadata.groups.add()
             group.name = retention.GROUP_NAME

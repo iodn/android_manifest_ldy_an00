@@ -4,9 +4,12 @@
     {
       "path": "build/make",
       "revision": "90d006387398ae6899145e6531a304500cfa0f70",
-      "tree": "a5af0d6db3fffd45c0627f23cc9cb61fe713a3d8",
+      "tree": "275560bf329af7e0becf95230d7c56fde6306c21",
       "base_revision": "90d006387398ae6899145e6531a304500cfa0f70",
-      "remote_url": "https://github.com/LineageOS/android_build"
+      "remote_url": "https://github.com/LineageOS/android_build",
+      "patch": "patches/build_make.patch",
+      "patch_sha256": "0c5ac106d7574124f817204fc700e3f728b443fd0085936f2d11ef403e39b956",
+      "patch_tree_verified": true
     },
     {
       "path": "build/soong",

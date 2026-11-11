@@ -43,6 +43,8 @@ class KernelFeedChecks(unittest.TestCase):
         self.manifest = retention.metadata.DeltaArchiveManifest()
         for name in ["boot", "system", "system_dlkm", "vbmeta_system", "vbmeta_system_dlkm"]:
             part = self.manifest.partitions.add(partition_name=name)
+            if name in {"boot", "system", "system_dlkm"}:
+                part.version = "1794392614"
             if name == "system":
                 part.run_postinstall = True
                 part.postinstall_path = "system/bin/otapreopt_script"
@@ -67,6 +69,20 @@ class KernelFeedChecks(unittest.TestCase):
     def test_exact_five_and_actual_hash_join(self):
         self.assertEqual(set(self.validate()["partitions"]),
                          set(self.images) | {"system", "vbmeta_system"})
+
+    def test_partial_ota_requires_each_versioned_partition(self):
+        original = copy.deepcopy(self.manifest)
+        for name in ("boot", "system", "system_dlkm"):
+            for version in (None, "", "0", "invalid", "-1"):
+                with self.subTest(partition=name, version=version):
+                    self.manifest.CopyFrom(original)
+                    part = next(p for p in self.manifest.partitions if p.partition_name == name)
+                    if version is None:
+                        part.ClearField("version")
+                    else:
+                        part.version = version
+                    with self.assertRaisesRegex(retention.AdmissionError, "partial OTA version"):
+                        self.validate()
 
     def test_default_still_refuses_kernel_payload(self):
         data = self.payload()
