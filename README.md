@@ -5,11 +5,9 @@ This repository hosts the installation tools, build manifest and update feed.
 Versioned firmware downloads are published under [Releases](https://github.com/iodn/android_manifest_ldy_an00/releases).
 
 **First installation:** [2026-11-01 installer](https://github.com/iodn/android_manifest_ldy_an00/releases/tag/lineage-24.0-20261101-UNOFFICIAL-ldy_an00).
-**Latest OTA:** [2026-11-11 update](https://github.com/iodn/android_manifest_ldy_an00/releases/tag/lineage-24.0-20261111-UNOFFICIAL-ldy_an00).
 
 The November 1 installer was boot-tested with optional Google apps and enforcing
-SELinux. The new OTA and kernel require their own verification; host checks do
-not establish hardware qualification.
+SELinux.
 
 ## Before you start
 
@@ -28,9 +26,8 @@ The installer requires the exact configuration above and stops on a mismatch.
 It installs the maintained kernel, Lineage Recovery and Android system, while
 retaining matching stock vendor firmware. Do not bypass its checks.
 
-The November 1 installer has Android security patch **2026-10-01**; the new
-November 11 OTA targets **2026-11-01**. The retained vendor patch remains
-**2025-12-01**. The Android patch level does not describe all retained vendor
+The installer has Android security patch **2026-10-01**; current sources target
+**2026-11-01**. The retained vendor patch is **2025-12-01**. The Android patch level does not describe all retained vendor
 components or kernel fixes. Do not relock the bootloader or install an Honor OTA over this
 installation.
 
@@ -133,8 +130,7 @@ The patch runner checks pinned upstream bases, patch hashes and resulting Git
 source trees. It does not commit or push. Preserve applied changes before syncing.
 Supply the excluded, matching proprietary inputs before building. The pinned
 repository layout has passed a cached integration rebuild. Every new release
-requires signature and compatibility checks. State hardware-test coverage
-separately; the new kernel's hardware trial is still pending.
+requires signature and compatibility checks.
 
 Read-only container builds can use `tools/prepare_repo_config_cache.py` to redirect
 `repo` JSON caches into the build output. Mount the generated adapter over
