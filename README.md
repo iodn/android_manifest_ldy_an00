@@ -5,7 +5,7 @@ This repository hosts the installation tools, build manifest and update feed.
 Versioned firmware downloads are published under [Releases](https://github.com/iodn/android_manifest_ldy_an00/releases).
 
 **First installation:** [2026-11-01 installer](https://github.com/iodn/android_manifest_ldy_an00/releases/tag/lineage-24.0-20261101-UNOFFICIAL-ldy_an00).
-**Latest OTA:** [2026-11-11 update](https://github.com/iodn/android_manifest_ldy_an00/releases/tag/lineage-24.0-20261111-UNOFFICIAL-ldy_an00) (publication pending).
+**Latest OTA:** [2026-11-11 update](https://github.com/iodn/android_manifest_ldy_an00/releases/tag/lineage-24.0-20261111-UNOFFICIAL-ldy_an00).
 
 The November 1 installer was boot-tested with optional Google apps and enforcing
 SELinux. The new OTA and kernel require their own verification; host checks do
