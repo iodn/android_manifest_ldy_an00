@@ -1,5 +1,5 @@
 diff --git a/AndroidManifest.xml b/AndroidManifest.xml
-index 051cd2e..ff3ce42 100644
+index 051cd2e35bb9ac7b3c5626b3f5cb4c12ed8766e0..ff3ce42d63be1ef43c3887820bef73bbea36d772 100644
 --- a/AndroidManifest.xml
 +++ b/AndroidManifest.xml
 @@ -928,6 +928,16 @@
@@ -20,7 +20,7 @@ index 051cd2e..ff3ce42 100644
              android:exported="true"
              android:configChanges="orientation|keyboard|keyboardHidden|screenSize|screenLayout|smallestScreenSize"
 diff --git a/res/values/cm_strings.xml b/res/values/cm_strings.xml
-index 8b8d9ff..e10272d 100644
+index 8b8d9ffa1100e072322c8763b0d3da2999726d2b..e10272d51a8f9e5eed331fa0d1664ca58b941255 100644
 --- a/res/values/cm_strings.xml
 +++ b/res/values/cm_strings.xml
 @@ -85,6 +85,9 @@
@@ -35,7 +35,7 @@ index 8b8d9ff..e10272d 100644
  
 diff --git a/res/values/honor_ldy_an00_esim.xml b/res/values/honor_ldy_an00_esim.xml
 new file mode 100644
-index 0000000..9322545
+index 0000000000000000000000000000000000000000..932254580e35e3309eca66f4327072cf63741b8d
 --- /dev/null
 +++ b/res/values/honor_ldy_an00_esim.xml
 @@ -0,0 +1,5 @@
@@ -46,7 +46,7 @@ index 0000000..9322545
 +</resources>
 diff --git a/res/values/honor_ldy_an00_esim_flow.xml b/res/values/honor_ldy_an00_esim_flow.xml
 new file mode 100644
-index 0000000..04ca0fb
+index 0000000000000000000000000000000000000000..04ca0fbbde828041615b73ffbf7b1723da644c3d
 --- /dev/null
 +++ b/res/values/honor_ldy_an00_esim_flow.xml
 @@ -0,0 +1,20 @@
@@ -71,7 +71,7 @@ index 0000000..04ca0fb
 +    <string name="honor_esim_call_busy">End your call before switching between eSIM and physical SIM2. No SIM change was started.</string>
 +</resources>
 diff --git a/res/values/lineage_config.xml b/res/values/lineage_config.xml
-index c6aaf2d..bdd3bee 100644
+index c6aaf2d2556755271a080e008d2ab98dd51bc168..bdd3bee44df86da336dc3ada6f894c79334bf802 100644
 --- a/res/values/lineage_config.xml
 +++ b/res/values/lineage_config.xml
 @@ -29,6 +29,9 @@
@@ -92,7 +92,7 @@ index c6aaf2d..bdd3bee 100644
 +    <bool name="config_show_hardware_info_details">false</bool>
  </resources>
 diff --git a/res/values/strings.xml b/res/values/strings.xml
-index a84186b..8ef3ab0 100644
+index a84186b96bc4ca1e74cebec9aa1ed86e4cd819e0..8ef3ab0416d6fee48369321ce18d8a7b5b51a071 100644
 --- a/res/values/strings.xml
 +++ b/res/values/strings.xml
 @@ -15590,4 +15590,16 @@
@@ -113,7 +113,7 @@ index a84186b..8ef3ab0 100644
 +    <string name="honor_data_selection_unknown">Could not confirm the SIM change. Restart your phone to recover SIM controls.</string>
  </resources>
 diff --git a/res/xml/hardware_info.xml b/res/xml/hardware_info.xml
-index e086a48..731de91 100644
+index e086a486ee0d8df918e6099316fb92f14af65d76..731de9101b0b0860b32f3ae58b9f186710c04565 100644
 --- a/res/xml/hardware_info.xml
 +++ b/res/xml/hardware_info.xml
 @@ -57,4 +57,28 @@
@@ -146,22 +146,21 @@ index e086a48..731de91 100644
 +
  </PreferenceScreen>
 diff --git a/res/xml/network_provider_sims_list.xml b/res/xml/network_provider_sims_list.xml
-index ee1f6b3..0315290 100644
+index ee1f6b34289086e89a173af4208a56939a24f14d..ea9986227384ac724d453e609bbe6d44da8fce3e 100644
 --- a/res/xml/network_provider_sims_list.xml
 +++ b/res/xml/network_provider_sims_list.xml
-@@ -25,6 +25,28 @@
+@@ -25,6 +25,27 @@
          android:order="20"
          settings:controller="com.android.settings.network.NetworkProviderSimListController"/>
  
-+    <com.android.settingslib.RestrictedSwitchPreference
-+        android:key="honor_physical_slot2"
++    <com.android.settingslib.RestrictedPreference
++        android:key="honor_shared_sim_connection"
 +        settings:isPreferenceVisible="false"
 +        settings:userRestriction="no_config_mobile_networks"
 +        settings:useAdminDisabledSummary="true"
 +        settings:searchable="false"
 +        android:title="@string/honor_esim_physical_slot2"
-+        android:summary="@string/sim_category_inactive_sim"
-+        android:persistent="false"
++        android:summary="@string/unknown"
 +        android:icon="@drawable/ic_sim_card"
 +        android:order="21" />
 +
@@ -178,14 +177,14 @@ index ee1f6b3..0315290 100644
      <com.android.settingslib.RestrictedPreference
          android:key="add_sim"
          settings:isPreferenceVisible="false"
-@@ -40,4 +62,5 @@
+@@ -40,4 +61,5 @@
                     android:value="true"/>
          </intent>
      </com.android.settingslib.RestrictedPreference>
 +
  </PreferenceScreen>
 diff --git a/src/com/android/settings/Settings.java b/src/com/android/settings/Settings.java
-index 5562158..1b378c1 100644
+index 5562158557e9ab4ac94536d6759e2dda7f77f785..1b378c1579ea4ac37c94b4de413d68314c084e77 100644
 --- a/src/com/android/settings/Settings.java
 +++ b/src/com/android/settings/Settings.java
 @@ -535,13 +535,17 @@ public class Settings extends SettingsActivity {
@@ -211,7 +210,7 @@ index 5562158..1b378c1 100644
          @Override
 diff --git a/src/com/android/settings/biometrics/face/FaceEnrollChallengeOwnership.java b/src/com/android/settings/biometrics/face/FaceEnrollChallengeOwnership.java
 new file mode 100644
-index 0000000..0a74c60
+index 0000000000000000000000000000000000000000..0a74c60b157322d952eeeee74ed0960158bb62b6
 --- /dev/null
 +++ b/src/com/android/settings/biometrics/face/FaceEnrollChallengeOwnership.java
 @@ -0,0 +1,90 @@
@@ -306,7 +305,7 @@ index 0000000..0a74c60
 +    }
 +}
 diff --git a/src/com/android/settings/biometrics/face/FaceEnrollIntroduction.java b/src/com/android/settings/biometrics/face/FaceEnrollIntroduction.java
-index 2143831..9e394eb 100644
+index 21438312ae3d9519ab1de4f89e313c37c75f55a3..9e394ebc7375956d0836967b3a121b7fe8a7ff96 100644
 --- a/src/com/android/settings/biometrics/face/FaceEnrollIntroduction.java
 +++ b/src/com/android/settings/biometrics/face/FaceEnrollIntroduction.java
 @@ -31,6 +31,8 @@ import android.hardware.biometrics.SensorProperties;
@@ -409,7 +408,7 @@ index 2143831..9e394eb 100644
  
      @Override
 diff --git a/src/com/android/settings/biometrics/face/FaceSettings.java b/src/com/android/settings/biometrics/face/FaceSettings.java
-index 12f54f1..80e6fe2 100644
+index 12f54f11a5dd8893f4f8338dca265fca67c75fc0..80e6fe2ed3a958729bb0533fa1ab514671ca0966 100644
 --- a/src/com/android/settings/biometrics/face/FaceSettings.java
 +++ b/src/com/android/settings/biometrics/face/FaceSettings.java
 @@ -174,6 +174,8 @@ public class FaceSettings extends DashboardFragment {
@@ -432,7 +431,7 @@ index 12f54f1..80e6fe2 100644
          }
  
 diff --git a/src/com/android/settings/datausage/CellDataPreference.java b/src/com/android/settings/datausage/CellDataPreference.java
-index a64bc19..2223c11 100644
+index a64bc19be9c7c73c655f25e0b99d75471ae73110..2223c111180b0aaa029094d2ab65b4ddf906e08e 100644
 --- a/src/com/android/settings/datausage/CellDataPreference.java
 +++ b/src/com/android/settings/datausage/CellDataPreference.java
 @@ -224,9 +224,14 @@ public class CellDataPreference extends CustomDialogPreferenceCompat
@@ -454,7 +453,7 @@ index a64bc19..2223c11 100644
              // TODO: extend to modify policy enabled flag.
              setMobileDataEnabled(false);
 diff --git a/src/com/android/settings/deviceinfo/batteryinfo/BatteryInfoApiScreen.kt b/src/com/android/settings/deviceinfo/batteryinfo/BatteryInfoApiScreen.kt
-index 6d93b27..35bb30e 100644
+index 6d93b27a06479cc370b593ec9970897defb4601e..35bb30eb5f797da154702612803411cb5ef35f5d 100644
 --- a/src/com/android/settings/deviceinfo/batteryinfo/BatteryInfoApiScreen.kt
 +++ b/src/com/android/settings/deviceinfo/batteryinfo/BatteryInfoApiScreen.kt
 @@ -76,12 +76,12 @@ class BatteryInfoApiScreen :
@@ -483,7 +482,7 @@ index 6d93b27..35bb30e 100644
                          TimeUnit.MILLISECONDS.convert(firstUseDateInSec, TimeUnit.SECONDS)
  
 diff --git a/src/com/android/settings/deviceinfo/batteryinfo/BatteryManufactureDatePreferenceController.java b/src/com/android/settings/deviceinfo/batteryinfo/BatteryManufactureDatePreferenceController.java
-index 15d6b28..f451775 100644
+index 15d6b287b8dba05afa96a5d6d31dea2d1536d861..f451775e5d681da01051f62ab9348c8c87f3d429 100644
 --- a/src/com/android/settings/deviceinfo/batteryinfo/BatteryManufactureDatePreferenceController.java
 +++ b/src/com/android/settings/deviceinfo/batteryinfo/BatteryManufactureDatePreferenceController.java
 @@ -53,7 +53,7 @@ public class BatteryManufactureDatePreferenceController extends BasePreferenceCo
@@ -497,7 +496,7 @@ index 15d6b28..f451775 100644
  
 diff --git a/src/com/android/settings/deviceinfo/hardwareinfo/CpuInfo.java b/src/com/android/settings/deviceinfo/hardwareinfo/CpuInfo.java
 new file mode 100644
-index 0000000..27bcc89
+index 0000000000000000000000000000000000000000..27bcc89f39da8dcc20df93aa05e7bc3bcdf9813f
 --- /dev/null
 +++ b/src/com/android/settings/deviceinfo/hardwareinfo/CpuInfo.java
 @@ -0,0 +1,122 @@
@@ -625,7 +624,7 @@ index 0000000..27bcc89
 +}
 diff --git a/src/com/android/settings/deviceinfo/hardwareinfo/CpuInfoPreference.kt b/src/com/android/settings/deviceinfo/hardwareinfo/CpuInfoPreference.kt
 new file mode 100644
-index 0000000..bfab990
+index 0000000000000000000000000000000000000000..bfab9907914c2d6fba0ed85aece7ff1371064d62
 --- /dev/null
 +++ b/src/com/android/settings/deviceinfo/hardwareinfo/CpuInfoPreference.kt
 @@ -0,0 +1,63 @@
@@ -694,7 +693,7 @@ index 0000000..bfab990
 +}
 diff --git a/src/com/android/settings/deviceinfo/hardwareinfo/CpuInfoPreferenceController.java b/src/com/android/settings/deviceinfo/hardwareinfo/CpuInfoPreferenceController.java
 new file mode 100644
-index 0000000..3b73d5e
+index 0000000000000000000000000000000000000000..3b73d5e4c95241b793c0fa4e010eefb3ec54585b
 --- /dev/null
 +++ b/src/com/android/settings/deviceinfo/hardwareinfo/CpuInfoPreferenceController.java
 @@ -0,0 +1,74 @@
@@ -773,7 +772,7 @@ index 0000000..3b73d5e
 +    }
 +}
 diff --git a/src/com/android/settings/deviceinfo/hardwareinfo/HardwareInfoApiScreen.kt b/src/com/android/settings/deviceinfo/hardwareinfo/HardwareInfoApiScreen.kt
-index 204df40..df94b54 100644
+index 204df40ac7cab13c5dab62cd52a684e542286c39..df94b54244767bcff0be3698a6176e6fc6b54529 100644
 --- a/src/com/android/settings/deviceinfo/hardwareinfo/HardwareInfoApiScreen.kt
 +++ b/src/com/android/settings/deviceinfo/hardwareinfo/HardwareInfoApiScreen.kt
 @@ -28,6 +28,8 @@ import com.android.settingslib.metadata.preferencesapi.PreferencesApiScreen
@@ -855,7 +854,7 @@ index 204df40..df94b54 100644
          const val MANUFACTURED_YEAR_KEY = "manufactured_year"
      }
 diff --git a/src/com/android/settings/deviceinfo/hardwareinfo/HardwareInfoScreen.kt b/src/com/android/settings/deviceinfo/hardwareinfo/HardwareInfoScreen.kt
-index dd0c2cf..b1e58f6 100644
+index dd0c2cf32b0a103529033ae115e8ec7dc8183d18..b1e58f6537b89fab7cb90346ce8171b27db9f0a4 100644
 --- a/src/com/android/settings/deviceinfo/hardwareinfo/HardwareInfoScreen.kt
 +++ b/src/com/android/settings/deviceinfo/hardwareinfo/HardwareInfoScreen.kt
 @@ -80,6 +80,9 @@ open class HardwareInfoScreen :
@@ -870,7 +869,7 @@ index dd0c2cf..b1e58f6 100644
      companion object {
 diff --git a/src/com/android/settings/deviceinfo/hardwareinfo/SocInfoPreference.kt b/src/com/android/settings/deviceinfo/hardwareinfo/SocInfoPreference.kt
 new file mode 100644
-index 0000000..6e17703
+index 0000000000000000000000000000000000000000..6e17703c8bb7e96dc6a1f8eabd716a67ce30ac0c
 --- /dev/null
 +++ b/src/com/android/settings/deviceinfo/hardwareinfo/SocInfoPreference.kt
 @@ -0,0 +1,74 @@
@@ -950,7 +949,7 @@ index 0000000..6e17703
 +}
 diff --git a/src/com/android/settings/deviceinfo/hardwareinfo/SocInfoPreferenceController.java b/src/com/android/settings/deviceinfo/hardwareinfo/SocInfoPreferenceController.java
 new file mode 100644
-index 0000000..1efd4b4
+index 0000000000000000000000000000000000000000..1efd4b488e112d818f476365f3fc4b116a6257fb
 --- /dev/null
 +++ b/src/com/android/settings/deviceinfo/hardwareinfo/SocInfoPreferenceController.java
 @@ -0,0 +1,47 @@
@@ -1003,7 +1002,7 @@ index 0000000..1efd4b4
 +}
 diff --git a/src/com/android/settings/deviceinfo/hardwareinfo/UsableRamPreference.kt b/src/com/android/settings/deviceinfo/hardwareinfo/UsableRamPreference.kt
 new file mode 100644
-index 0000000..678d6dd
+index 0000000000000000000000000000000000000000..678d6dd9a16aeeb1c64d7d732d05a9192b4a9e5b
 --- /dev/null
 +++ b/src/com/android/settings/deviceinfo/hardwareinfo/UsableRamPreference.kt
 @@ -0,0 +1,74 @@
@@ -1083,7 +1082,7 @@ index 0000000..678d6dd
 +}
 diff --git a/src/com/android/settings/deviceinfo/hardwareinfo/UsableRamPreferenceController.java b/src/com/android/settings/deviceinfo/hardwareinfo/UsableRamPreferenceController.java
 new file mode 100644
-index 0000000..c02d31b
+index 0000000000000000000000000000000000000000..c02d31b3c8d61e5d9090f8597c19c140d6c37f94
 --- /dev/null
 +++ b/src/com/android/settings/deviceinfo/hardwareinfo/UsableRamPreferenceController.java
 @@ -0,0 +1,48 @@
@@ -1136,7 +1135,7 @@ index 0000000..c02d31b
 +    }
 +}
 diff --git a/src/com/android/settings/display/MinRefreshRatePreferenceController.java b/src/com/android/settings/display/MinRefreshRatePreferenceController.java
-index b9c6304..4bfa048 100644
+index b9c63040f26c5c8b0d083357cbd33ae4ff06ea07..4bfa0482693113172763336a4bbdb81fa2544499 100644
 --- a/src/com/android/settings/display/MinRefreshRatePreferenceController.java
 +++ b/src/com/android/settings/display/MinRefreshRatePreferenceController.java
 @@ -61,6 +61,10 @@ public class MinRefreshRatePreferenceController extends BasePreferenceController
@@ -1160,7 +1159,7 @@ index b9c6304..4bfa048 100644
                  String.format(Locale.US, "%.02f", currentValue));
          if (index < 0) index = 0;
 diff --git a/src/com/android/settings/display/PeakRefreshRateListPreferenceController.java b/src/com/android/settings/display/PeakRefreshRateListPreferenceController.java
-index 9acf6c1..1e590d8 100644
+index 9acf6c1125f9b59b392edd9dcfa0485c3393486a..1e590d8525d25cf02eaea735e458d26010b9978d 100644
 --- a/src/com/android/settings/display/PeakRefreshRateListPreferenceController.java
 +++ b/src/com/android/settings/display/PeakRefreshRateListPreferenceController.java
 @@ -53,6 +53,7 @@ public class PeakRefreshRateListPreferenceController extends BasePreferenceContr
@@ -1205,7 +1204,7 @@ index 9acf6c1..1e590d8 100644
          mListPreference.setValueIndex(index);
          mListPreference.setSummary(mListPreference.getEntries()[index]);
 diff --git a/src/com/android/settings/fuelgauge/BatterySettingsFeatureProviderImpl.java b/src/com/android/settings/fuelgauge/BatterySettingsFeatureProviderImpl.java
-index 854004d..9670239 100644
+index 854004daf4f444f249f4b819462c8cb45895966c..9670239bd36055ec473834fed7214d16ab5054c9 100644
 --- a/src/com/android/settings/fuelgauge/BatterySettingsFeatureProviderImpl.java
 +++ b/src/com/android/settings/fuelgauge/BatterySettingsFeatureProviderImpl.java
 @@ -34,12 +34,14 @@ public class BatterySettingsFeatureProviderImpl implements BatterySettingsFeatur
@@ -1226,7 +1225,7 @@ index 854004d..9670239 100644
  
      @Override
 diff --git a/src/com/android/settings/fuelgauge/BatteryUtils.java b/src/com/android/settings/fuelgauge/BatteryUtils.java
-index 6adaa7a..7a08a7a 100644
+index 6adaa7aa5183c072d8b3069a623c8980f8fc46bc..7a08a7ac0b3b07cf20882c405ebcf5f89de0f72a 100644
 --- a/src/com/android/settings/fuelgauge/BatteryUtils.java
 +++ b/src/com/android/settings/fuelgauge/BatteryUtils.java
 @@ -60,6 +60,8 @@ import com.google.protobuf.MessageLite;
@@ -1261,7 +1260,7 @@ index 6adaa7a..7a08a7a 100644
              final Context context,
 diff --git a/src/com/android/settings/network/HonorEuiccProfilePreparation.java b/src/com/android/settings/network/HonorEuiccProfilePreparation.java
 new file mode 100644
-index 0000000..af06a58
+index 0000000000000000000000000000000000000000..af06a58a4bb5cc6c3c61cf14b8a1ee748884d2d3
 --- /dev/null
 +++ b/src/com/android/settings/network/HonorEuiccProfilePreparation.java
 @@ -0,0 +1,127 @@
@@ -1394,10 +1393,10 @@ index 0000000..af06a58
 +}
 diff --git a/src/com/android/settings/network/HonorLdyAn00EsimEntry.kt b/src/com/android/settings/network/HonorLdyAn00EsimEntry.kt
 new file mode 100644
-index 0000000..595c2d3
+index 0000000000000000000000000000000000000000..9cca3fe8db9b07a753da312a8307ae8bb358a5ed
 --- /dev/null
 +++ b/src/com/android/settings/network/HonorLdyAn00EsimEntry.kt
-@@ -0,0 +1,121 @@
+@@ -0,0 +1,240 @@
 +/*
 + * Copyright (C) 2026 The LineageOS Project
 + * SPDX-License-Identifier: Apache-2.0
@@ -1405,6 +1404,8 @@ index 0000000..595c2d3
 +package com.android.settings.network
 +
 +import android.Manifest
++import android.app.AlertDialog
++import android.os.Bundle
 +import android.content.ActivityNotFoundException
 +import android.content.ComponentName
 +import android.content.Context
@@ -1417,6 +1418,8 @@ index 0000000..595c2d3
 +import android.os.UserManager
 +import android.text.TextUtils
 +import android.telephony.SubscriptionInfo
++import android.telephony.TelephonyManager
++import android.telephony.UiccCardInfo
 +import android.telephony.SubscriptionManager
 +import android.telephony.euicc.EuiccManager
 +import android.widget.Toast
@@ -1438,11 +1441,13 @@ index 0000000..595c2d3
 +    fun intent(): Intent = Intent(ACTION).setComponent(component)
 +
 +    fun physicalReturnIntent(): Intent = intent().putExtra("return_physical_sim2", true)
++    fun connectionIntent(): Intent = intent().putExtra("connection_only", true)
 +    fun managementIntent(): Intent = intent().putExtra(EXTRA_MANAGE_ESIMS, true)
 +
 +    fun isSetupIntent(intent: Intent): Boolean =
 +        intent.action == ACTION && !(intent.getBooleanExtra(EXTRA_MANAGE_ESIMS, false) &&
-+            intent.getBooleanExtra("return_physical_sim2", false))
++            (intent.getBooleanExtra("return_physical_sim2", false) ||
++                intent.getBooleanExtra("connection_only", false)))
 +
 +    /** The coordinator alone grants a temporary management route; this Intent grants nothing. */
 +    fun lpaIntent(manage: Boolean): Intent =
@@ -1503,7 +1508,120 @@ index 0000000..595c2d3
 +
 +    fun launchManagement(context: Context) = launch(context, lpaIntent(true))
 +
-+    fun launch(context: Context) = launch(context, intent())
++    fun launch(context: Context) = launchManagement(context)
++
++    /** Keep inserted physical cards reachable when their subscription has no logical slot. */
++    fun visiblePhysicalSubscriptionIds(context: Context): Set<Int> {
++        if (!isDeviceEnabled()) return emptySet()
++        val telephony = context.getSystemService(TelephonyManager::class.java) ?: return emptySet()
++        val subscriptions = context.getSystemService(SubscriptionManager::class.java)
++            ?: return emptySet()
++        return try {
++            val cards = telephony.uiccCardsInfo
++            val available = subscriptions.availableSubscriptionInfoList ?: return emptySet()
++            val primary = cards.singleOrNull { !it.isEuicc && it.physicalSlotIndex == 0 }
++            // A disabled subscription can have no logical slot while its physical port stays
++            // mapped. Keep SIM2's native toggle only when the shared port is mapped to SIM2.
++            val shared = cards.singleOrNull { card ->
++                card.ports.any { it.isActive && it.logicalSlotIndex == 1 }
++            }?.takeIf { !it.isEuicc && it.physicalSlotIndex == 1 }
++            listOfNotNull(primary, shared).mapNotNull { card ->
++                if (card.cardId < 0) return@mapNotNull null
++                available.singleOrNull {
++                    !it.isEmbedded && it.cardId == card.cardId &&
++                        SubscriptionManager.isValidSubscriptionId(it.subscriptionId)
++                }?.subscriptionId
++            }.toSet()
++        } catch (_: SecurityException) {
++            emptySet()
++        }
++    }
++
++    /** Inactive physical cards with a native toggle remain visible. The LPA lists stored eSIMs. */
++    fun showSubscriptionNetwork(
++        embedded: Boolean,
++        slot: Int,
++        active: Boolean,
++        visiblePhysical: Boolean,
++    ): Boolean = !isDeviceEnabled() || active || !embedded && (slot == 0 || visiblePhysical)
++
++    /** Only a qualified owner snapshot describes selection; missing subscriptions prove nothing. */
++    fun connectionMode(state: Bundle?): Int {
++        if (state?.getInt("route_observation_protocol", 0) != 1) return -1
++        return when (state.getString("state")) {
++            "PHYSICAL_READY" -> 0
++            "EUICC_READY", "KNOWN_BLANK" -> 1
++            else -> -1
++        }
++    }
++
++    /** Display-only stock card classification. It never grants route or APDU authority. */
++    fun connectionMode(context: Context, state: Bundle?): Int {
++        val qualified = connectionMode(state)
++        if (qualified >= 0) return qualified
++        // A pending/uncertain owner must never be hidden by cached card metadata.
++        if (state?.getInt("route_observation_protocol", 0) != 1 ||
++            state.getString("state") != "IDLE") return -1
++        return try {
++            val manager = context.getSystemService(TelephonyManager::class.java) ?: return -1
++            detectedConnectionMode(manager.uiccCardsInfo, manager.getSimState(1))
++        } catch (_: SecurityException) {
++            -1
++        }
++    }
++
++    fun detectedConnectionMode(cards: List<UiccCardInfo>?, physicalSimState: Int): Int {
++        val selected = cards?.filter { card ->
++            card.physicalSlotIndex == 1 && card.cardId >= 0 && card.ports.any {
++                it.isActive && it.logicalSlotIndex == 1
++            }
++        } ?: return -1
++        if (selected.size != 1) return -1
++        val card = selected.single()
++        if (card.isEuicc) return if (card.eid?.matches(Regex("[0-9]{32}")) == true) 1 else -1
++        return when (physicalSimState) {
++            TelephonyManager.SIM_STATE_READY, TelephonyManager.SIM_STATE_LOADED,
++            TelephonyManager.SIM_STATE_PIN_REQUIRED, TelephonyManager.SIM_STATE_PUK_REQUIRED,
++            TelephonyManager.SIM_STATE_NETWORK_LOCKED -> 0
++            else -> -1
++        }
++    }
++
++    fun launchConnection(context: Context, physical: Boolean) =
++        launch(context, if (physical) physicalReturnIntent() else connectionIntent())
++
++    /** Legacy Use-SIM intents select the connection, never the intent's cached eSIM profile. */
++    fun redirectProfileToggle(context: Context, info: SubscriptionInfo?, enable: Boolean): Boolean {
++        if (!isDeviceEnabled() || info?.isEmbedded != true) return false
++        launchConnection(context, !enable)
++        return true
++    }
++
++    fun showConnectionChoice(context: Context, state: Bundle?) {
++        if (!isAvailable(context)) return
++        val labels = arrayOf(context.getString(R.string.honor_esim_physical_slot2),
++            context.getString(R.string.downloaded_sim_category_title))
++        val selectedMode = connectionMode(context, state)
++        if (selectedMode < 0) {
++            AlertDialog.Builder(context)
++                .setTitle(labels.joinToString(" / "))
++                .setMessage(if (state?.getString("state") in listOf("WORKING", "EUICC_WAITING"))
++                    R.string.honor_esim_still_pending else R.string.honor_esim_change_unconfirmed)
++                .setNegativeButton(android.R.string.cancel, null)
++                .show()
++            return
++        }
++        AlertDialog.Builder(context)
++            .setTitle(labels.joinToString(" / "))
++            .setSingleChoiceItems(labels, selectedMode) { dialog, selected ->
++                dialog.dismiss()
++                if (selected in 0..1 && selected != selectedMode) {
++                    launchConnection(context, selected == 0)
++                }
++            }
++            .setNegativeButton(android.R.string.cancel, null)
++            .show()
++    }
 +
 +    private fun launch(context: Context, target: Intent) {
 +        if (isAvailable(context)) {
@@ -1521,10 +1639,10 @@ index 0000000..595c2d3
 +}
 diff --git a/src/com/android/settings/network/HonorLdyAn00EsimManagementActivity.java b/src/com/android/settings/network/HonorLdyAn00EsimManagementActivity.java
 new file mode 100644
-index 0000000..2b61fe5
+index 0000000000000000000000000000000000000000..1b2a7e96ccee218edbe254f49ef5d8b702f74627
 --- /dev/null
 +++ b/src/com/android/settings/network/HonorLdyAn00EsimManagementActivity.java
-@@ -0,0 +1,83 @@
+@@ -0,0 +1,87 @@
 +/*
 + * Copyright (C) 2026 The LineageOS Project
 + * SPDX-License-Identifier: Apache-2.0
@@ -1566,13 +1684,17 @@ index 0000000..2b61fe5
 +    Intent privateSetupIntent() {
 +        Intent request = HonorLdyAn00EsimEntry.INSTANCE.managementIntent();
 +        String actionToken = getIntent().getStringExtra("honor_management_action_token");
-+        if (actionToken != null && actionToken.matches("[0-9a-f]{32}"))
-+            request.putExtra("honor_management_action_token", actionToken);
 +        String kind = getIntent().getStringExtra("honor_management_action_kind");
-+        if (kind != null && kind.matches("ENABLE|DISABLE|DELETE|RENAME|ADD"))
++        boolean validAction = actionToken != null && actionToken.matches("[0-9a-f]{32}")
++                && kind != null && kind.matches("ENABLE|DISABLE|DELETE|RENAME|ADD");
++        if (validAction) {
++            request.putExtra("honor_management_action_token", actionToken);
 +            request.putExtra("honor_management_action_kind", kind);
++        }
 +        return request
-+                .putExtra(HonorLdyAn00EsimSetupActivity.EXTRA_CONFIRM_MANAGEMENT, actionToken == null)
++                .putExtra(HonorLdyAn00EsimSetupActivity.EXTRA_CONFIRM_MANAGEMENT,
++                        !validAction || getIntent().getBooleanExtra(
++                                "honor_management_confirm_action", false))
 +                .addFlags(Intent.FLAG_ACTIVITY_FORWARD_RESULT);
 +    }
 +
@@ -1610,10 +1732,10 @@ index 0000000..2b61fe5
 +}
 diff --git a/src/com/android/settings/network/HonorLdyAn00EsimSetupActivity.java b/src/com/android/settings/network/HonorLdyAn00EsimSetupActivity.java
 new file mode 100644
-index 0000000..dfa53a5
+index 0000000000000000000000000000000000000000..600821c77587008d411cdf7eeda4277a58a108fa
 --- /dev/null
 +++ b/src/com/android/settings/network/HonorLdyAn00EsimSetupActivity.java
-@@ -0,0 +1,250 @@
+@@ -0,0 +1,277 @@
 +/*
 + * Copyright (C) 2026 The LineageOS Project
 + * SPDX-License-Identifier: Apache-2.0
@@ -1638,7 +1760,7 @@ index 0000000..dfa53a5
 +    static final String EXTRA_CONFIRM_MANAGEMENT = "confirm_management";
 +    private HonorLdyAn00EsimSetupViewModel mModel;
 +    private int mDialogPhaseSerial = -1;
-+    private boolean mTestImage, mDialogShown, mErrorShown, mReturnPhysical, mManageEsims;
++    private boolean mTestImage, mDialogShown, mErrorShown, mReturnPhysical, mManageEsims, mConnectionOnly;
 +    private boolean mManagementDebugConsent, mManagementEntryConsent;
 +
 +    @Override protected void onCreate(Bundle savedInstanceState) {
@@ -1650,6 +1772,7 @@ index 0000000..dfa53a5
 +        mManageEsims = getIntent().getBooleanExtra(
 +                HonorLdyAn00EsimEntry.EXTRA_MANAGE_ESIMS, false);
 +        mReturnPhysical = getIntent().getBooleanExtra("return_physical_sim2", false);
++        mConnectionOnly = getIntent().getBooleanExtra("connection_only", false);
 +        mDialogShown = savedInstanceState != null && savedInstanceState.getBoolean("dialog");
 +        mErrorShown = savedInstanceState != null && savedInstanceState.getBoolean("error");
 +        mDialogPhaseSerial = savedInstanceState == null ? -1 : savedInstanceState.getInt("phase_serial", -1);
@@ -1694,7 +1817,14 @@ index 0000000..dfa53a5
 +        if (isFinishing() || isDestroyed()) return;
 +        mTestImage = state.getBoolean("test_image", false);
 +        if (mManageEsims) { renderManagement(state); return; }
-+        switch (state.getString("state", "UNKNOWN")) {
++        String value = state.getString("state", "UNKNOWN");
++        if (!mModel.hasPreparedRoute() && (value.equals("IDLE") || value.equals("PHYSICAL_READY")
++                || value.equals("EUICC_READY") || value.equals("KNOWN_BLANK")
++                || value.equals("CONFIRMATION_REQUIRED"))) {
++            mModel.prepareRoute(mReturnPhysical, mTestImage);
++            return;
++        }
++        switch (value) {
 +            case "WORKING" ->
 +                    showProgressDialog(getString(R.string.honor_esim_connecting));
 +            case "EUICC_WAITING" -> {
@@ -1706,6 +1836,7 @@ index 0000000..dfa53a5
 +            case "CONFIRMATION_REQUIRED" -> confirm(
 +                    state.getBoolean("target_physical"), state.getInt("phase_serial", -1));
 +            case "EUICC_READY" -> {
++                if (mConnectionOnly) { dismissProgressDialog(); finish(); return; }
 +                if (mReturnPhysical) {
 +                    if (HonorLdyAn00EsimSetupViewModel.canReturnPhysical(state)) confirm(true, state.getInt("phase_serial", -1));
 +                    else error(R.string.honor_esim_change_unconfirmed);
@@ -1722,6 +1853,7 @@ index 0000000..dfa53a5
 +                }
 +            }
 +            case "KNOWN_BLANK" -> {
++                if (mConnectionOnly) { dismissProgressDialog(); finish(); return; }
 +                if (mReturnPhysical) {
 +                    if (state.getBoolean("can_return", false)) confirm(true, state.getInt("phase_serial", -1));
 +                    else error(R.string.honor_esim_change_unconfirmed);
@@ -1749,12 +1881,26 @@ index 0000000..dfa53a5
 +        }
 +    }
 +
++    /** This activity is private; caller authentication happens in the exported LPA facade. */
++    boolean hasForwardedManagementAction() {
++        String token = getIntent().getStringExtra("honor_management_action_token");
++        String kind = getIntent().getStringExtra("honor_management_action_kind");
++        return getIntent().getBooleanExtra(HonorLdyAn00EsimEntry.EXTRA_MANAGE_ESIMS, false)
++                && token != null && token.matches("[0-9a-f]{32}")
++                && kind != null && kind.matches("ENABLE|DISABLE|DELETE|RENAME|ADD")
++                && !getIntent().getBooleanExtra(EXTRA_CONFIRM_MANAGEMENT, false);
++    }
++
 +    private void renderManagement(Bundle state) {
 +        switch (state.getString("management_stage", "UNAVAILABLE")) {
 +            case "PREPARING" -> {
-+                if (mTestImage && !mManagementDebugConsent) {
++                // The private facade already authenticated this exact in-app user action.
++                // A development image does not require another prompt for the same gesture.
++                boolean trustedAction = hasForwardedManagementAction();
++                if (mTestImage && !mManagementDebugConsent && !trustedAction) {
 +                    confirm(false, state.getInt("phase_serial", -1));
 +                } else {
++                    if (mTestImage && trustedAction) mManagementDebugConsent = true;
 +                    showProgressDialog(getString(R.string.honor_esim_connecting));
 +                    mModel.continueManagement(mManagementDebugConsent);
 +                }
@@ -1770,7 +1916,7 @@ index 0000000..dfa53a5
 +                    startActivityForResult(HonorLdyAn00EsimEntry.INSTANCE.lpaIntent(true)
 +                            .putExtras(session), MANAGEMENT_REQUEST);
 +                } catch (ActivityNotFoundException | SecurityException unavailable) {
-+                    mModel.completeManagement(RESULT_CANCELED, null);
++                    mModel.managementLaunchFailed();
 +                }
 +            }
 +            case "WAITING_LPA" -> dismissProgressDialog();
@@ -1783,6 +1929,7 @@ index 0000000..dfa53a5
 +                setResult(RESULT_OK);
 +                finish();
 +            }
++            case "LAUNCH_FAILED" -> error(R.string.honor_esim_lpa_unavailable);
 +            default -> error("CALL_BUSY".equals(state.getString("state"))
 +                    ? R.string.honor_esim_call_busy : R.string.honor_esim_change_unconfirmed);
 +        }
@@ -1790,8 +1937,11 @@ index 0000000..dfa53a5
 +
 +    @Override protected void onActivityResult(int requestCode, int resultCode, Intent data) {
 +        super.onActivityResult(requestCode, resultCode, data);
-+        if (requestCode == MANAGEMENT_REQUEST && mManageEsims)
-+            mModel.completeManagement(resultCode, data == null ? null : data.getExtras());
++        if (requestCode == MANAGEMENT_REQUEST && mManageEsims) {
++            Bundle result = data == null ? null : data.getExtras();
++            if (!mModel.managementDispatchFailed(resultCode, result))
++                mModel.completeManagement(resultCode, result);
++        }
 +    }
 +
 +    private void confirm(boolean physical, int phaseSerial) {
@@ -1800,9 +1950,8 @@ index 0000000..dfa53a5
 +        if (phaseSerial < 0) { error(R.string.honor_esim_change_unconfirmed); return; }
 +        mDialogPhaseSerial = phaseSerial;
 +        mDialogShown = true;
-+        boolean activating = "ENABLE".equals(getIntent().getStringExtra("honor_management_action_kind"));
 +        String message = getString(physical ? R.string.honor_esim_return_message
-+                : mManageEsims && !activating ? R.string.honor_esim_manage_message
++                : mManageEsims ? R.string.honor_esim_manage_message
 +                        : R.string.honor_esim_sim2_message);
 +        if (mTestImage) message += "\n\n" + getString(R.string.honor_esim_debug_message);
 +        ConfirmDialogFragment.show(this, ConfirmDialogFragment.OnConfirmListener.class,
@@ -1866,10 +2015,10 @@ index 0000000..dfa53a5
 +}
 diff --git a/src/com/android/settings/network/HonorLdyAn00EsimSetupViewModel.java b/src/com/android/settings/network/HonorLdyAn00EsimSetupViewModel.java
 new file mode 100644
-index 0000000..b1a6bb4
+index 0000000000000000000000000000000000000000..c57e71d5d79535a20cb827155b15d162b0d930a3
 --- /dev/null
 +++ b/src/com/android/settings/network/HonorLdyAn00EsimSetupViewModel.java
-@@ -0,0 +1,503 @@
+@@ -0,0 +1,642 @@
 +/*
 + * Copyright (C) 2026 The LineageOS Project
 + * SPDX-License-Identifier: Apache-2.0
@@ -1891,6 +2040,7 @@ index 0000000..b1a6bb4
 +import android.os.Message;
 +import android.os.Messenger;
 +import android.os.Process;
++import android.os.Parcel;
 +import android.os.ParcelUuid;
 +import android.os.RemoteException;
 +import android.os.ResultReceiver;
@@ -1907,6 +2057,8 @@ index 0000000..b1a6bb4
 +import androidx.lifecycle.AndroidViewModel;
 +import androidx.lifecycle.LiveData;
 +import androidx.lifecycle.MutableLiveData;
++import androidx.lifecycle.ViewModel;
++import androidx.lifecycle.ViewModelProvider;
 +
 +/** Retains observation across rotation. Never retries a mutator after connection loss. */
 +public final class HonorLdyAn00EsimSetupViewModel extends AndroidViewModel {
@@ -1915,6 +2067,7 @@ index 0000000..b1a6bb4
 +    private static final long OBSERVATION_BUDGET_MS = 440000;
 +    private static final ComponentName SERVICE = new ComponentName("com.android.phone",
 +            "com.android.phone.HonorLdyAn00EsimSetupService");
++    private final boolean mPassiveObserver;
 +    private final MutableLiveData<Bundle> mState = new MutableLiveData<>();
 +    private final Handler mMain = new Handler(Looper.getMainLooper());
 +    private final Messenger mReplies = new Messenger(new Handler(Looper.getMainLooper(), this::handleReply));
@@ -1925,12 +2078,53 @@ index 0000000..b1a6bb4
 +        boolean confirmationRequired = "CONFIRMATION_REQUIRED".equals(state.getString("state"));
 +        boolean noSelection = state.getBoolean("ready_without_selection", false);
 +        boolean callBusy = "CALL_BUSY".equals(state.getString("state"));
-+        if (msg.arg1 != mRequestId && !((confirmationRequired || noSelection || callBusy) && mChoiceSubmitted
++        boolean noAdmission = state.getBoolean("no_admission",false);
++        if ((state.containsKey("no_admission") || state.containsKey("no_admission_protocol"))
++                && (!(state.get("no_admission") instanceof Boolean) || !noAdmission)) return true;
++        if(noAdmission && (msg.what!=1 || !(state.get("version") instanceof Integer)
++                || state.getInt("version",0)!=1
++                || !(state.get("no_admission_protocol") instanceof Integer)
++                || state.getInt("no_admission_protocol",0)!=1 || !mChoiceSubmitted
++                || msg.arg1<=0 || msg.arg1!=mSelectionRequestId
++                || !(state.get("phase_serial") instanceof Integer)
++                || state.getInt("phase_serial",-1)<0
++                || !(state.get("consent_phase_serial") instanceof Integer)
++                || state.getInt("consent_phase_serial",-1)<0
++                || state.getInt("consent_phase_serial",-1)!=mConsentPhaseSerial
++                || !(state.get("target_physical") instanceof Boolean)
++                || state.getBoolean("target_physical")!=mSelectedPhysical
++                || !(confirmationRequired || callBusy || "UNAVAILABLE".equals(state.getString("state")))))
++            return true; // An unqualified receipt cannot release the current pending choice.
++        if (msg.arg1 != mRequestId && !((confirmationRequired || noSelection || callBusy || noAdmission) && mChoiceSubmitted
 +                && msg.arg1 == mSelectionRequestId)) return true;
 +        if (msg.what != 1 || state.getInt("version") != 1) { stop(); return true; }
 +        String value = state.getString("state", "UNKNOWN");
 +        int phaseSerial = state.getInt("phase_serial", -1);
 +        if (phaseSerial < 0) { stop(); return true; }
++        if (state.getBoolean("preparation_only", false)) {
++            if (!mRoutePreparationPending || msg.arg1 != mRoutePreparationRequestId
++                    || state.getInt("preparation_protocol", 0) != 1
++                    || !state.containsKey("preparation_target_physical")
++                    || state.getBoolean("preparation_target_physical") != mPreparationPhysical) {
++                stop(); return true;
++            }
++            mRoutePreparationPending = false;
++            if (callBusy) { stop("CALL_BUSY"); return true; }
++            if (!(value.equals("PHYSICAL_READY") || value.equals("EUICC_READY")
++                    || value.equals("KNOWN_BLANK"))) { stop(); return true; }
++            mRoutePrepared = true;
++        } else if (mRoutePreparationPending) {
++            // Only the tagged final reply to this preparation may supply its consent phase.
++            return true;
++        }
++        if(noAdmission && !confirmationRequired) {
++            // Exact original SELECT receipt remains valid after passive poll IDs advance.
++            // No backend route was admitted; finish this observation without resubmitting.
++            mChoiceSubmitted=false;mRoutePrepared=false;mProfileRouteRequested=false;
++            mMain.removeCallbacks(mPoll);mMain.removeCallbacks(mExpiry);
++            stop(callBusy ? "CALL_BUSY" : "UNAVAILABLE");
++            return true;
++        }
 +        if (callBusy && (!mChoiceSubmitted || msg.arg1 != mSelectionRequestId
 +                || phaseSerial != mConsentPhaseSerial
 +                || !state.containsKey("target_physical")
@@ -1944,6 +2138,7 @@ index 0000000..b1a6bb4
 +            // Trusted Phone proved this exact SELECT was NOT admitted. This is not UNKNOWN
 +            // recovery or a retry: publish a new dialog and require another positive choice.
 +            mChoiceSubmitted = false;
++            mRoutePrepared = false;
 +            mProfileRouteRequested = false; // Exact Phone reply proved no SELECT admission.
 +            mMain.removeCallbacks(mPoll);
 +            mMain.removeCallbacks(mExpiry);
@@ -1962,7 +2157,8 @@ index 0000000..b1a6bb4
 +            // This exact cold request proved current readiness without a setter or fake +1.
 +        } else if ((mProfileOperation != null && mProfileRouteRequested
 +                || mManagementOutbound) && mChoiceSubmitted
-+                && !mSelectedPhysical && value.equals("EUICC_READY")) {
++                && !mSelectedPhysical && (value.equals("EUICC_READY")
++                    || mManagementOutbound && value.equals("KNOWN_BLANK"))) {
 +            if (mConsentPhaseSerial == Integer.MAX_VALUE || phaseSerial > mConsentPhaseSerial + 1) {
 +                stop(); return true; // A later unrelated cycle is not this profile consent.
 +            }
@@ -2027,7 +2223,8 @@ index 0000000..b1a6bb4
 +    private Messenger mRemote;
 +    private boolean mBound, mStopped, mChoiceSubmitted, mLpaLaunched, mHasSnapshot;
 +    private boolean mSelectedPhysical;
-+    private boolean mObservationExpired;
++    private boolean mRoutePrepared, mRoutePreparationPending, mPreparationPhysical;
++    private int mRoutePreparationRequestId = -1;
 +    private int mRequestId, mSelectionRequestId, mPhaseSerial = -1, mConsentPhaseSerial = -1;
 +    private long mDeadline;
 +
@@ -2035,6 +2232,7 @@ index 0000000..b1a6bb4
 +    private int mManagementOrigin = -1, mManagementPhase = -1, mManagementReturnRequest = -1;
 +    private boolean mManagementOutbound, mManagementReturnReady, mManagementDebugConsent;
 +    private boolean mManagementPublishing, mManagementContinuePending;
++    private boolean mManagementLaunchFailed;
 +    private final ResultReceiver mManagementResult = new ResultReceiver(mMain) {
 +        @Override protected void onReceiveResult(int code, Bundle data) { completeManagement(code, data); }
 +    };
@@ -2058,7 +2256,11 @@ index 0000000..b1a6bb4
 +            return;
 +        }
 +        Bundle state = mState.getValue();
-+        if (mStopped || state == null || !mHasSnapshot) return;
++        if (mStopped || state == null || !mHasSnapshot || mRoutePreparationPending) return;
++        if ("PREPARING".equals(mManagementStage) && !mRoutePrepared) {
++            prepareRoute(false, trustedDebugConsent);
++            return;
++        }
 +        String value = state.getString("state", "UNKNOWN");
 +        if ("PREPARING".equals(mManagementStage)) {
 +            if (mManagementOutbound || mChoiceSubmitted) return;
@@ -2083,7 +2285,17 @@ index 0000000..b1a6bb4
 +        Bundle extras = new Bundle();
 +        extras.putInt("honor_management_version", 1);
 +        extras.putString("honor_management_nonce", mManagementNonce);
-+        extras.putParcelable("honor_management_result", mManagementResult);
++        // Only the framework parcelable class may cross into the separately loaded LPA.
++        // Sending our anonymous subclass makes the receiver require Settings' private class.
++        Parcel callback = Parcel.obtain();
++        try {
++            mManagementResult.writeToParcel(callback, 0);
++            callback.setDataPosition(0);
++            extras.putParcelable("honor_management_result",
++                    ResultReceiver.CREATOR.createFromParcel(callback));
++        } finally {
++            callback.recycle();
++        }
 +        mMain.removeCallbacks(mExpiry);
 +        publishManagement();
 +        return extras;
@@ -2098,21 +2310,46 @@ index 0000000..b1a6bb4
 +                || !Boolean.TRUE.equals(data.get("honor_management_drained"))
 +                || !(data.get("honor_management_keep_esim") instanceof Boolean)
 +                || mManagementOrigin < 0) { stop(); return; }
-+        if ((Boolean) data.get("honor_management_keep_esim") || mManagementOrigin == 1) {
-+            mManagementStage = "DONE"; publishManagement(); return;
++        finishManagement();
++    }
++
++    /** Only a matching activity result from Phone's dispatcher can prove a failed handoff. */
++    public boolean managementDispatchFailed(int code, Bundle data) {
++        if (mStopped || !"WAITING_LPA".equals(mManagementStage)
++                || code != Activity.RESULT_FIRST_USER || data == null
++                || data.getInt("honor_management_version", 0) != 1
++                || !Objects.equals(mManagementNonce, data.getString("honor_management_nonce"))
++                || !data.getBoolean("honor_management_dispatch_failed", false)) return false;
++        managementLaunchFailed();
++        return true;
++    }
++
++    /** The synchronous startActivity failure guarantees this LPA session never started. */
++    public void managementLaunchFailed() {
++        if (mStopped || !"WAITING_LPA".equals(mManagementStage) || mManagementOrigin < 0) return;
++        mManagementLaunchFailed = true;
++        finishManagement();
++    }
++
++    private void finishManagement() {
++        // Only a separate Settings choice changes the user's physical/eSIM connection.
++        if (mManagementOrigin == 1) {
++            mManagementStage = managementFinishedStage();
++            publishManagement();
++            return;
 +        }
 +        if (mRemote == null || !mRemote.getBinder().isBinderAlive() || mChoiceSubmitted) { stop(); return; }
 +        mManagementStage = "RESTORING";
 +        mManagementReturnReady = false;
 +        refreshSnapshotOnce(); // A new reply, never the old pre-LPA snapshot, authorizes return.
-+        mManagementReturnRequest = mRequestId;
 +        publishManagement();
 +    }
 +
 +    private boolean managementSnapshot(Message msg, Bundle state, String value, boolean noSelection, int phase) {
 +        if (mManagementStage == null) return true;
 +        if ("PREPARING".equals(mManagementStage) && mManagementOutbound
-+                && mChoiceSubmitted && !mSelectedPhysical && value.equals("EUICC_READY")) {
++                && mChoiceSubmitted && !mSelectedPhysical
++                && (value.equals("EUICC_READY") || value.equals("KNOWN_BLANK"))) {
 +            if (noSelection) mManagementOrigin = 1; // Existing exact cold GET1 validation ran above.
 +            else if (state.getInt("management_origin_protocol", 0) == 1
 +                    && state.getInt("management_origin_mode", -1) == 0
@@ -2126,16 +2363,26 @@ index 0000000..b1a6bb4
 +            mManagementPhase = phase; mManagementStage = "READY";
 +        } else if ("RESTORING".equals(mManagementStage)) {
 +            if (msg.arg1 == mManagementReturnRequest && !mChoiceSubmitted) {
-+                if (phase != mManagementPhase || !canReturnPhysical(state)
++                if (phase != mManagementPhase
 +                        || state.getInt("route_observation_protocol", 0) != 1) { stop(); return false; }
-+                mManagementReturnRequest = -1;
-+                mManagementReturnReady = true;
++                if (canReturnPhysical(state)) {
++                    mManagementReturnRequest = -1;
++                    mManagementReturnReady = true;
++                } else if (!value.equals("WORKING") && !value.equals("EUICC_WAITING")) {
++                    stop(); return false;
++                }
++                // The normal observation loop will request another snapshot within the
++                // existing deadline. A busy reply never grants a physical selection.
 +            } else if (value.equals("PHYSICAL_READY") && !mChoiceSubmitted
 +                    && mSelectedPhysical && mConsentPhaseSerial < Integer.MAX_VALUE
-+                    && phase == mConsentPhaseSerial + 1) mManagementStage = "DONE";
++                    && phase == mConsentPhaseSerial + 1) mManagementStage = managementFinishedStage();
 +        }
 +        state.putString("management_stage", mManagementStage);
 +        return true;
++    }
++
++    private String managementFinishedStage() {
++        return mManagementLaunchFailed ? "LAUNCH_FAILED" : "DONE";
 +    }
 +
 +    private void publishManagement() {
@@ -2256,8 +2503,23 @@ index 0000000..b1a6bb4
 +        @Override public void onNullBinding(ComponentName name) { stop(); }
 +    };
 +
++    public static ViewModelProvider.Factory passiveObserverFactory(Application app) {
++        return new ViewModelProvider.Factory() {
++            @Override public <T extends ViewModel> T create(Class<T> modelClass) {
++                if (modelClass != HonorLdyAn00EsimSetupViewModel.class)
++                    throw new IllegalArgumentException("Unsupported observer");
++                return modelClass.cast(new HonorLdyAn00EsimSetupViewModel(app, true));
++            }
++        };
++    }
++
 +    public HonorLdyAn00EsimSetupViewModel(Application app) {
++        this(app, false);
++    }
++
++    private HonorLdyAn00EsimSetupViewModel(Application app, boolean passiveObserver) {
 +        super(app);
++        mPassiveObserver = passiveObserver;
 +        mDeadline = SystemClock.elapsedRealtime() + 60000;
 +        try {
 +            PackageManager pm = app.getPackageManager();
@@ -2280,11 +2542,10 @@ index 0000000..b1a6bb4
 +    /** Passive re-read on entering native SIM settings; never prepares an owner. */
 +    public void refreshSnapshotOnce() {
 +        if (mChoiceSubmitted || mRemote == null || !mRemote.getBinder().isBinderAlive()
-+                || (mStopped && !mObservationExpired)) return;
-+        // A SIM-list observer can re-read after its own local timeout. A submitted mutation,
-+        // failed transport, invalid protocol, or backend UNKNOWN never receives a retry.
++                || (mStopped && !mPassiveObserver)) return;
++        // Read-only SIM-list observers may request a fresh snapshot after returning from
++        // another screen. Mutation models retain terminal failures and never retry here.
 +        mStopped = false;
-+        mObservationExpired = false;
 +        mDeadline = SystemClock.elapsedRealtime() + OBSERVATION_BUDGET_MS;
 +        mMain.removeCallbacks(mPoll);
 +        mMain.removeCallbacks(mExpiry);
@@ -2324,6 +2585,23 @@ index 0000000..b1a6bb4
 +        send(physical ? 3 : 2, true, trustedDebugConsent);
 +    }
 +
++    public boolean hasPreparedRoute() { return mRoutePrepared; }
++
++    /** Called only for a selected connection or authenticated management entry, never the SIM list. */
++    public void prepareRoute(boolean physical, boolean trustedDebugConsent) {
++        if (mStopped || mRoutePrepared || mRoutePreparationPending || mChoiceSubmitted
++                || mRemote == null || !mHasSnapshot) return;
++        mRoutePreparationPending = true;
++        mPreparationPhysical = physical;
++        Bundle preparing = new Bundle(mState.getValue());
++        preparing.putString("state", "WORKING");
++        mState.setValue(preparing);
++        mMain.removeCallbacks(mPoll);
++        mMain.removeCallbacks(mExpiry);
++        mMain.postDelayed(mExpiry, OBSERVATION_BUDGET_MS);
++        send(8, false, trustedDebugConsent);
++    }
++
 +    public boolean takeLpaLaunch() {
 +        if (mStopped || mLpaLaunched) return false;
 +        mLpaLaunched = true;
@@ -2332,17 +2610,28 @@ index 0000000..b1a6bb4
 +    }
 +
 +    private void send(int command, boolean confirmed, boolean debug) {
++        if (mPassiveObserver && command != 1) { stop(); return; }
 +        if (mStopped || mRemote == null) return;
 +        Message request = Message.obtain(null, command);
 +        request.arg1 = ++mRequestId;
-+        if (command != 1) mSelectionRequestId = request.arg1;
++        if (command == 2 || command == 3) mSelectionRequestId = request.arg1;
++        if (command == 8) mRoutePreparationRequestId = request.arg1;
++        if (command == 1 && "RESTORING".equals(mManagementStage) && !mChoiceSubmitted)
++            mManagementReturnRequest = request.arg1;
 +        request.replyTo = mReplies;
 +        Bundle data = new Bundle();
 +        data.putBoolean("confirmed", confirmed);
 +        data.putInt("version", 1);
 +        data.putInt("profile_route_protocol", 1); // Explicit opt-in to typed cold no-SELECT readiness.
 +        data.putInt("route_observation_protocol",1); // Also understands genuine already-physical READ.
-+        if (command != 1) data.putInt("phase_serial", mConsentPhaseSerial);
++        if (command == 8) {
++            data.putBoolean("explicit_user_action", true);
++            data.putBoolean("target_physical", mPreparationPhysical);
++        }
++        if (command == 2 || command == 3) data.putInt("phase_serial", mConsentPhaseSerial);
++        if ((command == 2 || command == 3) && isManagementSession() && mManagementNonce != null
++                && mManagementNonce.matches("[0-9a-f]{32}"))
++            data.putString("management_session_nonce", mManagementNonce);
 +        data.putBoolean("trusted_debug_consent", debug);
 +        request.setData(data);
 +        try { mRemote.send(request); }
@@ -2352,7 +2641,6 @@ index 0000000..b1a6bb4
 +    private void stop() { stop("UNAVAILABLE"); }
 +
 +    private void stop(String reason) {
-+        mObservationExpired = "OBSERVATION_TIMEOUT".equals(reason);
 +        mStopped = true;
 +        mMain.removeCallbacks(mPoll);
 +        mMain.removeCallbacks(mExpiry);
@@ -2375,7 +2663,7 @@ index 0000000..b1a6bb4
 +}
 diff --git a/src/com/android/settings/network/HonorPrimaryDataSelection.java b/src/com/android/settings/network/HonorPrimaryDataSelection.java
 new file mode 100644
-index 0000000..1fd173c
+index 0000000000000000000000000000000000000000..1fd173ca85be34969e03d0cdba756bf603fab843
 --- /dev/null
 +++ b/src/com/android/settings/network/HonorPrimaryDataSelection.java
 @@ -0,0 +1,162 @@
@@ -2542,7 +2830,7 @@ index 0000000..1fd173c
 +    }
 +}
 diff --git a/src/com/android/settings/network/MobileNetworkListFragment.kt b/src/com/android/settings/network/MobileNetworkListFragment.kt
-index 59acade..2b0e4e6 100644
+index 59acade78ad930765a59c0cc27885c442991a564..c323642084a70760c5bd9ee4f865dfa3015e32d8 100644
 --- a/src/com/android/settings/network/MobileNetworkListFragment.kt
 +++ b/src/com/android/settings/network/MobileNetworkListFragment.kt
 @@ -22,6 +22,13 @@ import android.os.Bundle
@@ -2555,11 +2843,11 @@ index 59acade..2b0e4e6 100644
 +import androidx.lifecycle.repeatOnLifecycle
 +import kotlinx.coroutines.launch
 +import com.android.settings.network.telephony.SubscriptionActivationRepository
-+import com.android.settingslib.RestrictedSwitchPreference
++import com.android.settingslib.RestrictedPreference
  import com.android.settings.R
  import com.android.settings.SettingsActivity.EXTRA_FRAGMENT_ARG_KEY
  import com.android.settings.dashboard.DashboardFragment
-@@ -35,8 +42,42 @@ import com.android.settingslib.search.SearchIndexable
+@@ -35,8 +42,39 @@ import com.android.settingslib.search.SearchIndexable
  
  @SearchIndexable(forTarget = SearchIndexable.ALL and SearchIndexable.ARC.inv())
  class MobileNetworkListFragment : DashboardFragment() {
@@ -2570,18 +2858,15 @@ index 59acade..2b0e4e6 100644
      override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
          super.onViewCreated(view, savedInstanceState)
 +        if (HonorLdyAn00EsimEntry.isDeviceEnabled()) {
-+            val returnSim = findPreference<RestrictedSwitchPreference>("honor_physical_slot2") ?: return
-+            val model = ViewModelProvider(this)[HonorLdyAn00EsimSetupViewModel::class.java]
++            val returnSim = findPreference<RestrictedPreference>("honor_shared_sim_connection") ?: return
++            val model = ViewModelProvider(this,
++                HonorLdyAn00EsimSetupViewModel.passiveObserverFactory(requireActivity().application)
++            )[HonorLdyAn00EsimSetupViewModel::class.java]
 +            honorRouteObserver = model
-+            returnSim.setOnPreferenceChangeListener { _, selected ->
-+                if (selected == true && returnSim.isVisible && returnSim.isEnabled &&
-+                    HonorLdyAn00EsimSetupViewModel.canReturnPhysical(honorRouteState)) {
-+                    HonorLdyAn00EsimEntry.launchPhysicalReturn(requireContext())
-+                }
-+                false // Keep Off until the owned route operation actually completes.
-+            }
-+            use(NetworkProviderSimListController::class.java)?.setHonorRowsChangedListener {
-+                updateHonorSlotVisibility()
++            returnSim.setOnPreferenceClickListener {
++                if (returnSim.isVisible && returnSim.isEnabled)
++                    HonorLdyAn00EsimEntry.showConnectionChoice(requireContext(), honorRouteState)
++                true
 +            }
 +            model.state().observe(viewLifecycleOwner) { state ->
 +                if (isResumed && state !== honorBeforeResume) {
@@ -2602,7 +2887,7 @@ index 59acade..2b0e4e6 100644
      }
  
      override fun onCreate(icicle: Bundle?) {
-@@ -53,11 +94,59 @@ class MobileNetworkListFragment : DashboardFragment() {
+@@ -53,11 +91,52 @@ class MobileNetworkListFragment : DashboardFragment() {
  
      override fun onResume() {
          super.onResume()
@@ -2620,7 +2905,7 @@ index 59acade..2b0e4e6 100644
 +        val context = requireContext()
 +        val addSim = findPreference<Preference>(KEY_ADD_SIM)!!
 +        val honorDevice = HonorLdyAn00EsimEntry.isDeviceEnabled()
-+        addSim.isVisible = honorDevice || EuiccRepository(context).showEuiccSettings()
++        addSim.isVisible = !honorDevice && EuiccRepository(context).showEuiccSettings()
 +        val manageEsims = findPreference<Preference>("manage_esims")!!
 +        manageEsims.isVisible = honorDevice
 +        manageEsims.isEnabled = honorDevice && HonorLdyAn00EsimEntry.isAvailable(context)
@@ -2628,24 +2913,18 @@ index 59acade..2b0e4e6 100644
 +            HonorLdyAn00EsimEntry.launchManagement(context)
 +            true
 +        }
-+        if (honorDevice) {
-+            addSim.intent = null
-+            addSim.isEnabled = HonorLdyAn00EsimEntry.isAvailable(context)
-+            addSim.setOnPreferenceClickListener {
-+                HonorLdyAn00EsimEntry.launch(context)
-+                true
-+            }
-+        }
 +    }
 +
 +    private fun updateHonorSlotVisibility() {
-+        val slot = findPreference<RestrictedSwitchPreference>("honor_physical_slot2") ?: return
-+        val controller = use(NetworkProviderSimListController::class.java)
-+        controller?.setHonorRouteState(if (honorActivationAllowed) honorRouteState else null)
-+        slot.isVisible = controller?.hasHonorPhysicalSim2Row() != true
-+        slot.isChecked = false
-+        slot.isEnabled = HonorLdyAn00EsimSetupViewModel.canReturnPhysical(honorRouteState) &&
-+            honorActivationAllowed && HonorLdyAn00EsimEntry.isAvailable(requireContext())
++        val slot = findPreference<RestrictedPreference>("honor_shared_sim_connection") ?: return
++        slot.isVisible = HonorLdyAn00EsimEntry.isDeviceEnabled()
++        val labels = listOf(getString(R.string.honor_esim_physical_slot2),
++            getString(R.string.downloaded_sim_category_title))
++        slot.title = labels.joinToString(" / ")
++        slot.summary = labels.getOrNull(HonorLdyAn00EsimEntry.connectionMode(requireContext(), honorRouteState))
++            ?: getString(R.string.unknown)
++        slot.isEnabled = honorActivationAllowed &&
++            HonorLdyAn00EsimEntry.isAvailable(requireContext())
 +    }
 +
 +    override fun onPause() {
@@ -2658,14 +2937,13 @@ index 59acade..2b0e4e6 100644
 +    }
 +
 +    override fun onDestroyView() {
-+        use(NetworkProviderSimListController::class.java)?.setHonorRowsChangedListener(null)
 +        honorRouteObserver = null
 +        super.onDestroyView()
      }
  
      override fun getPreferenceScreenResId() = R.xml.network_provider_sims_list
 diff --git a/src/com/android/settings/network/MobileNetworkListScreen.kt b/src/com/android/settings/network/MobileNetworkListScreen.kt
-index c5ea990..6512ef3 100644
+index c5ea99073a4d0b6ae97f24163e45e7e58dcdbdf8..6512ef38e156dd462f88d3272aa7380ae094968a 100644
 --- a/src/com/android/settings/network/MobileNetworkListScreen.kt
 +++ b/src/com/android/settings/network/MobileNetworkListScreen.kt
 @@ -86,7 +86,9 @@ open class MobileNetworkListScreen(context: Context) :
@@ -2699,75 +2977,42 @@ index c5ea990..6512ef3 100644
      private fun getSelectableSubscriptionInfoList(context: Context): List<SubscriptionInfo> =
          subscriptionInfoList
 diff --git a/src/com/android/settings/network/NetworkProviderSimListController.java b/src/com/android/settings/network/NetworkProviderSimListController.java
-index 51059a7..853bac7 100644
+index 51059a742d995f17c1ec8bdb18f61e465914f0f6..3c50fa75ee78a17e815e7dbadfc17b47a68eaa19 100644
 --- a/src/com/android/settings/network/NetworkProviderSimListController.java
 +++ b/src/com/android/settings/network/NetworkProviderSimListController.java
-@@ -17,6 +17,7 @@
- package com.android.settings.network;
+@@ -38,6 +38,7 @@ import com.android.settingslib.mobile.dataservice.SubscriptionInfoEntity;
  
- import android.content.Context;
-+import android.os.Bundle;
- import android.graphics.drawable.Drawable;
- import android.telephony.SubscriptionManager;
- import android.util.ArrayMap;
-@@ -52,6 +53,26 @@ public class NetworkProviderSimListController extends BasePreferenceController i
+ import java.util.ArrayList;
+ import java.util.List;
++import java.util.Set;
+ import java.util.Map;
+ 
+ public class NetworkProviderSimListController extends BasePreferenceController implements
+@@ -52,7 +53,6 @@ public class NetworkProviderSimListController extends BasePreferenceController i
      private final MobileNetworkRepository mMobileNetworkRepository;
      private List<SubscriptionInfoEntity> mSubInfoEntityList = new ArrayList<>();
      private final DefaultSubscriptionReceiver mDataSubscriptionChangedReceiver;
-+    private boolean mHonorCanReturnPhysical;
-+    @Nullable private Runnable mHonorRowsChanged;
-+
-+    /** Only the validated passive Phone snapshot may admit the shared physical-slot action. */
-+    public void setHonorRouteState(@Nullable Bundle state) {
-+        mHonorCanReturnPhysical = HonorLdyAn00EsimEntry.INSTANCE.isAvailable(mContext)
-+                && HonorLdyAn00EsimSetupViewModel.canReturnPhysical(state);
-+        update();
-+    }
-+
-+    public void setHonorRowsChangedListener(@Nullable Runnable listener) {
-+        mHonorRowsChanged = listener;
-+    }
-+
-+    public boolean hasHonorPhysicalSim2Row() {
-+        return mSubInfoEntityList.stream().anyMatch(info ->
-+                info.isValidSubscription && !info.isEmbedded && info.simSlotIndex == 1
-+                        && mPreferences.containsKey(info.getSubId()));
-+    }
-+
- 
+-
      public NetworkProviderSimListController(Context context, String preferenceKey) {
          super(context, preferenceKey);
-@@ -71,6 +92,7 @@ public class NetworkProviderSimListController extends BasePreferenceController i
+         mSubscriptionManager = context.getSystemService(SubscriptionManager.class);
+@@ -162,7 +162,13 @@ public class NetworkProviderSimListController extends BasePreferenceController i
  
-     @Override
-     public void onPause(@NonNull LifecycleOwner owner) {
-+        mHonorCanReturnPhysical = false;
-         mMobileNetworkRepository.removeRegister(this);
-         mDataSubscriptionChangedReceiver.unRegisterReceiver();
-     }
-@@ -110,6 +132,12 @@ public class NetworkProviderSimListController extends BasePreferenceController i
-                 pref.setEnabled(false);
-             } else {
-                 pref.setOnPreferenceClickListener(clickedPref -> {
-+                    if (mHonorCanReturnPhysical && info.isValidSubscription
-+                            && !info.isEmbedded && info.simSlotIndex == 1
-+                            && HonorLdyAn00EsimEntry.INSTANCE.isAvailable(mContext)) {
-+                        HonorLdyAn00EsimEntry.INSTANCE.launchPhysicalReturn(mContext);
-+                        return true;
-+                    }
-                     if (!info.isEmbedded && !isActiveSubscriptionId
-                             && !SubscriptionUtil.showToggleForPhysicalSim(mSubscriptionManager)) {
-                         SubscriptionUtil.startToggleSubscriptionDialogActivity(mContext, subId,
-@@ -172,6 +200,7 @@ public class NetworkProviderSimListController extends BasePreferenceController i
-             mPreferenceCategory.setVisible(isAvailable());
-         }
-         update();
-+        if (mHonorRowsChanged != null) mHonorRowsChanged.run();
+     @VisibleForTesting
+     protected List<SubscriptionInfoEntity> getAvailablePhysicalSubscriptions() {
+-        return new ArrayList<>(mSubInfoEntityList);
++        ArrayList<SubscriptionInfoEntity> rows = new ArrayList<>(mSubInfoEntityList);
++        Set<Integer> visiblePhysicalIds =
++                HonorLdyAn00EsimEntry.INSTANCE.visiblePhysicalSubscriptionIds(mContext);
++        rows.removeIf(info -> !HonorLdyAn00EsimEntry.INSTANCE.showSubscriptionNetwork(
++                info.isEmbedded, info.simSlotIndex, info.isActiveSubscriptionId,
++                visiblePhysicalIds.contains(info.getSubId())));
++        return rows;
      }
  
      @Override
 diff --git a/src/com/android/settings/network/SimOnboardingActivity.kt b/src/com/android/settings/network/SimOnboardingActivity.kt
-index 0524954..9a9af7c 100644
+index 05249548c9e3d820d6a2cd79c60b478b817500fa..9a9af7c9a029d901522068682b1288831e4f9e3c 100644
 --- a/src/com/android/settings/network/SimOnboardingActivity.kt
 +++ b/src/com/android/settings/network/SimOnboardingActivity.kt
 @@ -93,6 +93,7 @@ class SimOnboardingActivity : SpaBaseDialogActivity() {
@@ -2820,8 +3065,34 @@ index 0524954..9a9af7c 100644
          showStartingDialog = rememberSaveable { mutableStateOf(false) }
          showError = rememberSaveable { mutableStateOf(ErrorType.ERROR_NONE) }
          showProgressDialog = rememberSaveable { mutableStateOf(false) }
+diff --git a/src/com/android/settings/network/SimOnboardingViewModel.kt b/src/com/android/settings/network/SimOnboardingViewModel.kt
+index d3997faa4530c27c49c4e581b05d80dba1ce5a6c..3ebb579998b9b34d06b271658bb4ea9a6e9aaf74 100644
+--- a/src/com/android/settings/network/SimOnboardingViewModel.kt
++++ b/src/com/android/settings/network/SimOnboardingViewModel.kt
+@@ -223,6 +223,10 @@ class SimOnboardingViewModel(private val application: Application) : AndroidView
+     }
+ 
+     suspend fun startEuiccSimSwitching(subId: Int, portId: Int, removedSubInfo: SubscriptionInfo?) {
++        if (HonorLdyAn00EsimEntry.isDeviceEnabled()) {
++            _uiState.value = SwitchingState.FAILED
++            return // Shared-path connection selection never enables/disables an eUICC profile here.
++        }
+         if (!this::currentSimSwitchingInfo.isInitialized) {
+             Log.e(TAG, "no init currentSimSwitchingInfo")
+         }
+@@ -480,6 +484,10 @@ class SimOnboardingViewModel(private val application: Application) : AndroidView
+     }
+ 
+     private fun switchEuiccSimAfterSlotReady() {
++        if (HonorLdyAn00EsimEntry.isDeviceEnabled()) {
++            _uiState.value = SwitchingState.FAILED
++            return // Shared-path connection selection never enables/disables an eUICC profile here.
++        }
+         // The SimSlotMapping is ready, then to execute activate/inactivate esim.
+         if (!this::currentSimSwitchingInfo.isInitialized || !this::callbackIntent.isInitialized) {
+             Log.e(TAG, "no init currentSimSwitchingInfo or callbackIntent")
 diff --git a/src/com/android/settings/network/SwitchToEuiccSubscriptionSidecar.java b/src/com/android/settings/network/SwitchToEuiccSubscriptionSidecar.java
-index 4a19e62..857545e 100644
+index 4a19e6287f66e1bc7b2947199336dc14b8ec9460..68c3ef4d788c049e714f20dbeb56daec14d63ecb 100644
 --- a/src/com/android/settings/network/SwitchToEuiccSubscriptionSidecar.java
 +++ b/src/com/android/settings/network/SwitchToEuiccSubscriptionSidecar.java
 @@ -25,6 +25,7 @@ import android.telephony.UiccPortInfo;
@@ -2904,7 +3175,7 @@ index 4a19e62..857545e 100644
              // Case 1: In DSDS mode+MEP, if the replaced esim is active, then the replaced esim
              // should be disabled before changing SimSlotMapping process.
              //
-@@ -130,13 +159,113 @@ public class SwitchToEuiccSubscriptionSidecar extends EuiccOperationSidecar {
+@@ -130,13 +159,92 @@ public class SwitchToEuiccSubscriptionSidecar extends EuiccOperationSidecar {
              // Note: Use INVALID_SUBSCRIPTION_ID to disable the esim profile.
              Log.d(TAG, "Disable the enabled esim before the settings enables the target esim");
              mIsDuringSimSlotMapping = true;
@@ -2916,38 +3187,17 @@ index 4a19e62..857545e 100644
 -            mSwitchSlotSidecar.runSwitchToEuiccSlot(targetSlot, mPort, removedSubInfo);
 +            if (mHonorCard >= 0) continueHonorEnable();
 +            else mSwitchSlotSidecar.runSwitchToEuiccSlot(targetSlot, mPort, removedSubInfo);
-         }
-     }
- 
++        }
++    }
++
 +    /** Positive native confirmation carries the originating real profile, not the default card. */
 +    public void runForCard(int subscriptionId, int targetSubId, int cardId, int port,
 +            SubscriptionInfo removedSubInfo) {
-+        if (!HonorLdyAn00EsimEntry.INSTANCE.isDeviceEnabled()) {
-+            run(subscriptionId, port, removedSubInfo);
-+            return;
++        if (HonorLdyAn00EsimEntry.INSTANCE.isDeviceEnabled()) {
++            setState(State.ERROR, Substate.UNUSED);
++            return; // Profile activation belongs to the LPA, not any Settings sidecar.
 +        }
-+        if (getState() == State.RUNNING || cardId < 0 || targetSubId < 0 || port < -1 || port > 0) {
-+            if (getState() != State.RUNNING) setState(State.ERROR, Substate.UNUSED);
-+            return;
-+        }
-+        SubscriptionInfo target = SubscriptionUtil.getSubById(getContext().getSystemService(
-+                SubscriptionManager.class).createForAllUserProfiles(), targetSubId);
-+        if (target == null || !target.isEmbedded() || target.getCardId() != cardId
-+                || TextUtils.isEmpty(target.getIccId())
-+                || (removedSubInfo != null && removedSubInfo.isEmbedded()
-+                    && removedSubInfo.getCardId() != cardId)
-+                || (subscriptionId != SubscriptionManager.INVALID_SUBSCRIPTION_ID
-+                    && subscriptionId != targetSubId)) {
-+            setState(State.ERROR, Substate.UNUSED); return;
-+        }
-+        mHonorTargetSub = targetSubId; mHonorCard = cardId; mHonorIccid = target.getIccId();
-+        mHonorEuicc = mEuiccManager.createForCardId(cardId);
-+        mSubId = subscriptionId; mRemovedSubInfo = removedSubInfo;
-+        mIsDuringSimSlotMapping = false;
-+        mCallbackIntent = createCallbackIntent();
-+        setState(State.RUNNING, Substate.UNUSED);
-+        mHonorStage = HonorStage.PREPARING;
-+        prepareHonorTarget(port, () -> continueRun(port, removedSubInfo));
++        run(subscriptionId, port, removedSubInfo);
 +    }
 +
 +    private boolean honorTargetCurrent() {
@@ -2995,7 +3245,7 @@ index 4a19e62..857545e 100644
 +            HonorEuiccProfilePreparation pending = mHonorPreparation; mHonorPreparation = null;
 +            if (pending != null) pending.cancel();
 +            mHonorCard = -1; mHonorTargetSub = -1; mHonorEuicc = null;
-+        }
+         }
 +        super.reset();
 +    }
 +
@@ -3013,14 +3263,14 @@ index 4a19e62..857545e 100644
 +        // This can prevent an unadmitted Controller continuation. It cannot undo a native
 +        // mutation whose dispatch was already reserved. Rotation never calls this method.
 +        if (mCallbackIntent != null) mCallbackIntent.cancel();
-+    }
-+
+     }
+ 
 +    private EuiccManager operationEuicc() { return mHonorCard >= 0 ? mHonorEuicc : mEuiccManager; }
 +
      private int getTargetPortId(int physicalEsimSlotIndex, SubscriptionInfo removedSubInfo) {
          if (!isMultipleEnabledProfilesSupported(physicalEsimSlotIndex)) {
              Log.d(TAG, "The slotId" + physicalEsimSlotIndex + " is no MEP, port is 0");
-@@ -206,9 +335,13 @@ public class SwitchToEuiccSubscriptionSidecar extends EuiccOperationSidecar {
+@@ -206,9 +314,13 @@ public class SwitchToEuiccSubscriptionSidecar extends EuiccOperationSidecar {
      }
  
      private int getTargetSlot() {
@@ -3035,7 +3285,7 @@ index 4a19e62..857545e 100644
      private boolean isEsimEnabledAtTargetSlotPort(int physicalSlotIndex, int portIndex) {
          int logicalSlotId = getLogicalSlotIndex(physicalSlotIndex, portIndex);
          if (logicalSlotId == SubscriptionManager.INVALID_SIM_SLOT_INDEX) {
-@@ -220,6 +353,19 @@ public class SwitchToEuiccSubscriptionSidecar extends EuiccOperationSidecar {
+@@ -220,6 +332,19 @@ public class SwitchToEuiccSubscriptionSidecar extends EuiccOperationSidecar {
      }
  
      private int getLogicalSlotIndex(int physicalSlotIndex, int portIndex) {
@@ -3055,7 +3305,7 @@ index 4a19e62..857545e 100644
          UiccSlotInfo[] slotInfos = mTelephonyManager.getUiccSlotsInfo();
          if (slotInfos != null && physicalSlotIndex >= 0 && physicalSlotIndex < slotInfos.length
                  && slotInfos[physicalSlotIndex] != null) {
-@@ -234,6 +380,7 @@ public class SwitchToEuiccSubscriptionSidecar extends EuiccOperationSidecar {
+@@ -234,6 +359,7 @@ public class SwitchToEuiccSubscriptionSidecar extends EuiccOperationSidecar {
      }
  
      private void onSwitchSlotSidecarStateChange() {
@@ -3063,7 +3313,7 @@ index 4a19e62..857545e 100644
          switch (mSwitchSlotSidecar.getState()) {
              case State.SUCCESS:
                  mSwitchSlotSidecar.reset();
-@@ -257,11 +404,31 @@ public class SwitchToEuiccSubscriptionSidecar extends EuiccOperationSidecar {
+@@ -257,11 +383,31 @@ public class SwitchToEuiccSubscriptionSidecar extends EuiccOperationSidecar {
  
      private void switchToSubscription() {
          // The SimSlotMapping is ready, then to execute activate/inactivate esim.
@@ -3097,7 +3347,7 @@ index 4a19e62..857545e 100644
                  && mIsDuringSimSlotMapping) {
              // Continue to switch the SimSlotMapping, after the esim is disabled.
 diff --git a/src/com/android/settings/network/telephony/DeleteEuiccSubscriptionDialogActivity.java b/src/com/android/settings/network/telephony/DeleteEuiccSubscriptionDialogActivity.java
-index 8247f63..12fda09 100644
+index 8247f63c9f9961af3f2134560a65ce1fd3c2f25b..9c555867900602e1ac903a094277a6a6c2c385a7 100644
 --- a/src/com/android/settings/network/telephony/DeleteEuiccSubscriptionDialogActivity.java
 +++ b/src/com/android/settings/network/telephony/DeleteEuiccSubscriptionDialogActivity.java
 @@ -26,6 +26,9 @@ import android.util.Log;
@@ -3118,16 +3368,21 @@ index 8247f63..12fda09 100644
  
      @Override
      protected void onCreate(Bundle savedInstanceState) {
-@@ -71,6 +75,8 @@ public class DeleteEuiccSubscriptionDialogActivity extends SubscriptionActionDia
+@@ -71,6 +75,13 @@ public class DeleteEuiccSubscriptionDialogActivity extends SubscriptionActionDia
          }
  
          mDeleteEuiccSubscriptionSidecar = DeleteEuiccSubscriptionSidecar.get(getFragmentManager());
++        if (HonorLdyAn00EsimEntry.INSTANCE.isDeviceEnabled()) {
++            HonorLdyAn00EsimEntry.INSTANCE.launchManagement(this);
++            finish();
++            return;
++        }
 +        if (HonorLdyAn00EsimEntry.INSTANCE.isDeviceEnabled())
 +            mHonorProfileUi = new HonorProfileRouteUi(this, savedInstanceState, this::onHonorProfileReady);
          if (savedInstanceState == null) {
              showDeleteSimConfirmDialog();
          }
-@@ -97,6 +103,7 @@ public class DeleteEuiccSubscriptionDialogActivity extends SubscriptionActionDia
+@@ -97,6 +108,7 @@ public class DeleteEuiccSubscriptionDialogActivity extends SubscriptionActionDia
  
      @Override
      public void onConfirm(int tag, boolean confirmed, int itemPosition) {
@@ -3135,7 +3390,7 @@ index 8247f63..12fda09 100644
          if (!confirmed) {
              finish();
              return;
-@@ -106,7 +113,8 @@ public class DeleteEuiccSubscriptionDialogActivity extends SubscriptionActionDia
+@@ -106,7 +118,8 @@ public class DeleteEuiccSubscriptionDialogActivity extends SubscriptionActionDia
              case DIALOG_TAG_DELETE_SIM_CONFIRMATION:
                  Log.i(TAG, "Subscription deletion confirmed");
                  showProgressDialog(getString(R.string.erasing_sim));
@@ -3145,7 +3400,7 @@ index 8247f63..12fda09 100644
                  break;
              default:
                  Log.e(TAG, "Unrecognized confirmation dialog tag: " + tag);
-@@ -124,14 +132,31 @@ public class DeleteEuiccSubscriptionDialogActivity extends SubscriptionActionDia
+@@ -124,14 +137,31 @@ public class DeleteEuiccSubscriptionDialogActivity extends SubscriptionActionDia
                  break;
              case SidecarFragment.State.ERROR:
                  Log.e(TAG, "Failed to delete the subscription.");
@@ -3179,7 +3434,7 @@ index 8247f63..12fda09 100644
      private void showDeleteSimConfirmDialog() {
          ConfirmDialogFragment.show(
 diff --git a/src/com/android/settings/network/telephony/DeleteEuiccSubscriptionSidecar.java b/src/com/android/settings/network/telephony/DeleteEuiccSubscriptionSidecar.java
-index 5ab7234..bf623a3 100644
+index 5ab7234f155f174aa678e5ba2cc42649c8b1ee29..3da751aea1f728c99057fc32305a5fa9b89dcdb1 100644
 --- a/src/com/android/settings/network/telephony/DeleteEuiccSubscriptionSidecar.java
 +++ b/src/com/android/settings/network/telephony/DeleteEuiccSubscriptionSidecar.java
 @@ -19,13 +19,21 @@ package com.android.settings.network.telephony;
@@ -3254,34 +3509,14 @@ index 5ab7234..bf623a3 100644
          if (getResultCode() == EuiccManager.EMBEDDED_SUBSCRIPTION_RESULT_OK
                  && !mSubscriptions.isEmpty()) {
              // Continue to delete remaining subscriptions.
-@@ -68,6 +105,83 @@ public class DeleteEuiccSubscriptionSidecar extends EuiccOperationSidecar {
+@@ -68,6 +105,63 @@ public class DeleteEuiccSubscriptionSidecar extends EuiccOperationSidecar {
          }
      }
  
 +    /** Exact group already confirmed by the native DELETE dialog and route consent. */
 +    public void runConfirmed(List<ProfileTarget> targets) {
-+        if (getState() == State.RUNNING) return;
-+        if (!HonorLdyAn00EsimEntry.INSTANCE.isDeviceEnabled() || targets == null || targets.isEmpty()) {
-+            setState(State.ERROR, Substate.UNUSED); return;
-+        }
-+        mHonorQualified = true; mHonorIndex = 0;
-+        mHonorSubscriptions = getContext().getSystemService(SubscriptionManager.class).createForAllUserProfiles();
-+        ProfileTarget first = targets.get(0);
-+        HashSet<Integer> ids = new HashSet<>();
-+        HashSet<String> iccids = new HashSet<>();
-+        for (ProfileTarget target : targets) {
-+            if (first == null || target == null || target.cardId != first.cardId
-+                    || target.cardId < 0 || target.subId < 0 || TextUtils.isEmpty(target.iccid)
-+                    || targets.size() > 1 && first.groupUuid == null
-+                    || !Objects.equals(target.groupUuid, first.groupUuid)
-+                    || !ids.add(target.subId) || !iccids.add(target.iccid) || !honorCurrent(target)) {
-+                stopHonor(); return; // All members checked before the first native operation.
-+            }
-+        }
-+        mHonorTargets = new ArrayList<>(targets); mHonorIndex = 0;
-+        setState(State.RUNNING, Substate.UNUSED);
-+        mHonorStage = HonorStage.PREPARING;
-+        prepareHonorMember();
++        // The former device-specific profile mutator is no longer a Settings operation.
++        setState(State.ERROR, Substate.UNUSED);
 +    }
 +
 +    private boolean honorCurrent(ProfileTarget target) {
@@ -3340,7 +3575,7 @@ index 5ab7234..bf623a3 100644
          PendingIntent intent = createCallbackIntent();
 diff --git a/src/com/android/settings/network/telephony/HonorProfileRouteUi.java b/src/com/android/settings/network/telephony/HonorProfileRouteUi.java
 new file mode 100644
-index 0000000..381c7ab
+index 0000000000000000000000000000000000000000..381c7ab0643769dd5454aa895cf626eee86be2cd
 --- /dev/null
 +++ b/src/com/android/settings/network/telephony/HonorProfileRouteUi.java
 @@ -0,0 +1,134 @@
@@ -3479,7 +3714,7 @@ index 0000000..381c7ab
 +    void destroyed() { if (activity.isFinishing()) model.cancelProfileHandoff(); }
 +}
 diff --git a/src/com/android/settings/network/telephony/MobileDataDialogFragment.java b/src/com/android/settings/network/telephony/MobileDataDialogFragment.java
-index 0e01e45..c64e828 100644
+index 0e01e4589f2aff43bd35dc1f09b090cc12acc202..c64e82890a17758e47f42c87699489820e0baa24 100644
 --- a/src/com/android/settings/network/telephony/MobileDataDialogFragment.java
 +++ b/src/com/android/settings/network/telephony/MobileDataDialogFragment.java
 @@ -140,14 +140,17 @@ public class MobileDataDialogFragment extends InstrumentedDialogFragment impleme
@@ -3509,7 +3744,7 @@ index 0e01e45..c64e828 100644
              default:
                  throw new IllegalArgumentException("unknown type " + mType);
 diff --git a/src/com/android/settings/network/telephony/ToggleSubscriptionDialogActivity.java b/src/com/android/settings/network/telephony/ToggleSubscriptionDialogActivity.java
-index f4d2ce2..edc2b55 100644
+index f4d2ce2b03c076ab1daa9eaa245b3c19610e3af1..1fb8b0abb7da568f3689d555bcb4423105f3eda6 100644
 --- a/src/com/android/settings/network/telephony/ToggleSubscriptionDialogActivity.java
 +++ b/src/com/android/settings/network/telephony/ToggleSubscriptionDialogActivity.java
 @@ -32,6 +32,10 @@ import com.android.internal.annotations.VisibleForTesting;
@@ -3531,7 +3766,15 @@ index f4d2ce2..edc2b55 100644
  
      @Override
      protected void onCreate(Bundle savedInstanceState) {
-@@ -121,6 +126,8 @@ public class ToggleSubscriptionDialogActivity extends SubscriptionActionDialogAc
+@@ -117,10 +122,16 @@ public class ToggleSubscriptionDialogActivity extends SubscriptionActionDialogAc
+         mSwitchToRemovableSlotSidecar = SwitchToRemovableSlotSidecar.get(getFragmentManager());
+         mEnableMultiSimSidecar = EnableMultiSimSidecar.get(getFragmentManager());
+         mEnable = intent.getBooleanExtra(ARG_enable, true);
++        if (HonorLdyAn00EsimEntry.INSTANCE.redirectProfileToggle(this, mSubInfo, mEnable)) {
++            finish();
++            return;
++        }
+         isRtlMode = getResources().getConfiguration().getLayoutDirection()
                  == View.LAYOUT_DIRECTION_RTL;
          Log.i(TAG, "isMultipleEnabledProfilesSupported():" + isMultipleEnabledProfilesSupported());
  
@@ -3540,7 +3783,7 @@ index f4d2ce2..edc2b55 100644
          if (savedInstanceState == null) {
              if (mEnable) {
                  showEnableSubDialog();
-@@ -159,6 +166,7 @@ public class ToggleSubscriptionDialogActivity extends SubscriptionActionDialogAc
+@@ -159,6 +170,7 @@ public class ToggleSubscriptionDialogActivity extends SubscriptionActionDialogAc
  
      @Override
      public void onConfirm(int tag, boolean confirmed, int itemPosition) {
@@ -3548,7 +3791,7 @@ index f4d2ce2..edc2b55 100644
          if (!confirmed
                  && tag != DIALOG_TAG_ENABLE_DSDS_CONFIRMATION
                  && tag != DIALOG_TAG_ENABLE_DSDS_REBOOT_CONFIRMATION) {
-@@ -174,8 +182,9 @@ public class ToggleSubscriptionDialogActivity extends SubscriptionActionDialogAc
+@@ -174,8 +186,9 @@ public class ToggleSubscriptionDialogActivity extends SubscriptionActionDialogAc
                      showProgressDialog(
                              getString(R.string.privileged_action_disable_sub_dialog_progress));
                      int port = mSubInfo != null ? mSubInfo.getPortIndex() : 0;
@@ -3560,7 +3803,7 @@ index f4d2ce2..edc2b55 100644
                      return;
                  }
                  Log.i(TAG, "Disabling the pSIM profile.");
-@@ -220,9 +229,7 @@ public class ToggleSubscriptionDialogActivity extends SubscriptionActionDialogAc
+@@ -220,9 +233,7 @@ public class ToggleSubscriptionDialogActivity extends SubscriptionActionDialogAc
                                  SubscriptionUtil.getUniqueSubscriptionDisplayName(mSubInfo, this)),
                          removedSubInfo != null ? true : false);
                  if (mIsEsimOperation) {
@@ -3571,7 +3814,7 @@ index f4d2ce2..edc2b55 100644
                      return;
                  }
                  mSwitchToRemovableSlotSidecar.run(UiccSlotUtil.INVALID_PHYSICAL_SLOT_ID,
-@@ -300,8 +307,7 @@ public class ToggleSubscriptionDialogActivity extends SubscriptionActionDialogAc
+@@ -300,8 +311,7 @@ public class ToggleSubscriptionDialogActivity extends SubscriptionActionDialogAc
          if (mIsEsimOperation) {
              Log.i(TAG, "DSDS enabled, start to enable profile: " + mSubInfo.getSubscriptionId());
              // For eSIM operations, we simply switch to the selected eSIM profile.
@@ -3581,7 +3824,7 @@ index f4d2ce2..edc2b55 100644
              return;
          }
  
-@@ -311,6 +317,31 @@ public class ToggleSubscriptionDialogActivity extends SubscriptionActionDialogAc
+@@ -311,6 +321,31 @@ public class ToggleSubscriptionDialogActivity extends SubscriptionActionDialogAc
          finish();
      }
  
@@ -3613,8 +3856,27 @@ index f4d2ce2..edc2b55 100644
      private void handleTogglePsimAction() {
          if (mSubscriptionManager.canDisablePhysicalSubscription() && mSubInfo != null) {
              mSubscriptionManager.setUiccApplicationsEnabled(mSubInfo.getSubscriptionId(), mEnable);
+diff --git a/src/com/android/settings/sim/ChooseSimActivity.java b/src/com/android/settings/sim/ChooseSimActivity.java
+index 9a75b63c1d109302751478d37d2e91f61c89cc8e..4a6ff768c8b4f6a1432c6f712fe571fd9005f378 100644
+--- a/src/com/android/settings/sim/ChooseSimActivity.java
++++ b/src/com/android/settings/sim/ChooseSimActivity.java
+@@ -87,6 +87,14 @@ public class ChooseSimActivity extends Activity
+     protected void onCreate(Bundle savedInstanceState) {
+         super.onCreate(savedInstanceState);
+ 
++        if (com.android.settings.network.HonorLdyAn00EsimEntry.INSTANCE.isDeviceEnabled()) {
++            mSwitchToRemovableSlotSidecar = SwitchToRemovableSlotSidecar.get(getFragmentManager());
++            mSwitchToEuiccSubscriptionSidecar = SwitchToEuiccSubscriptionSidecar.get(getFragmentManager());
++            com.android.settings.network.HonorLdyAn00EsimEntry.INSTANCE.launchManagement(this);
++            finish();
++            return;
++        }
++
+         setContentView(R.layout.choose_sim_activity);
+ 
+         Intent intent = getIntent();
 diff --git a/src/com/android/settings/sim/SimDialogActivity.java b/src/com/android/settings/sim/SimDialogActivity.java
-index 723f346..0085a3a 100644
+index 723f3467e0269881cd810458046c9715f4f1d626..0085a3a2c11aefa567cf22c08c63687421ed4a29 100644
 --- a/src/com/android/settings/sim/SimDialogActivity.java
 +++ b/src/com/android/settings/sim/SimDialogActivity.java
 @@ -361,16 +361,15 @@ public class SimDialogActivity extends FragmentActivity {
@@ -3641,8 +3903,24 @@ index 723f346..0085a3a 100644
      }
  
      private void setDefaultCallsSubId(final int subId) {
+diff --git a/src/com/android/settings/sim/SwitchToEsimConfirmDialogActivity.java b/src/com/android/settings/sim/SwitchToEsimConfirmDialogActivity.java
+index db6e1b44f3478b73f0e646d1779a8b9daf0c2843..11656739889814dea54558e67c83df1e9e8c3bd5 100644
+--- a/src/com/android/settings/sim/SwitchToEsimConfirmDialogActivity.java
++++ b/src/com/android/settings/sim/SwitchToEsimConfirmDialogActivity.java
+@@ -50,6 +50,11 @@ public class SwitchToEsimConfirmDialogActivity extends SubscriptionActionDialogA
+         mSubToEnabled = getIntent().getParcelableExtra(KEY_SUB_TO_ENABLE);
+         mSwitchToEuiccSubscriptionSidecar =
+                 SwitchToEuiccSubscriptionSidecar.get(getFragmentManager());
++        if (com.android.settings.network.HonorLdyAn00EsimEntry.INSTANCE.isDeviceEnabled()) {
++            com.android.settings.network.HonorLdyAn00EsimEntry.INSTANCE.launchConnection(this, false);
++            finish();
++            return;
++        }
+ 
+         if (mSubToEnabled == null) {
+             Log.e(TAG, "Cannot find SIM to enable.");
 diff --git a/src/com/android/settings/spa/network/NetworkCellularGroupProvider.kt b/src/com/android/settings/spa/network/NetworkCellularGroupProvider.kt
-index 2d92c41..4469949 100644
+index 2d92c414c21abc4ded6afd26eff6c7144569674c..4469949f3ccf6155fc5a88c986ea2d0f43693a22 100644
 --- a/src/com/android/settings/spa/network/NetworkCellularGroupProvider.kt
 +++ b/src/com/android/settings/spa/network/NetworkCellularGroupProvider.kt
 @@ -367,7 +367,14 @@ suspend fun setMobileData(
@@ -3662,10 +3940,18 @@ index 2d92c41..4469949 100644
          MobileDataRepository(context)
              .setMobileDataEnabled(targetSubId, enabled, wifiPickerTrackerHelper)
 diff --git a/src/com/android/settings/spa/network/SimsSection.kt b/src/com/android/settings/spa/network/SimsSection.kt
-index 33f151d..7ca53b4 100644
+index 33f151d665101d5d6d5fdb51b09ce9b3ad1431b7..3e4e71a1849ce56e31ea57c3b0004d9be852e78e 100644
 --- a/src/com/android/settings/spa/network/SimsSection.kt
 +++ b/src/com/android/settings/spa/network/SimsSection.kt
-@@ -26,6 +26,15 @@ import androidx.compose.material.icons.outlined.Add
+@@ -19,6 +19,7 @@ package com.android.settings.spa.network
+ import android.content.Context
+ import android.content.Intent
+ import android.os.UserManager
++import android.os.Bundle
+ import android.telephony.SubscriptionInfo
+ import android.telephony.euicc.EuiccManager
+ import androidx.compose.material.icons.Icons
+@@ -26,13 +27,24 @@ import androidx.compose.material.icons.outlined.Add
  import androidx.compose.material.icons.outlined.SimCard
  import androidx.compose.material.icons.outlined.SimCardDownload
  import androidx.compose.runtime.Composable
@@ -3681,7 +3967,8 @@ index 33f151d..7ca53b4 100644
  import androidx.compose.runtime.State
  import androidx.compose.runtime.getValue
  import androidx.compose.runtime.remember
-@@ -33,6 +42,7 @@ import androidx.compose.runtime.rememberCoroutineScope
++import androidx.compose.runtime.rememberUpdatedState
+ import androidx.compose.runtime.rememberCoroutineScope
  import androidx.compose.ui.platform.LocalContext
  import androidx.compose.ui.res.stringResource
  import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -3689,7 +3976,7 @@ index 33f151d..7ca53b4 100644
  import com.android.settings.R
  import com.android.settings.Utils
  import com.android.settings.network.SatelliteRepository
-@@ -53,22 +63,46 @@ import com.android.settingslib.spa.widget.ui.SettingsIcon
+@@ -53,22 +65,50 @@ import com.android.settingslib.spa.widget.ui.SettingsIcon
  import com.android.settingslib.spaprivileged.model.enterprise.Restrictions
  import com.android.settingslib.spaprivileged.template.preference.RestrictedPreference
  import com.android.settingslib.spaprivileged.template.preference.RestrictedTwoTargetSwitchPreference
@@ -3700,20 +3987,26 @@ index 33f151d..7ca53b4 100644
  
  @Composable
  fun SimsSection(subscriptionInfoList: List<SubscriptionInfo>) {
-+    val canReturnPhysical = honorPhysicalReturnAvailable()
++    val honor = HonorLdyAn00EsimEntry.isDeviceEnabled()
++    val context = LocalContext.current
++    val connection = if (honor) honorConnectionSnapshot() else null
++    val visiblePhysicalIds = remember(context, subscriptionInfoList, connection) {
++        HonorLdyAn00EsimEntry.visiblePhysicalSubscriptionIds(context)
++    }
      Category {
-+        var hasPhysicalReturnRow = false
          for (subInfo in subscriptionInfoList) {
 -            SimPreference(subInfo)
-+            // Pure derived return value; no parent state is changed during composition.
-+            if (SimPreference(subInfo, canReturnPhysical)) hasPhysicalReturnRow = true
++            if (HonorLdyAn00EsimEntry.showSubscriptionNetwork(
++                    subInfo.isEmbedded, subInfo.simSlotIndex, subInfo.simSlotIndex >= 0,
++                    subInfo.subscriptionId in visiblePhysicalIds))
++                SimPreference(subInfo, false)
          }
- 
-+        if (!hasPhysicalReturnRow) {
-+            HonorPhysicalSlot2(canReturnPhysical)
-+        }
-+        ManageEsims()
-         AddSim()
+-
+-        AddSim()
++        if (honor) {
++            HonorSharedSimConnection(connection)
++            ManageEsims()
++        } else AddSim()
      }
  }
  
@@ -3738,7 +4031,7 @@ index 33f151d..7ca53b4 100644
      val context = LocalContext.current
      val checked =
          remember(subInfo.subscriptionId) {
-@@ -79,51 +113,74 @@ private fun SimPreference(subInfo: SubscriptionInfo) {
+@@ -79,51 +119,74 @@ private fun SimPreference(subInfo: SubscriptionInfo) {
          remember(subInfo.cardId) { EuiccRepository(context).isAvailableFlow(subInfo.cardId) }
              .collectAsStateWithLifecycle(initialValue = false)
      val isAvailable = !subInfo.isEmbedded || isEuiccAvailable
@@ -3826,7 +4119,7 @@ index 33f151d..7ca53b4 100644
  }
  
  @Composable
-@@ -151,12 +208,14 @@ private fun AddSim() {
+@@ -151,12 +214,14 @@ private fun AddSim() {
      val isSatelliteSessionStarted by
          remember { SatelliteRepository(context).getIsSessionStartedFlow() }
              .collectAsStateWithLifecycle(initialValue = false)
@@ -3843,7 +4136,7 @@ index 33f151d..7ca53b4 100644
                      override val icon = @Composable { SettingsIcon(Icons.Outlined.Add) }
                      override val onClick = {
                          if (isSatelliteSessionStarted) {
-@@ -171,7 +230,14 @@ private fun AddSim() {
+@@ -171,7 +236,14 @@ private fun AddSim() {
      }
  }
  
@@ -3859,18 +4152,22 @@ index 33f151d..7ca53b4 100644
  
  fun getAddSimIntent() =
      Intent(EuiccManager.ACTION_PROVISION_EMBEDDED_SUBSCRIPTION).apply {
-@@ -196,3 +262,61 @@ fun getSatelliteWarningDialogIntent(context: Context) =
+@@ -196,3 +268,65 @@ fun getSatelliteWarningDialogIntent(context: Context) =
          content.put(CUSTOM_CONTENT_BUTTON_NAME, context.getString(R.string.okay))
          putExtra(SatelliteWarningDialogActivity.EXTRA_TYPE_OF_SATELLITE_CUSTOMIZED_CONTENT, content)
      }
 +
 +/** A resume requires a new passive Phone reply, not a retained pre-background route snapshot. */
 +@Composable
-+private fun honorPhysicalReturnAvailable(): Boolean {
++private fun honorConnectionSnapshot(): Bundle? {
 +    val context = LocalContext.current
-+    if (!HonorLdyAn00EsimEntry.isAvailable(context)) return false
++    if (!HonorLdyAn00EsimEntry.isAvailable(context)) return null
 +    val lifecycle = LocalLifecycleOwner.current.lifecycle
-+    val model: HonorLdyAn00EsimSetupViewModel = viewModel(key = "honor_shared_sim_observer")
++    val model: HonorLdyAn00EsimSetupViewModel = viewModel(
++        key = "honor_shared_sim_observer",
++        factory = HonorLdyAn00EsimSetupViewModel.passiveObserverFactory(
++            context.applicationContext as android.app.Application)
++    )
 +    val state by model.state().observeAsState()
 +    var beforeResume by remember(model) { mutableStateOf(model.state().value) }
 +    DisposableEffect(lifecycle, model) {
@@ -3889,41 +4186,41 @@ index 33f151d..7ca53b4 100644
 +        }
 +        onDispose { lifecycle.removeObserver(observer) }
 +    }
-+    return state !== beforeResume && HonorLdyAn00EsimSetupViewModel.canReturnPhysical(state)
++    return if (state !== beforeResume) state else null
 +}
 +
-+/** A physical routing option, not a fabricated card or subscription. */
++/** One shared hardware connection, independent of the number of stored profiles. */
 +@Composable
-+private fun HonorPhysicalSlot2(canReturnPhysical: Boolean) {
-+    if (!HonorLdyAn00EsimEntry.isDeviceEnabled()) return
++private fun HonorSharedSimConnection(state: Bundle?) {
 +    val context = LocalContext.current
++    // RestrictedPreference retains the first model for the current restriction mode.
++    val currentRoute by rememberUpdatedState(state)
++    val labels = listOf(context.getString(R.string.honor_esim_physical_slot2),
++        context.getString(R.string.downloaded_sim_category_title))
 +    val activationAllowed by
 +        remember { SubscriptionActivationRepository(context).isActivationChangeableFlow() }
 +            .collectAsStateWithLifecycle(initialValue = false)
-+    RestrictedTwoTargetSwitchPreference(
-+        model = object : SwitchPreferenceModel {
-+            override val title = context.getString(R.string.honor_esim_physical_slot2)
++    RestrictedPreference(
++        model = object : PreferenceModel {
++            override val title = labels.joinToString(" / ")
 +            override val summary = {
-+                if (canReturnPhysical) context.getString(R.string.sim_category_inactive_sim) else ""
++                labels.getOrNull(HonorLdyAn00EsimEntry.connectionMode(context, currentRoute))
++                    ?: context.getString(R.string.unknown)
 +            }
-+            override val icon = @Composable { SimIcon(false) }
-+            override val checked = { false }
-+            override val changeable = { canReturnPhysical && activationAllowed && HonorLdyAn00EsimEntry.isAvailable(context) }
-+            override val onCheckedChange: (Boolean) -> Unit = { selected ->
-+                if (selected && canReturnPhysical && activationAllowed) {
-+                    HonorLdyAn00EsimEntry.launchPhysicalReturn(context)
-+                }
++            override val icon = @Composable { SimIcon(true) }
++            override val enabled = {
++                activationAllowed && HonorLdyAn00EsimEntry.isAvailable(context)
++            }
++            override val onClick = {
++                HonorLdyAn00EsimEntry.showConnectionChoice(context, currentRoute)
 +            }
 +        },
 +        restrictions = Restrictions(keys = listOf(UserManager.DISALLOW_CONFIG_MOBILE_NETWORKS)),
-+        primaryEnabled = { canReturnPhysical && activationAllowed && HonorLdyAn00EsimEntry.isAvailable(context) },
-+    ) {
-+        if (canReturnPhysical && activationAllowed) HonorLdyAn00EsimEntry.launchPhysicalReturn(context)
-+    }
++    )
 +}
 diff --git a/tests/robotests/src/com/android/settings/MobileNetworkActivityTest.kt b/tests/robotests/src/com/android/settings/MobileNetworkActivityTest.kt
 new file mode 100644
-index 0000000..b55c6c8
+index 0000000000000000000000000000000000000000..b55c6c80cfa65eaefd3339deb9bebf9c56db4063
 --- /dev/null
 +++ b/tests/robotests/src/com/android/settings/MobileNetworkActivityTest.kt
 @@ -0,0 +1,101 @@
@@ -4030,7 +4327,7 @@ index 0000000..b55c6c8
 +}
 diff --git a/tests/robotests/src/com/android/settings/biometrics/face/FaceEnrollChallengeOwnershipTest.java b/tests/robotests/src/com/android/settings/biometrics/face/FaceEnrollChallengeOwnershipTest.java
 new file mode 100644
-index 0000000..563c55a
+index 0000000000000000000000000000000000000000..563c55a3eb05f6bc578cf764efabe73f53c11c15
 --- /dev/null
 +++ b/tests/robotests/src/com/android/settings/biometrics/face/FaceEnrollChallengeOwnershipTest.java
 @@ -0,0 +1,192 @@
@@ -4227,7 +4524,7 @@ index 0000000..563c55a
 +    }
 +}
 diff --git a/tests/robotests/src/com/android/settings/biometrics/fingerprint/FingerprintEnrollFindSensorTest.java b/tests/robotests/src/com/android/settings/biometrics/fingerprint/FingerprintEnrollFindSensorTest.java
-index 2055909..6319aae 100644
+index 2055909e6fb73e6baa0d1bdaa2f748f494fc31b5..6319aae7181e50fec3db155f1e0ac6f70f75f443 100644
 --- a/tests/robotests/src/com/android/settings/biometrics/fingerprint/FingerprintEnrollFindSensorTest.java
 +++ b/tests/robotests/src/com/android/settings/biometrics/fingerprint/FingerprintEnrollFindSensorTest.java
 @@ -208,6 +208,7 @@ public class FingerprintEnrollFindSensorTest {
@@ -4239,7 +4536,7 @@ index 2055909..6319aae 100644
      }
  
 diff --git a/tests/robotests/src/com/android/settings/deviceinfo/batteryinfo/BatteryInfoApiScreenTest.kt b/tests/robotests/src/com/android/settings/deviceinfo/batteryinfo/BatteryInfoApiScreenTest.kt
-index 9fde350..aacc1eb 100644
+index 9fde350915e24b53967a6c537ff46db1fa362e38..aacc1eb17c4b36a6f6d083b68f40cb1b124514d3 100644
 --- a/tests/robotests/src/com/android/settings/deviceinfo/batteryinfo/BatteryInfoApiScreenTest.kt
 +++ b/tests/robotests/src/com/android/settings/deviceinfo/batteryinfo/BatteryInfoApiScreenTest.kt
 @@ -113,6 +113,26 @@ class BatteryInfoApiScreenTest {
@@ -4271,7 +4568,7 @@ index 9fde350..aacc1eb 100644
          val cycleCount = 42
 diff --git a/tests/robotests/src/com/android/settings/deviceinfo/batteryinfo/BatteryManufactureCalendarTest.kt b/tests/robotests/src/com/android/settings/deviceinfo/batteryinfo/BatteryManufactureCalendarTest.kt
 new file mode 100644
-index 0000000..48a38c5
+index 0000000000000000000000000000000000000000..48a38c5cf43128ed890c6ebd522baf43c09fd9a9
 --- /dev/null
 +++ b/tests/robotests/src/com/android/settings/deviceinfo/batteryinfo/BatteryManufactureCalendarTest.kt
 @@ -0,0 +1,135 @@
@@ -4412,7 +4709,7 @@ index 0000000..48a38c5
 +}
 diff --git a/tests/robotests/src/com/android/settings/deviceinfo/hardwareinfo/CpuInfoApiTest.kt b/tests/robotests/src/com/android/settings/deviceinfo/hardwareinfo/CpuInfoApiTest.kt
 new file mode 100644
-index 0000000..0905b20
+index 0000000000000000000000000000000000000000..0905b20dd03bbce9d00eebf59f376123df8444ec
 --- /dev/null
 +++ b/tests/robotests/src/com/android/settings/deviceinfo/hardwareinfo/CpuInfoApiTest.kt
 @@ -0,0 +1,90 @@
@@ -4508,7 +4805,7 @@ index 0000000..0905b20
 +}
 diff --git a/tests/robotests/src/com/android/settings/deviceinfo/hardwareinfo/CpuInfoTest.java b/tests/robotests/src/com/android/settings/deviceinfo/hardwareinfo/CpuInfoTest.java
 new file mode 100644
-index 0000000..1977bc8
+index 0000000000000000000000000000000000000000..1977bc8f64dbda002eb84f2ef99686a91e89fd31
 --- /dev/null
 +++ b/tests/robotests/src/com/android/settings/deviceinfo/hardwareinfo/CpuInfoTest.java
 @@ -0,0 +1,236 @@
@@ -4750,7 +5047,7 @@ index 0000000..1977bc8
 +}
 diff --git a/tests/robotests/src/com/android/settings/deviceinfo/hardwareinfo/HardwarePlatformInfoTest.kt b/tests/robotests/src/com/android/settings/deviceinfo/hardwareinfo/HardwarePlatformInfoTest.kt
 new file mode 100644
-index 0000000..d50811e
+index 0000000000000000000000000000000000000000..d50811e7ba0c0a201c89104e98ce8258c3df3cde
 --- /dev/null
 +++ b/tests/robotests/src/com/android/settings/deviceinfo/hardwareinfo/HardwarePlatformInfoTest.kt
 @@ -0,0 +1,169 @@
@@ -4925,7 +5222,7 @@ index 0000000..d50811e
 +}
 diff --git a/tests/robotests/src/com/android/settings/fuelgauge/BatteryInfoDateAvailabilityTest.java b/tests/robotests/src/com/android/settings/fuelgauge/BatteryInfoDateAvailabilityTest.java
 new file mode 100644
-index 0000000..6e6b3d5
+index 0000000000000000000000000000000000000000..6e6b3d5a37e82ff339278fce2d7fd938dd07f622
 --- /dev/null
 +++ b/tests/robotests/src/com/android/settings/fuelgauge/BatteryInfoDateAvailabilityTest.java
 @@ -0,0 +1,76 @@
@@ -5007,7 +5304,7 @@ index 0000000..6e6b3d5
 +}
 diff --git a/tests/robotests/src/com/android/settings/network/HonorCachedProfileNavigationTest.java b/tests/robotests/src/com/android/settings/network/HonorCachedProfileNavigationTest.java
 new file mode 100644
-index 0000000..b1d2f65
+index 0000000000000000000000000000000000000000..b1d2f65fadc9e77749f270ee9976d5ed9ea8bc31
 --- /dev/null
 +++ b/tests/robotests/src/com/android/settings/network/HonorCachedProfileNavigationTest.java
 @@ -0,0 +1,104 @@
@@ -5115,9 +5412,865 @@ index 0000000..b1d2f65
 +  assertTrue(eligible(r));assertFalse(eligible(row(99,9,"unknown-host-profile",true)));
 + }
 +}
+diff --git a/tests/robotests/src/com/android/settings/network/HonorConnectionSelectionTest.java b/tests/robotests/src/com/android/settings/network/HonorConnectionSelectionTest.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..52536751def0dcc24bed77875a8d7ff88c33b0cd
+--- /dev/null
++++ b/tests/robotests/src/com/android/settings/network/HonorConnectionSelectionTest.java
+@@ -0,0 +1,342 @@
++/* Copyright (C) 2026 The LineageOS Project
++ * SPDX-License-Identifier: Apache-2.0 */
++package com.android.settings.network;
++
++import android.Manifest;
++import android.app.Application;
++import android.content.ComponentName;
++import android.content.Context;
++import android.content.Intent;
++import android.content.pm.ActivityInfo;
++import android.content.pm.ApplicationInfo;
++import android.content.pm.PackageManager;
++import android.os.Bundle;
++import android.os.UserManager;
++import android.telephony.SubscriptionInfo;
++import android.telephony.SubscriptionManager;
++import android.telephony.TelephonyManager;
++import android.telephony.UiccCardInfo;
++import android.telephony.UiccPortInfo;
++import android.telephony.euicc.EuiccManager;
++import androidx.lifecycle.ViewModelStore;
++import kotlin.Unit;
++import kotlin.coroutines.Continuation;
++import kotlin.coroutines.CoroutineContext;
++import kotlin.coroutines.EmptyCoroutineContext;
++import com.android.settings.SidecarFragment;
++import com.android.settings.network.telephony.DeleteEuiccSubscriptionSidecar;
++import java.util.Collections;
++import java.util.List;
++import java.util.Set;
++import org.junit.Before;
++import org.junit.Test;
++import org.junit.runner.RunWith;
++import org.mockito.ArgumentCaptor;
++import org.robolectric.RobolectricTestRunner;
++import org.robolectric.RuntimeEnvironment;
++import org.robolectric.annotation.Config;
++import org.robolectric.shadows.ShadowBuild;
++import org.robolectric.shadows.ShadowProcess;
++import org.robolectric.shadows.ShadowSystemProperties;
++import static org.junit.Assert.*;
++import static org.mockito.Mockito.*;
++
++/** Tests the shared classic/Spa policy and the retained profile-mutator boundaries. */
++@RunWith(RobolectricTestRunner.class)
++@Config(sdk=37, manifest=Config.NONE, application=Application.class)
++public class HonorConnectionSelectionTest {
++    private Context context;
++    @Before public void setup() throws Exception {
++        ShadowBuild.setDevice("ldy_an00"); ShadowBuild.setModel("LDY-AN00");
++        ShadowProcess.setUid(1000);
++        ShadowSystemProperties.override("ro.lineage.ldy_an00.esim_bridge", "true");
++        context = spy(RuntimeEnvironment.getApplication());
++        UserManager users = mock(UserManager.class);
++        doReturn(Context.USER_SERVICE).when(context).getSystemServiceName(UserManager.class);
++        doReturn(users).when(context).getSystemService(Context.USER_SERVICE);
++        doReturn(PackageManager.PERMISSION_GRANTED).when(context)
++                .checkSelfPermission(Manifest.permission.MODIFY_PHONE_STATE);
++        PackageManager pm = mock(PackageManager.class);
++        doReturn(pm).when(context).getPackageManager();
++        ActivityInfo setup = new ActivityInfo();
++        setup.enabled = true; setup.permission = Manifest.permission.MODIFY_PHONE_STATE;
++        setup.applicationInfo = new ApplicationInfo();
++        setup.applicationInfo.enabled = true; setup.applicationInfo.flags = ApplicationInfo.FLAG_SYSTEM;
++        when(pm.getActivityInfo(any(ComponentName.class), eq(0))).thenReturn(setup);
++        when(pm.checkSignatures("android", "com.android.settings"))
++                .thenReturn(PackageManager.SIGNATURE_MATCH);
++        doNothing().when(context).startActivity(any(Intent.class));
++    }
++    private Bundle state(String value) {
++        Bundle state = new Bundle();
++        state.putInt("route_observation_protocol", 1);
++        state.putString("state", value);
++        return state;
++    }
++    @Test public void coldIdleAndPendingAreNotAnInferredPhysicalConnection() {
++        assertEquals(-1, HonorLdyAn00EsimEntry.INSTANCE.connectionMode(null));
++        for (String value : new String[]{"IDLE", "WORKING", "EUICC_WAITING", "UNKNOWN"})
++            assertEquals(-1, HonorLdyAn00EsimEntry.INSTANCE.connectionMode(state(value)));
++    }
++    @Test public void knownBlankStillMeansEsimPathSelectedWithoutAnEnabledProfile() {
++        assertEquals(1, HonorLdyAn00EsimEntry.INSTANCE.connectionMode(state("KNOWN_BLANK")));
++        assertEquals(1, HonorLdyAn00EsimEntry.INSTANCE.connectionMode(state("EUICC_READY")));
++        assertEquals(0, HonorLdyAn00EsimEntry.INSTANCE.connectionMode(state("PHYSICAL_READY")));
++        Bundle unqualified = state("PHYSICAL_READY");
++        unqualified.remove("route_observation_protocol");
++        assertEquals(-1, HonorLdyAn00EsimEntry.INSTANCE.connectionMode(unqualified));
++    }
++    @Test public void connectionIntentDoesNotProvisionOrChooseAProfile() {
++        Intent intent = HonorLdyAn00EsimEntry.INSTANCE.connectionIntent();
++        assertTrue(intent.getBooleanExtra("connection_only", false));
++        assertFalse(intent.hasExtra("subscription_id"));
++        assertFalse(intent.hasExtra("android.telephony.euicc.extra.FORCE_PROVISION"));
++        assertFalse(intent.getBooleanExtra(HonorLdyAn00EsimEntry.EXTRA_MANAGE_ESIMS, false));
++        assertTrue(HonorLdyAn00EsimEntry.INSTANCE.isSetupIntent(intent));
++    }
++    @Test public void classicAndSpaSharedPolicyPreservesActiveNetworkConfiguration() {
++        assertTrue(HonorLdyAn00EsimEntry.INSTANCE.showSubscriptionNetwork(false, 0, true, false));
++        assertTrue(HonorLdyAn00EsimEntry.INSTANCE.showSubscriptionNetwork(false, 0, false, false));
++        assertTrue(HonorLdyAn00EsimEntry.INSTANCE.showSubscriptionNetwork(false, 1, true, false));
++        assertTrue(HonorLdyAn00EsimEntry.INSTANCE.showSubscriptionNetwork(true, 1, true, false));
++        assertFalse(HonorLdyAn00EsimEntry.INSTANCE.showSubscriptionNetwork(true, -1, false, false));
++        assertFalse(HonorLdyAn00EsimEntry.INSTANCE.showSubscriptionNetwork(false, 1, false, false));
++        assertFalse(HonorLdyAn00EsimEntry.INSTANCE.showSubscriptionNetwork(false, -1, false, false));
++    }
++    @Test public void disabledInsertedPrimarySimRemainsVisibleWithoutLogicalSlot() {
++        assertTrue(HonorLdyAn00EsimEntry.INSTANCE.showSubscriptionNetwork(false, -1, false, true));
++        assertFalse(HonorLdyAn00EsimEntry.INSTANCE.showSubscriptionNetwork(true, -1, false, true));
++    }
++    @Test public void primarySubscriptionUsesPhysicalSlotAndCardId() {
++        TelephonyManager telephony = mock(TelephonyManager.class);
++        SubscriptionManager subscriptions = mock(SubscriptionManager.class);
++        doReturn(telephony).when(context).getSystemService(Context.TELEPHONY_SERVICE);
++        doReturn(subscriptions).when(context).getSystemService(Context.TELEPHONY_SUBSCRIPTION_SERVICE);
++        UiccCardInfo primary = mock(UiccCardInfo.class);
++        when(primary.getCardId()).thenReturn(0);
++        UiccCardInfo secondary = mock(UiccCardInfo.class);
++        when(secondary.getPhysicalSlotIndex()).thenReturn(1);
++        when(secondary.getCardId()).thenReturn(1);
++        when(telephony.getUiccCardsInfo()).thenReturn(List.of(secondary, primary));
++        SubscriptionInfo disabledPrimary = mock(SubscriptionInfo.class);
++        when(disabledPrimary.getCardId()).thenReturn(0);
++        when(disabledPrimary.getSimSlotIndex()).thenReturn(-1);
++        when(disabledPrimary.getSubscriptionId()).thenReturn(7);
++        SubscriptionInfo disabledSecondary = mock(SubscriptionInfo.class);
++        when(disabledSecondary.getCardId()).thenReturn(1);
++        when(disabledSecondary.getSubscriptionId()).thenReturn(8);
++        when(subscriptions.getAvailableSubscriptionInfoList())
++                .thenReturn(List.of(disabledSecondary, disabledPrimary));
++        UiccPortInfo sharedPort = mock(UiccPortInfo.class);
++        when(sharedPort.isActive()).thenReturn(true);
++        when(sharedPort.getLogicalSlotIndex()).thenReturn(1);
++        when(secondary.getPorts()).thenReturn(List.of(sharedPort));
++        assertEquals(Set.of(7, 8),
++                HonorLdyAn00EsimEntry.INSTANCE.visiblePhysicalSubscriptionIds(context));
++
++        UiccCardInfo euicc = mock(UiccCardInfo.class);
++        when(euicc.isEuicc()).thenReturn(true);
++        when(euicc.getPhysicalSlotIndex()).thenReturn(1);
++        when(euicc.getPorts()).thenReturn(List.of(sharedPort));
++        when(secondary.getPorts()).thenReturn(List.of());
++        when(telephony.getUiccCardsInfo()).thenReturn(List.of(secondary, euicc, primary));
++        assertEquals(Set.of(7),
++                HonorLdyAn00EsimEntry.INSTANCE.visiblePhysicalSubscriptionIds(context));
++
++        when(secondary.getPorts()).thenReturn(List.of(sharedPort));
++        assertEquals(Set.of(7),
++                HonorLdyAn00EsimEntry.INSTANCE.visiblePhysicalSubscriptionIds(context));
++
++        when(telephony.getUiccCardsInfo()).thenReturn(List.of(euicc, secondary));
++        assertTrue(HonorLdyAn00EsimEntry.INSTANCE.visiblePhysicalSubscriptionIds(context)
++                .isEmpty());
++    }
++    @Test public void otherDevicesKeepTheirOrdinaryProfileRows() {
++        ShadowBuild.setDevice("other");
++        assertTrue(HonorLdyAn00EsimEntry.INSTANCE.showSubscriptionNetwork(true, -1, false, false));
++        assertTrue(HonorLdyAn00EsimEntry.INSTANCE.showSubscriptionNetwork(false, 1, false, false));
++    }
++    @Test public void incomingEnableUsesCurrentEsimConnectionNotTheCachedProfileId() {
++        SubscriptionInfo profile = mock(SubscriptionInfo.class);
++        when(profile.isEmbedded()).thenReturn(true);
++        when(profile.getSubscriptionId()).thenReturn(987);
++        assertTrue(HonorLdyAn00EsimEntry.INSTANCE.redirectProfileToggle(context, profile, true));
++        ArgumentCaptor<Intent> intent = ArgumentCaptor.forClass(Intent.class);
++        verify(context).startActivity(intent.capture());
++        assertTrue(intent.getValue().getBooleanExtra("connection_only", false));
++        assertFalse(intent.getValue().hasExtra("sub_id"));
++        assertFalse(intent.getValue().hasExtra("subscription_id"));
++    }
++    @Test public void incomingDisableSelectsPhysicalWithoutDisablingAStoredProfile() {
++        SubscriptionInfo profile = mock(SubscriptionInfo.class);
++        when(profile.isEmbedded()).thenReturn(true);
++        assertTrue(HonorLdyAn00EsimEntry.INSTANCE.redirectProfileToggle(context, profile, false));
++        ArgumentCaptor<Intent> intent = ArgumentCaptor.forClass(Intent.class);
++        verify(context).startActivity(intent.capture());
++        assertTrue(intent.getValue().getBooleanExtra("return_physical_sim2", false));
++    }
++    @Test public void physicalSimAndOtherDeviceToggleStillUseGenericFlow() {
++        SubscriptionInfo sim = mock(SubscriptionInfo.class);
++        assertFalse(HonorLdyAn00EsimEntry.INSTANCE.redirectProfileToggle(context, sim, true));
++        when(sim.isEmbedded()).thenReturn(true); ShadowBuild.setDevice("other");
++        assertFalse(HonorLdyAn00EsimEntry.INSTANCE.redirectProfileToggle(context, sim, false));
++        verify(context, never()).startActivity(any(Intent.class));
++    }
++    @Test public void retainedSettingsProfileEnableRequestTerminatesBeforeAnyPreparation() {
++        SwitchToEuiccSubscriptionSidecar sidecar = new SwitchToEuiccSubscriptionSidecar();
++        sidecar.runForCard(987, 987, 2, 0, null);
++        assertEquals(SidecarFragment.State.ERROR, sidecar.getState());
++    }
++    @Test public void retainedSettingsProfileDeleteRequestTerminatesBeforeAnyPreparation() {
++        DeleteEuiccSubscriptionSidecar sidecar = new DeleteEuiccSubscriptionSidecar();
++        sidecar.runConfirmed(Collections.emptyList());
++        assertEquals(SidecarFragment.State.ERROR, sidecar.getState());
++    }
++    @Test public void onboardingDirectProfileSwitchFailsBeforeTouchingEuiccManager() {
++        EuiccManager manager = mock(EuiccManager.class);
++        doReturn(Context.EUICC_SERVICE).when(context).getSystemServiceName(EuiccManager.class);
++        doReturn(manager).when(context).getSystemService(Context.EUICC_SERVICE);
++        SimOnboardingViewModel model = new SimOnboardingViewModel((Application) context);
++        ViewModelStore store = new ViewModelStore(); store.put("onboarding", model);
++        try {
++            model.startEuiccSimSwitching(987, 0, null, new Continuation<Unit>() {
++                @Override public CoroutineContext getContext() { return EmptyCoroutineContext.INSTANCE; }
++                @Override public void resumeWith(Object result) {}
++            });
++            assertEquals(SimOnboardingViewModel.SwitchingState.FAILED, model.getUiState().getValue());
++            verifyNoInteractions(manager);
++        } finally { store.clear(); }
++    }
++    @Test public void lateOnboardingSlotCallbackCannotSelectAnEsimProfile() throws Exception {
++        EuiccManager manager = mock(EuiccManager.class);
++        doReturn(Context.EUICC_SERVICE).when(context).getSystemServiceName(EuiccManager.class);
++        doReturn(manager).when(context).getSystemService(Context.EUICC_SERVICE);
++        SimOnboardingViewModel model = new SimOnboardingViewModel((Application) context);
++        ViewModelStore store = new ViewModelStore(); store.put("onboarding", model);
++        try {
++            var callback = SimOnboardingViewModel.class.getDeclaredMethod("switchEuiccSimAfterSlotReady");
++            callback.setAccessible(true); callback.invoke(model);
++            assertEquals(SimOnboardingViewModel.SwitchingState.FAILED, model.getUiState().getValue());
++            verifyNoInteractions(manager);
++        } finally { store.clear(); }
++    }
++
++    private UiccCardInfo detectedCard(boolean euicc, boolean active, int logical, String eid) {
++        UiccCardInfo card = mock(UiccCardInfo.class);
++        UiccPortInfo port = mock(UiccPortInfo.class);
++        when(card.getPhysicalSlotIndex()).thenReturn(1);
++        when(card.getCardId()).thenReturn(7);
++        when(card.isEuicc()).thenReturn(euicc);
++        when(card.getEid()).thenReturn(eid);
++        when(card.getPorts()).thenReturn(Collections.singletonList(port));
++        when(port.isActive()).thenReturn(active);
++        when(port.getLogicalSlotIndex()).thenReturn(logical);
++        when(port.getIccId()).thenReturn("");
++        return card;
++    }
++    @Test public void detectedBlankEuiccWithNoEnabledProfileStillDisplaysEsim() {
++        UiccCardInfo card = detectedCard(true, true, 1, "12345678901234567890123456789012");
++        assertEquals(1, HonorLdyAn00EsimEntry.INSTANCE.detectedConnectionMode(
++                Collections.singletonList(card), TelephonyManager.SIM_STATE_UNKNOWN));
++    }
++    @Test public void detectedPhysicalRequiresPresentSimState() {
++        UiccCardInfo card = detectedCard(false, true, 1, null);
++        for (int state : new int[]{TelephonyManager.SIM_STATE_READY,
++                TelephonyManager.SIM_STATE_LOADED, TelephonyManager.SIM_STATE_PIN_REQUIRED})
++            assertEquals(0, HonorLdyAn00EsimEntry.INSTANCE.detectedConnectionMode(
++                    Collections.singletonList(card), state));
++        for (int state : new int[]{TelephonyManager.SIM_STATE_ABSENT,
++                TelephonyManager.SIM_STATE_UNKNOWN, TelephonyManager.SIM_STATE_NOT_READY})
++            assertEquals(-1, HonorLdyAn00EsimEntry.INSTANCE.detectedConnectionMode(
++                    Collections.singletonList(card), state));
++    }
++    @Test public void absentInactiveAmbiguousAndMalformedCardsAreUnknown() {
++        assertEquals(-1, HonorLdyAn00EsimEntry.INSTANCE.detectedConnectionMode(
++                Collections.emptyList(), TelephonyManager.SIM_STATE_READY));
++        for (UiccCardInfo card : new UiccCardInfo[]{
++                detectedCard(true, false, 1, "12345678901234567890123456789012"),
++                detectedCard(true, true, 0, "12345678901234567890123456789012"),
++                detectedCard(true, true, 1, null), detectedCard(true, true, 1, "bad")})
++            assertEquals(-1, HonorLdyAn00EsimEntry.INSTANCE.detectedConnectionMode(
++                    Collections.singletonList(card), TelephonyManager.SIM_STATE_READY));
++        UiccCardInfo card = detectedCard(true, true, 1, "12345678901234567890123456789012");
++        assertEquals(-1, HonorLdyAn00EsimEntry.INSTANCE.detectedConnectionMode(
++                java.util.Arrays.asList(card, card), TelephonyManager.SIM_STATE_READY));
++        when(card.getCardId()).thenReturn(-1);
++        assertEquals(-1, HonorLdyAn00EsimEntry.INSTANCE.detectedConnectionMode(
++                Collections.singletonList(card), TelephonyManager.SIM_STATE_READY));
++    }
++    @Test public void onlyFreshIdleSnapshotAllowsDisplayFallbackAndNoMutation() {
++        TelephonyManager manager = mock(TelephonyManager.class);
++        doReturn(Context.TELEPHONY_SERVICE).when(context).getSystemServiceName(TelephonyManager.class);
++        doReturn(manager).when(context).getSystemService(Context.TELEPHONY_SERVICE);
++        UiccCardInfo card = detectedCard(true, true, 1, "12345678901234567890123456789012");
++        when(manager.getUiccCardsInfo()).thenReturn(Collections.singletonList(card));
++        assertEquals(1, HonorLdyAn00EsimEntry.INSTANCE.connectionMode(context, state("IDLE")));
++        verify(manager).getUiccCardsInfo();
++        verify(manager).getSimState(1);
++        clearInvocations(manager);
++        for (String value : new String[]{"WORKING", "EUICC_WAITING", "UNKNOWN"})
++            assertEquals(-1, HonorLdyAn00EsimEntry.INSTANCE.connectionMode(context, state(value)));
++        assertEquals(-1, HonorLdyAn00EsimEntry.INSTANCE.connectionMode(context, null));
++        assertEquals(0, HonorLdyAn00EsimEntry.INSTANCE.connectionMode(context, state("PHYSICAL_READY")));
++        assertEquals(1, HonorLdyAn00EsimEntry.INSTANCE.connectionMode(context, state("KNOWN_BLANK")));
++        verifyNoInteractions(manager);
++        verify(context, never()).startActivity(any(Intent.class));
++        verify(context, never()).bindService(any(Intent.class), any(), anyInt());
++    }
++    private void dialogResources() throws Exception {
++        when(context.getPackageManager().getPackageInfo(anyString(), anyInt()))
++                .thenReturn(new android.content.pm.PackageInfo());
++        // Targeted host API R.jar has unlinked zero IDs; use real Android strings for layout.
++        for (String name : new String[]{"honor_esim_physical_slot2", "downloaded_sim_category_title",
++                "honor_esim_still_pending", "honor_esim_change_unconfirmed"})
++            com.android.settings.R.string.class.getField(name).setInt(null, android.R.string.ok);
++    }
++    @Test public void unknownOrPendingConnectionDoesNotOfferUnselectedRadioChoices() throws Exception {
++        dialogResources();
++        context.setTheme(android.R.style.Theme_Material_Light_Dialog_Alert);
++        for (String value : new String[]{null, "WORKING", "EUICC_WAITING", "UNKNOWN"}) {
++            HonorLdyAn00EsimEntry.INSTANCE.showConnectionChoice(context, value == null ? null : state(value));
++            android.app.AlertDialog dialog = (android.app.AlertDialog)
++                    org.robolectric.shadows.ShadowDialog.getLatestDialog();
++            assertNotNull(dialog);
++            assertNull(dialog.getListView());
++            assertNotNull(dialog.getButton(android.content.DialogInterface.BUTTON_NEGATIVE));
++            dialog.dismiss();
++        }
++        verify(context, never()).startActivity(any(Intent.class));
++        verify(context, never()).bindService(any(Intent.class), any(), anyInt());
++    }
++    @Test public void selectingCurrentConnectionDoesNotLaunchAnotherSwitch() throws Exception {
++        dialogResources();
++        context.setTheme(android.R.style.Theme_Material_Light_Dialog_Alert);
++        String[] states = {"PHYSICAL_READY", "EUICC_READY", "KNOWN_BLANK"};
++        for (String value : states) {
++            HonorLdyAn00EsimEntry.INSTANCE.showConnectionChoice(context, state(value));
++            android.app.AlertDialog dialog = (android.app.AlertDialog)
++                    org.robolectric.shadows.ShadowDialog.getLatestDialog();
++            android.widget.ListView list = dialog.getListView();
++            int selected = list.getCheckedItemPosition();
++            list.performItemClick(null, selected, list.getItemIdAtPosition(selected));
++        }
++        verify(context, never()).startActivity(any(Intent.class));
++    }
++
++    @Test public void knownConnectionPrefillsActualSelectedRadio() throws Exception {
++        dialogResources();
++        context.setTheme(android.R.style.Theme_Material_Light_Dialog_Alert);
++        String[] states = {"PHYSICAL_READY", "EUICC_READY", "KNOWN_BLANK"};
++        int[] selected = {0, 1, 1};
++        for (int i = 0; i < states.length; i++) {
++            HonorLdyAn00EsimEntry.INSTANCE.showConnectionChoice(context, state(states[i]));
++            android.app.AlertDialog dialog = (android.app.AlertDialog)
++                    org.robolectric.shadows.ShadowDialog.getLatestDialog();
++            assertNotNull(dialog.getListView());
++            assertEquals(selected[i], dialog.getListView().getCheckedItemPosition());
++            dialog.dismiss();
++        }
++        verify(context, never()).startActivity(any(Intent.class));
++    }
++
++}
+diff --git a/tests/robotests/src/com/android/settings/network/HonorEsimManagementRouteTest.java b/tests/robotests/src/com/android/settings/network/HonorEsimManagementRouteTest.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..15e119b53d5ff94d27e0f10e3699e75973d39a68
+--- /dev/null
++++ b/tests/robotests/src/com/android/settings/network/HonorEsimManagementRouteTest.java
+@@ -0,0 +1,430 @@
++/* Copyright (C) 2026 The LineageOS Project
++ * SPDX-License-Identifier: Apache-2.0 */
++package com.android.settings.network;
++
++import android.app.Activity;
++import android.app.Application;
++import android.content.ComponentName;
++import android.content.Context;
++import android.content.Intent;
++import android.content.ServiceConnection;
++import android.content.pm.ApplicationInfo;
++import android.content.pm.PackageManager;
++import android.content.pm.ServiceInfo;
++import android.os.Bundle;
++import android.os.Handler;
++import android.os.Looper;
++import android.os.Message;
++import android.os.Messenger;
++import android.os.Parcel;
++import android.os.ResultReceiver;
++import android.os.BadParcelableException;
++import java.lang.reflect.Method;
++import java.util.ArrayList;
++import org.junit.After;
++import org.junit.Before;
++import org.junit.Test;
++import org.junit.runner.RunWith;
++import org.robolectric.RobolectricTestRunner;
++import org.robolectric.RuntimeEnvironment;
++import org.robolectric.Shadows;
++import org.robolectric.annotation.Config;
++import org.robolectric.annotation.LooperMode;
++import static org.junit.Assert.*;
++import static org.mockito.Mockito.*;
++
++/** Real ViewModel and Messenger admission; only the Phone transport is scripted. */
++@RunWith(RobolectricTestRunner.class)
++@Config(sdk=37, manifest=Config.NONE, application=Application.class)
++@LooperMode(LooperMode.Mode.PAUSED)
++public class HonorEsimManagementRouteTest {
++    private HonorLdyAn00EsimSetupViewModel model;
++    private final ArrayList<Message> sent = new ArrayList<>();
++    private ServiceConnection connection;
++    private Application app;
++    private String nonce;
++    private Bundle launch;
++    @Before public void setup() throws Exception {
++        app = spy(RuntimeEnvironment.getApplication());
++        PackageManager pm = mock(PackageManager.class);
++        doReturn(pm).when(app).getPackageManager();
++        ServiceInfo info = new ServiceInfo();
++        info.enabled = true; info.exported = true;
++        info.permission = "android.permission.MODIFY_PHONE_STATE";
++        info.applicationInfo = new ApplicationInfo();
++        info.applicationInfo.enabled = true; info.applicationInfo.uid = 1001;
++        when(pm.getServiceInfo(any(ComponentName.class), eq(0))).thenReturn(info);
++        when(pm.checkSignatures("android", "com.android.phone")).thenReturn(PackageManager.SIGNATURE_MATCH);
++        doAnswer(call -> { connection = call.getArgument(1); return true; }).when(app)
++                .bindService(any(Intent.class), any(ServiceConnection.class), eq(Context.BIND_AUTO_CREATE));
++        model = new HonorLdyAn00EsimSetupViewModel(app);
++        Messenger remote = new Messenger(new Handler(Looper.getMainLooper(), m -> {
++            sent.add(Message.obtain(m)); return true;
++        }));
++        connection.onServiceConnected(new ComponentName("com.android.phone",
++                "com.android.phone.HonorLdyAn00EsimSetupService"), remote.getBinder());
++        drain();
++    }
++    private void drain() { Shadows.shadowOf(Looper.getMainLooper()).idle(); }
++    private int request() { return sent.get(sent.size() - 1).arg1; }
++    private long selects() { return sent.stream().filter(m -> m.what == 2 || m.what == 3).count(); }
++    private String stage() { return model.state().getValue().getString("management_stage"); }
++    private void reply(String state, int phase, boolean originProof) throws Exception {
++        reply(state, phase, originProof, null, true);
++    }
++    private void reply(String state, int phase, boolean originProof,
++            Boolean targetOverride, boolean tagPreparation) throws Exception {
++        Message message = Message.obtain(null, 1);
++        message.sendingUid = 1001; message.arg1 = request();
++        Bundle data = new Bundle();
++        data.putString("state", state); data.putInt("version", 1);
++        data.putInt("phase_serial", phase); data.putInt("profile_route_protocol", 1);
++        data.putInt("route_observation_protocol", 1); data.putBoolean("can_return", true);
++        Message request = sent.get(sent.size() - 1);
++        if (request.what == 8 && tagPreparation) {
++            data.putBoolean("preparation_only", true);
++            data.putInt("preparation_protocol", 1);
++            data.putBoolean("preparation_target_physical", targetOverride != null
++                    ? targetOverride : request.getData().getBoolean("target_physical"));
++        }
++        if (originProof) {
++            data.putInt("management_origin_protocol", 1); data.putInt("management_origin_mode", 0);
++            data.putInt("management_origin_phase", phase - 1);
++            data.putInt("management_origin_request", message.arg1);
++            data.putLong("management_origin_generation", 1);
++        }
++        message.setData(data);
++        Method receive = model.getClass().getDeclaredMethod("handleReply", Message.class);
++        receive.setAccessible(true); receive.invoke(model, message);
++        drain();
++    }
++    private void start(boolean physical) throws Exception {
++        prepare(physical);
++        if (physical) reply("EUICC_READY", 1, true);
++        launchManagement();
++    }
++
++    private void prepare(boolean physical) throws Exception {
++        assertTrue(model.beginManagement());
++        reply(physical ? "PHYSICAL_READY" : "EUICC_READY", 0, false);
++        model.continueManagement(false); drain();
++        assertEquals(8, sent.get(sent.size() - 1).what);
++        reply(physical ? "PHYSICAL_READY" : "EUICC_READY", 0, false);
++        model.continueManagement(false); drain();
++    }
++
++    private void launchManagement() {
++        assertEquals("READY", stage());
++        launch = model.takeManagementLaunch();
++        nonce = launch.getString("honor_management_nonce");
++        assertEquals("WAITING_LPA", stage());
++        assertFalse(sent.get(0).getData().containsKey("management_session_nonce"));
++    }
++    private Bundle completed(boolean selected, boolean drained) {
++        Bundle data = new Bundle();
++        data.putInt("honor_management_version", 1);
++        data.putString("honor_management_nonce", nonce);
++        data.putBoolean("honor_management_done", drained);
++        data.putBoolean("honor_management_drained", drained);
++        data.putBoolean("honor_management_keep_esim", selected);
++        return data;
++    }
++    @Test public void selectedProfileWhilePhysicalRestoresOnlyAfterFreshOwnedSnapshot() throws Exception {
++        start(true); assertEquals(1, selects());
++        model.completeManagement(Activity.RESULT_OK, completed(true, true)); drain();
++        assertEquals("RESTORING", stage()); assertEquals(1, selects());
++        assertEquals(1, sent.get(sent.size() - 1).what);
++        reply("EUICC_READY", 1, false);
++        assertEquals(2, selects()); assertEquals(3, sent.get(sent.size() - 1).what);
++        assertEquals(nonce, sent.get(sent.size() - 1).getData().getString("management_session_nonce"));
++        reply("PHYSICAL_READY", 2, false);
++        assertEquals("DONE", stage());
++    }
++    @Test public void downloadWithoutActivationAlsoRestoresPhysicalOrigin() throws Exception {
++        start(true);
++        model.completeManagement(Activity.RESULT_OK, completed(false, true)); drain();
++        assertEquals("RESTORING", stage()); assertEquals(1, selects());
++        reply("EUICC_READY", 1, false);
++        assertEquals(2, selects()); assertEquals(3, sent.get(sent.size() - 1).what);
++    }
++    @Test public void physicalOriginOpensManagerWithNoEnabledProfileAndReturnsToSim2()
++            throws Exception {
++        prepare(true);
++        reply("KNOWN_BLANK", 1, true);
++        launchManagement();
++        model.completeManagement(Activity.RESULT_OK, completed(false, true));
++        drain();
++        assertEquals("RESTORING", stage());
++        reply("KNOWN_BLANK", 1, false);
++        assertEquals(2, selects());
++        assertEquals(3, sent.get(sent.size() - 1).what);
++        reply("PHYSICAL_READY", 2, false);
++        assertEquals("DONE", stage());
++    }
++
++    @Test public void oldBlankSnapshotKeepsObservingAndUnprovenBlankCannotOpenManager()
++            throws Exception {
++        prepare(true);
++        reply("KNOWN_BLANK", 0, false);
++        assertEquals("WORKING", model.state().getValue().getString("state"));
++        assertNull(model.takeManagementLaunch());
++        reply("KNOWN_BLANK", 1, false);
++        assertEquals("UNAVAILABLE", stage());
++        assertNull(model.takeManagementLaunch());
++        assertEquals(1, selects());
++    }
++
++    @Test public void existingEsimOriginRemainsEsimAfterManagement() throws Exception {
++        start(false);
++        model.completeManagement(Activity.RESULT_OK, completed(true, true)); drain();
++        assertEquals("DONE", stage()); assertEquals(0, selects());
++    }
++    @Test public void busyReturnObservesAgainBeforeRestoringPhysical() throws Exception {
++        start(true);
++        model.completeManagement(Activity.RESULT_OK, completed(false, true));
++        drain();
++        int busyRequest = request();
++        reply("WORKING", 1, false);
++        assertEquals("RESTORING", stage());
++        assertEquals(1, selects());
++        Shadows.shadowOf(Looper.getMainLooper()).idleFor(java.time.Duration.ofSeconds(1));
++        assertTrue(request() > busyRequest);
++        assertEquals(1, sent.get(sent.size() - 1).what);
++        reply("EUICC_READY", 1, false);
++        assertEquals(2, selects());
++        reply("PHYSICAL_READY", 2, false);
++        assertEquals("DONE", stage());
++    }
++
++    @Test public void timedOutManagementReturnCannotReopenMutationModel() throws Exception {
++        start(true);
++        model.completeManagement(Activity.RESULT_OK, completed(false, true));
++        drain();
++        Shadows.shadowOf(Looper.getMainLooper()).idleFor(java.time.Duration.ofSeconds(441));
++        assertEquals("OBSERVATION_TIMEOUT", model.state().getValue().getString("state"));
++        int count = sent.size();
++        model.refreshSnapshotOnce();
++        drain();
++        assertEquals(count, sent.size());
++        assertEquals(1, selects());
++    }
++
++    @Test public void uncertainCompletionCannotRestoreOrReplay() throws Exception {
++        start(true);
++        model.completeManagement(Activity.RESULT_OK, completed(true, false)); drain();
++        assertEquals("UNAVAILABLE", stage()); assertEquals(1, selects());
++        model.continueManagement(false); model.refreshSnapshotOnce(); drain();
++        assertEquals(1, selects());
++    }
++    @Test public void rejectedManagerLaunchRestoresPhysicalBeforeShowingFailure() throws Exception {
++        start(true);
++        model.managementLaunchFailed();
++        drain();
++        assertEquals("RESTORING", stage());
++        assertEquals(1, selects());
++        reply("EUICC_READY", 1, false);
++        assertEquals(2, selects());
++        assertEquals(3, sent.get(sent.size() - 1).what);
++        reply("PHYSICAL_READY", 2, false);
++        assertEquals("LAUNCH_FAILED", stage());
++    }
++
++    @Test public void rejectedManagerLaunchOnEsimOriginDoesNotChangeRoute() throws Exception {
++        start(false);
++        model.managementLaunchFailed();
++        drain();
++        assertEquals("LAUNCH_FAILED", stage());
++        assertEquals(0, selects());
++    }
++
++    @Test public void dispatchFailureRequiresMatchingSessionAndTypedActivityResult()
++            throws Exception {
++        start(true);
++        Bundle result = completed(false, false);
++        result.putBoolean("honor_management_dispatch_failed", true);
++        assertFalse(model.managementDispatchFailed(Activity.RESULT_CANCELED, result));
++        result.putString("honor_management_nonce", "00000000000000000000000000000000");
++        assertFalse(model.managementDispatchFailed(Activity.RESULT_FIRST_USER, result));
++        assertEquals("WAITING_LPA", stage());
++        result.putString("honor_management_nonce", nonce);
++        assertTrue(model.managementDispatchFailed(Activity.RESULT_FIRST_USER, result));
++        assertEquals("RESTORING", stage());
++        assertEquals(1, selects());
++    }
++
++    @Test public void canceledSessionCannotBlindlyRestore() throws Exception {
++        start(true);
++        model.completeManagement(Activity.RESULT_CANCELED, completed(true, true)); drain();
++        assertEquals("UNAVAILABLE", stage()); assertEquals(1, selects());
++    }
++    private Bundle throughLpaClassLoader(Bundle value) {
++        ClassLoader lpaLoader = new ClassLoader(null) {
++            @Override protected Class<?> loadClass(String name, boolean resolve)
++                    throws ClassNotFoundException {
++                if (name.startsWith("com.android.settings.")) throw new ClassNotFoundException(name);
++                return Class.forName(name, false, Bundle.class.getClassLoader());
++            }
++        };
++        Parcel wire = Parcel.obtain();
++        try {
++            wire.writeBundle(value); wire.setDataPosition(0);
++            return wire.readBundle(lpaLoader);
++        } finally { wire.recycle(); }
++    }
++    @Test public void frameworkReceiverSurvivesLpaClassLoaderAndKeepsCallback() throws Exception {
++        start(false);
++        Bundle remote = throughLpaClassLoader(launch);
++        ResultReceiver callback = remote.getParcelable("honor_management_result");
++        assertNotNull(callback); assertEquals(ResultReceiver.class, callback.getClass());
++        // Robolectric shadows ResultReceiver.send; invoke the real reconstructed Binder endpoint.
++        var endpointField = ResultReceiver.class.getDeclaredField("mReceiver");
++        endpointField.setAccessible(true);
++        Object endpoint = endpointField.get(callback);
++        Method send = endpoint.getClass().getMethod("send", int.class, Bundle.class);
++        send.setAccessible(true); send.invoke(endpoint, Activity.RESULT_OK, completed(false, true));
++        drain();
++        assertEquals("DONE", stage()); assertEquals(0, selects());
++        send.invoke(endpoint, Activity.RESULT_OK, completed(false, true)); drain();
++        assertEquals("DONE", stage()); assertEquals(0, selects());
++    }
++    @Test public void privateReceiverClassReproducesCrossPackageFailure() {
++        Bundle legacy = new Bundle();
++        legacy.putParcelable("honor_management_result", new ResultReceiver(new Handler(
++                Looper.getMainLooper())) {});
++        Bundle remote = throughLpaClassLoader(legacy);
++        assertThrows(BadParcelableException.class,
++                () -> remote.getParcelable("honor_management_result"));
++    }
++    @Test public void temporaryOutboundCarriesOnlyItsManagementNonce() throws Exception {
++        start(true);
++        assertEquals(nonce, sent.stream().filter(m -> m.what == 2)
++                .findFirst().get().getData().getString("management_session_nonce"));
++    }
++    @Test public void explicitConnectionChoiceHasNoManagementNonce() throws Exception {
++        reply("EUICC_READY", 0, false);
++        model.choose(true, false, 0); drain();
++        assertEquals(3, sent.get(sent.size() - 1).what);
++        assertFalse(sent.get(sent.size() - 1).getData().containsKey("management_session_nonce"));
++    }
++    @Test public void coldJournalPhaseIsPreparedBeforeDirectConnectionConsent() throws Exception {
++        reply("IDLE", 0, false);
++        assertEquals(1, sent.size());
++        model.prepareRoute(false, true); drain();
++        assertEquals(8, sent.get(sent.size() - 1).what); assertEquals(0, selects());
++        assertTrue(sent.get(sent.size() - 1).getData().getBoolean("explicit_user_action"));
++        assertFalse(sent.get(sent.size() - 1).getData().getBoolean("confirmed"));
++        assertFalse(sent.get(sent.size() - 1).getData().containsKey("management_session_nonce"));
++        reply("PHYSICAL_READY", 9, false);
++        assertTrue(model.hasPreparedRoute()); assertEquals(0, selects());
++        model.choose(false, true, 9); drain();
++        assertEquals(1, selects());
++        assertEquals(9, sent.get(sent.size() - 1).getData().getInt("phase_serial"));
++    }
++    @Test public void coldManagementUsesPreparedJournalPhaseWithoutExtraChoice() throws Exception {
++        assertTrue(model.beginManagement()); reply("IDLE", 0, false);
++        model.continueManagement(true); drain(); assertEquals(8, sent.get(sent.size() - 1).what);
++        reply("PHYSICAL_READY", 9, false); model.continueManagement(true); drain();
++        assertEquals(1, selects());
++        assertEquals(9, sent.get(sent.size() - 1).getData().getInt("phase_serial"));
++        reply("EUICC_READY", 10, true); assertEquals("READY", stage());
++        assertNotNull(model.takeManagementLaunch());
++    }
++    @Test public void preparationBusyOrUnqualifiedCannotSelect() throws Exception {
++        reply("IDLE", 0, false); model.prepareRoute(false, true); drain();
++        reply("CALL_BUSY", 0, false);
++        assertFalse(model.hasPreparedRoute()); assertEquals(0, selects());
++        assertEquals("CALL_BUSY", model.state().getValue().getString("state"));
++    }
++    @Test public void canceledPreparationIgnoresLateReadyWithoutSelection() throws Exception {
++        reply("IDLE", 0, false); model.prepareRoute(false, true); drain();
++        Method clear = model.getClass().getDeclaredMethod("onCleared");
++        clear.setAccessible(true); clear.invoke(model);
++        reply("PHYSICAL_READY", 9, false); model.choose(false, true, 9); drain();
++        assertFalse(model.hasPreparedRoute()); assertEquals(0, selects());
++    }
++    @Test public void uncertainPreparationCannotBecomeConsent() throws Exception {
++        reply("IDLE", 0, false); model.prepareRoute(false, true); drain();
++        reply("UNKNOWN", 9, false); model.choose(false, true, 9); drain();
++        assertFalse(model.hasPreparedRoute()); assertEquals(0, selects());
++        assertEquals("UNAVAILABLE", model.state().getValue().getString("state"));
++    }
++    @Test public void oldUntaggedSnapshotCannotCompletePreparation() throws Exception {
++        reply("IDLE", 0, false); model.prepareRoute(false, true); drain();
++        reply("PHYSICAL_READY", 9, false, null, false);
++        assertFalse(model.hasPreparedRoute()); assertEquals(0, selects());
++        reply("PHYSICAL_READY", 9, false); assertTrue(model.hasPreparedRoute());
++        model.choose(false, true, 9); drain(); assertEquals(1, selects());
++    }
++    @Test public void crossTargetPreparationIsRefusedWithoutSelection() throws Exception {
++        reply("IDLE", 0, false); model.prepareRoute(false, true); drain();
++        reply("PHYSICAL_READY", 9, false, true, true);
++        assertFalse(model.hasPreparedRoute()); assertEquals(0, selects());
++        assertEquals("UNAVAILABLE", model.state().getValue().getString("state"));
++    }
++    @Test public void coldPhysicalChoiceUsesPreparedPhaseExactlyOnce() throws Exception {
++        reply("IDLE", 0, false); model.prepareRoute(true, true); drain();
++        reply("EUICC_READY", 9, false); model.choose(true, true, 9); drain();
++        assertEquals(1, selects()); assertEquals(3, sent.get(sent.size() - 1).what);
++        assertEquals(9, sent.get(sent.size() - 1).getData().getInt("phase_serial"));
++        model.choose(true, true, 9); drain(); assertEquals(1, selects());
++    }
++    @Test public void phaseChangedAfterPreparationCannotSilentlyChangeConsent() throws Exception {
++        reply("IDLE", 0, false); model.prepareRoute(false, true); drain();
++        reply("PHYSICAL_READY", 9, false); model.refreshSnapshotOnce(); drain();
++        reply("PHYSICAL_READY", 10, false);
++        model.choose(false, true, 9); drain(); assertEquals(0, selects());
++        assertEquals(1, sent.get(sent.size() - 1).what);
++        model.choose(false, true, 10); drain(); assertEquals(1, selects());
++        assertEquals(10, sent.get(sent.size() - 1).getData().getInt("phase_serial"));
++    }
++    private void passiveObserver() throws Exception {
++        cleanup();
++        sent.clear();
++        model = HonorLdyAn00EsimSetupViewModel.passiveObserverFactory(app)
++                .create(HonorLdyAn00EsimSetupViewModel.class);
++        Messenger remote = new Messenger(new Handler(Looper.getMainLooper(), m -> {
++            sent.add(Message.obtain(m)); return true;
++        }));
++        connection.onServiceConnected(new ComponentName("com.android.phone",
++                "com.android.phone.HonorLdyAn00EsimSetupService"), remote.getBinder());
++        drain();
++    }
++    @Test public void passiveResumeReadsFreshPhysicalStateAfterPriorBackendUnknown() throws Exception {
++        passiveObserver();
++        reply("UNKNOWN", 0, false);
++        Bundle refused = model.state().getValue();
++        int count = sent.size();
++        model.refreshSnapshotOnce(); drain();
++        assertEquals(count + 1, sent.size());
++        assertEquals(1, sent.get(sent.size() - 1).what);
++        reply("PHYSICAL_READY", 12, false);
++        assertNotSame(refused, model.state().getValue());
++        assertEquals("PHYSICAL_READY", model.state().getValue().getString("state"));
++        assertTrue(sent.stream().allMatch(m -> m.what == 1));
++    }
++    @Test public void passiveFreshUnknownRemainsUnavailableWithoutRouteGuess() throws Exception {
++        passiveObserver(); reply("UNKNOWN", 0, false);
++        model.refreshSnapshotOnce(); drain(); reply("UNKNOWN", 0, false);
++        assertEquals("UNAVAILABLE", model.state().getValue().getString("state"));
++        assertTrue(sent.stream().allMatch(m -> m.what == 1));
++    }
++    @Test public void mutationModelCannotResumeAfterBackendUnknown() throws Exception {
++        reply("UNKNOWN", 0, false); int count = sent.size();
++        model.refreshSnapshotOnce(); drain();
++        assertEquals(count, sent.size());
++    }
++    @Test public void passiveObserverCannotSendPreparationOrEitherSelection() throws Exception {
++        for (int command : new int[]{2, 3, 8}) {
++            passiveObserver(); reply("EUICC_READY", 12, false);
++            int count = sent.size();
++            Method send = model.getClass().getDeclaredMethod("send", int.class, boolean.class, boolean.class);
++            send.setAccessible(true); send.invoke(model, command, true, true); drain();
++            assertEquals(count, sent.size());
++            assertEquals("UNAVAILABLE", model.state().getValue().getString("state"));
++        }
++    }
++    @After public void cleanup() throws Exception {
++        Method clear = model.getClass().getDeclaredMethod("onCleared");
++        clear.setAccessible(true); clear.invoke(model);
++    }
++}
+diff --git a/tests/robotests/src/com/android/settings/network/HonorEsimShortcutConsentTest.java b/tests/robotests/src/com/android/settings/network/HonorEsimShortcutConsentTest.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..50c2258ae118129307dea7690310889e73134299
+--- /dev/null
++++ b/tests/robotests/src/com/android/settings/network/HonorEsimShortcutConsentTest.java
+@@ -0,0 +1,66 @@
++/* Copyright (C) 2026 The LineageOS Project
++ * SPDX-License-Identifier: Apache-2.0 */
++package com.android.settings.network;
++import android.app.Application;
++import android.content.Intent;
++import org.junit.Test;
++import org.junit.runner.RunWith;
++import org.robolectric.Robolectric;
++import org.robolectric.RobolectricTestRunner;
++import org.robolectric.annotation.Config;
++import static org.junit.Assert.*;
++@RunWith(RobolectricTestRunner.class)
++@Config(sdk=37, manifest=Config.NONE, application=Application.class)
++public class HonorEsimShortcutConsentTest {
++    @Test public void shortcutAddTokenStillRequiresVisibleConsent() {
++        var activity = Robolectric.buildActivity(HonorLdyAn00EsimManagementActivity.class).get();
++        activity.setIntent(new Intent(HonorLdyAn00EsimEntry.ACTION_MANAGEMENT)
++                .putExtra("honor_management_action_token", "a".repeat(32))
++                .putExtra("honor_management_action_kind", "ADD")
++                .putExtra("honor_management_confirm_action", true));
++        Intent request = activity.privateSetupIntent();
++        assertTrue(request.getBooleanExtra(HonorLdyAn00EsimSetupActivity.EXTRA_CONFIRM_MANAGEMENT, false));
++        assertEquals("a".repeat(32), request.getStringExtra("honor_management_action_token"));
++        assertTrue(request.getBooleanExtra(HonorLdyAn00EsimEntry.EXTRA_MANAGE_ESIMS, false));
++        assertFalse(request.hasExtra("return_physical_sim2"));
++    }
++    @Test public void existingExplicitListActionPreservesItsGesture() {
++        var activity = Robolectric.buildActivity(HonorLdyAn00EsimManagementActivity.class).get();
++        activity.setIntent(new Intent(HonorLdyAn00EsimEntry.ACTION_MANAGEMENT)
++                .putExtra("honor_management_action_token", "a".repeat(32))
++                .putExtra("honor_management_action_kind", "ADD"));
++        assertFalse(activity.privateSetupIntent().getBooleanExtra(
++                HonorLdyAn00EsimSetupActivity.EXTRA_CONFIRM_MANAGEMENT, true));
++    }
++    @Test public void inAppAddDoesNotRequireAnotherDevelopmentImagePrompt() {
++        var activity = Robolectric.buildActivity(HonorLdyAn00EsimSetupActivity.class).get();
++        activity.setIntent(HonorLdyAn00EsimEntry.INSTANCE.managementIntent()
++                .putExtra("honor_management_action_token", "a".repeat(32))
++                .putExtra("honor_management_action_kind", "ADD"));
++        assertTrue(activity.hasForwardedManagementAction());
++    }
++    @Test public void externalShortcutAndMalformedActionsKeepTheirConsentBoundary() {
++        var activity = Robolectric.buildActivity(HonorLdyAn00EsimSetupActivity.class).get();
++        Intent request = HonorLdyAn00EsimEntry.INSTANCE.managementIntent()
++                .putExtra("honor_management_action_token", "a".repeat(32))
++                .putExtra("honor_management_action_kind", "ADD")
++                .putExtra(HonorLdyAn00EsimSetupActivity.EXTRA_CONFIRM_MANAGEMENT, true);
++        activity.setIntent(request);
++        assertFalse(activity.hasForwardedManagementAction());
++        request.putExtra(HonorLdyAn00EsimSetupActivity.EXTRA_CONFIRM_MANAGEMENT, false)
++                .putExtra("honor_management_action_token", "bad");
++        assertFalse(activity.hasForwardedManagementAction());
++        request.putExtra("honor_management_action_token", "a".repeat(32))
++                .putExtra("honor_management_action_kind", "RESET_MODEM");
++        assertFalse(activity.hasForwardedManagementAction());
++    }
++    @Test public void malformedTokenCannotSuppressManagementConsent() {
++        var activity = Robolectric.buildActivity(HonorLdyAn00EsimManagementActivity.class).get();
++        activity.setIntent(new Intent(HonorLdyAn00EsimEntry.ACTION_MANAGEMENT)
++                .putExtra("honor_management_action_token", "bad")
++                .putExtra("honor_management_action_kind", "ADD"));
++        Intent request = activity.privateSetupIntent();
++        assertTrue(request.getBooleanExtra(HonorLdyAn00EsimSetupActivity.EXTRA_CONFIRM_MANAGEMENT, false));
++        assertFalse(request.hasExtra("honor_management_action_token"));
++    }
++}
 diff --git a/tests/robotests/src/com/android/settings/network/HonorLdyAn00EsimEntryTest.kt b/tests/robotests/src/com/android/settings/network/HonorLdyAn00EsimEntryTest.kt
 new file mode 100644
-index 0000000..b28395b
+index 0000000000000000000000000000000000000000..b28395b320912b74b8653c9c1444664bca01640d
 --- /dev/null
 +++ b/tests/robotests/src/com/android/settings/network/HonorLdyAn00EsimEntryTest.kt
 @@ -0,0 +1,246 @@
@@ -5369,7 +6522,7 @@ index 0000000..b28395b
 +}
 diff --git a/tests/robotests/src/com/android/settings/network/HonorLdyAn00EsimManagementActivityTest.kt b/tests/robotests/src/com/android/settings/network/HonorLdyAn00EsimManagementActivityTest.kt
 new file mode 100644
-index 0000000..43d1781
+index 0000000000000000000000000000000000000000..43d17814fd57de065bc8df1ddfa9c5dc4e12330e
 --- /dev/null
 +++ b/tests/robotests/src/com/android/settings/network/HonorLdyAn00EsimManagementActivityTest.kt
 @@ -0,0 +1,143 @@
@@ -5518,10 +6671,10 @@ index 0000000..43d1781
 +}
 diff --git a/tests/robotests/src/com/android/settings/network/HonorPhysicalSlotRoutingTest.java b/tests/robotests/src/com/android/settings/network/HonorPhysicalSlotRoutingTest.java
 new file mode 100644
-index 0000000..521d53c
+index 0000000000000000000000000000000000000000..2a7ed2678686ee9c3a1159268e73d7df01ef5838
 --- /dev/null
 +++ b/tests/robotests/src/com/android/settings/network/HonorPhysicalSlotRoutingTest.java
-@@ -0,0 +1,185 @@
+@@ -0,0 +1,167 @@
 +/*
 + * Copyright (C) 2026 The LineageOS Project
 + * SPDX-License-Identifier: Apache-2.0
@@ -5630,10 +6783,6 @@ index 0000000..521d53c
 +        return new SubscriptionInfoEntity("42", slot, embedded, false, "SIM", true, false,
 +                valid, true);
 +    }
-+    private Bundle route(String value) {
-+        Bundle b = new Bundle(); b.putString("state", value); b.putBoolean("can_return", true);
-+        return b;
-+    }
 +    private void publish(SubscriptionInfoEntity row) throws Exception {
 +        existingPreference(); controller.onAvailableSubInfoChanged(Collections.singletonList(row));
 +    }
@@ -5644,71 +6793,57 @@ index 0000000..521d53c
 +        return captor.getValue();
 +    }
 +
-+    @Test public void browsingAndQualifiedSnapshotDoNotLaunchOrBind() throws Exception {
-+        publish(row(1, false, true)); controller.setHonorRouteState(route("EUICC_READY"));
-+        assertTrue(controller.hasHonorPhysicalSim2Row());
++    @Test public void browsingNetworkRowsDoesNotLaunchOrBind() throws Exception {
++        publish(row(1, false, true));
 +        verify(context, never()).startActivity(any(Intent.class));
 +        verify(context, never()).bindService(any(Intent.class), any(ServiceConnection.class), anyInt());
 +    }
-+    @Test public void realPhysicalRowOpensExplicitConsentOnly() throws Exception {
-+        publish(row(1, false, true)); controller.setHonorRouteState(route("EUICC_READY"));
-+        assertTrue(controller.hasHonorPhysicalSim2Row()); click().onPreferenceClick(preference);
++    @Test public void activeCarrierRowKeepsOrdinaryNetworkSettings() throws Exception {
++        publish(row(1, false, true)); click().onPreferenceClick(preference);
 +        org.mockito.ArgumentCaptor<Intent> intent = org.mockito.ArgumentCaptor.forClass(Intent.class);
 +        verify(context).startActivity(intent.capture());
-+        assertEquals("com.android.settings.network.HonorLdyAn00EsimSetupActivity",
-+                intent.getValue().getComponent().getClassName());
-+        assertTrue(intent.getValue().getBooleanExtra("return_physical_sim2", false));
++        assertEquals("com.android.settings.network.telephony.MobileNetworkSettings",
++                intent.getValue().getStringExtra(com.android.settings.SettingsActivity.EXTRA_SHOW_FRAGMENT));
++        Bundle arguments = intent.getValue().getBundleExtra(
++                com.android.settings.SettingsActivity.EXTRA_SHOW_FRAGMENT_ARGUMENTS);
++        assertNotNull(arguments);
++        assertEquals(42, arguments.getInt(android.provider.Settings.EXTRA_SUB_ID, -1));
++        assertFalse(intent.getValue().getBooleanExtra("return_physical_sim2", false));
 +        verify(context, never()).bindService(any(Intent.class), any(ServiceConnection.class), anyInt());
 +    }
-+    @Test public void convertedPhysicalRowCannotSuppressFallback() throws Exception {
++    @Test public void classicListHidesHistoricalProfilesAndPhysicalSim2() throws Exception {
++        List<SubscriptionInfoEntity> rows = Arrays.asList(
++                new SubscriptionInfoEntity("1", 0, false, false, "SIM1", true, false, true, true),
++                new SubscriptionInfoEntity("2", -1, false, false, "SIM2", true, false, true, false),
++                new SubscriptionInfoEntity("3", -1, true, false, "old eSIM", true, false, true, false));
++        field("mSubInfoEntityList").set(controller, rows);
++        assertEquals(1, controller.getAvailablePhysicalSubscriptions().size());
++        assertEquals("1", controller.getAvailablePhysicalSubscriptions().get(0).subId);
++    }
++    @Test public void classicListPreservesActiveEsimNetworkConfiguration() {
++        SubscriptionInfoEntity active = row(1, true, true);
++        controller.onAvailableSubInfoChanged(Collections.singletonList(active));
++        assertEquals(Collections.singletonList(active), controller.getAvailablePhysicalSubscriptions());
++    }
++    @Test public void otherDevicesKeepHistoricalProfileRows() throws Exception {
++        ShadowBuild.setDevice("other");
++        SubscriptionInfoEntity saved = new SubscriptionInfoEntity(
++                "3", -1, true, false, "saved", true, false, true, false);
++        field("mSubInfoEntityList").set(controller, Collections.singletonList(saved));
++        assertEquals(Collections.singletonList(saved), controller.getAvailablePhysicalSubscriptions());
++    }
++    @Test public void convertedPhysicalRowStaysDisabledWithoutChangingConnections() throws Exception {
 +        SubscriptionInfo converted = mock(SubscriptionInfo.class);
 +        when(converted.getSubscriptionId()).thenReturn(42);
 +        when(converted.getTransferStatus()).thenReturn(SubscriptionManager.TRANSFER_STATUS_CONVERTED);
 +        when(subscriptions.getAllSubscriptionInfoList()).thenReturn(Collections.singletonList(converted));
-+        assertTrue(SubscriptionUtil.isConvertedPsimSubscription(converted));
-+        publish(row(1, false, true)); controller.setHonorRouteState(route("KNOWN_BLANK"));
-+        assertFalse(enabled.get()); assertFalse(controller.hasHonorPhysicalSim2Row());
++        publish(row(1, false, true));
++        assertFalse(enabled.get());
 +        verify(context, never()).startActivity(any(Intent.class));
-+    }
-+    @Test public void disabledOrUnselectablePhysicalRowCannotSuppressFallback() throws Exception {
-+        publish(row(1, false, true)); controller.setHonorRouteState(route("EUICC_READY"));
-+        enabled.set(false); assertFalse(controller.hasHonorPhysicalSim2Row());
-+        enabled.set(true); when(preference.isSelectable()).thenReturn(false);
-+        assertFalse(controller.hasHonorPhysicalSim2Row());
-+    }
-+    @Test public void noRenderedRowCannotSuppressFallback() throws Exception {
-+        controller.setHonorRouteState(route("EUICC_READY"));
-+        assertFalse(controller.hasHonorPhysicalSim2Row());
-+    }
-+    @Test public void sim1EmbeddedInvalidAndUnknownCannotClaimPhysicalHook() throws Exception {
-+        for (SubscriptionInfoEntity row : Arrays.asList(row(0, false, true),
-+                row(1, true, true), row(1, false, false))) {
-+            publish(row); controller.setHonorRouteState(route("EUICC_READY"));
-+            assertFalse(controller.hasHonorPhysicalSim2Row());
-+        }
-+        publish(row(1, false, true)); controller.setHonorRouteState(route("UNKNOWN"));
-+        assertFalse(controller.hasHonorPhysicalSim2Row());
-+        controller.setHonorRouteState(null); assertFalse(controller.hasHonorPhysicalSim2Row());
-+    }
-+    @Test public void rowsChangedListenerDetachesWithView() throws Exception {
-+        Runnable listener = mock(Runnable.class); controller.setHonorRowsChangedListener(listener);
-+        publish(row(1, false, true)); verify(listener).run();
-+        controller.setHonorRowsChangedListener(null); publish(row(1, false, true));
-+        verifyNoMoreInteractions(listener);
-+    }
-+    @Test public void physicalIdentityUsesRealValidSlot2Only() {
-+        SubscriptionInfo info = mock(SubscriptionInfo.class);
-+        when(info.getSubscriptionId()).thenReturn(42); when(info.getSimSlotIndex()).thenReturn(1);
-+        assertTrue(HonorLdyAn00EsimEntry.INSTANCE.isPhysicalSim2(info));
-+        when(info.isEmbedded()).thenReturn(true);
-+        assertFalse(HonorLdyAn00EsimEntry.INSTANCE.isPhysicalSim2(info));
-+        when(info.isEmbedded()).thenReturn(false); when(info.getSimSlotIndex()).thenReturn(0);
-+        assertFalse(HonorLdyAn00EsimEntry.INSTANCE.isPhysicalSim2(info));
-+        assertFalse(HonorLdyAn00EsimEntry.INSTANCE.isPhysicalSim2(null));
 +    }
 +}
 diff --git a/tests/robotests/src/com/android/settings/password/ChooseLockPatternTest.java b/tests/robotests/src/com/android/settings/password/ChooseLockPatternTest.java
-index e764fce..0b1c664 100644
+index e764fce424ce611504dfc1343da345cda4cffcd5..0b1c664436c752b1ad39d5770ac0d6da03e10058 100644
 --- a/tests/robotests/src/com/android/settings/password/ChooseLockPatternTest.java
 +++ b/tests/robotests/src/com/android/settings/password/ChooseLockPatternTest.java
 @@ -175,6 +175,7 @@ public class ChooseLockPatternTest {
@@ -5721,7 +6856,7 @@ index e764fce..0b1c664 100644
      }
  }
 diff --git a/tests/robotests/src/com/android/settings/password/ConfirmLockPatternTest.java b/tests/robotests/src/com/android/settings/password/ConfirmLockPatternTest.java
-index 30774b0..ad5f4cb 100644
+index 30774b0a41aa7f5c9b7844cda7369b190879d4a5..ad5f4cb11973d140746a0090361bb6f313958ac1 100644
 --- a/tests/robotests/src/com/android/settings/password/ConfirmLockPatternTest.java
 +++ b/tests/robotests/src/com/android/settings/password/ConfirmLockPatternTest.java
 @@ -373,7 +373,8 @@ public class ConfirmLockPatternTest {

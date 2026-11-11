@@ -71,15 +71,15 @@
     },
     {
       "path": "frameworks/opt/telephony",
-      "revision": "4f63629ec0024e6b01d0f4a3b0baaeea3624c737",
-      "tree": "5779f29a0112b0e1ce30d83c9a90d00541f74135",
+      "revision": "156b6e9e53be3e5ba28eda393a28af11d4950fc2",
+      "tree": "5cd2863b2eeef8605e870d992d5f5295821d9b0c",
       "base_revision": "bcbc6a3347cf9ac639ef633c2ad4a9cebd160df1",
       "patch": "frameworks_opt_telephony.patch",
-      "patch_sha256": "6548e639328e9409609b6e88065a0cebe815f4e3fac5878cd4d325e11f870a04",
+      "patch_sha256": "65d901d9b6b991f17ec53569c05493dabab1e4128ad7ae305429f14d64121227",
       "patch_tree_verified": true,
       "remote_url": "https://github.com/LineageOS/android_frameworks_opt_telephony",
-      "target_snapshot_revision": "4f63629ec0024e6b01d0f4a3b0baaeea3624c737",
-      "target_snapshot_tree": "5779f29a0112b0e1ce30d83c9a90d00541f74135"
+      "target_snapshot_revision": "156b6e9e53be3e5ba28eda393a28af11d4950fc2",
+      "target_snapshot_tree": "5cd2863b2eeef8605e870d992d5f5295821d9b0c"
     },
     {
       "path": "hardware/interfaces",
@@ -137,27 +137,27 @@
     },
     {
       "path": "packages/apps/OpenEUICC",
-      "revision": "03f64de980e9899ee1ff2cd87c7ec8e1b92c3465",
-      "tree": "efcb0da744ea64e58e4e596bfe9c81538e767daf",
+      "revision": "a91978bf4d25ee980c242ad748de88d7311c5938",
+      "tree": "de601c103d64b1926aa2d500a3546cf21bb1b13f",
       "base_revision": "89d677e07d0ebbd2d157ede2cb31f76aec737e3a",
       "patch": "packages_apps_OpenEUICC.patch",
-      "patch_sha256": "87d32d76e5867f55e0d3b41852a4b0348e447f3626b850f5119cecee2ac8ad28",
+      "patch_sha256": "4997764b409571e6c88cd8ff258b9c3c528640695933b9442dfa200e7c555827",
       "patch_tree_verified": true,
       "remote_url": "https://github.com/estkme-group/openeuicc.git",
-      "target_snapshot_revision": "03f64de980e9899ee1ff2cd87c7ec8e1b92c3465",
-      "target_snapshot_tree": "efcb0da744ea64e58e4e596bfe9c81538e767daf"
+      "target_snapshot_revision": "a91978bf4d25ee980c242ad748de88d7311c5938",
+      "target_snapshot_tree": "de601c103d64b1926aa2d500a3546cf21bb1b13f"
     },
     {
       "path": "packages/apps/Settings",
-      "revision": "4770485eea3d8cd88b351028fc70c506c8a3d7c2",
-      "tree": "8f51b58505d233aaa6ebda899361a5a24d8644ee",
+      "revision": "0714daabce3abb46150667a977093fccbfac7f12",
+      "tree": "c79f1945b94985a1dda54388d9f9d247a62a364a",
       "base_revision": "0b97deb37dcba757a3130899273fb4c298702f00",
       "patch": "packages_apps_Settings.patch",
-      "patch_sha256": "f433ecd8364dc1b815dbe2d4b29f41ebb2724e40efaeebbf409a2489d5ee9c4d",
+      "patch_sha256": "5039a44950f68747791f20f12eb3110f44db598813064a14a5c722c48724d1c6",
       "patch_tree_verified": true,
       "remote_url": "https://github.com/LineageOS/android_packages_apps_Settings",
-      "target_snapshot_revision": "4770485eea3d8cd88b351028fc70c506c8a3d7c2",
-      "target_snapshot_tree": "8f51b58505d233aaa6ebda899361a5a24d8644ee",
+      "target_snapshot_revision": "0714daabce3abb46150667a977093fccbfac7f12",
+      "target_snapshot_tree": "c79f1945b94985a1dda54388d9f9d247a62a364a",
       "historical_public_snapshot": {
         "revision": "8397134ae4ee640f1a26eb9f12d9eddb91650b89",
         "tree": "5f22ecf62a013dbae9b9d336782b93681ddf3489"
@@ -177,15 +177,15 @@
     },
     {
       "path": "packages/services/Telephony",
-      "revision": "26ba1c74dfb9abd031cbaa38ee0fbfdd05a6f072",
-      "tree": "4f199b025e7008edf29c1aba63575c59698759d3",
+      "revision": "821385d8834fda50d1143d198c2d4f1dcfeed6fd",
+      "tree": "793a1e1ce5b518ff034afdd16ffe0fcfb589a3c6",
       "base_revision": "2d0e6fb0059b8c1cab748f6f04453c9955a14fe3",
       "patch": "packages_services_Telephony.patch",
-      "patch_sha256": "bf39d86c89b687abe895738534b31ab32c279e221d72103350c44fa06c9ddc28",
+      "patch_sha256": "65ebaacfccb8e14693f9193c8596490eebcd7c598ee5883748878e02a2a37375",
       "patch_tree_verified": true,
       "remote_url": "https://github.com/LineageOS/android_packages_services_Telephony",
-      "target_snapshot_revision": "26ba1c74dfb9abd031cbaa38ee0fbfdd05a6f072",
-      "target_snapshot_tree": "4f199b025e7008edf29c1aba63575c59698759d3"
+      "target_snapshot_revision": "821385d8834fda50d1143d198c2d4f1dcfeed6fd",
+      "target_snapshot_tree": "793a1e1ce5b518ff034afdd16ffe0fcfb589a3c6"
     },
     {
       "path": "system/fs/fs_mgr",
