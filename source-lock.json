@@ -57,15 +57,15 @@
     },
     {
       "path": "frameworks/base",
-      "revision": "0ef31c47448881a077103cefa4e464ce1b91c86f",
-      "tree": "4897ad4c513fe553d7850e0dc5d17b8521270fc1",
+      "revision": "b8615d9ed25d0ff095d05984d3c3c278f4e3846c",
+      "tree": "975cce2190c009ff4c7bc6d3363426c731d8bbf8",
       "base_revision": "d89e00a103772f803f760979aabf8145e7731e1b",
       "patch": "patches/frameworks_base.patch",
-      "patch_sha256": "f32586c6b631bc8d7ac38aacc95aded549bcbdb8d98cf47082665a0c1b288d7a",
+      "patch_sha256": "d4e44f87b41f71a19c896ed85cbd4ae80b0fabb7d37996be8601b82ca13bbd40",
       "patch_tree_verified": true,
       "remote_url": "https://github.com/LineageOS/android_frameworks_base",
-      "target_snapshot_revision": "0ef31c47448881a077103cefa4e464ce1b91c86f",
-      "target_snapshot_tree": "4897ad4c513fe553d7850e0dc5d17b8521270fc1",
+      "target_snapshot_revision": "b8615d9ed25d0ff095d05984d3c3c278f4e3846c",
+      "target_snapshot_tree": "975cce2190c009ff4c7bc6d3363426c731d8bbf8",
       "historical_public_snapshot": {
         "revision": "193c50e5fb7e8278190f57048af9fab5a7098fb4",
         "tree": "5c28bc283ee9569918f5eba680041eedc509e857"
@@ -128,11 +128,11 @@
     },
     {
       "path": "lineage-sdk",
-      "revision": "54f19de8a43d2271e500336e0098be2ea5331384",
-      "tree": "79f93d1b2baee5c141d5e4916cb12a3eecf66161",
+      "revision": "25509e4e4b698bde3d5519bd3bcf502f3176c8de",
+      "tree": "ac927b6a44f02dd9d5ec83136ee08b3f0875cb44",
       "base_revision": "87e98fe90bb3c8449438f599783288b769aa5bef",
       "patch": "patches/lineage_sdk.patch",
-      "patch_sha256": "7e94c35633f25cd713ce26ebb4d70f454d324eea75aed35cac74042862c54dbc",
+      "patch_sha256": "3f18be4a0af98abd5045c7c1afa1f2c687e098aa43594518e700bcf2d9571433",
       "patch_tree_verified": true,
       "remote_url": "https://github.com/LineageOS/android_lineage-sdk"
     },
@@ -167,15 +167,15 @@
     },
     {
       "path": "packages/apps/LineageParts",
-      "revision": "eeff09291a083faa017596018e61f81e530d7e3b",
-      "tree": "16376f339cf6c4b8e705ce2633be2ce565560561",
+      "revision": "15e791e8c2ded32d297de5268df19d3037700ebf",
+      "tree": "330d71911d16d241b31f93d9f458ac5b28cc756a",
       "base_revision": "fdcb4ba35d92eefbdcca96580fb9e8ac8901ed60",
       "patch": "patches/packages_apps_LineageParts.patch",
-      "patch_sha256": "b7569f465c35be1a6741030d66594b55462edaa46eb06ec35a7e8c100b88f48d",
+      "patch_sha256": "42620261d269bef80e64becc63f510d6d877886c023b457179b75b04d8d6601d",
       "patch_tree_verified": true,
       "remote_url": "https://github.com/LineageOS/android_packages_apps_LineageParts",
-      "target_snapshot_revision": "eeff09291a083faa017596018e61f81e530d7e3b",
-      "target_snapshot_tree": "16376f339cf6c4b8e705ce2633be2ce565560561"
+      "target_snapshot_revision": "15e791e8c2ded32d297de5268df19d3037700ebf",
+      "target_snapshot_tree": "330d71911d16d241b31f93d9f458ac5b28cc756a"
     },
     {
       "path": "packages/apps/OpenEUICC",

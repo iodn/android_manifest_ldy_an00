@@ -1,5 +1,5 @@
 diff --git a/res/values/strings.xml b/res/values/strings.xml
-index 9a0010f..20ea051 100644
+index 9a0010f232549133bbf56776b0f61c42a1c2a44c..15858188321723c6b3c4d98f78014415a0e0f8b2 100644
 --- a/res/values/strings.xml
 +++ b/res/values/strings.xml
 @@ -265,6 +265,7 @@
@@ -10,8 +10,17 @@ index 9a0010f..20ea051 100644
      <string name="power_menu_screenshot_title">Screenshot</string>
      <string name="power_menu_screenshot_summary">Long-press for partial screenshot</string>
      <string name="power_menu_airplane_title">Airplane mode</string>
+@@ -274,6 +275,8 @@
+     <string name="power_menu_bug_report_unavailable_for_user">Bug reporting is disabled for non-primary users.</string>
+     <string name="power_menu_emergency_title">Emergency</string>
+     <string name="power_menu_devicecontrols_title">Device controls</string>
++    <string name="power_menu_block_when_locked_title">Block power menu when locked</string>
++    <string name="power_menu_block_when_locked_summary">Hide the power menu until the device is unlocked</string>
+     <string name="power_menu_advanced_restart_title">Advanced restart</string>
+     <string name="power_menu_advanced_restart_summary">When unlocked, include options in the power menu for restarting into recovery or bootloader</string>
+     <string name="power_menu_emergency_affordance_enabled">Emergency affordance is enabled</string>
 diff --git a/res/xml/power_menu_settings.xml b/res/xml/power_menu_settings.xml
-index 83c3628..c7754c7 100644
+index 83c362890650b4145c3eabd3b4510a4de9a0ecda..3f3f3ed1410838ac5677b3af83c29990861969fe 100644
 --- a/res/xml/power_menu_settings.xml
 +++ b/res/xml/power_menu_settings.xml
 @@ -12,6 +12,10 @@
@@ -25,8 +34,21 @@ index 83c3628..c7754c7 100644
          <CheckBoxPreference
              android:key="screenshot"
              android:title="@string/power_menu_screenshot_title"
+@@ -50,6 +54,12 @@
+             android:key="advanced"
+             android:title="@string/advanced">
+ 
++        <lineageos.preference.LineageSecureSettingSwitchPreference
++            android:key="power_menu_block_on_lockscreen"
++            android:title="@string/power_menu_block_when_locked_title"
++            android:summary="@string/power_menu_block_when_locked_summary"
++            android:defaultValue="false" />
++
+         <lineageos.preference.LineageSecureSettingSwitchPreference
+             android:key="advanced_reboot"
+             android:title="@string/power_menu_advanced_restart_title"
 diff --git a/src/org/lineageos/lineageparts/input/PowerMenuActions.java b/src/org/lineageos/lineageparts/input/PowerMenuActions.java
-index 4ab2b0a..b4a0b61 100644
+index 4ab2b0a4fc42167e7ca13439a36683c88775f1f8..b4a0b61669c1740a37eb38aff0fdd1a335ccdfc6 100644
 --- a/src/org/lineageos/lineageparts/input/PowerMenuActions.java
 +++ b/src/org/lineageos/lineageparts/input/PowerMenuActions.java
 @@ -40,6 +40,7 @@ public class PowerMenuActions extends SettingsPreferenceFragment {

@@ -1,5 +1,5 @@
 diff --git a/lineage/lib/main/java/org/lineageos/platform/internal/health/ccprovider/Limit.java b/lineage/lib/main/java/org/lineageos/platform/internal/health/ccprovider/Limit.java
-index fdc98a4..ce784ab 100644
+index fdc98a49b84ea77a5bcbc5a8c99b72dbe84ef0d9..ce784ab441db86836400d943b82de8e68af600f9 100644
 --- a/lineage/lib/main/java/org/lineageos/platform/internal/health/ccprovider/Limit.java
 +++ b/lineage/lib/main/java/org/lineageos/platform/internal/health/ccprovider/Limit.java
 @@ -12,28 +12,14 @@ import static lineageos.health.HealthInterface.MODE_MANUAL;
@@ -69,7 +69,7 @@ index fdc98a4..ce784ab 100644
 -    }
  }
 diff --git a/lineage/lib/main/java/org/lineageos/platform/internal/health/ccprovider/Toggle.java b/lineage/lib/main/java/org/lineageos/platform/internal/health/ccprovider/Toggle.java
-index b424e32..9ff8a77 100644
+index b424e3261ddbb0d257e0da3c8bd2b4387d530654..9ff8a770d81dbae3a0f7dd7f0fe3edbcae76826e 100644
 --- a/lineage/lib/main/java/org/lineageos/platform/internal/health/ccprovider/Toggle.java
 +++ b/lineage/lib/main/java/org/lineageos/platform/internal/health/ccprovider/Toggle.java
 @@ -18,6 +18,7 @@ import android.content.IntentFilter;
@@ -133,3 +133,34 @@ index b424e32..9ff8a77 100644
              mIsLimitSet = false;
              mSavedTargetTime = 0;
              mEstimatedFullTime = 0;
+diff --git a/sdk/src/java/lineageos/providers/LineageSettings.java b/sdk/src/java/lineageos/providers/LineageSettings.java
+index f52b4220f9784a119d86754fb4f84a8115645787..4ce9ac2d90d5f7437ae89ed8bcf0184b55fe2d27 100644
+--- a/sdk/src/java/lineageos/providers/LineageSettings.java
++++ b/sdk/src/java/lineageos/providers/LineageSettings.java
+@@ -2819,6 +2819,17 @@ public final class LineageSettings {
+          */
+         public static final String ADVANCED_REBOOT = "advanced_reboot";
+ 
++        /**
++         * Whether to block the power menu while the keyguard is showing.
++         * 0 = allow (default), 1 = block.
++         * @hide
++         */
++        public static final String POWER_MENU_BLOCK_ON_LOCKSCREEN =
++                "power_menu_block_on_lockscreen";
++
++        private static final Validator POWER_MENU_BLOCK_ON_LOCKSCREEN_VALIDATOR =
++                sBooleanValidator;
++
+         /**
+          * Whether detail view for the location tile is enabled
+          * @hide
+@@ -3010,6 +3021,8 @@ public final class LineageSettings {
+         public static final Map<String, Validator> VALIDATORS =
+                 new ArrayMap<String, Validator>();
+         static {
++            VALIDATORS.put(POWER_MENU_BLOCK_ON_LOCKSCREEN,
++                    POWER_MENU_BLOCK_ON_LOCKSCREEN_VALIDATOR);
+             VALIDATORS.put(BERRY_BLACK_THEME, BERRY_BLACK_THEME_VALIDATOR);
+             VALIDATORS.put(GESTURE_BACK_EXCLUDE_TOP, GESTURE_BACK_EXCLUDE_TOP_VALIDATOR);
+             VALIDATORS.put(NETWORK_TRAFFIC_MODE, NETWORK_TRAFFIC_MODE_VALIDATOR);
