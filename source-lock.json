@@ -34,10 +34,10 @@
       "tree": "ac7c6cc8482d2e18e5c7dbe4eb030a0475f395b9",
       "repository": "android_device_honor_ldy_an00",
       "excluded_input_count": 3,
-      "public_snapshot_revision": "91849b7e56326b1971cef07a78ebe1b36f621276",
-      "public_snapshot_tree": "66004f949108cba7149e72edc57520ac08035c36",
-      "target_snapshot_revision": "91849b7e56326b1971cef07a78ebe1b36f621276",
-      "target_snapshot_tree": "66004f949108cba7149e72edc57520ac08035c36"
+      "public_snapshot_revision": "d2fa498712e3adaca3cf23b30f1a527525df5edc",
+      "public_snapshot_tree": "8723cec1b2b1223977ccbb526ac3bf0f2c6aa2c4",
+      "target_snapshot_revision": "d2fa498712e3adaca3cf23b30f1a527525df5edc",
+      "target_snapshot_tree": "8723cec1b2b1223977ccbb526ac3bf0f2c6aa2c4"
     },
     {
       "path": "frameworks/av",
@@ -106,7 +106,7 @@
       "repository": "android_device_honor_ldy_an00",
       "excluded_input_count": 4,
       "integrated_into": "device/honor/ldy_an00/ims",
-      "public_snapshot_revision": "4a813b3fa05b3814db5416a1a6e0410f2a2f0978",
+      "public_snapshot_revision": "d2fa498712e3adaca3cf23b30f1a527525df5edc",
       "integrated_public_component_tree": "9138a00962ae08ce25fba703edde709d6565fcaf"
     },
     {
