@@ -72,7 +72,7 @@ def main():
     from gki.certify_bootimg import add_certificate
 
     release = (source / 'include/config/kernel.release').read_text().strip()
-    expected_release = '6.12.38-LDY-AN00-g275da71428d7-4k'
+    expected_release = '6.12.38-LDY-AN00-g2a4c948dcfd1-4k'
     if release != expected_release:
         raise ValueError('Unexpected kernel release')
     config = source / 'kernel_aarch64_dot_config'

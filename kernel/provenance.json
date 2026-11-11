@@ -1,21 +1,22 @@
 {
   "schema_version": 1,
-  "source_commit": "275da71428d7cc471f576284038a050191339c65",
-  "source_tree": "9e60a124a152b6fe12ece49ceadffe2cbea6d7e5",
+  "source_commit": "2a4c948dcfd1f78c8e1d8222787501eb3b1da5c5",
+  "source_tree": "e63a8f0ceaff6a0728565695e82c77e9d7cc97f0",
   "upstream_url": "https://android.googlesource.com/kernel/common",
   "upstream_revision": "df70442655d4c7b1802ba29a52d1698a4d6cbf6d",
-  "kernel_release": "6.12.38-LDY-AN00-g275da71428d7-4k",
-  "source_date_epoch": 1793405844,
-  "image_sha256": "1e34a7a7af4dc11403c56deb29bc28e6e203928611ec630d4ccfb6cbfef5615a",
+  "kernel_release": "6.12.38-LDY-AN00-g2a4c948dcfd1-4k",
+  "source_date_epoch": 1794390741,
+  "image_sha256": "24a0dbf2da27e739f2a097305a6b1cda3e8780c62c82354edf9c153b19d3b9e9",
   "config_sha256": "cfd4c412605ce7d87f19d613baa7a5029702a39bcca30b32436c36709e9d80e5",
   "module_count": 103,
   "patch_replay_verified": true,
   "notes": [
-    "The five patches restore the exact source commit and tree with the provided build helper.",
+    "The first five patches preserve the original source identity; the sixth patch uses its recorded author and committer identity. Exact commit and tree replay are independently checked.",
     "The source archive preserves upstream licenses and source notices.",
     "Toolchains and build dependencies are fetched using the pinned public manifest; prebuilt toolchain binaries are not embedded in the source archive.",
     "Rebuilds generate fresh module signing material. Rebuilt signatures and final hashes may differ; private release keys are not distributed.",
-    "packaging/package.py produces three kernel cohort images from qualified stock inputs and a user-provided AVB key. Release parent AVB images must be rebuilt consistently before installation.",
-    "Packaging was host-tested with retained K4 kernel/modules and a temporary AVB key. Retained auxiliary file hashes and types are checked before copying; same-size, same-mtime tamper tests pass. No hardware boot or byte-identical new-key signature claim."
+    "packaging/package.py produces three kernel cohort images from qualified stock inputs and a user-provided AVB key. Existing parent AVB images may be retained only after their child keys, chain locations, flags and rollback policy are verified compatible.",
+    "The release kernel and all 103 selected modules passed host configuration, exported CRC, STG ABI and module-signature checks. The three images were packaged with the existing release AVB identity and passed host cryptographic verification; hardware acceptance remains a separate test.",
+    "Includes the CVE-2026-31533 TLS asynchronous backlog cleanup backport; retained vendor security coverage is unchanged."
   ]
 }
