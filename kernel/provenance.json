@@ -1,22 +1,23 @@
 {
   "schema_version": 1,
-  "source_commit": "2a4c948dcfd1f78c8e1d8222787501eb3b1da5c5",
-  "source_tree": "e63a8f0ceaff6a0728565695e82c77e9d7cc97f0",
+  "source_commit": "70f67f1acd5b4871106fb7e9e945fd8bd764816a",
+  "source_tree": "bc220f41560078b0302883a88a8a4972f2a84c8d",
   "upstream_url": "https://android.googlesource.com/kernel/common",
   "upstream_revision": "df70442655d4c7b1802ba29a52d1698a4d6cbf6d",
-  "kernel_release": "6.12.38-LDY-AN00-g2a4c948dcfd1-4k",
-  "source_date_epoch": 1794390741,
-  "image_sha256": "24a0dbf2da27e739f2a097305a6b1cda3e8780c62c82354edf9c153b19d3b9e9",
+  "kernel_release": "6.12.38-LDY-AN00-android16-5-g70f67f1acd5b-4k",
+  "source_date_epoch": 1794428687,
+  "image_sha256": "f848831a716c365391d56ce398fe6c2892913053a04087c88c0140d4569b6db2",
   "config_sha256": "cfd4c412605ce7d87f19d613baa7a5029702a39bcca30b32436c36709e9d80e5",
   "module_count": 103,
   "patch_replay_verified": true,
   "notes": [
-    "The first five patches preserve the original source identity; the sixth patch uses its recorded author and committer identity. Exact commit and tree replay are independently checked.",
+    "The first six patches preserve their recorded source identities; the seventh patch uses iodn's recorded author and committer identity. Exact commit and tree replay are independently checked.",
     "The source archive preserves upstream licenses and source notices.",
     "Toolchains and build dependencies are fetched using the pinned public manifest; prebuilt toolchain binaries are not embedded in the source archive.",
     "Rebuilds generate fresh module signing material. Rebuilt signatures and final hashes may differ; private release keys are not distributed.",
     "packaging/package.py produces three kernel cohort images from qualified stock inputs and a user-provided AVB key. Existing parent AVB images may be retained only after their child keys, chain locations, flags and rollback policy are verified compatible.",
     "The release kernel and all 103 selected modules passed host configuration, exported CRC, STG ABI and module-signature checks. The three images were packaged with the existing release AVB identity and passed host cryptographic verification; hardware acceptance remains a separate test.",
-    "Includes the CVE-2026-31533 TLS asynchronous backlog cleanup backport; retained vendor security coverage is unchanged."
+    "Includes the CVE-2026-31533 TLS asynchronous backlog cleanup backport; retained vendor security coverage is unchanged.",
+    "The kernel retains its android16-5 GKI interface label alongside LDY-AN00 branding. Packaging checks the built kernel with KernelSU v3.3.1 recognition semantics; the ROM remains unrooted and personal root runtime compatibility is a separate test."
   ]
 }

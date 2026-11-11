@@ -18,6 +18,7 @@ import struct
 import subprocess
 import sys
 from erofs_metadata import metadata
+from kmi import parse_kmi
 
 
 def run(*args):
@@ -72,9 +73,11 @@ def main():
     from gki.certify_bootimg import add_certificate
 
     release = (source / 'include/config/kernel.release').read_text().strip()
-    expected_release = '6.12.38-LDY-AN00-g2a4c948dcfd1-4k'
+    expected_release = '6.12.38-LDY-AN00-android16-5-g70f67f1acd5b-4k'
     if release != expected_release:
         raise ValueError('Unexpected kernel release')
+    if parse_kmi((source / 'Image').read_bytes()) != 'android16-6.12':
+        raise ValueError('Rebuilt kernel GKI interface is not recognizable')
     config = source / 'kernel_aarch64_dot_config'
     if sha(config) != 'cfd4c412605ce7d87f19d613baa7a5029702a39bcca30b32436c36709e9d80e5':
         raise ValueError('Unexpected kernel configuration')

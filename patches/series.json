@@ -3,7 +3,7 @@
   "projects": [
     {
       "path": "build/make",
-      "revision": "90d006387398ae6899145e6531a304500cfa0f70",
+      "revision": "a611a761114eb273a1ad4384d979be585afa0ea0",
       "tree": "275560bf329af7e0becf95230d7c56fde6306c21",
       "base_revision": "90d006387398ae6899145e6531a304500cfa0f70",
       "remote_url": "https://github.com/LineageOS/android_build",
