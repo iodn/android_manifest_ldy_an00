@@ -1,6 +1,63 @@
+diff --git a/media/libaudioclient/Android.bp b/media/libaudioclient/Android.bp
+index efd550d..ba600d5 100644
+--- a/media/libaudioclient/Android.bp
++++ b/media/libaudioclient/Android.bp
+@@ -631,3 +631,12 @@ aidl_interface {
+         },
+     },
+ }
++
++
++cc_test_host {
++    name: "honor_call_volume_tests",
++    srcs: ["tests/HonorCallVolumeTest.cpp"],
++    local_include_dirs: ["include"],
++    header_libs: ["libaudio_system_headers"],
++    cflags: ["-Wall", "-Werror"],
++}
+diff --git a/media/libaudioclient/include/media/HonorCallVolume.h b/media/libaudioclient/include/media/HonorCallVolume.h
+new file mode 100644
+index 0000000..2f6242b
+--- /dev/null
++++ b/media/libaudioclient/include/media/HonorCallVolume.h
+@@ -0,0 +1,34 @@
++// SPDX-License-Identifier: Apache-2.0
++#pragma once
++
++#include <algorithm>
++#include <cstdint>
++#include <optional>
++#include <set>
++#include <string>
++#include <system/audio.h>
++
++namespace android::honor_call {
++// Stock LDY-AN00 SpeechVol has 15 normal levels. Index zero is mute;
++// the separate OEM super-volume index is deliberately not requested.
++inline constexpr int kMaximumIndex = 15;
++
++inline std::optional<std::string> gainParameters(int index, int minimum, int maximum,
++        bool muted, const std::set<audio_devices_t>& devices) {
++    if (index < 0 || minimum < 0 || maximum <= minimum || devices.size() != 1) return std::nullopt;
++    const auto device = *devices.begin();
++    if (device != AUDIO_DEVICE_OUT_SPEAKER && device != AUDIO_DEVICE_OUT_EARPIECE) {
++        return std::nullopt;
++    }
++    int rawIndex = 0;
++    if (!muted && index != 0) {
++        const int firstAudible = std::max(1, minimum);
++        if (maximum <= firstAudible) return std::nullopt;
++        index = std::clamp(index, firstAudible, maximum);
++        rawIndex = 1 + static_cast<int>(static_cast<int64_t>(index - firstAudible)
++                * (kMaximumIndex - 1) / (maximum - firstAudible));
++    }
++    return "volumeStreamType=0;volumeDevice=" + std::to_string(device)
++            + ";volumeIndex=" + std::to_string(rawIndex);
++}
++} // namespace android::honor_call
 diff --git a/media/libaudioclient/include/media/HonorSwsControl.h b/media/libaudioclient/include/media/HonorSwsControl.h
 new file mode 100644
-index 0000000000000000000000000000000000000000..d61ec77ed05d8437def89bfe156d3e4b5d4bca98
+index 0000000..d61ec77
 --- /dev/null
 +++ b/media/libaudioclient/include/media/HonorSwsControl.h
 @@ -0,0 +1,31 @@
@@ -35,8 +92,79 @@ index 0000000000000000000000000000000000000000..d61ec77ed05d8437def89bfe156d3e4b
 +            && command.substr(kMusicIndexKey.size() + 1) == payload;
 +}
 +} // namespace android::honor_sws
+diff --git a/media/libaudioclient/tests/HonorCallVolumeTest.cpp b/media/libaudioclient/tests/HonorCallVolumeTest.cpp
+new file mode 100644
+index 0000000..83332ea
+--- /dev/null
++++ b/media/libaudioclient/tests/HonorCallVolumeTest.cpp
+@@ -0,0 +1,65 @@
++// SPDX-License-Identifier: Apache-2.0
++#include <gtest/gtest.h>
++#include <media/HonorCallVolume.h>
++
++namespace android::honor_call {
++namespace {
++const std::set<audio_devices_t> kSpeaker = {AUDIO_DEVICE_OUT_SPEAKER};
++const std::set<audio_devices_t> kEarpiece = {AUDIO_DEVICE_OUT_EARPIECE};
++
++TEST(HonorCallVolume, StockProtocolAndEndpoints) {
++    EXPECT_EQ(gainParameters(5, 1, 5, false, kSpeaker),
++            "volumeStreamType=0;volumeDevice=2;volumeIndex=15");
++    EXPECT_EQ(gainParameters(1, 1, 5, false, kEarpiece),
++            "volumeStreamType=0;volumeDevice=1;volumeIndex=1");
++    EXPECT_EQ(gainParameters(3, 1, 5, false, kSpeaker),
++            "volumeStreamType=0;volumeDevice=2;volumeIndex=8");
++}
++
++TEST(HonorCallVolume, MuteIsZero) {
++    EXPECT_EQ(gainParameters(5, 1, 5, true, kSpeaker),
++            "volumeStreamType=0;volumeDevice=2;volumeIndex=0");
++    EXPECT_EQ(gainParameters(0, 1, 5, false, kSpeaker),
++            "volumeStreamType=0;volumeDevice=2;volumeIndex=0");
++}
++
++TEST(HonorCallVolume, IdentityForStockRange) {
++    for (int minimum : {0, 1}) {
++        for (int index = 1; index <= 15; ++index) {
++            EXPECT_EQ(gainParameters(index, minimum, 15, false, kSpeaker),
++                    "volumeStreamType=0;volumeDevice=2;volumeIndex="
++                            + std::to_string(index));
++        }
++    }
++}
++
++TEST(HonorCallVolume, ScalingIsMonotonicAndNeverUsesSuperVolume) {
++    for (int maximum : {5, 15, 100}) {
++        int last = 0;
++        for (int index = 1; index <= maximum + 2; ++index) {
++            auto result = gainParameters(index, 1, maximum, false, kSpeaker);
++            ASSERT_TRUE(result.has_value());
++            int value = std::stoi(result->substr(result->rfind('=') + 1));
++            EXPECT_GE(value, last);
++            EXPECT_LE(value, 15);
++            last = value;
++        }
++        EXPECT_EQ(last, 15);
++    }
++}
++
++TEST(HonorCallVolume, RejectsInvalidInputsAndUnqualifiedRoutes) {
++    EXPECT_FALSE(gainParameters(-1, 1, 5, false, kSpeaker));
++    EXPECT_FALSE(gainParameters(1, -1, 5, false, kSpeaker));
++    EXPECT_FALSE(gainParameters(5, 5, 5, false, kSpeaker));
++    EXPECT_FALSE(gainParameters(1, 0, 1, false, kSpeaker));
++    EXPECT_FALSE(gainParameters(5, 1, 5, false, {}));
++    EXPECT_FALSE(gainParameters(5, 1, 5, false,
++            {AUDIO_DEVICE_OUT_SPEAKER, AUDIO_DEVICE_OUT_EARPIECE}));
++    for (auto device : {AUDIO_DEVICE_OUT_BLUETOOTH_SCO, AUDIO_DEVICE_OUT_BLE_HEADSET,
++            AUDIO_DEVICE_OUT_USB_HEADSET, AUDIO_DEVICE_OUT_WIRED_HEADSET}) {
++        EXPECT_FALSE(gainParameters(5, 1, 5, false, {device}));
++    }
++}
++} // namespace
++} // namespace android::honor_call
 diff --git a/media/libaudiohal/impl/Android.bp b/media/libaudiohal/impl/Android.bp
-index 00f3929bffaf219b5ac938b69b7b33181313cd6a..87a995ab1a0071a0bf22eeff08f0ce4d25259038 100644
+index 00f3929..87a995a 100644
 --- a/media/libaudiohal/impl/Android.bp
 +++ b/media/libaudiohal/impl/Android.bp
 @@ -285,3 +285,24 @@ filegroup {
@@ -65,7 +193,7 @@ index 00f3929bffaf219b5ac938b69b7b33181313cd6a..87a995ab1a0071a0bf22eeff08f0ce4d
 +    test_suites: ["device-tests"],
 +}
 diff --git a/media/libaudiohal/impl/ConversionHelperAidl.cpp b/media/libaudiohal/impl/ConversionHelperAidl.cpp
-index 84e0e281ea0d4d3a97ae19e0356f579dc607046a..6c8adb24846c6335b3f0bfd2b81a17df032dbd14 100644
+index 84e0e28..6c8adb2 100644
 --- a/media/libaudiohal/impl/ConversionHelperAidl.cpp
 +++ b/media/libaudiohal/impl/ConversionHelperAidl.cpp
 @@ -18,6 +18,8 @@
@@ -92,7 +220,7 @@ index 84e0e281ea0d4d3a97ae19e0356f579dc607046a..6c8adb24846c6335b3f0bfd2b81a17df
      return OK;
  }
 diff --git a/media/libaudiohal/impl/DevicesFactoryHalAidl.cpp b/media/libaudiohal/impl/DevicesFactoryHalAidl.cpp
-index a14a1fce56188b5e656edf7979b4d0103f61c797..892150d7ab4796373a122bdfb9d16b77e9f03597 100644
+index a14a1fc..892150d 100644
 --- a/media/libaudiohal/impl/DevicesFactoryHalAidl.cpp
 +++ b/media/libaudiohal/impl/DevicesFactoryHalAidl.cpp
 @@ -69,6 +69,11 @@ ndk2cpp_SurroundSoundConfig(const SurroundSoundConfig& ndk) {
@@ -155,7 +283,7 @@ index a14a1fce56188b5e656edf7979b4d0103f61c797..892150d7ab4796373a122bdfb9d16b77
              mVendorExt GUARDED_BY(mLock);
 diff --git a/media/libaudiohal/impl/HonorLegacyVendorParameters_test.cpp b/media/libaudiohal/impl/HonorLegacyVendorParameters_test.cpp
 new file mode 100644
-index 0000000000000000000000000000000000000000..cdbd701667d132fd6e27b6d8615cc6c2ab7557ef
+index 0000000..cdbd701
 --- /dev/null
 +++ b/media/libaudiohal/impl/HonorLegacyVendorParameters_test.cpp
 @@ -0,0 +1,93 @@
@@ -253,7 +381,7 @@ index 0000000000000000000000000000000000000000..cdbd701667d132fd6e27b6d8615cc6c2
 +}  // namespace
 +}  // namespace android
 diff --git a/services/audioflinger/Android.bp b/services/audioflinger/Android.bp
-index 5dd33e56ee78b4566385174f97ad11b569b5fe5f..988df5b01f7ac149667a457d52a86d7200eaedee 100644
+index 5dd33e5..988df5b 100644
 --- a/services/audioflinger/Android.bp
 +++ b/services/audioflinger/Android.bp
 @@ -238,12 +238,14 @@ cc_library {
@@ -272,7 +400,7 @@ index 5dd33e56ee78b4566385174f97ad11b569b5fe5f..988df5b01f7ac149667a457d52a86d72
          ],
      },
 diff --git a/services/audioflinger/AudioFlinger.cpp b/services/audioflinger/AudioFlinger.cpp
-index b37dc6fbba7214ddade337955a92e48027fa7f48..f11a8b5d2e79626bfe07e1edb7c249c08d071ba3 100644
+index b37dc6f..f11a8b5 100644
 --- a/services/audioflinger/AudioFlinger.cpp
 +++ b/services/audioflinger/AudioFlinger.cpp
 @@ -42,6 +42,7 @@
@@ -341,7 +469,7 @@ index b37dc6fbba7214ddade337955a92e48027fa7f48..f11a8b5d2e79626bfe07e1edb7c249c0
      IAfRecordThread* const dstRecordThread = checkRecordThread_l(dstIo);
      if (srcRecordThread != nullptr || dstRecordThread != nullptr) {
 diff --git a/services/audioflinger/IAfThread.h b/services/audioflinger/IAfThread.h
-index 6a940127737928b0d2b2df4e860e4de794433cef..bd5e99beeae8ac5ef52f7257ad787eb6885697e7 100644
+index 6a94012..bd5e99b 100644
 --- a/services/audioflinger/IAfThread.h
 +++ b/services/audioflinger/IAfThread.h
 @@ -47,6 +47,7 @@ namespace com::android::media::permission {
@@ -379,7 +507,7 @@ index 6a940127737928b0d2b2df4e860e4de794433cef..bd5e99beeae8ac5ef52f7257ad787eb6
      virtual uint32_t latency() const = 0;  // should be in IAfThreadBase?
  
 diff --git a/services/audioflinger/Threads.cpp b/services/audioflinger/Threads.cpp
-index 43c634e2140d6372255f41b15923facda36ded79..da46e0da7848cbcab594df2207a1fe9d130ab1ef 100644
+index 43c634e..da46e0d 100644
 --- a/services/audioflinger/Threads.cpp
 +++ b/services/audioflinger/Threads.cpp
 @@ -22,6 +22,9 @@
@@ -742,7 +870,7 @@ index 43c634e2140d6372255f41b15923facda36ded79..da46e0da7848cbcab594df2207a1fe9d
      class DeferredOperations {
      public:
 diff --git a/services/audioflinger/Threads.h b/services/audioflinger/Threads.h
-index a60c88660b0731b4b7d591efb91e42309caa4402..f576a7b614c91a6f40594a7479a999e77e4e1c72 100644
+index a60c886..f576a7b 100644
 --- a/services/audioflinger/Threads.h
 +++ b/services/audioflinger/Threads.h
 @@ -38,6 +38,9 @@
@@ -817,7 +945,7 @@ index a60c88660b0731b4b7d591efb91e42309caa4402..f576a7b614c91a6f40594a7479a999e7
      audio_utils::Balance            mBalance;
 diff --git a/services/audioflinger/sws0730_candidate/Android.bp b/services/audioflinger/sws0730_candidate/Android.bp
 new file mode 100644
-index 0000000000000000000000000000000000000000..a364c2a45f765632aac01c7dc7299a4d656798eb
+index 0000000..a364c2a
 --- /dev/null
 +++ b/services/audioflinger/sws0730_candidate/Android.bp
 @@ -0,0 +1,55 @@
@@ -878,7 +1006,7 @@ index 0000000000000000000000000000000000000000..a364c2a45f765632aac01c7dc7299a4d
 +}
 diff --git a/services/audioflinger/sws0730_candidate/OwnerCorrectionTest.cpp b/services/audioflinger/sws0730_candidate/OwnerCorrectionTest.cpp
 new file mode 100644
-index 0000000000000000000000000000000000000000..c7896cc831b07713c62f30555c11393a661a95f8
+index 0000000..c7896cc
 --- /dev/null
 +++ b/services/audioflinger/sws0730_candidate/OwnerCorrectionTest.cpp
 @@ -0,0 +1,390 @@
@@ -1274,7 +1402,7 @@ index 0000000000000000000000000000000000000000..c7896cc831b07713c62f30555c11393a
 +}
 diff --git a/services/audioflinger/sws0730_candidate/Sws0730.cpp b/services/audioflinger/sws0730_candidate/Sws0730.cpp
 new file mode 100644
-index 0000000000000000000000000000000000000000..c5a0bce227637c6c577ee72e1a057a0e4c962b15
+index 0000000..c5a0bce
 --- /dev/null
 +++ b/services/audioflinger/sws0730_candidate/Sws0730.cpp
 @@ -0,0 +1,378 @@
@@ -1658,7 +1786,7 @@ index 0000000000000000000000000000000000000000..c5a0bce227637c6c577ee72e1a057a0e
 +}
 diff --git a/services/audioflinger/sws0730_candidate/Sws0730.h b/services/audioflinger/sws0730_candidate/Sws0730.h
 new file mode 100644
-index 0000000000000000000000000000000000000000..a5c617ff3699fc197e237360344f8faf00473910
+index 0000000..a5c617f
 --- /dev/null
 +++ b/services/audioflinger/sws0730_candidate/Sws0730.h
 @@ -0,0 +1,169 @@
@@ -1833,7 +1961,7 @@ index 0000000000000000000000000000000000000000..a5c617ff3699fc197e237360344f8faf
 +}
 diff --git a/services/audioflinger/sws0730_candidate/Sws0730Bundle.cpp b/services/audioflinger/sws0730_candidate/Sws0730Bundle.cpp
 new file mode 100644
-index 0000000000000000000000000000000000000000..6d1cb7acadf97579ca4ce8db281bf3b2adc0eb6c
+index 0000000..6d1cb7a
 --- /dev/null
 +++ b/services/audioflinger/sws0730_candidate/Sws0730Bundle.cpp
 @@ -0,0 +1,75 @@
@@ -1914,7 +2042,7 @@ index 0000000000000000000000000000000000000000..6d1cb7acadf97579ca4ce8db281bf3b2
 +}
 diff --git a/services/audioflinger/sws0730_candidate/Sws0730Bundle.h b/services/audioflinger/sws0730_candidate/Sws0730Bundle.h
 new file mode 100644
-index 0000000000000000000000000000000000000000..90158883012b24856807a6b5a3623a4c148a2fa0
+index 0000000..9015888
 --- /dev/null
 +++ b/services/audioflinger/sws0730_candidate/Sws0730Bundle.h
 @@ -0,0 +1,8 @@
@@ -1928,7 +2056,7 @@ index 0000000000000000000000000000000000000000..90158883012b24856807a6b5a3623a4c
 +}
 diff --git a/services/audioflinger/sws0730_candidate/Sws0730Engine.cpp b/services/audioflinger/sws0730_candidate/Sws0730Engine.cpp
 new file mode 100644
-index 0000000000000000000000000000000000000000..cc4b26eaa9fd6e5d370c09432267de61c605bf71
+index 0000000..cc4b26e
 --- /dev/null
 +++ b/services/audioflinger/sws0730_candidate/Sws0730Engine.cpp
 @@ -0,0 +1,43 @@
@@ -1977,7 +2105,7 @@ index 0000000000000000000000000000000000000000..cc4b26eaa9fd6e5d370c09432267de61
 +}
 diff --git a/services/audioflinger/sws0730_candidate/Sws0730Engine.h b/services/audioflinger/sws0730_candidate/Sws0730Engine.h
 new file mode 100644
-index 0000000000000000000000000000000000000000..878f69ff557e3482a4aee92ea745712ecccc7c71
+index 0000000..878f69f
 --- /dev/null
 +++ b/services/audioflinger/sws0730_candidate/Sws0730Engine.h
 @@ -0,0 +1,10 @@
@@ -1993,7 +2121,7 @@ index 0000000000000000000000000000000000000000..878f69ff557e3482a4aee92ea745712e
 +}
 diff --git a/services/audioflinger/sws0730_candidate/Sws0730Gate.cpp b/services/audioflinger/sws0730_candidate/Sws0730Gate.cpp
 new file mode 100644
-index 0000000000000000000000000000000000000000..353f56957c759f1c8eabdcb03c6a427432954bad
+index 0000000..353f569
 --- /dev/null
 +++ b/services/audioflinger/sws0730_candidate/Sws0730Gate.cpp
 @@ -0,0 +1,30 @@
@@ -2029,7 +2157,7 @@ index 0000000000000000000000000000000000000000..353f56957c759f1c8eabdcb03c6a4274
 +} // namespace honor::sws0730
 diff --git a/services/audioflinger/sws0730_candidate/Sws0730Gate.h b/services/audioflinger/sws0730_candidate/Sws0730Gate.h
 new file mode 100644
-index 0000000000000000000000000000000000000000..4c8a66c1a17f7bb65f35a04c32ef09bad5446c82
+index 0000000..4c8a66c
 --- /dev/null
 +++ b/services/audioflinger/sws0730_candidate/Sws0730Gate.h
 @@ -0,0 +1,31 @@
@@ -2066,7 +2194,7 @@ index 0000000000000000000000000000000000000000..4c8a66c1a17f7bb65f35a04c32ef09ba
 +} // namespace honor::sws0730
 diff --git a/services/audioflinger/sws0730_candidate/Sws0730Mailbox.cpp b/services/audioflinger/sws0730_candidate/Sws0730Mailbox.cpp
 new file mode 100644
-index 0000000000000000000000000000000000000000..e01499dc801f31978a7bd4315f4223352b421b33
+index 0000000..e01499d
 --- /dev/null
 +++ b/services/audioflinger/sws0730_candidate/Sws0730Mailbox.cpp
 @@ -0,0 +1,72 @@
@@ -2144,7 +2272,7 @@ index 0000000000000000000000000000000000000000..e01499dc801f31978a7bd4315f422335
 +}
 diff --git a/services/audioflinger/sws0730_candidate/Sws0730Mailbox.h b/services/audioflinger/sws0730_candidate/Sws0730Mailbox.h
 new file mode 100644
-index 0000000000000000000000000000000000000000..71b82a57bb3310d6418fbc55c3d9a55b6cf858e6
+index 0000000..71b82a5
 --- /dev/null
 +++ b/services/audioflinger/sws0730_candidate/Sws0730Mailbox.h
 @@ -0,0 +1,40 @@
@@ -2190,7 +2318,7 @@ index 0000000000000000000000000000000000000000..71b82a57bb3310d6418fbc55c3d9a55b
 +}
 diff --git a/services/audioflinger/sws0730_candidate/Sws0730Output.cpp b/services/audioflinger/sws0730_candidate/Sws0730Output.cpp
 new file mode 100644
-index 0000000000000000000000000000000000000000..dbf780faeb30be0e3b0bf4a5b0cf4fff875389ae
+index 0000000..dbf780f
 --- /dev/null
 +++ b/services/audioflinger/sws0730_candidate/Sws0730Output.cpp
 @@ -0,0 +1,77 @@
@@ -2273,7 +2401,7 @@ index 0000000000000000000000000000000000000000..dbf780faeb30be0e3b0bf4a5b0cf4fff
 +}
 diff --git a/services/audioflinger/sws0730_candidate/Sws0730Output.h b/services/audioflinger/sws0730_candidate/Sws0730Output.h
 new file mode 100644
-index 0000000000000000000000000000000000000000..1b089751ab8d85936b156908463e95ff1b37642e
+index 0000000..1b08975
 --- /dev/null
 +++ b/services/audioflinger/sws0730_candidate/Sws0730Output.h
 @@ -0,0 +1,55 @@
@@ -2334,7 +2462,7 @@ index 0000000000000000000000000000000000000000..1b089751ab8d85936b156908463e95ff
 +}
 diff --git a/services/audioflinger/sws0730_candidate/Sws0730Owner.cpp b/services/audioflinger/sws0730_candidate/Sws0730Owner.cpp
 new file mode 100644
-index 0000000000000000000000000000000000000000..cda1d3aa667fc0c044e32ae81ed96d3cf1f61e50
+index 0000000..cda1d3a
 --- /dev/null
 +++ b/services/audioflinger/sws0730_candidate/Sws0730Owner.cpp
 @@ -0,0 +1,229 @@
@@ -2569,7 +2697,7 @@ index 0000000000000000000000000000000000000000..cda1d3aa667fc0c044e32ae81ed96d3c
 +} // namespace honor::sws0730
 diff --git a/services/audioflinger/sws0730_candidate/Sws0730Owner.h b/services/audioflinger/sws0730_candidate/Sws0730Owner.h
 new file mode 100644
-index 0000000000000000000000000000000000000000..231db1be51ebc783c395541b431938900143e4aa
+index 0000000..231db1b
 --- /dev/null
 +++ b/services/audioflinger/sws0730_candidate/Sws0730Owner.h
 @@ -0,0 +1,60 @@
@@ -2635,7 +2763,7 @@ index 0000000000000000000000000000000000000000..231db1be51ebc783c395541b43193890
 +} // namespace honor::sws0730
 diff --git a/services/audioflinger/sws0730_candidate/Sws0730Pcm.cpp b/services/audioflinger/sws0730_candidate/Sws0730Pcm.cpp
 new file mode 100644
-index 0000000000000000000000000000000000000000..96ce901dfba51906e2f48141b47ca805d3fc9190
+index 0000000..96ce901
 --- /dev/null
 +++ b/services/audioflinger/sws0730_candidate/Sws0730Pcm.cpp
 @@ -0,0 +1,58 @@
@@ -2699,7 +2827,7 @@ index 0000000000000000000000000000000000000000..96ce901dfba51906e2f48141b47ca805
 +}
 diff --git a/services/audioflinger/sws0730_candidate/Sws0730Pcm.h b/services/audioflinger/sws0730_candidate/Sws0730Pcm.h
 new file mode 100644
-index 0000000000000000000000000000000000000000..c54a82339789f1df1d922083e8920dbdb6009427
+index 0000000..c54a823
 --- /dev/null
 +++ b/services/audioflinger/sws0730_candidate/Sws0730Pcm.h
 @@ -0,0 +1,10 @@
@@ -2715,7 +2843,7 @@ index 0000000000000000000000000000000000000000..c54a82339789f1df1d922083e8920dbd
 +}
 diff --git a/services/audioflinger/sws0730_candidate/Sws0730PcmHostTest.cpp b/services/audioflinger/sws0730_candidate/Sws0730PcmHostTest.cpp
 new file mode 100644
-index 0000000000000000000000000000000000000000..d97acf89cb649b6a4d65339b8f972c29a5ceaaea
+index 0000000..d97acf8
 --- /dev/null
 +++ b/services/audioflinger/sws0730_candidate/Sws0730PcmHostTest.cpp
 @@ -0,0 +1,102 @@
@@ -2822,18 +2950,19 @@ index 0000000000000000000000000000000000000000..d97acf89cb649b6a4d65339b8f972c29
 +    std::cout<<"PCM_ACTUAL_AUDIO_UTILS_PASS checks="<<checks<<std::endl;
 +}
 diff --git a/services/audiopolicy/managerdefault/AudioPolicyManager.cpp b/services/audiopolicy/managerdefault/AudioPolicyManager.cpp
-index 2b588eceec2d6b7a644ee5e1d8e8c39a27c3b368..b3c7ff4c2d3fd3c08a0757ff08d1dfd71a8e086c 100644
+index 2b588ec..302149d 100644
 --- a/services/audiopolicy/managerdefault/AudioPolicyManager.cpp
 +++ b/services/audiopolicy/managerdefault/AudioPolicyManager.cpp
-@@ -48,6 +48,7 @@
+@@ -48,6 +48,8 @@
  #include <cutils/bitops.h>
  #include <error/expected_utils.h>
  #include <media/AudioParameter.h>
 +#include <media/HonorSwsControl.h>
++#include <media/HonorCallVolume.h>
  #include <policy.h>
  #include <private/android_filesystem_config.h>
  #include <system/audio.h>
-@@ -9280,6 +9281,28 @@ status_t AudioPolicyManager::checkAndSetVolume(IVolumeCurves &curves,
+@@ -9280,6 +9282,28 @@ status_t AudioPolicyManager::checkAndSetVolume(IVolumeCurves &curves,
                  Volume::getDeviceForVolume(deviceTypes) == AUDIO_DEVICE_OUT_BLE_BROADCAST;
          muted = curves.isMuted() && !outputDesc->isFixedVolume(deviceTypes) && !isBleBroadcast;
      }
@@ -2862,8 +2991,35 @@ index 2b588eceec2d6b7a644ee5e1d8e8c39a27c3b368..b3c7ff4c2d3fd3c08a0757ff08d1dfd7
      outputDesc->setVolume(volumeDb, muted, volumeSource, curves.getStreamTypes(),
              deviceTypes, delayMs, force, isVoiceVolSrc);
  
+@@ -9325,6 +9349,26 @@ void AudioPolicyManager::setVoiceVolume(
+         mpClientInterface->setVoiceVolume(voiceVolume, delayMs);
+         mLastVoiceVolume = voiceVolume;
+     }
++
++    if (property_get_bool("ro.audio.honor_legacy_parameters", false)
++            && voiceVolumeManagedByHost && getPhoneState() == AUDIO_MODE_IN_CALL
++            && mPrimaryOutput != nullptr && mPrimaryOutput->mIoHandle != AUDIO_IO_HANDLE_NONE) {
++        DeviceTypeSet devices = mPrimaryOutput->devices().types();
++        if (mCallRxSourceClient != nullptr && mCallRxSourceClient->isConnected()) {
++            devices = {mCallRxSourceClient->sinkDevice()->type()};
++        }
++        // The retained stock gain protocol is qualified here for the built-in
++        // call receivers only. Do not change Bluetooth, USB, VoIP or media gain.
++        const auto parameters = honor_call::gainParameters(index, curves.getVolumeIndexMin(),
++                curves.getVolumeIndexMax(), curves.isMuted(), devices);
++        if (parameters.has_value()) {
++            // Stock sends these raw gain-table indices on the primary output,
++            // after applying the generic voice volume. Reapply on route changes
++            // even when the normalized volume equals mLastVoiceVolume.
++            mpClientInterface->setParameters(mPrimaryOutput->mIoHandle,
++                    String8(parameters->c_str()), delayMs);
++        }
++    }
+ }
+ 
+ void AudioPolicyManager::updateVoiceBtScoVolumeSrcForCalls(VolumeSource volumeSource,
 diff --git a/services/camera/libcameraservice/aidl/AidlCameraService.cpp b/services/camera/libcameraservice/aidl/AidlCameraService.cpp
-index 8e5bbdefdfde2efc3cdab2508c5da01b0474d1a8..a9afc9cf260510cd370275df8888fc22c78169b6 100644
+index 8e5bbde..a9afc9c 100644
 --- a/services/camera/libcameraservice/aidl/AidlCameraService.cpp
 +++ b/services/camera/libcameraservice/aidl/AidlCameraService.cpp
 @@ -17,6 +17,7 @@
@@ -2893,7 +3049,7 @@ index 8e5bbdefdfde2efc3cdab2508c5da01b0474d1a8..a9afc9cf260510cd370275df8888fc22
              CameraCompatibilityInfo(),
 diff --git a/services/camera/libcameraservice/aidl/HonorFaceCameraId.h b/services/camera/libcameraservice/aidl/HonorFaceCameraId.h
 new file mode 100644
-index 0000000000000000000000000000000000000000..d0fd95d4eb57e7731be4a53aaeed8d523beefb25
+index 0000000..d0fd95d
 --- /dev/null
 +++ b/services/camera/libcameraservice/aidl/HonorFaceCameraId.h
 @@ -0,0 +1,26 @@
