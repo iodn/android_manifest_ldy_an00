@@ -1,0 +1,104 @@
+diff --git a/init/property_service.cpp b/init/property_service.cpp
+index 89adf33..c97f916 100644
+--- a/init/property_service.cpp
++++ b/init/property_service.cpp
+@@ -23,6 +23,8 @@
+ #include <inttypes.h>
+ #include <limits.h>
+ #include <netinet/in.h>
++#include <signal.h>
++#include <time.h>
+ #include <stdarg.h>
+ #include <stddef.h>
+ #include <stdio.h>
+@@ -537,6 +539,75 @@ uint32_t CheckPermissions(const std::string& name, const std::string& value,
+     return PROP_SUCCESS;
+ }
+ 
++
++// Adapted from GrapheneOS's init auto-reboot timer (Apache-2.0).
++// Unlike a system_server alarm, this survives Android runtime restarts.
++[[clang::no_destroy]] static std::mutex auto_reboot_lock;
++static timer_t auto_reboot_timer;
++static bool auto_reboot_initialized;
++static bool auto_reboot_unlocked;
++static bool auto_reboot_armed;
++
++static bool auto_reboot_timer_set(time_t seconds) {
++    itimerspec duration = {};
++    duration.it_value.tv_sec = seconds;
++    return timer_settime(auto_reboot_timer, 0, &duration, nullptr) == 0;
++}
++
++static void auto_reboot_timer_callback(union sigval) {
++    std::lock_guard<std::mutex> lock(auto_reboot_lock);
++    if (!auto_reboot_armed) return;
++    // An expired notification can race with unlock followed by a new lock.
++    // Never let that stale notification expire a newly armed interval.
++    itimerspec remaining = {};
++    if (timer_gettime(auto_reboot_timer, &remaining) != 0
++            || remaining.it_value.tv_sec != 0 || remaining.it_value.tv_nsec != 0) return;
++    // Unknown call/update state inhibits reboot. The framework clears this only
++    // after checking calls and update_engine, including snapshot cleanup.
++    if (android::base::GetBoolProperty("sys.ldy_security.reboot_inhibit", true)) {
++        if (!auto_reboot_timer_set(60)) {
++            LOG(ERROR) << "auto_reboot: unable to defer inhibited reboot";
++            auto_reboot_armed = false;
++        }
++        return;
++    }
++    auto_reboot_armed = false;
++    trigger_shutdown("reboot,security");
++}
++
++static uint32_t auto_reboot_handle_property_set(const std::string& value) {
++    std::lock_guard<std::mutex> lock(auto_reboot_lock);
++    if (value == "off" || value == "on_device_unlocked") {
++        if (value == "on_device_unlocked") auto_reboot_unlocked = true;
++        // Cancel the action even if the kernel refuses to disarm the timer.
++        // A queued callback must never reboot after an authenticated unlock.
++        auto_reboot_armed = false;
++        if (auto_reboot_initialized && !auto_reboot_timer_set(0)) {
++            return PROP_ERROR_SET_FAILED;
++        }
++        return PROP_SUCCESS;
++    }
++    unsigned int seconds;
++    if (!android::base::ParseUint(value, &seconds) || seconds < 600 || seconds > 259200) {
++        return PROP_ERROR_INVALID_VALUE;
++    }
++    // BFU is already protected; never create a repeating reboot loop before unlock.
++    if (!auto_reboot_unlocked || auto_reboot_armed) return PROP_SUCCESS;
++    if (!auto_reboot_initialized) {
++        sigevent event = {};
++        event.sigev_notify = SIGEV_THREAD;
++        event.sigev_notify_function = auto_reboot_timer_callback;
++        if (timer_create(CLOCK_BOOTTIME_ALARM, &event, &auto_reboot_timer) != 0) {
++            LOG(ERROR) << "auto_reboot: timer_create failed: " << strerror(errno);
++            return PROP_ERROR_SET_FAILED;
++        }
++        auto_reboot_initialized = true;
++    }
++    if (!auto_reboot_timer_set(seconds)) return PROP_ERROR_SET_FAILED;
++    auto_reboot_armed = true;
++    return PROP_SUCCESS;
++}
++
+ // This returns one of the enum of PROP_SUCCESS or PROP_ERROR*, or std::nullopt
+ // if asynchronous.
+ std::optional<uint32_t> HandlePropertySet(const std::string& name, const std::string& value,
+@@ -579,6 +650,14 @@ std::optional<uint32_t> HandlePropertySet(const std::string& name, const std::st
+         return {PROP_SUCCESS};
+     }
+ 
++    if (name == "sys.ldy_security.reboot_ctl" || name == "sys.ldy_security.reboot_inhibit") {
++        // An explicit credential check also applies when SELinux is permissive.
++        if (cr.uid != AID_SYSTEM) return PROP_ERROR_PERMISSION_DENIED;
++        if (name == "sys.ldy_security.reboot_ctl") {
++            return auto_reboot_handle_property_set(value);
++        }
++    }
++
+     return PropertySet(name, value, socket, error);
+ }
+ 

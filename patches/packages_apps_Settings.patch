@@ -1,5 +1,5 @@
 diff --git a/AndroidManifest.xml b/AndroidManifest.xml
-index e45bc1b23bf66abe198c3c9aac4d468cc21cc028..5133463f4636337c32f8e62e140dcdc488e11c9a 100644
+index e45bc1b2..5133463f 100644
 --- a/AndroidManifest.xml
 +++ b/AndroidManifest.xml
 @@ -928,6 +928,16 @@
@@ -20,7 +20,7 @@ index e45bc1b23bf66abe198c3c9aac4d468cc21cc028..5133463f4636337c32f8e62e140dcdc4
              android:exported="true"
              android:configChanges="orientation|keyboard|keyboardHidden|screenSize|screenLayout|smallestScreenSize"
 diff --git a/res/values/cm_strings.xml b/res/values/cm_strings.xml
-index 8b8d9ffa1100e072322c8763b0d3da2999726d2b..e10272d51a8f9e5eed331fa0d1664ca58b941255 100644
+index 8b8d9ffa..e10272d5 100644
 --- a/res/values/cm_strings.xml
 +++ b/res/values/cm_strings.xml
 @@ -85,6 +85,9 @@
@@ -33,9 +33,37 @@ index 8b8d9ffa1100e072322c8763b0d3da2999726d2b..e10272d51a8f9e5eed331fa0d1664ca5
      <!-- Min refresh rate -->
      <string name="min_refresh_rate_title">Minimum refresh rate</string>
  
+diff --git a/res/values/device_protection.xml b/res/values/device_protection.xml
+new file mode 100644
+index 00000000..e153536c
+--- /dev/null
++++ b/res/values/device_protection.xml
+@@ -0,0 +1,22 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- SPDX-License-Identifier: Apache-2.0 -->
++<resources>
++    <string name="device_protection_title">Device protection</string>
++    <string name="device_protection_auto_reboot">Automatic reboot</string>
++    <string name="device_protection_reboot_summary">Restart after the phone stays locked for the selected time. Unlocking resets the timer. Calls and system updates postpone the restart. Your PIN, pattern or password is required afterward.</string>
++    <string name="device_protection_set_lock">Set a screen lock to enable automatic reboot</string>
++    <string name="device_protection_usb">USB access while locked</string>
++    <string name="device_protection_usb_summary">Restrict USB data while locked. Charging remains available. The debugging option allows USB data while USB debugging is on. This does not disable every USB controller protocol or alternate mode.</string>
++    <string-array name="device_protection_reboot_entries">
++        <item>Off</item><item>10 minutes</item><item>30 minutes</item><item>1 hour</item><item>4 hours</item><item>8 hours</item><item>12 hours</item><item>18 hours</item><item>24 hours</item><item>48 hours</item><item>72 hours</item>
++    </string-array>
++    <string-array name="device_protection_reboot_values" translatable="false">
++        <item>0</item><item>600000</item><item>1800000</item><item>3600000</item><item>14400000</item><item>28800000</item><item>43200000</item><item>64800000</item><item>86400000</item><item>172800000</item><item>259200000</item>
++    </string-array>
++    <string-array name="device_protection_usb_entries">
++        <item>Allow USB data</item><item>Block while locked</item><item>Allow debugging while locked</item>
++    </string-array>
++    <string-array name="device_protection_usb_values" translatable="false">
++        <item>0</item><item>1</item><item>2</item>
++    </string-array>
++</resources>
 diff --git a/res/values/honor_ldy_an00_esim.xml b/res/values/honor_ldy_an00_esim.xml
 new file mode 100644
-index 0000000000000000000000000000000000000000..932254580e35e3309eca66f4327072cf63741b8d
+index 00000000..93225458
 --- /dev/null
 +++ b/res/values/honor_ldy_an00_esim.xml
 @@ -0,0 +1,5 @@
@@ -46,7 +74,7 @@ index 0000000000000000000000000000000000000000..932254580e35e3309eca66f4327072cf
 +</resources>
 diff --git a/res/values/honor_ldy_an00_esim_flow.xml b/res/values/honor_ldy_an00_esim_flow.xml
 new file mode 100644
-index 0000000000000000000000000000000000000000..04ca0fbbde828041615b73ffbf7b1723da644c3d
+index 00000000..04ca0fbb
 --- /dev/null
 +++ b/res/values/honor_ldy_an00_esim_flow.xml
 @@ -0,0 +1,20 @@
@@ -71,7 +99,7 @@ index 0000000000000000000000000000000000000000..04ca0fbbde828041615b73ffbf7b1723
 +    <string name="honor_esim_call_busy">End your call before switching between eSIM and physical SIM2. No SIM change was started.</string>
 +</resources>
 diff --git a/res/values/lineage_config.xml b/res/values/lineage_config.xml
-index c6aaf2d2556755271a080e008d2ab98dd51bc168..bdd3bee44df86da336dc3ada6f894c79334bf802 100644
+index c6aaf2d2..bdd3bee4 100644
 --- a/res/values/lineage_config.xml
 +++ b/res/values/lineage_config.xml
 @@ -29,6 +29,9 @@
@@ -92,7 +120,7 @@ index c6aaf2d2556755271a080e008d2ab98dd51bc168..bdd3bee44df86da336dc3ada6f894c79
 +    <bool name="config_show_hardware_info_details">false</bool>
  </resources>
 diff --git a/res/values/strings.xml b/res/values/strings.xml
-index a84186b96bc4ca1e74cebec9aa1ed86e4cd819e0..8ef3ab0416d6fee48369321ce18d8a7b5b51a071 100644
+index a84186b9..8ef3ab04 100644
 --- a/res/values/strings.xml
 +++ b/res/values/strings.xml
 @@ -15590,4 +15590,16 @@
@@ -112,8 +140,39 @@ index a84186b96bc4ca1e74cebec9aa1ed86e4cd819e0..8ef3ab0416d6fee48369321ce18d8a7b
 +    <string name="honor_data_selection_refused">Could not switch mobile data. Finish any call or SIM operation and try again.</string>
 +    <string name="honor_data_selection_unknown">Could not confirm the SIM change. Restart your phone to recover SIM controls.</string>
  </resources>
+diff --git a/res/xml/device_protection_settings.xml b/res/xml/device_protection_settings.xml
+new file mode 100644
+index 00000000..4a4f4953
+--- /dev/null
++++ b/res/xml/device_protection_settings.xml
+@@ -0,0 +1,25 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- SPDX-License-Identifier: Apache-2.0 -->
++<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
++    android:title="@string/device_protection_title">
++    <ListPreference
++        android:key="settings_reboot_after_timeout"
++        android:title="@string/device_protection_auto_reboot"
++        android:dialogTitle="@string/device_protection_auto_reboot"
++        android:entries="@array/device_protection_reboot_entries"
++        android:entryValues="@array/device_protection_reboot_values"
++        android:persistent="false" />
++    <com.android.settingslib.widget.FooterPreference
++        android:key="reboot_explanation"
++        android:title="@string/device_protection_reboot_summary" />
++    <ListPreference
++        android:key="usb_data_when_locked"
++        android:title="@string/device_protection_usb"
++        android:dialogTitle="@string/device_protection_usb"
++        android:entries="@array/device_protection_usb_entries"
++        android:entryValues="@array/device_protection_usb_values"
++        android:persistent="false" />
++    <com.android.settingslib.widget.FooterPreference
++        android:key="usb_explanation"
++        android:title="@string/device_protection_usb_summary" />
++</PreferenceScreen>
 diff --git a/res/xml/hardware_info.xml b/res/xml/hardware_info.xml
-index e086a486ee0d8df918e6099316fb92f14af65d76..731de9101b0b0860b32f3ae58b9f186710c04565 100644
+index e086a486..731de910 100644
 --- a/res/xml/hardware_info.xml
 +++ b/res/xml/hardware_info.xml
 @@ -57,4 +57,28 @@
@@ -145,8 +204,23 @@ index e086a486ee0d8df918e6099316fb92f14af65d76..731de9101b0b0860b32f3ae58b9f1867
 +        settings:enableCopying="true"/>
 +
  </PreferenceScreen>
+diff --git a/res/xml/more_security_privacy_settings.xml b/res/xml/more_security_privacy_settings.xml
+index af3b5ecb..7a23ce45 100644
+--- a/res/xml/more_security_privacy_settings.xml
++++ b/res/xml/more_security_privacy_settings.xml
+@@ -249,4 +249,10 @@
+                 android:targetPackage="com.google.attestation.verifier" />
+     </Preference>
+ 
++    <Preference
++        android:key="device_protection"
++        android:title="@string/device_protection_title"
++        android:fragment="com.android.settings.security.DeviceProtectionSettings"
++        settings:controller="com.android.settings.security.DeviceProtectionPreferenceController" />
++
+ </PreferenceScreen>
 diff --git a/res/xml/network_provider_sims_list.xml b/res/xml/network_provider_sims_list.xml
-index ee1f6b34289086e89a173af4208a56939a24f14d..ea9986227384ac724d453e609bbe6d44da8fce3e 100644
+index ee1f6b34..ea998622 100644
 --- a/res/xml/network_provider_sims_list.xml
 +++ b/res/xml/network_provider_sims_list.xml
 @@ -25,6 +25,27 @@
@@ -183,8 +257,23 @@ index ee1f6b34289086e89a173af4208a56939a24f14d..ea9986227384ac724d453e609bbe6d44
      </com.android.settingslib.RestrictedPreference>
 +
  </PreferenceScreen>
+diff --git a/res/xml/security_advanced_settings.xml b/res/xml/security_advanced_settings.xml
+index 2c0c0bb8..cb7dded7 100644
+--- a/res/xml/security_advanced_settings.xml
++++ b/res/xml/security_advanced_settings.xml
+@@ -163,4 +163,10 @@
+ 
+     </PreferenceCategory>
+ 
++    <Preference
++        android:key="device_protection"
++        android:title="@string/device_protection_title"
++        android:fragment="com.android.settings.security.DeviceProtectionSettings"
++        settings:controller="com.android.settings.security.DeviceProtectionPreferenceController" />
++
+ </PreferenceScreen>
 diff --git a/src/com/android/settings/Settings.java b/src/com/android/settings/Settings.java
-index 5562158557e9ab4ac94536d6759e2dda7f77f785..1b378c1579ea4ac37c94b4de413d68314c084e77 100644
+index 55621585..1b378c15 100644
 --- a/src/com/android/settings/Settings.java
 +++ b/src/com/android/settings/Settings.java
 @@ -535,13 +535,17 @@ public class Settings extends SettingsActivity {
@@ -210,7 +299,7 @@ index 5562158557e9ab4ac94536d6759e2dda7f77f785..1b378c1579ea4ac37c94b4de413d6831
          @Override
 diff --git a/src/com/android/settings/biometrics/face/FaceEnrollChallengeOwnership.java b/src/com/android/settings/biometrics/face/FaceEnrollChallengeOwnership.java
 new file mode 100644
-index 0000000000000000000000000000000000000000..0a74c60b157322d952eeeee74ed0960158bb62b6
+index 00000000..0a74c60b
 --- /dev/null
 +++ b/src/com/android/settings/biometrics/face/FaceEnrollChallengeOwnership.java
 @@ -0,0 +1,90 @@
@@ -305,7 +394,7 @@ index 0000000000000000000000000000000000000000..0a74c60b157322d952eeeee74ed09601
 +    }
 +}
 diff --git a/src/com/android/settings/biometrics/face/FaceEnrollIntroduction.java b/src/com/android/settings/biometrics/face/FaceEnrollIntroduction.java
-index 21438312ae3d9519ab1de4f89e313c37c75f55a3..9e394ebc7375956d0836967b3a121b7fe8a7ff96 100644
+index 21438312..9e394ebc 100644
 --- a/src/com/android/settings/biometrics/face/FaceEnrollIntroduction.java
 +++ b/src/com/android/settings/biometrics/face/FaceEnrollIntroduction.java
 @@ -31,6 +31,8 @@ import android.hardware.biometrics.SensorProperties;
@@ -408,7 +497,7 @@ index 21438312ae3d9519ab1de4f89e313c37c75f55a3..9e394ebc7375956d0836967b3a121b7f
  
      @Override
 diff --git a/src/com/android/settings/biometrics/face/FaceSettings.java b/src/com/android/settings/biometrics/face/FaceSettings.java
-index 12f54f11a5dd8893f4f8338dca265fca67c75fc0..80e6fe2ed3a958729bb0533fa1ab514671ca0966 100644
+index 12f54f11..80e6fe2e 100644
 --- a/src/com/android/settings/biometrics/face/FaceSettings.java
 +++ b/src/com/android/settings/biometrics/face/FaceSettings.java
 @@ -174,6 +174,8 @@ public class FaceSettings extends DashboardFragment {
@@ -431,7 +520,7 @@ index 12f54f11a5dd8893f4f8338dca265fca67c75fc0..80e6fe2ed3a958729bb0533fa1ab5146
          }
  
 diff --git a/src/com/android/settings/datausage/CellDataPreference.java b/src/com/android/settings/datausage/CellDataPreference.java
-index a64bc19be9c7c73c655f25e0b99d75471ae73110..2223c111180b0aaa029094d2ab65b4ddf906e08e 100644
+index a64bc19b..2223c111 100644
 --- a/src/com/android/settings/datausage/CellDataPreference.java
 +++ b/src/com/android/settings/datausage/CellDataPreference.java
 @@ -224,9 +224,14 @@ public class CellDataPreference extends CustomDialogPreferenceCompat
@@ -453,7 +542,7 @@ index a64bc19be9c7c73c655f25e0b99d75471ae73110..2223c111180b0aaa029094d2ab65b4dd
              // TODO: extend to modify policy enabled flag.
              setMobileDataEnabled(false);
 diff --git a/src/com/android/settings/deviceinfo/batteryinfo/BatteryInfoApiScreen.kt b/src/com/android/settings/deviceinfo/batteryinfo/BatteryInfoApiScreen.kt
-index 6d93b27a06479cc370b593ec9970897defb4601e..35bb30eb5f797da154702612803411cb5ef35f5d 100644
+index 6d93b27a..35bb30eb 100644
 --- a/src/com/android/settings/deviceinfo/batteryinfo/BatteryInfoApiScreen.kt
 +++ b/src/com/android/settings/deviceinfo/batteryinfo/BatteryInfoApiScreen.kt
 @@ -76,12 +76,12 @@ class BatteryInfoApiScreen :
@@ -482,7 +571,7 @@ index 6d93b27a06479cc370b593ec9970897defb4601e..35bb30eb5f797da154702612803411cb
                          TimeUnit.MILLISECONDS.convert(firstUseDateInSec, TimeUnit.SECONDS)
  
 diff --git a/src/com/android/settings/deviceinfo/batteryinfo/BatteryManufactureDatePreferenceController.java b/src/com/android/settings/deviceinfo/batteryinfo/BatteryManufactureDatePreferenceController.java
-index 15d6b287b8dba05afa96a5d6d31dea2d1536d861..f451775e5d681da01051f62ab9348c8c87f3d429 100644
+index 15d6b287..f451775e 100644
 --- a/src/com/android/settings/deviceinfo/batteryinfo/BatteryManufactureDatePreferenceController.java
 +++ b/src/com/android/settings/deviceinfo/batteryinfo/BatteryManufactureDatePreferenceController.java
 @@ -53,7 +53,7 @@ public class BatteryManufactureDatePreferenceController extends BasePreferenceCo
@@ -496,7 +585,7 @@ index 15d6b287b8dba05afa96a5d6d31dea2d1536d861..f451775e5d681da01051f62ab9348c8c
  
 diff --git a/src/com/android/settings/deviceinfo/hardwareinfo/CpuInfo.java b/src/com/android/settings/deviceinfo/hardwareinfo/CpuInfo.java
 new file mode 100644
-index 0000000000000000000000000000000000000000..27bcc89f39da8dcc20df93aa05e7bc3bcdf9813f
+index 00000000..27bcc89f
 --- /dev/null
 +++ b/src/com/android/settings/deviceinfo/hardwareinfo/CpuInfo.java
 @@ -0,0 +1,122 @@
@@ -624,7 +713,7 @@ index 0000000000000000000000000000000000000000..27bcc89f39da8dcc20df93aa05e7bc3b
 +}
 diff --git a/src/com/android/settings/deviceinfo/hardwareinfo/CpuInfoPreference.kt b/src/com/android/settings/deviceinfo/hardwareinfo/CpuInfoPreference.kt
 new file mode 100644
-index 0000000000000000000000000000000000000000..bfab9907914c2d6fba0ed85aece7ff1371064d62
+index 00000000..bfab9907
 --- /dev/null
 +++ b/src/com/android/settings/deviceinfo/hardwareinfo/CpuInfoPreference.kt
 @@ -0,0 +1,63 @@
@@ -693,7 +782,7 @@ index 0000000000000000000000000000000000000000..bfab9907914c2d6fba0ed85aece7ff13
 +}
 diff --git a/src/com/android/settings/deviceinfo/hardwareinfo/CpuInfoPreferenceController.java b/src/com/android/settings/deviceinfo/hardwareinfo/CpuInfoPreferenceController.java
 new file mode 100644
-index 0000000000000000000000000000000000000000..3b73d5e4c95241b793c0fa4e010eefb3ec54585b
+index 00000000..3b73d5e4
 --- /dev/null
 +++ b/src/com/android/settings/deviceinfo/hardwareinfo/CpuInfoPreferenceController.java
 @@ -0,0 +1,74 @@
@@ -772,7 +861,7 @@ index 0000000000000000000000000000000000000000..3b73d5e4c95241b793c0fa4e010eefb3
 +    }
 +}
 diff --git a/src/com/android/settings/deviceinfo/hardwareinfo/HardwareInfoApiScreen.kt b/src/com/android/settings/deviceinfo/hardwareinfo/HardwareInfoApiScreen.kt
-index 204df40ac7cab13c5dab62cd52a684e542286c39..df94b54244767bcff0be3698a6176e6fc6b54529 100644
+index 204df40a..df94b542 100644
 --- a/src/com/android/settings/deviceinfo/hardwareinfo/HardwareInfoApiScreen.kt
 +++ b/src/com/android/settings/deviceinfo/hardwareinfo/HardwareInfoApiScreen.kt
 @@ -28,6 +28,8 @@ import com.android.settingslib.metadata.preferencesapi.PreferencesApiScreen
@@ -854,7 +943,7 @@ index 204df40ac7cab13c5dab62cd52a684e542286c39..df94b54244767bcff0be3698a6176e6f
          const val MANUFACTURED_YEAR_KEY = "manufactured_year"
      }
 diff --git a/src/com/android/settings/deviceinfo/hardwareinfo/HardwareInfoScreen.kt b/src/com/android/settings/deviceinfo/hardwareinfo/HardwareInfoScreen.kt
-index dd0c2cf32b0a103529033ae115e8ec7dc8183d18..b1e58f6537b89fab7cb90346ce8171b27db9f0a4 100644
+index dd0c2cf3..b1e58f65 100644
 --- a/src/com/android/settings/deviceinfo/hardwareinfo/HardwareInfoScreen.kt
 +++ b/src/com/android/settings/deviceinfo/hardwareinfo/HardwareInfoScreen.kt
 @@ -80,6 +80,9 @@ open class HardwareInfoScreen :
@@ -869,7 +958,7 @@ index dd0c2cf32b0a103529033ae115e8ec7dc8183d18..b1e58f6537b89fab7cb90346ce8171b2
      companion object {
 diff --git a/src/com/android/settings/deviceinfo/hardwareinfo/SocInfoPreference.kt b/src/com/android/settings/deviceinfo/hardwareinfo/SocInfoPreference.kt
 new file mode 100644
-index 0000000000000000000000000000000000000000..6e17703c8bb7e96dc6a1f8eabd716a67ce30ac0c
+index 00000000..6e17703c
 --- /dev/null
 +++ b/src/com/android/settings/deviceinfo/hardwareinfo/SocInfoPreference.kt
 @@ -0,0 +1,74 @@
@@ -949,7 +1038,7 @@ index 0000000000000000000000000000000000000000..6e17703c8bb7e96dc6a1f8eabd716a67
 +}
 diff --git a/src/com/android/settings/deviceinfo/hardwareinfo/SocInfoPreferenceController.java b/src/com/android/settings/deviceinfo/hardwareinfo/SocInfoPreferenceController.java
 new file mode 100644
-index 0000000000000000000000000000000000000000..1efd4b488e112d818f476365f3fc4b116a6257fb
+index 00000000..1efd4b48
 --- /dev/null
 +++ b/src/com/android/settings/deviceinfo/hardwareinfo/SocInfoPreferenceController.java
 @@ -0,0 +1,47 @@
@@ -1002,7 +1091,7 @@ index 0000000000000000000000000000000000000000..1efd4b488e112d818f476365f3fc4b11
 +}
 diff --git a/src/com/android/settings/deviceinfo/hardwareinfo/UsableRamPreference.kt b/src/com/android/settings/deviceinfo/hardwareinfo/UsableRamPreference.kt
 new file mode 100644
-index 0000000000000000000000000000000000000000..678d6dd9a16aeeb1c64d7d732d05a9192b4a9e5b
+index 00000000..678d6dd9
 --- /dev/null
 +++ b/src/com/android/settings/deviceinfo/hardwareinfo/UsableRamPreference.kt
 @@ -0,0 +1,74 @@
@@ -1082,7 +1171,7 @@ index 0000000000000000000000000000000000000000..678d6dd9a16aeeb1c64d7d732d05a919
 +}
 diff --git a/src/com/android/settings/deviceinfo/hardwareinfo/UsableRamPreferenceController.java b/src/com/android/settings/deviceinfo/hardwareinfo/UsableRamPreferenceController.java
 new file mode 100644
-index 0000000000000000000000000000000000000000..c02d31b3c8d61e5d9090f8597c19c140d6c37f94
+index 00000000..c02d31b3
 --- /dev/null
 +++ b/src/com/android/settings/deviceinfo/hardwareinfo/UsableRamPreferenceController.java
 @@ -0,0 +1,48 @@
@@ -1135,7 +1224,7 @@ index 0000000000000000000000000000000000000000..c02d31b3c8d61e5d9090f8597c19c140
 +    }
 +}
 diff --git a/src/com/android/settings/display/MinRefreshRatePreferenceController.java b/src/com/android/settings/display/MinRefreshRatePreferenceController.java
-index b9c63040f26c5c8b0d083357cbd33ae4ff06ea07..4bfa0482693113172763336a4bbdb81fa2544499 100644
+index b9c63040..4bfa0482 100644
 --- a/src/com/android/settings/display/MinRefreshRatePreferenceController.java
 +++ b/src/com/android/settings/display/MinRefreshRatePreferenceController.java
 @@ -61,6 +61,10 @@ public class MinRefreshRatePreferenceController extends BasePreferenceController
@@ -1159,7 +1248,7 @@ index b9c63040f26c5c8b0d083357cbd33ae4ff06ea07..4bfa0482693113172763336a4bbdb81f
                  String.format(Locale.US, "%.02f", currentValue));
          if (index < 0) index = 0;
 diff --git a/src/com/android/settings/display/PeakRefreshRateListPreferenceController.java b/src/com/android/settings/display/PeakRefreshRateListPreferenceController.java
-index 9acf6c1125f9b59b392edd9dcfa0485c3393486a..1e590d8525d25cf02eaea735e458d26010b9978d 100644
+index 9acf6c11..1e590d85 100644
 --- a/src/com/android/settings/display/PeakRefreshRateListPreferenceController.java
 +++ b/src/com/android/settings/display/PeakRefreshRateListPreferenceController.java
 @@ -53,6 +53,7 @@ public class PeakRefreshRateListPreferenceController extends BasePreferenceContr
@@ -1204,7 +1293,7 @@ index 9acf6c1125f9b59b392edd9dcfa0485c3393486a..1e590d8525d25cf02eaea735e458d260
          mListPreference.setValueIndex(index);
          mListPreference.setSummary(mListPreference.getEntries()[index]);
 diff --git a/src/com/android/settings/fuelgauge/BatterySettingsFeatureProviderImpl.java b/src/com/android/settings/fuelgauge/BatterySettingsFeatureProviderImpl.java
-index 854004daf4f444f249f4b819462c8cb45895966c..9670239bd36055ec473834fed7214d16ab5054c9 100644
+index 854004da..9670239b 100644
 --- a/src/com/android/settings/fuelgauge/BatterySettingsFeatureProviderImpl.java
 +++ b/src/com/android/settings/fuelgauge/BatterySettingsFeatureProviderImpl.java
 @@ -34,12 +34,14 @@ public class BatterySettingsFeatureProviderImpl implements BatterySettingsFeatur
@@ -1225,7 +1314,7 @@ index 854004daf4f444f249f4b819462c8cb45895966c..9670239bd36055ec473834fed7214d16
  
      @Override
 diff --git a/src/com/android/settings/fuelgauge/BatteryUtils.java b/src/com/android/settings/fuelgauge/BatteryUtils.java
-index 6adaa7aa5183c072d8b3069a623c8980f8fc46bc..7a08a7ac0b3b07cf20882c405ebcf5f89de0f72a 100644
+index 6adaa7aa..7a08a7ac 100644
 --- a/src/com/android/settings/fuelgauge/BatteryUtils.java
 +++ b/src/com/android/settings/fuelgauge/BatteryUtils.java
 @@ -60,6 +60,8 @@ import com.google.protobuf.MessageLite;
@@ -1260,7 +1349,7 @@ index 6adaa7aa5183c072d8b3069a623c8980f8fc46bc..7a08a7ac0b3b07cf20882c405ebcf5f8
              final Context context,
 diff --git a/src/com/android/settings/network/HonorEuiccProfilePreparation.java b/src/com/android/settings/network/HonorEuiccProfilePreparation.java
 new file mode 100644
-index 0000000000000000000000000000000000000000..af06a58a4bb5cc6c3c61cf14b8a1ee748884d2d3
+index 00000000..af06a58a
 --- /dev/null
 +++ b/src/com/android/settings/network/HonorEuiccProfilePreparation.java
 @@ -0,0 +1,127 @@
@@ -1393,7 +1482,7 @@ index 0000000000000000000000000000000000000000..af06a58a4bb5cc6c3c61cf14b8a1ee74
 +}
 diff --git a/src/com/android/settings/network/HonorLdyAn00EsimEntry.kt b/src/com/android/settings/network/HonorLdyAn00EsimEntry.kt
 new file mode 100644
-index 0000000000000000000000000000000000000000..9cca3fe8db9b07a753da312a8307ae8bb358a5ed
+index 00000000..9cca3fe8
 --- /dev/null
 +++ b/src/com/android/settings/network/HonorLdyAn00EsimEntry.kt
 @@ -0,0 +1,240 @@
@@ -1639,7 +1728,7 @@ index 0000000000000000000000000000000000000000..9cca3fe8db9b07a753da312a8307ae8b
 +}
 diff --git a/src/com/android/settings/network/HonorLdyAn00EsimManagementActivity.java b/src/com/android/settings/network/HonorLdyAn00EsimManagementActivity.java
 new file mode 100644
-index 0000000000000000000000000000000000000000..1b2a7e96ccee218edbe254f49ef5d8b702f74627
+index 00000000..1b2a7e96
 --- /dev/null
 +++ b/src/com/android/settings/network/HonorLdyAn00EsimManagementActivity.java
 @@ -0,0 +1,87 @@
@@ -1732,7 +1821,7 @@ index 0000000000000000000000000000000000000000..1b2a7e96ccee218edbe254f49ef5d8b7
 +}
 diff --git a/src/com/android/settings/network/HonorLdyAn00EsimSetupActivity.java b/src/com/android/settings/network/HonorLdyAn00EsimSetupActivity.java
 new file mode 100644
-index 0000000000000000000000000000000000000000..600821c77587008d411cdf7eeda4277a58a108fa
+index 00000000..600821c7
 --- /dev/null
 +++ b/src/com/android/settings/network/HonorLdyAn00EsimSetupActivity.java
 @@ -0,0 +1,277 @@
@@ -2015,7 +2104,7 @@ index 0000000000000000000000000000000000000000..600821c77587008d411cdf7eeda4277a
 +}
 diff --git a/src/com/android/settings/network/HonorLdyAn00EsimSetupViewModel.java b/src/com/android/settings/network/HonorLdyAn00EsimSetupViewModel.java
 new file mode 100644
-index 0000000000000000000000000000000000000000..c57e71d5d79535a20cb827155b15d162b0d930a3
+index 00000000..c57e71d5
 --- /dev/null
 +++ b/src/com/android/settings/network/HonorLdyAn00EsimSetupViewModel.java
 @@ -0,0 +1,642 @@
@@ -2663,7 +2752,7 @@ index 0000000000000000000000000000000000000000..c57e71d5d79535a20cb827155b15d162
 +}
 diff --git a/src/com/android/settings/network/HonorPrimaryDataSelection.java b/src/com/android/settings/network/HonorPrimaryDataSelection.java
 new file mode 100644
-index 0000000000000000000000000000000000000000..1fd173ca85be34969e03d0cdba756bf603fab843
+index 00000000..1fd173ca
 --- /dev/null
 +++ b/src/com/android/settings/network/HonorPrimaryDataSelection.java
 @@ -0,0 +1,162 @@
@@ -2830,7 +2919,7 @@ index 0000000000000000000000000000000000000000..1fd173ca85be34969e03d0cdba756bf6
 +    }
 +}
 diff --git a/src/com/android/settings/network/MobileNetworkListFragment.kt b/src/com/android/settings/network/MobileNetworkListFragment.kt
-index 59acade78ad930765a59c0cc27885c442991a564..c323642084a70760c5bd9ee4f865dfa3015e32d8 100644
+index 59acade7..c3236420 100644
 --- a/src/com/android/settings/network/MobileNetworkListFragment.kt
 +++ b/src/com/android/settings/network/MobileNetworkListFragment.kt
 @@ -22,6 +22,13 @@ import android.os.Bundle
@@ -2943,7 +3032,7 @@ index 59acade78ad930765a59c0cc27885c442991a564..c323642084a70760c5bd9ee4f865dfa3
  
      override fun getPreferenceScreenResId() = R.xml.network_provider_sims_list
 diff --git a/src/com/android/settings/network/MobileNetworkListScreen.kt b/src/com/android/settings/network/MobileNetworkListScreen.kt
-index c5ea99073a4d0b6ae97f24163e45e7e58dcdbdf8..6512ef38e156dd462f88d3272aa7380ae094968a 100644
+index c5ea9907..6512ef38 100644
 --- a/src/com/android/settings/network/MobileNetworkListScreen.kt
 +++ b/src/com/android/settings/network/MobileNetworkListScreen.kt
 @@ -86,7 +86,9 @@ open class MobileNetworkListScreen(context: Context) :
@@ -2977,7 +3066,7 @@ index c5ea99073a4d0b6ae97f24163e45e7e58dcdbdf8..6512ef38e156dd462f88d3272aa7380a
      private fun getSelectableSubscriptionInfoList(context: Context): List<SubscriptionInfo> =
          subscriptionInfoList
 diff --git a/src/com/android/settings/network/NetworkProviderSimListController.java b/src/com/android/settings/network/NetworkProviderSimListController.java
-index 51059a742d995f17c1ec8bdb18f61e465914f0f6..3c50fa75ee78a17e815e7dbadfc17b47a68eaa19 100644
+index 51059a74..3c50fa75 100644
 --- a/src/com/android/settings/network/NetworkProviderSimListController.java
 +++ b/src/com/android/settings/network/NetworkProviderSimListController.java
 @@ -38,6 +38,7 @@ import com.android.settingslib.mobile.dataservice.SubscriptionInfoEntity;
@@ -3012,7 +3101,7 @@ index 51059a742d995f17c1ec8bdb18f61e465914f0f6..3c50fa75ee78a17e815e7dbadfc17b47
  
      @Override
 diff --git a/src/com/android/settings/network/SimOnboardingActivity.kt b/src/com/android/settings/network/SimOnboardingActivity.kt
-index 05249548c9e3d820d6a2cd79c60b478b817500fa..9a9af7c9a029d901522068682b1288831e4f9e3c 100644
+index 05249548..9a9af7c9 100644
 --- a/src/com/android/settings/network/SimOnboardingActivity.kt
 +++ b/src/com/android/settings/network/SimOnboardingActivity.kt
 @@ -93,6 +93,7 @@ class SimOnboardingActivity : SpaBaseDialogActivity() {
@@ -3066,7 +3155,7 @@ index 05249548c9e3d820d6a2cd79c60b478b817500fa..9a9af7c9a029d901522068682b128883
          showError = rememberSaveable { mutableStateOf(ErrorType.ERROR_NONE) }
          showProgressDialog = rememberSaveable { mutableStateOf(false) }
 diff --git a/src/com/android/settings/network/SimOnboardingViewModel.kt b/src/com/android/settings/network/SimOnboardingViewModel.kt
-index d3997faa4530c27c49c4e581b05d80dba1ce5a6c..3ebb579998b9b34d06b271658bb4ea9a6e9aaf74 100644
+index d3997faa..3ebb5799 100644
 --- a/src/com/android/settings/network/SimOnboardingViewModel.kt
 +++ b/src/com/android/settings/network/SimOnboardingViewModel.kt
 @@ -223,6 +223,10 @@ class SimOnboardingViewModel(private val application: Application) : AndroidView
@@ -3092,7 +3181,7 @@ index d3997faa4530c27c49c4e581b05d80dba1ce5a6c..3ebb579998b9b34d06b271658bb4ea9a
          if (!this::currentSimSwitchingInfo.isInitialized || !this::callbackIntent.isInitialized) {
              Log.e(TAG, "no init currentSimSwitchingInfo or callbackIntent")
 diff --git a/src/com/android/settings/network/SwitchToEuiccSubscriptionSidecar.java b/src/com/android/settings/network/SwitchToEuiccSubscriptionSidecar.java
-index 4a19e6287f66e1bc7b2947199336dc14b8ec9460..68c3ef4d788c049e714f20dbeb56daec14d63ecb 100644
+index 4a19e628..68c3ef4d 100644
 --- a/src/com/android/settings/network/SwitchToEuiccSubscriptionSidecar.java
 +++ b/src/com/android/settings/network/SwitchToEuiccSubscriptionSidecar.java
 @@ -25,6 +25,7 @@ import android.telephony.UiccPortInfo;
@@ -3347,7 +3436,7 @@ index 4a19e6287f66e1bc7b2947199336dc14b8ec9460..68c3ef4d788c049e714f20dbeb56daec
                  && mIsDuringSimSlotMapping) {
              // Continue to switch the SimSlotMapping, after the esim is disabled.
 diff --git a/src/com/android/settings/network/telephony/DeleteEuiccSubscriptionDialogActivity.java b/src/com/android/settings/network/telephony/DeleteEuiccSubscriptionDialogActivity.java
-index 8247f63c9f9961af3f2134560a65ce1fd3c2f25b..9c555867900602e1ac903a094277a6a6c2c385a7 100644
+index 8247f63c..9c555867 100644
 --- a/src/com/android/settings/network/telephony/DeleteEuiccSubscriptionDialogActivity.java
 +++ b/src/com/android/settings/network/telephony/DeleteEuiccSubscriptionDialogActivity.java
 @@ -26,6 +26,9 @@ import android.util.Log;
@@ -3434,7 +3523,7 @@ index 8247f63c9f9961af3f2134560a65ce1fd3c2f25b..9c555867900602e1ac903a094277a6a6
      private void showDeleteSimConfirmDialog() {
          ConfirmDialogFragment.show(
 diff --git a/src/com/android/settings/network/telephony/DeleteEuiccSubscriptionSidecar.java b/src/com/android/settings/network/telephony/DeleteEuiccSubscriptionSidecar.java
-index 5ab7234f155f174aa678e5ba2cc42649c8b1ee29..3da751aea1f728c99057fc32305a5fa9b89dcdb1 100644
+index 5ab7234f..3da751ae 100644
 --- a/src/com/android/settings/network/telephony/DeleteEuiccSubscriptionSidecar.java
 +++ b/src/com/android/settings/network/telephony/DeleteEuiccSubscriptionSidecar.java
 @@ -19,13 +19,21 @@ package com.android.settings.network.telephony;
@@ -3575,7 +3664,7 @@ index 5ab7234f155f174aa678e5ba2cc42649c8b1ee29..3da751aea1f728c99057fc32305a5fa9
          PendingIntent intent = createCallbackIntent();
 diff --git a/src/com/android/settings/network/telephony/HonorProfileRouteUi.java b/src/com/android/settings/network/telephony/HonorProfileRouteUi.java
 new file mode 100644
-index 0000000000000000000000000000000000000000..381c7ab0643769dd5454aa895cf626eee86be2cd
+index 00000000..381c7ab0
 --- /dev/null
 +++ b/src/com/android/settings/network/telephony/HonorProfileRouteUi.java
 @@ -0,0 +1,134 @@
@@ -3714,7 +3803,7 @@ index 0000000000000000000000000000000000000000..381c7ab0643769dd5454aa895cf626ee
 +    void destroyed() { if (activity.isFinishing()) model.cancelProfileHandoff(); }
 +}
 diff --git a/src/com/android/settings/network/telephony/MobileDataDialogFragment.java b/src/com/android/settings/network/telephony/MobileDataDialogFragment.java
-index 0e01e4589f2aff43bd35dc1f09b090cc12acc202..c64e82890a17758e47f42c87699489820e0baa24 100644
+index 0e01e458..c64e8289 100644
 --- a/src/com/android/settings/network/telephony/MobileDataDialogFragment.java
 +++ b/src/com/android/settings/network/telephony/MobileDataDialogFragment.java
 @@ -140,14 +140,17 @@ public class MobileDataDialogFragment extends InstrumentedDialogFragment impleme
@@ -3744,7 +3833,7 @@ index 0e01e4589f2aff43bd35dc1f09b090cc12acc202..c64e82890a17758e47f42c8769948982
              default:
                  throw new IllegalArgumentException("unknown type " + mType);
 diff --git a/src/com/android/settings/network/telephony/ToggleSubscriptionDialogActivity.java b/src/com/android/settings/network/telephony/ToggleSubscriptionDialogActivity.java
-index f4d2ce2b03c076ab1daa9eaa245b3c19610e3af1..1fb8b0abb7da568f3689d555bcb4423105f3eda6 100644
+index f4d2ce2b..1fb8b0ab 100644
 --- a/src/com/android/settings/network/telephony/ToggleSubscriptionDialogActivity.java
 +++ b/src/com/android/settings/network/telephony/ToggleSubscriptionDialogActivity.java
 @@ -32,6 +32,10 @@ import com.android.internal.annotations.VisibleForTesting;
@@ -3856,8 +3945,145 @@ index f4d2ce2b03c076ab1daa9eaa245b3c19610e3af1..1fb8b0abb7da568f3689d555bcb44231
      private void handleTogglePsimAction() {
          if (mSubscriptionManager.canDisablePhysicalSubscription() && mSubInfo != null) {
              mSubscriptionManager.setUiccApplicationsEnabled(mSubInfo.getSubscriptionId(), mEnable);
+diff --git a/src/com/android/settings/security/DeviceProtectionPreferenceController.java b/src/com/android/settings/security/DeviceProtectionPreferenceController.java
+new file mode 100644
+index 00000000..d0ae12c0
+--- /dev/null
++++ b/src/com/android/settings/security/DeviceProtectionPreferenceController.java
+@@ -0,0 +1,16 @@
++/* SPDX-License-Identifier: Apache-2.0 */
++package com.android.settings.security;
++
++import android.content.Context;
++import android.os.SystemProperties;
++import android.os.UserHandle;
++import com.android.settings.core.BasePreferenceController;
++
++public class DeviceProtectionPreferenceController extends BasePreferenceController {
++    public DeviceProtectionPreferenceController(Context context, String key) { super(context, key); }
++    @Override public int getAvailabilityStatus() {
++        return UserHandle.myUserId() == UserHandle.USER_SYSTEM
++                && SystemProperties.getBoolean("ro.lineage.ldy_an00.security_controls", false)
++                ? AVAILABLE : UNSUPPORTED_ON_DEVICE;
++    }
++}
+diff --git a/src/com/android/settings/security/DeviceProtectionSettings.java b/src/com/android/settings/security/DeviceProtectionSettings.java
+new file mode 100644
+index 00000000..d9cafbab
+--- /dev/null
++++ b/src/com/android/settings/security/DeviceProtectionSettings.java
+@@ -0,0 +1,109 @@
++/* SPDX-License-Identifier: Apache-2.0 */
++package com.android.settings.security;
++
++import android.app.Activity;
++import android.app.KeyguardManager;
++import android.app.settings.SettingsEnums;
++import android.content.Intent;
++import android.os.Bundle;
++import android.os.SystemProperties;
++import android.os.UserHandle;
++import android.provider.Settings;
++
++import androidx.preference.ListPreference;
++import androidx.preference.Preference;
++
++import com.android.internal.widget.LockPatternUtils;
++import com.android.settings.R;
++import com.android.settings.SettingsPreferenceFragment;
++import com.android.settings.password.ChooseLockSettingsHelper;
++
++/** Native owner-only controls; each change uses Settings' credential confirmation. */
++public class DeviceProtectionSettings extends SettingsPreferenceFragment
++        implements Preference.OnPreferenceChangeListener {
++    private static final int CONFIRM = 481;
++    private String mPendingKey, mPendingValue;
++
++    @Override public int getMetricsCategory() { return SettingsEnums.SECURITY; }
++
++    @Override public void onCreate(Bundle state) {
++        super.onCreate(state);
++        if (UserHandle.myUserId() != UserHandle.USER_SYSTEM
++                || !SystemProperties.getBoolean("ro.lineage.ldy_an00.security_controls", false)) {
++            finish();
++            return;
++        }
++        addPreferencesFromResource(R.xml.device_protection_settings);
++        for (String key : new String[] {"settings_reboot_after_timeout", "usb_data_when_locked"}) {
++            ListPreference pref = findPreference(key);
++            pref.setSummaryProvider(ListPreference.SimpleSummaryProvider.getInstance());
++            pref.setOnPreferenceChangeListener(this);
++        }
++        if (state != null) {
++            mPendingKey = state.getString("pending_key");
++            mPendingValue = state.getString("pending_value");
++        }
++    }
++
++    @Override public void onResume() {
++        super.onResume();
++        if (getPreferenceScreen() == null) return;
++        refresh();
++    }
++
++    private void refresh() {
++        ListPreference reboot = findPreference("settings_reboot_after_timeout");
++        ListPreference usb = findPreference("usb_data_when_locked");
++        reboot.setValue(Settings.Global.getString(getContentResolver(), reboot.getKey()));
++        if (reboot.getValue() == null) reboot.setValue("0");
++        usb.setValue(Settings.Global.getString(getContentResolver(), usb.getKey()));
++        if (usb.getValue() == null) usb.setValue("0");
++        boolean secure = new LockPatternUtils(getContext()).isSecure(UserHandle.myUserId());
++        reboot.setEnabled(secure);
++        if (!secure) reboot.setSummary(R.string.device_protection_set_lock);
++    }
++
++    @Override public boolean onPreferenceChange(Preference preference, Object value) {
++        if (mPendingKey != null || !(value instanceof String)
++                || ((ListPreference) preference).findIndexOfValue((String) value) < 0) return false;
++        KeyguardManager keyguard = getContext().getSystemService(KeyguardManager.class);
++        if (keyguard == null || keyguard.isDeviceLocked()) return false;
++        mPendingKey = preference.getKey();
++        mPendingValue = (String) value;
++        boolean secure = new LockPatternUtils(getContext()).isSecure(UserHandle.myUserId());
++        if (!secure) {
++            applyPending();
++        } else if (!new ChooseLockSettingsHelper.Builder(getActivity(), this)
++                .setRequestCode(CONFIRM).setTitle(getText(R.string.device_protection_title)).show()) {
++            // Failure to launch authentication must not silently authorize a change.
++            mPendingKey = null;
++            mPendingValue = null;
++        }
++        return false;
++    }
++
++    @Override public void onActivityResult(int request, int result, Intent data) {
++        super.onActivityResult(request, result, data);
++        if (request != CONFIRM) return;
++        if (result == Activity.RESULT_OK) applyPending();
++        else { mPendingKey = null; mPendingValue = null; }
++    }
++
++    private void applyPending() {
++        ListPreference pref = mPendingKey == null ? null : findPreference(mPendingKey);
++        if (UserHandle.myUserId() == UserHandle.USER_SYSTEM && pref != null
++                && pref.findIndexOfValue(mPendingValue) >= 0) {
++            if (Settings.Global.putString(getContentResolver(), mPendingKey, mPendingValue)) {
++                pref.setValue(mPendingValue);
++            }
++        }
++        mPendingKey = null;
++        mPendingValue = null;
++    }
++
++    @Override public void onSaveInstanceState(Bundle state) {
++        super.onSaveInstanceState(state);
++        state.putString("pending_key", mPendingKey);
++        state.putString("pending_value", mPendingValue);
++    }
++}
 diff --git a/src/com/android/settings/sim/ChooseSimActivity.java b/src/com/android/settings/sim/ChooseSimActivity.java
-index 9a75b63c1d109302751478d37d2e91f61c89cc8e..4a6ff768c8b4f6a1432c6f712fe571fd9005f378 100644
+index 9a75b63c..4a6ff768 100644
 --- a/src/com/android/settings/sim/ChooseSimActivity.java
 +++ b/src/com/android/settings/sim/ChooseSimActivity.java
 @@ -87,6 +87,14 @@ public class ChooseSimActivity extends Activity
@@ -3876,7 +4102,7 @@ index 9a75b63c1d109302751478d37d2e91f61c89cc8e..4a6ff768c8b4f6a1432c6f712fe571fd
  
          Intent intent = getIntent();
 diff --git a/src/com/android/settings/sim/SimDialogActivity.java b/src/com/android/settings/sim/SimDialogActivity.java
-index 723f3467e0269881cd810458046c9715f4f1d626..0085a3a2c11aefa567cf22c08c63687421ed4a29 100644
+index 723f3467..0085a3a2 100644
 --- a/src/com/android/settings/sim/SimDialogActivity.java
 +++ b/src/com/android/settings/sim/SimDialogActivity.java
 @@ -361,16 +361,15 @@ public class SimDialogActivity extends FragmentActivity {
@@ -3904,7 +4130,7 @@ index 723f3467e0269881cd810458046c9715f4f1d626..0085a3a2c11aefa567cf22c08c636874
  
      private void setDefaultCallsSubId(final int subId) {
 diff --git a/src/com/android/settings/sim/SwitchToEsimConfirmDialogActivity.java b/src/com/android/settings/sim/SwitchToEsimConfirmDialogActivity.java
-index db6e1b44f3478b73f0e646d1779a8b9daf0c2843..11656739889814dea54558e67c83df1e9e8c3bd5 100644
+index db6e1b44..11656739 100644
 --- a/src/com/android/settings/sim/SwitchToEsimConfirmDialogActivity.java
 +++ b/src/com/android/settings/sim/SwitchToEsimConfirmDialogActivity.java
 @@ -50,6 +50,11 @@ public class SwitchToEsimConfirmDialogActivity extends SubscriptionActionDialogA
@@ -3920,7 +4146,7 @@ index db6e1b44f3478b73f0e646d1779a8b9daf0c2843..11656739889814dea54558e67c83df1e
          if (mSubToEnabled == null) {
              Log.e(TAG, "Cannot find SIM to enable.");
 diff --git a/src/com/android/settings/spa/network/NetworkCellularGroupProvider.kt b/src/com/android/settings/spa/network/NetworkCellularGroupProvider.kt
-index 2d92c414c21abc4ded6afd26eff6c7144569674c..4469949f3ccf6155fc5a88c986ea2d0f43693a22 100644
+index 2d92c414..4469949f 100644
 --- a/src/com/android/settings/spa/network/NetworkCellularGroupProvider.kt
 +++ b/src/com/android/settings/spa/network/NetworkCellularGroupProvider.kt
 @@ -367,7 +367,14 @@ suspend fun setMobileData(
@@ -3940,7 +4166,7 @@ index 2d92c414c21abc4ded6afd26eff6c7144569674c..4469949f3ccf6155fc5a88c986ea2d0f
          MobileDataRepository(context)
              .setMobileDataEnabled(targetSubId, enabled, wifiPickerTrackerHelper)
 diff --git a/src/com/android/settings/spa/network/SimsSection.kt b/src/com/android/settings/spa/network/SimsSection.kt
-index 33f151d665101d5d6d5fdb51b09ce9b3ad1431b7..3e4e71a1849ce56e31ea57c3b0004d9be852e78e 100644
+index 33f151d6..3e4e71a1 100644
 --- a/src/com/android/settings/spa/network/SimsSection.kt
 +++ b/src/com/android/settings/spa/network/SimsSection.kt
 @@ -19,6 +19,7 @@ package com.android.settings.spa.network
@@ -4220,7 +4446,7 @@ index 33f151d665101d5d6d5fdb51b09ce9b3ad1431b7..3e4e71a1849ce56e31ea57c3b0004d9b
 +}
 diff --git a/tests/robotests/src/com/android/settings/MobileNetworkActivityTest.kt b/tests/robotests/src/com/android/settings/MobileNetworkActivityTest.kt
 new file mode 100644
-index 0000000000000000000000000000000000000000..b55c6c80cfa65eaefd3339deb9bebf9c56db4063
+index 00000000..b55c6c80
 --- /dev/null
 +++ b/tests/robotests/src/com/android/settings/MobileNetworkActivityTest.kt
 @@ -0,0 +1,101 @@
@@ -4327,7 +4553,7 @@ index 0000000000000000000000000000000000000000..b55c6c80cfa65eaefd3339deb9bebf9c
 +}
 diff --git a/tests/robotests/src/com/android/settings/biometrics/face/FaceEnrollChallengeOwnershipTest.java b/tests/robotests/src/com/android/settings/biometrics/face/FaceEnrollChallengeOwnershipTest.java
 new file mode 100644
-index 0000000000000000000000000000000000000000..563c55a3eb05f6bc578cf764efabe73f53c11c15
+index 00000000..563c55a3
 --- /dev/null
 +++ b/tests/robotests/src/com/android/settings/biometrics/face/FaceEnrollChallengeOwnershipTest.java
 @@ -0,0 +1,192 @@
@@ -4524,7 +4750,7 @@ index 0000000000000000000000000000000000000000..563c55a3eb05f6bc578cf764efabe73f
 +    }
 +}
 diff --git a/tests/robotests/src/com/android/settings/biometrics/fingerprint/FingerprintEnrollFindSensorTest.java b/tests/robotests/src/com/android/settings/biometrics/fingerprint/FingerprintEnrollFindSensorTest.java
-index 79817ba834725a500f23c77243088a42c68022e2..37c6f53ed917c4135e7191f4a4caa12747323724 100644
+index 79817ba8..37c6f53e 100644
 --- a/tests/robotests/src/com/android/settings/biometrics/fingerprint/FingerprintEnrollFindSensorTest.java
 +++ b/tests/robotests/src/com/android/settings/biometrics/fingerprint/FingerprintEnrollFindSensorTest.java
 @@ -209,6 +209,7 @@ public class FingerprintEnrollFindSensorTest {
@@ -4536,7 +4762,7 @@ index 79817ba834725a500f23c77243088a42c68022e2..37c6f53ed917c4135e7191f4a4caa127
      }
  
 diff --git a/tests/robotests/src/com/android/settings/deviceinfo/batteryinfo/BatteryInfoApiScreenTest.kt b/tests/robotests/src/com/android/settings/deviceinfo/batteryinfo/BatteryInfoApiScreenTest.kt
-index 9fde350915e24b53967a6c537ff46db1fa362e38..aacc1eb17c4b36a6f6d083b68f40cb1b124514d3 100644
+index 9fde3509..aacc1eb1 100644
 --- a/tests/robotests/src/com/android/settings/deviceinfo/batteryinfo/BatteryInfoApiScreenTest.kt
 +++ b/tests/robotests/src/com/android/settings/deviceinfo/batteryinfo/BatteryInfoApiScreenTest.kt
 @@ -113,6 +113,26 @@ class BatteryInfoApiScreenTest {
@@ -4568,7 +4794,7 @@ index 9fde350915e24b53967a6c537ff46db1fa362e38..aacc1eb17c4b36a6f6d083b68f40cb1b
          val cycleCount = 42
 diff --git a/tests/robotests/src/com/android/settings/deviceinfo/batteryinfo/BatteryManufactureCalendarTest.kt b/tests/robotests/src/com/android/settings/deviceinfo/batteryinfo/BatteryManufactureCalendarTest.kt
 new file mode 100644
-index 0000000000000000000000000000000000000000..48a38c5cf43128ed890c6ebd522baf43c09fd9a9
+index 00000000..48a38c5c
 --- /dev/null
 +++ b/tests/robotests/src/com/android/settings/deviceinfo/batteryinfo/BatteryManufactureCalendarTest.kt
 @@ -0,0 +1,135 @@
@@ -4709,7 +4935,7 @@ index 0000000000000000000000000000000000000000..48a38c5cf43128ed890c6ebd522baf43
 +}
 diff --git a/tests/robotests/src/com/android/settings/deviceinfo/hardwareinfo/CpuInfoApiTest.kt b/tests/robotests/src/com/android/settings/deviceinfo/hardwareinfo/CpuInfoApiTest.kt
 new file mode 100644
-index 0000000000000000000000000000000000000000..0905b20dd03bbce9d00eebf59f376123df8444ec
+index 00000000..0905b20d
 --- /dev/null
 +++ b/tests/robotests/src/com/android/settings/deviceinfo/hardwareinfo/CpuInfoApiTest.kt
 @@ -0,0 +1,90 @@
@@ -4805,7 +5031,7 @@ index 0000000000000000000000000000000000000000..0905b20dd03bbce9d00eebf59f376123
 +}
 diff --git a/tests/robotests/src/com/android/settings/deviceinfo/hardwareinfo/CpuInfoTest.java b/tests/robotests/src/com/android/settings/deviceinfo/hardwareinfo/CpuInfoTest.java
 new file mode 100644
-index 0000000000000000000000000000000000000000..1977bc8f64dbda002eb84f2ef99686a91e89fd31
+index 00000000..1977bc8f
 --- /dev/null
 +++ b/tests/robotests/src/com/android/settings/deviceinfo/hardwareinfo/CpuInfoTest.java
 @@ -0,0 +1,236 @@
@@ -5047,7 +5273,7 @@ index 0000000000000000000000000000000000000000..1977bc8f64dbda002eb84f2ef99686a9
 +}
 diff --git a/tests/robotests/src/com/android/settings/deviceinfo/hardwareinfo/HardwarePlatformInfoTest.kt b/tests/robotests/src/com/android/settings/deviceinfo/hardwareinfo/HardwarePlatformInfoTest.kt
 new file mode 100644
-index 0000000000000000000000000000000000000000..d50811e7ba0c0a201c89104e98ce8258c3df3cde
+index 00000000..d50811e7
 --- /dev/null
 +++ b/tests/robotests/src/com/android/settings/deviceinfo/hardwareinfo/HardwarePlatformInfoTest.kt
 @@ -0,0 +1,169 @@
@@ -5222,7 +5448,7 @@ index 0000000000000000000000000000000000000000..d50811e7ba0c0a201c89104e98ce8258
 +}
 diff --git a/tests/robotests/src/com/android/settings/fuelgauge/BatteryInfoDateAvailabilityTest.java b/tests/robotests/src/com/android/settings/fuelgauge/BatteryInfoDateAvailabilityTest.java
 new file mode 100644
-index 0000000000000000000000000000000000000000..6e6b3d5a37e82ff339278fce2d7fd938dd07f622
+index 00000000..6e6b3d5a
 --- /dev/null
 +++ b/tests/robotests/src/com/android/settings/fuelgauge/BatteryInfoDateAvailabilityTest.java
 @@ -0,0 +1,76 @@
@@ -5304,7 +5530,7 @@ index 0000000000000000000000000000000000000000..6e6b3d5a37e82ff339278fce2d7fd938
 +}
 diff --git a/tests/robotests/src/com/android/settings/network/HonorCachedProfileNavigationTest.java b/tests/robotests/src/com/android/settings/network/HonorCachedProfileNavigationTest.java
 new file mode 100644
-index 0000000000000000000000000000000000000000..b1d2f65fadc9e77749f270ee9976d5ed9ea8bc31
+index 00000000..b1d2f65f
 --- /dev/null
 +++ b/tests/robotests/src/com/android/settings/network/HonorCachedProfileNavigationTest.java
 @@ -0,0 +1,104 @@
@@ -5414,7 +5640,7 @@ index 0000000000000000000000000000000000000000..b1d2f65fadc9e77749f270ee9976d5ed
 +}
 diff --git a/tests/robotests/src/com/android/settings/network/HonorConnectionSelectionTest.java b/tests/robotests/src/com/android/settings/network/HonorConnectionSelectionTest.java
 new file mode 100644
-index 0000000000000000000000000000000000000000..52536751def0dcc24bed77875a8d7ff88c33b0cd
+index 00000000..52536751
 --- /dev/null
 +++ b/tests/robotests/src/com/android/settings/network/HonorConnectionSelectionTest.java
 @@ -0,0 +1,342 @@
@@ -5762,7 +5988,7 @@ index 0000000000000000000000000000000000000000..52536751def0dcc24bed77875a8d7ff8
 +}
 diff --git a/tests/robotests/src/com/android/settings/network/HonorEsimManagementRouteTest.java b/tests/robotests/src/com/android/settings/network/HonorEsimManagementRouteTest.java
 new file mode 100644
-index 0000000000000000000000000000000000000000..15e119b53d5ff94d27e0f10e3699e75973d39a68
+index 00000000..15e119b5
 --- /dev/null
 +++ b/tests/robotests/src/com/android/settings/network/HonorEsimManagementRouteTest.java
 @@ -0,0 +1,430 @@
@@ -6198,7 +6424,7 @@ index 0000000000000000000000000000000000000000..15e119b53d5ff94d27e0f10e3699e759
 +}
 diff --git a/tests/robotests/src/com/android/settings/network/HonorEsimShortcutConsentTest.java b/tests/robotests/src/com/android/settings/network/HonorEsimShortcutConsentTest.java
 new file mode 100644
-index 0000000000000000000000000000000000000000..50c2258ae118129307dea7690310889e73134299
+index 00000000..50c2258a
 --- /dev/null
 +++ b/tests/robotests/src/com/android/settings/network/HonorEsimShortcutConsentTest.java
 @@ -0,0 +1,66 @@
@@ -6270,7 +6496,7 @@ index 0000000000000000000000000000000000000000..50c2258ae118129307dea7690310889e
 +}
 diff --git a/tests/robotests/src/com/android/settings/network/HonorLdyAn00EsimEntryTest.kt b/tests/robotests/src/com/android/settings/network/HonorLdyAn00EsimEntryTest.kt
 new file mode 100644
-index 0000000000000000000000000000000000000000..b28395b320912b74b8653c9c1444664bca01640d
+index 00000000..b28395b3
 --- /dev/null
 +++ b/tests/robotests/src/com/android/settings/network/HonorLdyAn00EsimEntryTest.kt
 @@ -0,0 +1,246 @@
@@ -6522,7 +6748,7 @@ index 0000000000000000000000000000000000000000..b28395b320912b74b8653c9c1444664b
 +}
 diff --git a/tests/robotests/src/com/android/settings/network/HonorLdyAn00EsimManagementActivityTest.kt b/tests/robotests/src/com/android/settings/network/HonorLdyAn00EsimManagementActivityTest.kt
 new file mode 100644
-index 0000000000000000000000000000000000000000..43d17814fd57de065bc8df1ddfa9c5dc4e12330e
+index 00000000..43d17814
 --- /dev/null
 +++ b/tests/robotests/src/com/android/settings/network/HonorLdyAn00EsimManagementActivityTest.kt
 @@ -0,0 +1,143 @@
@@ -6671,7 +6897,7 @@ index 0000000000000000000000000000000000000000..43d17814fd57de065bc8df1ddfa9c5dc
 +}
 diff --git a/tests/robotests/src/com/android/settings/network/HonorPhysicalSlotRoutingTest.java b/tests/robotests/src/com/android/settings/network/HonorPhysicalSlotRoutingTest.java
 new file mode 100644
-index 0000000000000000000000000000000000000000..2a7ed2678686ee9c3a1159268e73d7df01ef5838
+index 00000000..2a7ed267
 --- /dev/null
 +++ b/tests/robotests/src/com/android/settings/network/HonorPhysicalSlotRoutingTest.java
 @@ -0,0 +1,167 @@

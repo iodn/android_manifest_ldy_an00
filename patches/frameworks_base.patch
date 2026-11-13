@@ -1,5 +1,5 @@
 diff --git a/Android.bp b/Android.bp
-index 2cfb70c0ef99aac0a1f9c42de01a8880962fcfa3..752c0d8ea7440336448b9fd0c169e0ea7a95bc8a 100644
+index 2cfb70c0e..752c0d8ea 100644
 --- a/Android.bp
 +++ b/Android.bp
 @@ -803,3 +803,22 @@ filegroup {
@@ -27,7 +27,7 @@ index 2cfb70c0ef99aac0a1f9c42de01a8880962fcfa3..752c0d8ea7440336448b9fd0c169e0ea
 +}
 diff --git a/LDY-AN00-FINGERPRINT-BRIDGE.txt b/LDY-AN00-FINGERPRINT-BRIDGE.txt
 new file mode 100644
-index 0000000000000000000000000000000000000000..c835232aef70e748944907c6273d9baf3a134f51
+index 000000000..c835232ae
 --- /dev/null
 +++ b/LDY-AN00-FINGERPRINT-BRIDGE.txt
 @@ -0,0 +1,37 @@
@@ -69,7 +69,7 @@ index 0000000000000000000000000000000000000000..c835232aef70e748944907c6273d9baf
 +Original Java physicalConvert2Px26f170 uses Math.round percorner then original controllerintegeraverage ->608,1951. DTSradius72→nativecmd902132310→stockgetHighLightspotRadius26e7d8→setHighLightSpotRadius25d62c→setRadius2610e4→CanvasdrawCircle260f74. OriginalgetPxScale257bfc=current/defaultdisplayheight; radius72nativepixels atscale1. A separate58dp logo fallback is not used as sensor radius. OEMdisplay method266a74→2992d4 mode0initial,1base;2984b8MTKoverride usesro.config.default_screensize.
 +Source module/geometry assets staged in separate devicechild; normal Soong/resources/policy/finalimage checks still required. Product opt-in selection for host candidate can follow source qualification; installation/enrollment requires separate reviewed trial approval. No hardware functional PASS is claimed.
 diff --git a/core/java/android/hardware/face/FaceSensorConfigurations.java b/core/java/android/hardware/face/FaceSensorConfigurations.java
-index 4d3e467357612383a1f9541795c30c2c51e7c197..b6d7d52a76334331a06455d8d0e084813a655f99 100644
+index 4d3e46735..b6d7d52a7 100644
 --- a/core/java/android/hardware/face/FaceSensorConfigurations.java
 +++ b/core/java/android/hardware/face/FaceSensorConfigurations.java
 @@ -180,6 +180,9 @@ public class FaceSensorConfigurations implements Parcelable {
@@ -115,10 +115,10 @@ index 4d3e467357612383a1f9541795c30c2c51e7c197..b6d7d52a76334331a06455d8d0e08481
       */
 diff --git a/core/java/android/hardware/face/HonorLdyAn00FaceAdapter.java b/core/java/android/hardware/face/HonorLdyAn00FaceAdapter.java
 new file mode 100644
-index 0000000000000000000000000000000000000000..43fa5f8e701f34bb0bde329014d6e4c800994fb2
+index 000000000..c2f4672fd
 --- /dev/null
 +++ b/core/java/android/hardware/face/HonorLdyAn00FaceAdapter.java
-@@ -0,0 +1,1134 @@
+@@ -0,0 +1,1136 @@
 +/*
 + * Copyright (C) 2026 The LineageOS Project
 + * SPDX-License-Identifier: Apache-2.0
@@ -217,6 +217,8 @@ index 0000000000000000000000000000000000000000..43fa5f8e701f34bb0bde329014d6e4c8
 +    }
 +
 +    static IFace connect() {
++        // Applications use IFaceService; only system_server may connect to the raw HAL.
++        if (android.os.Process.myUid() != android.os.Process.SYSTEM_UID) return null;
 +        try {
 +            requireStockMode();
 +            IBinder binder = Binder.allowBlocking(ServiceManager.checkService(
@@ -1255,7 +1257,7 @@ index 0000000000000000000000000000000000000000..43fa5f8e701f34bb0bde329014d6e4c8
 +}
 diff --git a/core/java/android/hardware/face/HonorLdyAn00FaceBootFence.java b/core/java/android/hardware/face/HonorLdyAn00FaceBootFence.java
 new file mode 100644
-index 0000000000000000000000000000000000000000..e849837014205ad6f11e0743e89bd3d7719bb208
+index 000000000..e84983701
 --- /dev/null
 +++ b/core/java/android/hardware/face/HonorLdyAn00FaceBootFence.java
 @@ -0,0 +1,57 @@
@@ -1318,7 +1320,7 @@ index 0000000000000000000000000000000000000000..e849837014205ad6f11e0743e89bd3d7
 +}
 diff --git a/core/java/android/hardware/face/HonorLdyAn00FaceBootFenceFile.java b/core/java/android/hardware/face/HonorLdyAn00FaceBootFenceFile.java
 new file mode 100644
-index 0000000000000000000000000000000000000000..7e425cf14fb5f359e32c58a0331a3e320bc6df61
+index 000000000..7e425cf14
 --- /dev/null
 +++ b/core/java/android/hardware/face/HonorLdyAn00FaceBootFenceFile.java
 @@ -0,0 +1,110 @@
@@ -1434,7 +1436,7 @@ index 0000000000000000000000000000000000000000..7e425cf14fb5f359e32c58a0331a3e32
 +}
 diff --git a/core/java/android/hardware/face/HonorLdyAn00FaceCameraPrivacy.java b/core/java/android/hardware/face/HonorLdyAn00FaceCameraPrivacy.java
 new file mode 100644
-index 0000000000000000000000000000000000000000..bfbe7525f519858aaa34a1322bd7c1ce69f23b0c
+index 000000000..bfbe7525f
 --- /dev/null
 +++ b/core/java/android/hardware/face/HonorLdyAn00FaceCameraPrivacy.java
 @@ -0,0 +1,63 @@
@@ -1503,7 +1505,7 @@ index 0000000000000000000000000000000000000000..bfbe7525f519858aaa34a1322bd7c1ce
 +}
 diff --git a/core/java/android/hardware/face/HonorLdyAn00FaceCredentialReset.java b/core/java/android/hardware/face/HonorLdyAn00FaceCredentialReset.java
 new file mode 100644
-index 0000000000000000000000000000000000000000..3b7a4d55e126f0e90fe4ef5a955a91e41c1a950d
+index 000000000..3b7a4d55e
 --- /dev/null
 +++ b/core/java/android/hardware/face/HonorLdyAn00FaceCredentialReset.java
 @@ -0,0 +1,56 @@
@@ -1565,7 +1567,7 @@ index 0000000000000000000000000000000000000000..3b7a4d55e126f0e90fe4ef5a955a91e4
 +}
 diff --git a/core/java/android/hardware/face/HonorLdyAn00FaceHatCodec.java b/core/java/android/hardware/face/HonorLdyAn00FaceHatCodec.java
 new file mode 100644
-index 0000000000000000000000000000000000000000..f773fdb06bd2cae33cddfaa6c12aa813883a1a36
+index 000000000..f773fdb06
 --- /dev/null
 +++ b/core/java/android/hardware/face/HonorLdyAn00FaceHatCodec.java
 @@ -0,0 +1,24 @@
@@ -1595,7 +1597,7 @@ index 0000000000000000000000000000000000000000..f773fdb06bd2cae33cddfaa6c12aa813
 +}
 diff --git a/core/java/android/hardware/face/HonorLdyAn00FaceLockout.java b/core/java/android/hardware/face/HonorLdyAn00FaceLockout.java
 new file mode 100644
-index 0000000000000000000000000000000000000000..b352bf16fa49a9ee418a1b208f3a00c8fbb70862
+index 000000000..b352bf16f
 --- /dev/null
 +++ b/core/java/android/hardware/face/HonorLdyAn00FaceLockout.java
 @@ -0,0 +1,73 @@
@@ -1674,7 +1676,7 @@ index 0000000000000000000000000000000000000000..b352bf16fa49a9ee418a1b208f3a00c8
 +}
 diff --git a/core/java/android/hardware/face/HonorLdyAn00FaceLockoutFile.java b/core/java/android/hardware/face/HonorLdyAn00FaceLockoutFile.java
 new file mode 100644
-index 0000000000000000000000000000000000000000..d3185c35c6b1967ea9aab3d1bdc129f7c5d39e94
+index 000000000..d3185c35c
 --- /dev/null
 +++ b/core/java/android/hardware/face/HonorLdyAn00FaceLockoutFile.java
 @@ -0,0 +1,99 @@
@@ -1779,7 +1781,7 @@ index 0000000000000000000000000000000000000000..d3185c35c6b1967ea9aab3d1bdc129f7
 +}
 diff --git a/core/java/android/hardware/face/HonorLdyAn00FaceOperation.java b/core/java/android/hardware/face/HonorLdyAn00FaceOperation.java
 new file mode 100644
-index 0000000000000000000000000000000000000000..07485d83ec7ced881eacb06455a4d9c0d1ae003c
+index 000000000..07485d83e
 --- /dev/null
 +++ b/core/java/android/hardware/face/HonorLdyAn00FaceOperation.java
 @@ -0,0 +1,134 @@
@@ -1919,7 +1921,7 @@ index 0000000000000000000000000000000000000000..07485d83ec7ced881eacb06455a4d9c0
 +}
 diff --git a/core/java/android/hardware/face/HonorLdyAn00FaceResetPermits.java b/core/java/android/hardware/face/HonorLdyAn00FaceResetPermits.java
 new file mode 100644
-index 0000000000000000000000000000000000000000..b6cd9217b9709eed92a919ccf7fb7a18f3a392d8
+index 000000000..b6cd9217b
 --- /dev/null
 +++ b/core/java/android/hardware/face/HonorLdyAn00FaceResetPermits.java
 @@ -0,0 +1,99 @@
@@ -2024,10 +2026,10 @@ index 0000000000000000000000000000000000000000..b6cd9217b9709eed92a919ccf7fb7a18
 +}
 diff --git a/core/java/android/hardware/face/HonorLdyAn00FaceVendorClient.java b/core/java/android/hardware/face/HonorLdyAn00FaceVendorClient.java
 new file mode 100644
-index 0000000000000000000000000000000000000000..1bcb9b093c9b64b17bede9ab242306dbd20ee3fb
+index 000000000..fbc576c26
 --- /dev/null
 +++ b/core/java/android/hardware/face/HonorLdyAn00FaceVendorClient.java
-@@ -0,0 +1,246 @@
+@@ -0,0 +1,250 @@
 +/*
 + * Copyright (C) 2026 The LineageOS Project
 + * SPDX-License-Identifier: Apache-2.0
@@ -2192,6 +2194,10 @@ index 0000000000000000000000000000000000000000..1bcb9b093c9b64b17bede9ab242306db
 +        @Override protected final boolean onTransact(int code, Parcel data, Parcel reply, int flags)
 +                throws RemoteException {
 +            if (code >= FIRST_CALL_TRANSACTION && code <= LAST_CALL_TRANSACTION) {
++                if (Binder.getCallingPid() != android.os.Process.myPid()
++                        && Binder.getCallingUid() != android.os.Process.SYSTEM_UID) {
++                    throw new SecurityException("Honor face callbacks require the system UID");
++                }
 +                data.enforceInterface(mDescriptor);
 +            }
 +            if (code == INTERFACE_TRANSACTION) {
@@ -2275,7 +2281,7 @@ index 0000000000000000000000000000000000000000..1bcb9b093c9b64b17bede9ab242306db
 +    }
 +}
 diff --git a/core/java/android/hardware/fingerprint/FingerprintSensorConfigurations.java b/core/java/android/hardware/fingerprint/FingerprintSensorConfigurations.java
-index 2c6371c5d2245541f08274003c8380b39fd7f2d0..81a2183df6b47588bfdeae33b75d22d2f14493ad 100644
+index 2c6371c5d..81a2183df 100644
 --- a/core/java/android/hardware/fingerprint/FingerprintSensorConfigurations.java
 +++ b/core/java/android/hardware/fingerprint/FingerprintSensorConfigurations.java
 @@ -185,6 +185,9 @@ public class FingerprintSensorConfigurations implements Parcelable {
@@ -2290,7 +2296,7 @@ index 2c6371c5d2245541f08274003c8380b39fd7f2d0..81a2183df6b47588bfdeae33b75d22d2
              Slog.i(TAG, "getIFingerprint fqName is mapped: " + fqName + "->" + fqNameMapped);
 diff --git a/core/java/android/hardware/fingerprint/HonorLdyAn00FingerprintAdapter.java b/core/java/android/hardware/fingerprint/HonorLdyAn00FingerprintAdapter.java
 new file mode 100644
-index 0000000000000000000000000000000000000000..af1b03f7ff7205bcc2002414fa205e9478765c69
+index 000000000..af1b03f7f
 --- /dev/null
 +++ b/core/java/android/hardware/fingerprint/HonorLdyAn00FingerprintAdapter.java
 @@ -0,0 +1,521 @@
@@ -2817,7 +2823,7 @@ index 0000000000000000000000000000000000000000..af1b03f7ff7205bcc2002414fa205e94
 +}
 diff --git a/core/java/android/hardware/fingerprint/LdyAn00FingerprintGeometry.java b/core/java/android/hardware/fingerprint/LdyAn00FingerprintGeometry.java
 new file mode 100644
-index 0000000000000000000000000000000000000000..94624b8d4e983285db4ad220bcbe1e9f71186abe
+index 000000000..94624b8d4
 --- /dev/null
 +++ b/core/java/android/hardware/fingerprint/LdyAn00FingerprintGeometry.java
 @@ -0,0 +1,15 @@
@@ -2838,7 +2844,7 @@ index 0000000000000000000000000000000000000000..94624b8d4e983285db4ad220bcbe1e9f
 +}
 diff --git a/core/java/android/hardware/fingerprint/LdyAn00FingerprintTouchMode.java b/core/java/android/hardware/fingerprint/LdyAn00FingerprintTouchMode.java
 new file mode 100644
-index 0000000000000000000000000000000000000000..3633ee66dbbb60afbe4aacf7dca9e5aad8b50650
+index 000000000..3633ee66d
 --- /dev/null
 +++ b/core/java/android/hardware/fingerprint/LdyAn00FingerprintTouchMode.java
 @@ -0,0 +1,134 @@
@@ -2977,7 +2983,7 @@ index 0000000000000000000000000000000000000000..3633ee66dbbb60afbe4aacf7dca9e5aa
 +    }
 +}
 diff --git a/core/java/android/os/PackageTagsList.java b/core/java/android/os/PackageTagsList.java
-index 733da596426ab686181893340d3602403e629d45..3fcf40b3e431ebfcd9e850179c2d0fc441fa213c 100644
+index 733da5964..3fcf40b3e 100644
 --- a/core/java/android/os/PackageTagsList.java
 +++ b/core/java/android/os/PackageTagsList.java
 @@ -73,6 +73,15 @@ public final class PackageTagsList implements Parcelable {
@@ -2997,7 +3003,7 @@ index 733da596426ab686181893340d3602403e629d45..3fcf40b3e431ebfcd9e850179c2d0fc4
       * Returns true if the given attribution tag is found within this instance under any package.
       * Only returns true if the attribution tag literal is found, not if any package contains the
 diff --git a/core/java/android/view/SurfaceControl.java b/core/java/android/view/SurfaceControl.java
-index c94e6998867525f7b4d910f46cfbf1fe9fa3e0d3..786411bd4fa25f445af2a1698c5a87569221fcc0 100644
+index c94e69988..786411bd4 100644
 --- a/core/java/android/view/SurfaceControl.java
 +++ b/core/java/android/view/SurfaceControl.java
 @@ -350,6 +350,8 @@ public final class SurfaceControl implements Parcelable {
@@ -3085,7 +3091,7 @@ index c94e6998867525f7b4d910f46cfbf1fe9fa3e0d3..786411bd4fa25f445af2a1698c5a8756
       * Notify the SurfaceFlinger to capture transaction traces when shutdown.
       * @hide
 diff --git a/core/jni/android_media_AudioSystem.cpp b/core/jni/android_media_AudioSystem.cpp
-index 6401b3e4e3c6c5ad2f1212e4209572689f5afe23..9c3db5698fe34f22cdb52732c23efedec47b8db9 100644
+index 6401b3e4e..9c3db5698 100644
 --- a/core/jni/android_media_AudioSystem.cpp
 +++ b/core/jni/android_media_AudioSystem.cpp
 @@ -496,6 +496,26 @@ android_media_AudioSystem_isSourceActive(JNIEnv *env, jobject thiz, jint source)
@@ -3124,7 +3130,7 @@ index 6401b3e4e3c6c5ad2f1212e4209572689f5afe23..9c3db5698fe34f22cdb52732c23efede
          MAKE_AUDIO_SYSTEM_METHOD(newAudioPlayerId),
          MAKE_AUDIO_SYSTEM_METHOD(newAudioRecorderId),
 diff --git a/core/jni/android_view_SurfaceControl.cpp b/core/jni/android_view_SurfaceControl.cpp
-index cf3c012bb1bffa1ac2360361476084de45b2e571..0679154b060fec8ae1afc0a5add42a094d63ed3b 100644
+index cf3c012bb..0679154b0 100644
 --- a/core/jni/android_view_SurfaceControl.cpp
 +++ b/core/jni/android_view_SurfaceControl.cpp
 @@ -25,6 +25,7 @@
@@ -3228,7 +3234,7 @@ index cf3c012bb1bffa1ac2360361476084de45b2e571..0679154b060fec8ae1afc0a5add42a09
      gUtilArrays.clazz = MakeGlobalRefOrDie(env, utilArrays);
      gUtilArrays.asList = GetStaticMethodIDOrDie(env, utilArrays, "asList",
 diff --git a/core/res/res/values/config.xml b/core/res/res/values/config.xml
-index a19202ff1683b2a5a3db8935ef41f9c003be0c36..7ae8c7696f04588805febe594ebedd1793d13a53 100644
+index a19202ff1..7ae8c7696 100644
 --- a/core/res/res/values/config.xml
 +++ b/core/res/res/values/config.xml
 @@ -8074,4 +8074,6 @@
@@ -3239,7 +3245,7 @@ index a19202ff1683b2a5a3db8935ef41f9c003be0c36..7ae8c7696f04588805febe594ebedd17
 +    <bool name="config_useHonorLdyAn00FingerprintBridge">false</bool>
  </resources>
 diff --git a/core/res/res/values/symbols.xml b/core/res/res/values/symbols.xml
-index f20a2b6a0e74fe8155c33d73ff446a4c47273f80..8c39e8a336f07b45d7665e836f1e9b66aa2b99c6 100644
+index f20a2b6a0..8c39e8a33 100644
 --- a/core/res/res/values/symbols.xml
 +++ b/core/res/res/values/symbols.xml
 @@ -6626,4 +6626,5 @@
@@ -3250,7 +3256,7 @@ index f20a2b6a0e74fe8155c33d73ff446a4c47273f80..8c39e8a336f07b45d7665e836f1e9b66
    </resources>
 diff --git a/core/tests/face-operation-owner/HonorFaceStrongResetHostTest.java b/core/tests/face-operation-owner/HonorFaceStrongResetHostTest.java
 new file mode 100644
-index 0000000000000000000000000000000000000000..477313c172f5f4c0c26dad650a64ed81340c0e22
+index 000000000..477313c17
 --- /dev/null
 +++ b/core/tests/face-operation-owner/HonorFaceStrongResetHostTest.java
 @@ -0,0 +1,49 @@
@@ -3305,7 +3311,7 @@ index 0000000000000000000000000000000000000000..477313c172f5f4c0c26dad650a64ed81
 +}
 diff --git a/core/tests/face-operation-owner/HonorLdyAn00FaceBootFenceHostTest.java b/core/tests/face-operation-owner/HonorLdyAn00FaceBootFenceHostTest.java
 new file mode 100644
-index 0000000000000000000000000000000000000000..9936a3f13008f43d6e9f6e2b49c55fdc8804a762
+index 000000000..9936a3f13
 --- /dev/null
 +++ b/core/tests/face-operation-owner/HonorLdyAn00FaceBootFenceHostTest.java
 @@ -0,0 +1,47 @@
@@ -3358,7 +3364,7 @@ index 0000000000000000000000000000000000000000..9936a3f13008f43d6e9f6e2b49c55fdc
 +}
 diff --git a/core/tests/face-operation-owner/HonorLdyAn00FaceHatCodecHostTest.java b/core/tests/face-operation-owner/HonorLdyAn00FaceHatCodecHostTest.java
 new file mode 100644
-index 0000000000000000000000000000000000000000..474cea6b7dbbbb71857ee734515ff07560c17bba
+index 000000000..474cea6b7
 --- /dev/null
 +++ b/core/tests/face-operation-owner/HonorLdyAn00FaceHatCodecHostTest.java
 @@ -0,0 +1,36 @@
@@ -3400,7 +3406,7 @@ index 0000000000000000000000000000000000000000..474cea6b7dbbbb71857ee734515ff075
 +}
 diff --git a/core/tests/face-operation-owner/HonorLdyAn00FaceOperationHostTest.java b/core/tests/face-operation-owner/HonorLdyAn00FaceOperationHostTest.java
 new file mode 100644
-index 0000000000000000000000000000000000000000..468634197fe0d135a4f73d2e45a06ac0f8a35259
+index 000000000..468634197
 --- /dev/null
 +++ b/core/tests/face-operation-owner/HonorLdyAn00FaceOperationHostTest.java
 @@ -0,0 +1,134 @@
@@ -3540,7 +3546,7 @@ index 0000000000000000000000000000000000000000..468634197fe0d135a4f73d2e45a06ac0
 +}
 diff --git a/core/tests/face-operation-owner/HonorLdyAn00FaceResetHostTest.java b/core/tests/face-operation-owner/HonorLdyAn00FaceResetHostTest.java
 new file mode 100644
-index 0000000000000000000000000000000000000000..e8f6a25fe8e0b9d94934f537854f6084d5ee5dda
+index 000000000..e8f6a25fe
 --- /dev/null
 +++ b/core/tests/face-operation-owner/HonorLdyAn00FaceResetHostTest.java
 @@ -0,0 +1,176 @@
@@ -3722,7 +3728,7 @@ index 0000000000000000000000000000000000000000..e8f6a25fe8e0b9d94934f537854f6084
 +}
 diff --git a/core/tests/face-operation-owner/run-host-test.sh b/core/tests/face-operation-owner/run-host-test.sh
 new file mode 100755
-index 0000000000000000000000000000000000000000..396533bb77ea031605be6feb869d1addd936729f
+index 000000000..396533bb7
 --- /dev/null
 +++ b/core/tests/face-operation-owner/run-host-test.sh
 @@ -0,0 +1,23 @@
@@ -3751,7 +3757,7 @@ index 0000000000000000000000000000000000000000..396533bb77ea031605be6feb869d1add
 +"$1/bin/java" -cp "$face_test_out" com.android.server.biometrics.sensors.HonorFaceStrongResetHostTest
 diff --git a/core/tests/honorface/Android.bp b/core/tests/honorface/Android.bp
 new file mode 100644
-index 0000000000000000000000000000000000000000..b00f5590b6372111ec54dde3fab0e3cfafba772e
+index 000000000..b00f5590b
 --- /dev/null
 +++ b/core/tests/honorface/Android.bp
 @@ -0,0 +1,22 @@
@@ -3779,7 +3785,7 @@ index 0000000000000000000000000000000000000000..b00f5590b6372111ec54dde3fab0e3cf
 +}
 diff --git a/core/tests/honorface/AndroidManifest.xml b/core/tests/honorface/AndroidManifest.xml
 new file mode 100644
-index 0000000000000000000000000000000000000000..528a28ce551fc261304221344890ac99bb7c08e2
+index 000000000..528a28ce5
 --- /dev/null
 +++ b/core/tests/honorface/AndroidManifest.xml
 @@ -0,0 +1,6 @@
@@ -3791,14 +3797,14 @@ index 0000000000000000000000000000000000000000..528a28ce551fc261304221344890ac99
 +</manifest>
 diff --git a/core/tests/honorface/jarjar-rules.txt b/core/tests/honorface/jarjar-rules.txt
 new file mode 100644
-index 0000000000000000000000000000000000000000..77d10dc38fcbd26a74b4c9b1fd8b1495f166a628
+index 000000000..77d10dc38
 --- /dev/null
 +++ b/core/tests/honorface/jarjar-rules.txt
 @@ -0,0 +1 @@
 +rule android.hardware.face.HonorLdyAn00Face** org.lineageos.honorface.test.HonorLdyAn00Face@1
 diff --git a/core/tests/honorface/src/android/hardware/face/HonorLdyAn00FaceAdapterTest.java b/core/tests/honorface/src/android/hardware/face/HonorLdyAn00FaceAdapterTest.java
 new file mode 100644
-index 0000000000000000000000000000000000000000..a6c15e5e95c65cf748724212894e73651b548d89
+index 000000000..a6c15e5e9
 --- /dev/null
 +++ b/core/tests/honorface/src/android/hardware/face/HonorLdyAn00FaceAdapterTest.java
 @@ -0,0 +1,1701 @@
@@ -5505,7 +5511,7 @@ index 0000000000000000000000000000000000000000..a6c15e5e95c65cf748724212894e7365
 +}
 diff --git a/core/tests/honorface/src/android/hardware/face/HonorLdyAn00FaceMetadataFileTest.java b/core/tests/honorface/src/android/hardware/face/HonorLdyAn00FaceMetadataFileTest.java
 new file mode 100644
-index 0000000000000000000000000000000000000000..3fe832137285de287eb56ec457473204334ca549
+index 000000000..3fe832137
 --- /dev/null
 +++ b/core/tests/honorface/src/android/hardware/face/HonorLdyAn00FaceMetadataFileTest.java
 @@ -0,0 +1,83 @@
@@ -5594,7 +5600,7 @@ index 0000000000000000000000000000000000000000..3fe832137285de287eb56ec457473204
 +}
 diff --git a/core/tests/honorface/src/android/hardware/face/HonorLdyAn00FaceVendorClientTest.java b/core/tests/honorface/src/android/hardware/face/HonorLdyAn00FaceVendorClientTest.java
 new file mode 100644
-index 0000000000000000000000000000000000000000..9ac024a007ff3afc1194a263780650c1d4e03a2f
+index 000000000..9ac024a00
 --- /dev/null
 +++ b/core/tests/honorface/src/android/hardware/face/HonorLdyAn00FaceVendorClientTest.java
 @@ -0,0 +1,278 @@
@@ -5878,7 +5884,7 @@ index 0000000000000000000000000000000000000000..9ac024a007ff3afc1194a263780650c1
 +}
 diff --git a/core/tests/honorface/src/com/android/server/biometrics/sensors/AuthenticationClientHonorStrongResetTest.java b/core/tests/honorface/src/com/android/server/biometrics/sensors/AuthenticationClientHonorStrongResetTest.java
 new file mode 100644
-index 0000000000000000000000000000000000000000..78f8d670f43ef023bfe49c19c7efb9143d316991
+index 000000000..78f8d670f
 --- /dev/null
 +++ b/core/tests/honorface/src/com/android/server/biometrics/sensors/AuthenticationClientHonorStrongResetTest.java
 @@ -0,0 +1,139 @@
@@ -6023,7 +6029,7 @@ index 0000000000000000000000000000000000000000..78f8d670f43ef023bfe49c19c7efb914
 +}
 diff --git a/core/tests/host/ldy_an00_fingerprint/AUTH-TOUCH-README.txt b/core/tests/host/ldy_an00_fingerprint/AUTH-TOUCH-README.txt
 new file mode 100644
-index 0000000000000000000000000000000000000000..c4684034238b66662c6308b62b2057166c7292b3
+index 000000000..c46840342
 --- /dev/null
 +++ b/core/tests/host/ldy_an00_fingerprint/AUTH-TOUCH-README.txt
 @@ -0,0 +1,52 @@
@@ -6081,7 +6087,7 @@ index 0000000000000000000000000000000000000000..c4684034238b66662c6308b62b205716
 +authorized owner authentication/cancel/lockout/session-switch test remain required.
 diff --git a/core/tests/host/ldy_an00_fingerprint/GeometryHostTest.java b/core/tests/host/ldy_an00_fingerprint/GeometryHostTest.java
 new file mode 100644
-index 0000000000000000000000000000000000000000..8c2d88c482aaa2b6403dc95e86b39d316cf15152
+index 000000000..8c2d88c48
 --- /dev/null
 +++ b/core/tests/host/ldy_an00_fingerprint/GeometryHostTest.java
 @@ -0,0 +1,27 @@
@@ -6114,7 +6120,7 @@ index 0000000000000000000000000000000000000000..8c2d88c482aaa2b6403dc95e86b39d31
 +}
 diff --git a/core/tests/host/ldy_an00_fingerprint/TouchModeHostTest.java b/core/tests/host/ldy_an00_fingerprint/TouchModeHostTest.java
 new file mode 100644
-index 0000000000000000000000000000000000000000..f48b80a5aa4dfdf7040a5e566ef6664978fcf297
+index 000000000..f48b80a5a
 --- /dev/null
 +++ b/core/tests/host/ldy_an00_fingerprint/TouchModeHostTest.java
 @@ -0,0 +1,183 @@
@@ -6302,7 +6308,7 @@ index 0000000000000000000000000000000000000000..f48b80a5aa4dfdf7040a5e566ef66649
 +    }
 +}
 diff --git a/media/java/android/media/AudioManager.java b/media/java/android/media/AudioManager.java
-index 5a7d9a4316bba8add166977ee0b3aeb01f4cf72b..9c23fd43b1616499034e35c0f75c723537e79256 100644
+index 5a7d9a431..9c23fd43b 100644
 --- a/media/java/android/media/AudioManager.java
 +++ b/media/java/android/media/AudioManager.java
 @@ -6473,6 +6473,22 @@ public class AudioManager {
@@ -6329,7 +6335,7 @@ index 5a7d9a4316bba8add166977ee0b3aeb01f4cf72b..9c23fd43b1616499034e35c0f75c7235
       * constants for the recording events, to keep in sync
       * with frameworks/av/include/media/AudioPolicy.h
 diff --git a/media/java/android/media/AudioSystem.java b/media/java/android/media/AudioSystem.java
-index 752ade8c06356412b73aa5bab7aa1679fe98df1b..a2870476eef19b0a7a2b8c8ecd0d609b7fdeff4e 100644
+index 752ade8c0..a2870476e 100644
 --- a/media/java/android/media/AudioSystem.java
 +++ b/media/java/android/media/AudioSystem.java
 @@ -726,6 +726,13 @@ public class AudioSystem
@@ -6347,7 +6353,7 @@ index 752ade8c06356412b73aa5bab7aa1679fe98df1b..a2870476eef19b0a7a2b8c8ecd0d609b
       * @hide
       * Returns a new unused audio session ID
 diff --git a/media/java/android/media/IAudioService.aidl b/media/java/android/media/IAudioService.aidl
-index fbed45d0b35c827a2d56ecabde5bece12559ac38..c338b0d68ffd93bd907b0b59ef7ce50b2c52c3cc 100644
+index fbed45d0b..c338b0d68 100644
 --- a/media/java/android/media/IAudioService.aidl
 +++ b/media/java/android/media/IAudioService.aidl
 @@ -892,4 +892,6 @@ interface IAudioService {
@@ -6358,7 +6364,7 @@ index fbed45d0b35c827a2d56ecabde5bece12559ac38..c338b0d68ffd93bd907b0b59ef7ce50b
 +    boolean isAudioEffectAutoAttachSuppressed();
  }
 diff --git a/packages/SystemUI/src/com/android/systemui/globalactions/GlobalActionsDialogLite.java b/packages/SystemUI/src/com/android/systemui/globalactions/GlobalActionsDialogLite.java
-index 8ef6345cf946104087a2b5f74a1141748884a0ca..ce07179b88866de05338b716a38f5f7d4215798c 100644
+index 8ef6345cf..ce07179b8 100644
 --- a/packages/SystemUI/src/com/android/systemui/globalactions/GlobalActionsDialogLite.java
 +++ b/packages/SystemUI/src/com/android/systemui/globalactions/GlobalActionsDialogLite.java
 @@ -674,6 +674,13 @@ public class GlobalActionsDialogLite implements DialogInterface.OnDismissListene
@@ -6376,7 +6382,7 @@ index 8ef6345cf946104087a2b5f74a1141748884a0ca..ce07179b88866de05338b716a38f5f7d
          prepareDialog();
  
 diff --git a/services/core/java/com/android/server/audio/AudioService.java b/services/core/java/com/android/server/audio/AudioService.java
-index 7f9555c7713cf23cfe9bf21a1ed0d0985b9bde2b..0b808c324953113245da076812d5a5be606c710b 100644
+index 7f9555c77..0b808c324 100644
 --- a/services/core/java/com/android/server/audio/AudioService.java
 +++ b/services/core/java/com/android/server/audio/AudioService.java
 @@ -16069,6 +16069,18 @@ public class AudioService extends IAudioService.Stub
@@ -6399,7 +6405,7 @@ index 7f9555c7713cf23cfe9bf21a1ed0d0985b9bde2b..0b808c324953113245da076812d5a5be
          final boolean isPrivileged = Binder.getCallingUid() == Process.SYSTEM_UID
                  || (PackageManager.PERMISSION_GRANTED == mContext.checkCallingPermission(
 diff --git a/services/core/java/com/android/server/biometrics/sensors/AuthenticationClient.java b/services/core/java/com/android/server/biometrics/sensors/AuthenticationClient.java
-index 090353b8f7c57c8f3af1a614715d3f83b6c54bc5..8f62aeb1a9bae1e59ba01d399e0ba7ad4c6e4dae 100644
+index 090353b8f..8f62aeb1a 100644
 --- a/services/core/java/com/android/server/biometrics/sensors/AuthenticationClient.java
 +++ b/services/core/java/com/android/server/biometrics/sensors/AuthenticationClient.java
 @@ -29,6 +29,8 @@ import android.hardware.biometrics.BiometricConstants;
@@ -6476,7 +6482,7 @@ index 090353b8f7c57c8f3af1a614715d3f83b6c54bc5..8f62aeb1a9bae1e59ba01d399e0ba7ad
                  final int result = KeyStoreAuthorization.getInstance().addAuthToken(byteToken);
                  if (result != 0) {
 diff --git a/services/core/java/com/android/server/biometrics/sensors/BiometricScheduler.java b/services/core/java/com/android/server/biometrics/sensors/BiometricScheduler.java
-index 1d4e8b8c185edbe26c97569c4f7f48fbd960533f..4754d439c21621562acea5aa57cee61ff1181b90 100644
+index 1d4e8b8c1..4754d439c 100644
 --- a/services/core/java/com/android/server/biometrics/sensors/BiometricScheduler.java
 +++ b/services/core/java/com/android/server/biometrics/sensors/BiometricScheduler.java
 @@ -167,7 +167,22 @@ public class BiometricScheduler<T, U> {
@@ -6505,7 +6511,7 @@ index 1d4e8b8c185edbe26c97569c4f7f48fbd960533f..4754d439c21621562acea5aa57cee61f
                      // do not unset the current operation that may be newer
 diff --git a/services/core/java/com/android/server/biometrics/sensors/HonorFaceStrongReset.java b/services/core/java/com/android/server/biometrics/sensors/HonorFaceStrongReset.java
 new file mode 100644
-index 0000000000000000000000000000000000000000..eb314987ec551295c12c81c23f7e809e4f8116e8
+index 000000000..eb314987e
 --- /dev/null
 +++ b/services/core/java/com/android/server/biometrics/sensors/HonorFaceStrongReset.java
 @@ -0,0 +1,33 @@
@@ -6543,7 +6549,7 @@ index 0000000000000000000000000000000000000000..eb314987ec551295c12c81c23f7e809e
 +    }
 +}
 diff --git a/services/core/java/com/android/server/biometrics/sensors/face/FaceService.java b/services/core/java/com/android/server/biometrics/sensors/face/FaceService.java
-index a34791f70533fe01be5e857628c33a544edc0b6d..a1d3cf686993a987604b51b6bca3e65d9f858733 100644
+index a34791f70..a1d3cf686 100644
 --- a/services/core/java/com/android/server/biometrics/sensors/face/FaceService.java
 +++ b/services/core/java/com/android/server/biometrics/sensors/face/FaceService.java
 @@ -814,7 +814,8 @@ public class FaceService extends SystemService {
@@ -6557,7 +6563,7 @@ index a34791f70533fe01be5e857628c33a544edc0b6d..a1d3cf686993a987604b51b6bca3e65d
                  + a.length);
          if (!ArrayUtils.contains(a, "virtual")) {
 diff --git a/services/core/java/com/android/server/biometrics/sensors/face/aidl/AidlResponseHandler.java b/services/core/java/com/android/server/biometrics/sensors/face/aidl/AidlResponseHandler.java
-index 5f16fe66549e78f2666f17f988f3549f021a0622..4805c9fb5cfcc9a0fbc2e1a8daa4fb3a74838835 100644
+index 5f16fe665..4805c9fb5 100644
 --- a/services/core/java/com/android/server/biometrics/sensors/face/aidl/AidlResponseHandler.java
 +++ b/services/core/java/com/android/server/biometrics/sensors/face/aidl/AidlResponseHandler.java
 @@ -19,6 +19,7 @@ package com.android.server.biometrics.sensors.face.aidl;
@@ -6634,7 +6640,7 @@ index 5f16fe66549e78f2666f17f988f3549f021a0622..4805c9fb5cfcc9a0fbc2e1a8daa4fb3a
      }
  }
 diff --git a/services/core/java/com/android/server/biometrics/sensors/face/aidl/FaceGenerateChallengeClient.java b/services/core/java/com/android/server/biometrics/sensors/face/aidl/FaceGenerateChallengeClient.java
-index cf45eb8b31784722cbb02d6ae9c89f302f65dec3..1f0cca3c045e8d53827e15ec6a9a3990ca1e8704 100644
+index cf45eb8b3..1f0cca3c0 100644
 --- a/services/core/java/com/android/server/biometrics/sensors/face/aidl/FaceGenerateChallengeClient.java
 +++ b/services/core/java/com/android/server/biometrics/sensors/face/aidl/FaceGenerateChallengeClient.java
 @@ -27,13 +27,15 @@ import com.android.server.biometrics.log.BiometricContext;
@@ -6668,7 +6674,7 @@ index cf45eb8b31784722cbb02d6ae9c89f302f65dec3..1f0cca3c045e8d53827e15ec6a9a3990
          try {
              final ClientMonitorCallbackConverter listener = getListener();
 diff --git a/services/core/java/com/android/server/biometrics/sensors/face/aidl/FaceProvider.java b/services/core/java/com/android/server/biometrics/sensors/face/aidl/FaceProvider.java
-index 547193f684289048b0895f23095f7f2192b93865..e7d9a000b87ebf54a4a8c9a009a8dbf6bd180295 100644
+index 547193f68..e7d9a000b 100644
 --- a/services/core/java/com/android/server/biometrics/sensors/face/aidl/FaceProvider.java
 +++ b/services/core/java/com/android/server/biometrics/sensors/face/aidl/FaceProvider.java
 @@ -35,6 +35,7 @@ import android.hardware.biometrics.ITestSessionCallback;
@@ -6712,7 +6718,7 @@ index 547193f684289048b0895f23095f7f2192b93865..e7d9a000b87ebf54a4a8c9a009a8dbf6
      public void cancelEnrollment(int sensorId, @NonNull IBinder token, long requestId) {
          mHandler.post(() ->
 diff --git a/services/core/java/com/android/server/biometrics/sensors/face/aidl/FaceRevokeChallengeClient.java b/services/core/java/com/android/server/biometrics/sensors/face/aidl/FaceRevokeChallengeClient.java
-index 0d6143a7d0f080eba9ddafed5cd973f93beb8960..f99b0cd604a534bbc5b4559facce064ec1de4a57 100644
+index 0d6143a7d..f99b0cd60 100644
 --- a/services/core/java/com/android/server/biometrics/sensors/face/aidl/FaceRevokeChallengeClient.java
 +++ b/services/core/java/com/android/server/biometrics/sensors/face/aidl/FaceRevokeChallengeClient.java
 @@ -26,13 +26,15 @@ import android.util.Slog;
@@ -6746,7 +6752,7 @@ index 0d6143a7d0f080eba9ddafed5cd973f93beb8960..f99b0cd604a534bbc5b4559facce064e
          final boolean success = challenge == mChallenge;
          mCallback.onClientFinished(this, success);
 diff --git a/services/core/java/com/android/server/biometrics/sensors/face/aidl/Sensor.java b/services/core/java/com/android/server/biometrics/sensors/face/aidl/Sensor.java
-index 35659018cd67b058368cd9d8c379f772df88eb58..60803fd051c044c7dc64f8d73486f8bb6c38ef3a 100644
+index 35659018c..60803fd05 100644
 --- a/services/core/java/com/android/server/biometrics/sensors/face/aidl/Sensor.java
 +++ b/services/core/java/com/android/server/biometrics/sensors/face/aidl/Sensor.java
 @@ -32,6 +32,7 @@ import android.hardware.biometrics.face.IFace;
@@ -6790,7 +6796,7 @@ index 35659018cd67b058368cd9d8c379f772df88eb58..60803fd051c044c7dc64f8d73486f8bb
       * Returns lockout mode of this sensor.
       */
 diff --git a/services/core/java/com/android/server/display/AutomaticBrightnessController.java b/services/core/java/com/android/server/display/AutomaticBrightnessController.java
-index 858299ba2cd0a764a7db965c9cb5d433a252da3f..974f7429b2aeedc8b7b76142ba4a97385d3db1b4 100644
+index 858299ba2..974f7429b 100644
 --- a/services/core/java/com/android/server/display/AutomaticBrightnessController.java
 +++ b/services/core/java/com/android/server/display/AutomaticBrightnessController.java
 @@ -448,6 +448,30 @@ public class AutomaticBrightnessController {
@@ -6856,7 +6862,7 @@ index 858299ba2cd0a764a7db965c9cb5d433a252da3f..974f7429b2aeedc8b7b76142ba4a9738
  
      /** Functional interface for providing time. */
 diff --git a/services/core/java/com/android/server/display/BrightnessMappingStrategy.java b/services/core/java/com/android/server/display/BrightnessMappingStrategy.java
-index 19195d8bbf2db65608b296dc63eff4440881c808..3034449ee7693d2ea7842c537718baa3c6eb5bf1 100644
+index 19195d8bb..3034449ee 100644
 --- a/services/core/java/com/android/server/display/BrightnessMappingStrategy.java
 +++ b/services/core/java/com/android/server/display/BrightnessMappingStrategy.java
 @@ -289,6 +289,12 @@ public abstract class BrightnessMappingStrategy {
@@ -6960,7 +6966,7 @@ index 19195d8bbf2db65608b296dc63eff4440881c808..3034449ee7693d2ea7842c537718baa3
              Spline spline = Spline.createSpline(curve.first, curve.second);
              return mAdjustedNitsToBrightnessSpline.interpolate(spline.interpolate(lux));
 diff --git a/services/core/java/com/android/server/display/BrightnessRangeController.java b/services/core/java/com/android/server/display/BrightnessRangeController.java
-index e504b7b2008ba851bb8dff50a4ae9a1b0016511b..57c33c7ad944b570b6dee64df0d15199a814c621 100644
+index e504b7b20..57c33c7ad 100644
 --- a/services/core/java/com/android/server/display/BrightnessRangeController.java
 +++ b/services/core/java/com/android/server/display/BrightnessRangeController.java
 @@ -124,6 +124,21 @@ class BrightnessRangeController {
@@ -6998,7 +7004,7 @@ index e504b7b2008ba851bb8dff50a4ae9a1b0016511b..57c33c7ad944b570b6dee64df0d15199
      }
 diff --git a/services/core/java/com/android/server/display/BrightnessThermalCompositionSource.java b/services/core/java/com/android/server/display/BrightnessThermalCompositionSource.java
 new file mode 100644
-index 0000000000000000000000000000000000000000..79feecea744b861c65d8e593e4b81235b4e45a1e
+index 000000000..79feecea7
 --- /dev/null
 +++ b/services/core/java/com/android/server/display/BrightnessThermalCompositionSource.java
 @@ -0,0 +1,31 @@
@@ -7035,7 +7041,7 @@ index 0000000000000000000000000000000000000000..79feecea744b861c65d8e593e4b81235
 +}
 diff --git a/services/core/java/com/android/server/display/BrightnessThermalPolicyBinding.java b/services/core/java/com/android/server/display/BrightnessThermalPolicyBinding.java
 new file mode 100644
-index 0000000000000000000000000000000000000000..5db96f8ce2b5b9999f478e60990f8bec17a57a49
+index 000000000..5db96f8ce
 --- /dev/null
 +++ b/services/core/java/com/android/server/display/BrightnessThermalPolicyBinding.java
 @@ -0,0 +1,138 @@
@@ -7179,7 +7185,7 @@ index 0000000000000000000000000000000000000000..5db96f8ce2b5b9999f478e60990f8bec
 +}
 diff --git a/services/core/java/com/android/server/display/BrightnessThermalPolicyController.java b/services/core/java/com/android/server/display/BrightnessThermalPolicyController.java
 new file mode 100644
-index 0000000000000000000000000000000000000000..cd74f02dda459a00e13ace25627a9af72ed336ad
+index 000000000..cd74f02dd
 --- /dev/null
 +++ b/services/core/java/com/android/server/display/BrightnessThermalPolicyController.java
 @@ -0,0 +1,105 @@
@@ -7289,7 +7295,7 @@ index 0000000000000000000000000000000000000000..cd74f02dda459a00e13ace25627a9af7
 +    }
 +}
 diff --git a/services/core/java/com/android/server/display/DisplayPowerController.java b/services/core/java/com/android/server/display/DisplayPowerController.java
-index f839a319dbc7f9c4ef1ee3bd9907f46a7936b7ab..7c929a307f972a978fc95cabc86ab39e861b4112 100644
+index f839a319d..7c929a307 100644
 --- a/services/core/java/com/android/server/display/DisplayPowerController.java
 +++ b/services/core/java/com/android/server/display/DisplayPowerController.java
 @@ -106,6 +106,8 @@ import com.android.server.display.feature.DisplayManagerFlags;
@@ -7706,7 +7712,7 @@ index f839a319dbc7f9c4ef1ee3bd9907f46a7936b7ab..7c929a307f972a978fc95cabc86ab39e
  
 diff --git a/services/core/java/com/android/server/display/HdrBrightnessTransform.java b/services/core/java/com/android/server/display/HdrBrightnessTransform.java
 new file mode 100644
-index 0000000000000000000000000000000000000000..ae28035d25ae2e4516af7a3c5f53c8bf921bddf1
+index 000000000..ae28035d2
 --- /dev/null
 +++ b/services/core/java/com/android/server/display/HdrBrightnessTransform.java
 @@ -0,0 +1,61 @@
@@ -7772,7 +7778,7 @@ index 0000000000000000000000000000000000000000..ae28035d25ae2e4516af7a3c5f53c8bf
 +    }
 +}
 diff --git a/services/core/java/com/android/server/display/HighBrightnessModeController.java b/services/core/java/com/android/server/display/HighBrightnessModeController.java
-index c742640be09e652e64ad39f3f72e2208d5b4e471..b94d9961da901bbe7c5e4f8747c2ce8b78f0e4a2 100644
+index c742640be..b94d9961d 100644
 --- a/services/core/java/com/android/server/display/HighBrightnessModeController.java
 +++ b/services/core/java/com/android/server/display/HighBrightnessModeController.java
 @@ -100,6 +100,8 @@ class HighBrightnessModeController {
@@ -7900,7 +7906,7 @@ index c742640be09e652e64ad39f3f72e2208d5b4e471..b94d9961da901bbe7c5e4f8747c2ce8b
          }
 diff --git a/services/core/java/com/android/server/display/SdrHdrBrightnessCapController.java b/services/core/java/com/android/server/display/SdrHdrBrightnessCapController.java
 new file mode 100644
-index 0000000000000000000000000000000000000000..4b8806138056d16c8343611bb309149a7346315f
+index 000000000..4b8806138
 --- /dev/null
 +++ b/services/core/java/com/android/server/display/SdrHdrBrightnessCapController.java
 @@ -0,0 +1,191 @@
@@ -8096,7 +8102,7 @@ index 0000000000000000000000000000000000000000..4b8806138056d16c8343611bb309149a
 +    }
 +}
 diff --git a/services/core/java/com/android/server/display/brightness/clamper/BrightnessClamperController.java b/services/core/java/com/android/server/display/brightness/clamper/BrightnessClamperController.java
-index 48400a0a4a7300bcf2bb71e527ca940433897b7a..9b21af60ae33d18bee39c17b364f2859897f9857 100644
+index 48400a0a4..9b21af60a 100644
 --- a/services/core/java/com/android/server/display/brightness/clamper/BrightnessClamperController.java
 +++ b/services/core/java/com/android/server/display/brightness/clamper/BrightnessClamperController.java
 @@ -51,6 +51,7 @@ import com.android.server.display.config.SensorData;
@@ -8160,7 +8166,7 @@ index 48400a0a4a7300bcf2bb71e527ca940433897b7a..9b21af60ae33d18bee39c17b364f2859
          float mMaxHdrBrightness = PowerManager.BRIGHTNESS_MAX;
          @Nullable
 diff --git a/services/core/java/com/android/server/display/brightness/clamper/BrightnessPluginModifier.java b/services/core/java/com/android/server/display/brightness/clamper/BrightnessPluginModifier.java
-index 32ab3427e1cb5ed4cc82c8bac61c1c0cc3c57777..c6b678c062dcf4d956642f5a91be54b55770db3f 100644
+index 32ab3427e..c6b678c06 100644
 --- a/services/core/java/com/android/server/display/brightness/clamper/BrightnessPluginModifier.java
 +++ b/services/core/java/com/android/server/display/brightness/clamper/BrightnessPluginModifier.java
 @@ -142,16 +142,19 @@ public class BrightnessPluginModifier implements BrightnessStateModifier,
@@ -8194,7 +8200,7 @@ index 32ab3427e1cb5ed4cc82c8bac61c1c0cc3c57777..c6b678c062dcf4d956642f5a91be54b5
      }
  
 diff --git a/services/core/java/com/android/server/display/brightness/clamper/HdrBrightnessModifier.java b/services/core/java/com/android/server/display/brightness/clamper/HdrBrightnessModifier.java
-index 180abc67ad8e36a52130e1928e00e7f7445ec909..bb4243507c499254afd42a4b1aa3f6006d9d5ccd 100644
+index 180abc67a..bb4243507 100644
 --- a/services/core/java/com/android/server/display/brightness/clamper/HdrBrightnessModifier.java
 +++ b/services/core/java/com/android/server/display/brightness/clamper/HdrBrightnessModifier.java
 @@ -43,6 +43,7 @@ import com.android.server.display.feature.DisplayManagerFlags;
@@ -8375,7 +8381,7 @@ index 180abc67ad8e36a52130e1928e00e7f7445ec909..bb4243507c499254afd42a4b1aa3f600
  
      }
 diff --git a/services/core/java/com/android/server/display/plugin/PluginManager.java b/services/core/java/com/android/server/display/plugin/PluginManager.java
-index 62260a6b1a55ca518002c649c271dbacc52d3c19..2c86b32a0f84ea936ebef24f0b9508803dd853ed 100644
+index 62260a6b1..2c86b32a0 100644
 --- a/services/core/java/com/android/server/display/plugin/PluginManager.java
 +++ b/services/core/java/com/android/server/display/plugin/PluginManager.java
 @@ -18,6 +18,7 @@ package com.android.server.display.plugin;
@@ -8413,7 +8419,7 @@ index 62260a6b1a55ca518002c649c271dbacc52d3c19..2c86b32a0f84ea936ebef24f0b950880
          }
  
 diff --git a/services/core/java/com/android/server/display/plugin/PluginStorage.java b/services/core/java/com/android/server/display/plugin/PluginStorage.java
-index d17fbe21deeb97474814fdcde07b34e53b259eee..bee09fab98ebb32fb178620a6264b60e09510d48 100644
+index d17fbe21d..bee09fab9 100644
 --- a/services/core/java/com/android/server/display/plugin/PluginStorage.java
 +++ b/services/core/java/com/android/server/display/plugin/PluginStorage.java
 @@ -151,6 +151,15 @@ public class PluginStorage {
@@ -8433,7 +8439,7 @@ index d17fbe21deeb97474814fdcde07b34e53b259eee..bee09fab98ebb32fb178620a6264b60e
       * Removes listener
       */
 diff --git a/services/core/java/com/android/server/display/plugin/PluginType.java b/services/core/java/com/android/server/display/plugin/PluginType.java
-index 397dd6d21117e7f5486bf072de3a6fdd8c336107..525638fb7fba7a4e710255c36960eb404644d00a 100644
+index 397dd6d21..525638fb7 100644
 --- a/services/core/java/com/android/server/display/plugin/PluginType.java
 +++ b/services/core/java/com/android/server/display/plugin/PluginType.java
 @@ -19,7 +19,9 @@ package com.android.server.display.plugin;
@@ -8469,7 +8475,7 @@ index 397dd6d21117e7f5486bf072de3a6fdd8c336107..525638fb7fba7a4e710255c36960eb40
  
 diff --git a/services/core/java/com/android/server/display/plugin/types/BrightnessThermalPolicy.java b/services/core/java/com/android/server/display/plugin/types/BrightnessThermalPolicy.java
 new file mode 100644
-index 0000000000000000000000000000000000000000..54166be784619b6324de10fde547b297f5ae3b6b
+index 000000000..54166be78
 --- /dev/null
 +++ b/services/core/java/com/android/server/display/plugin/types/BrightnessThermalPolicy.java
 @@ -0,0 +1,95 @@
@@ -8570,7 +8576,7 @@ index 0000000000000000000000000000000000000000..54166be784619b6324de10fde547b297
 +}
 diff --git a/services/core/java/com/android/server/display/plugin/types/HdrBrightnessMetadata.java b/services/core/java/com/android/server/display/plugin/types/HdrBrightnessMetadata.java
 new file mode 100644
-index 0000000000000000000000000000000000000000..7493876d14479933f393a0d11feb862feacde894
+index 000000000..7493876d1
 --- /dev/null
 +++ b/services/core/java/com/android/server/display/plugin/types/HdrBrightnessMetadata.java
 @@ -0,0 +1,16 @@
@@ -8592,7 +8598,7 @@ index 0000000000000000000000000000000000000000..7493876d14479933f393a0d11feb862f
 +}
 diff --git a/services/core/java/com/android/server/display/plugin/types/SdrHdrBrightnessCaps.java b/services/core/java/com/android/server/display/plugin/types/SdrHdrBrightnessCaps.java
 new file mode 100644
-index 0000000000000000000000000000000000000000..f7b711d446d227ad3933569d2396b7c33cb62ba2
+index 000000000..f7b711d44
 --- /dev/null
 +++ b/services/core/java/com/android/server/display/plugin/types/SdrHdrBrightnessCaps.java
 @@ -0,0 +1,25 @@
@@ -8622,7 +8628,7 @@ index 0000000000000000000000000000000000000000..f7b711d446d227ad3933569d2396b7c3
 +    }
 +}
 diff --git a/services/core/java/com/android/server/health/HealthServiceWrapperAidl.java b/services/core/java/com/android/server/health/HealthServiceWrapperAidl.java
-index 2600d4b128154e0f38b8225875a3b43c7b88b094..7660ae9e4f8614cb1ff976109ab7fb729651df01 100644
+index 2600d4b12..7660ae9e4 100644
 --- a/services/core/java/com/android/server/health/HealthServiceWrapperAidl.java
 +++ b/services/core/java/com/android/server/health/HealthServiceWrapperAidl.java
 @@ -39,6 +39,8 @@ import com.android.internal.annotations.VisibleForTesting;
@@ -8718,7 +8724,7 @@ index 2600d4b128154e0f38b8225875a3b43c7b88b094..7660ae9e4f8614cb1ff976109ab7fb72
          getHandlerThread()
 diff --git a/services/core/java/com/android/server/health/HonorBatteryManufacturingDate.java b/services/core/java/com/android/server/health/HonorBatteryManufacturingDate.java
 new file mode 100644
-index 0000000000000000000000000000000000000000..b4a2e49984df43c4500db4b1172984ddda84633f
+index 000000000..b4a2e4998
 --- /dev/null
 +++ b/services/core/java/com/android/server/health/HonorBatteryManufacturingDate.java
 @@ -0,0 +1,72 @@
@@ -8796,7 +8802,7 @@ index 0000000000000000000000000000000000000000..b4a2e49984df43c4500db4b1172984dd
 +}
 diff --git a/services/core/java/com/android/server/health/HonorBatterySerialNumber.java b/services/core/java/com/android/server/health/HonorBatterySerialNumber.java
 new file mode 100644
-index 0000000000000000000000000000000000000000..7491fb739cc69509467d627212996503e955c961
+index 000000000..7491fb739
 --- /dev/null
 +++ b/services/core/java/com/android/server/health/HonorBatterySerialNumber.java
 @@ -0,0 +1,64 @@
@@ -8865,7 +8871,7 @@ index 0000000000000000000000000000000000000000..7491fb739cc69509467d627212996503
 +    private HonorBatterySerialNumber() {}
 +}
 diff --git a/services/core/java/com/android/server/locksettings/BiometricDeferredQueue.java b/services/core/java/com/android/server/locksettings/BiometricDeferredQueue.java
-index 5f20556e3433561598a0757a66d94f5bb8ec9e2b..6db3fa6ca4b1a8a454267d5dcd422fac45b56ba9 100644
+index 5f20556e3..6db3fa6ca 100644
 --- a/services/core/java/com/android/server/locksettings/BiometricDeferredQueue.java
 +++ b/services/core/java/com/android/server/locksettings/BiometricDeferredQueue.java
 @@ -21,6 +21,7 @@ import android.annotation.Nullable;
@@ -8939,7 +8945,7 @@ index 5f20556e3433561598a0757a66d94f5bb8ec9e2b..6db3fa6ca4b1a8a454267d5dcd422fac
                              }
                          }
 diff --git a/services/core/java/com/android/server/locksettings/LockSettingsService.java b/services/core/java/com/android/server/locksettings/LockSettingsService.java
-index b0d81fbefcd6f5affc0232dbba5837b582ab3d09..4d960a410550437e6a5e80a3cd923849b7dd47fe 100644
+index b0d81fbef..d069b43c4 100644
 --- a/services/core/java/com/android/server/locksettings/LockSettingsService.java
 +++ b/services/core/java/com/android/server/locksettings/LockSettingsService.java
 @@ -1426,6 +1426,9 @@ public class LockSettingsService extends ILockSettings.Stub {
@@ -8977,7 +8983,15 @@ index b0d81fbefcd6f5affc0232dbba5837b582ab3d09..4d960a410550437e6a5e80a3cd923849
          removeBiometricsForUser(userId);
          mSpManager.removeUser(getGateKeeperService(), userId);
          mStrongAuth.removeUser(userId);
-@@ -3431,6 +3451,7 @@ public class LockSettingsService extends ILockSettings.Stub {
+@@ -3394,6 +3414,7 @@ public class LockSettingsService extends ILockSettings.Stub {
+         unlockCeStorage(userId, sp);
+ 
+         unlockUser(userId);
++        com.android.server.policy.keyguard.AutoReboot.onUserUnlocked(mContext);
+ 
+         activateEscrowTokens(sp, userId);
+ 
+@@ -3431,6 +3452,7 @@ public class LockSettingsService extends ILockSettings.Stub {
      @GuardedBy("mSpManager")
      private long setLockCredentialWithSpLocked(LockscreenCredential credential,
              SyntheticPassword sp, int userId) {
@@ -8986,7 +9000,7 @@ index b0d81fbefcd6f5affc0232dbba5837b582ab3d09..4d960a410550437e6a5e80a3cd923849
                  userId, LockPatternUtils.credentialTypeToString(credential.getType()));
          final int savedCredentialType = getCredentialTypeInternal(userId);
 diff --git a/services/core/java/com/android/server/policy/GlobalActions.java b/services/core/java/com/android/server/policy/GlobalActions.java
-index 76a714c47f2efe5061d6a7290e9c34a95a95f583..b3aef1dd02f4c8c29c093a69312b2aeff2f23288 100644
+index 76a714c47..b3aef1dd0 100644
 --- a/services/core/java/com/android/server/policy/GlobalActions.java
 +++ b/services/core/java/com/android/server/policy/GlobalActions.java
 @@ -14,6 +14,7 @@
@@ -9063,7 +9077,7 @@ index 76a714c47f2efe5061d6a7290e9c34a95a95f583..b3aef1dd02f4c8c29c093a69312b2aef
              ensureLegacyCreated();
              mLegacyGlobalActions.showDialog(mKeyguardShowing, mDeviceProvisioned);
 diff --git a/services/core/java/com/android/server/policy/PhoneWindowManager.java b/services/core/java/com/android/server/policy/PhoneWindowManager.java
-index e17c6ae561d5bc1bf4310de92333acfdafe0b32c..363c3b591477b4181317dee543152dfdc0da46fb 100644
+index e17c6ae56..363c3b591 100644
 --- a/services/core/java/com/android/server/policy/PhoneWindowManager.java
 +++ b/services/core/java/com/android/server/policy/PhoneWindowManager.java
 @@ -1674,6 +1674,9 @@ public class PhoneWindowManager implements WindowManagerPolicy {
@@ -9113,8 +9127,185 @@ index e17c6ae561d5bc1bf4310de92333acfdafe0b32c..363c3b591477b4181317dee543152dfd
                      performHapticFeedback(
                              HapticFeedbackConstants.LONG_PRESS_POWER_BUTTON,
                              "KEY_GESTURE_TYPE_GLOBAL_ACTIONS - Global Actions");
+diff --git a/services/core/java/com/android/server/policy/keyguard/AutoReboot.java b/services/core/java/com/android/server/policy/keyguard/AutoReboot.java
+new file mode 100644
+index 000000000..7cbd711d5
+--- /dev/null
++++ b/services/core/java/com/android/server/policy/keyguard/AutoReboot.java
+@@ -0,0 +1,148 @@
++/* SPDX-License-Identifier: Apache-2.0
++ * Adapted from GrapheneOS services/core/java/com/android/server/policy/keyguard/AutoReboot.java.
++ */
++package com.android.server.policy.keyguard;
++
++import android.content.Context;
++import android.database.ContentObserver;
++import android.media.AudioManager;
++import android.os.Handler;
++import android.os.HandlerThread;
++import android.os.IBinder;
++import android.os.ServiceManager;
++import android.os.SystemProperties;
++import android.os.UpdateEngine;
++import android.os.UpdateEngineCallback;
++import android.provider.Settings;
++import android.telecom.TelecomManager;
++import android.util.Slog;
++
++/** Opt-in init-backed reboot timer. No Binder interface or broadcast entry point. */
++public final class AutoReboot {
++    private static final String TAG = "AutoReboot";
++    private static final String SETTING = "settings_reboot_after_timeout";
++    private static final String CONTROL = "sys.ldy_security.reboot_ctl";
++    private static final String INHIBIT = "sys.ldy_security.reboot_inhibit";
++    private static AutoReboot sInstance;
++    private final Context mContext;
++    private final Handler mHandler;
++    private final AudioManager mAudio;
++    private final TelecomManager mTelecom;
++    private UpdateEngine mUpdateEngine;
++    private IBinder mUpdateBinder;
++    private boolean mUpdateIdle;
++    private boolean mShowing = true;
++    private int mUserId = android.os.UserHandle.USER_NULL;
++    private final Runnable mRefresh = this::refresh;
++
++    private AutoReboot(Context context) {
++        mContext = context;
++        HandlerThread thread = new HandlerThread(TAG);
++        thread.start();
++        mHandler = new Handler(thread.getLooper());
++        mAudio = context.getSystemService(AudioManager.class);
++        mTelecom = context.getSystemService(TelecomManager.class);
++        context.getContentResolver().registerContentObserver(Settings.Global.getUriFor(SETTING),
++                false, new ContentObserver(mHandler) {
++                    @Override public void onChange(boolean selfChange) {
++                        // A confirmed setting change starts the newly selected interval.
++                        control("off");
++                        refresh();
++                    }
++                });
++        if (mAudio != null) {
++            mAudio.addOnModeChangedListener(mHandler::post, mode -> refresh());
++        }
++    }
++
++    static synchronized void onKeyguardShowingStateChanged(Context context, boolean showing, int userId) {
++        if (!SystemProperties.getBoolean("ro.lineage.ldy_an00.security_controls", false)) return;
++        if (sInstance == null) sInstance = new AutoReboot(context);
++        AutoReboot instance = sInstance;
++        instance.mHandler.post(() -> {
++            instance.mShowing = showing;
++            instance.mUserId = userId;
++            if (!showing) instance.control("on_device_unlocked");
++            instance.refresh();
++        });
++    }
++
++    /** LockSettings calls this only after a user/profile credential unlock completes. */
++    public static synchronized void onUserUnlocked(Context context) {
++        if (!SystemProperties.getBoolean("ro.lineage.ldy_an00.security_controls", false)) return;
++        if (sInstance == null) sInstance = new AutoReboot(context);
++        AutoReboot instance = sInstance;
++        instance.mHandler.post(() -> {
++            instance.control("on_device_unlocked");
++            instance.refresh();
++        });
++    }
++
++    private void control(String value) {
++        try { SystemProperties.set(CONTROL, value); }
++        catch (RuntimeException error) { Slog.e(TAG, "Reboot timer command failed", error); }
++    }
++
++    private void bindUpdateEngine() {
++        if (mUpdateBinder != null && mUpdateBinder.isBinderAlive()) return;
++        mUpdateIdle = false;
++        mUpdateEngine = null;
++        mUpdateBinder = null;
++        try {
++            IBinder binder = ServiceManager.checkService("android.os.UpdateEngineService");
++            if (binder == null) return;
++            UpdateEngine engine = new UpdateEngine();
++            if (!engine.bind(new UpdateEngineCallback() {
++                @Override public void onStatusUpdate(int status, float percent) {
++                    // IDLE alone is permitted. Download, finalization, pending reboot,
++                    // rollback and CLEANUP_PREVIOUS_UPDATE (snapshot merge) all defer.
++                    if (mUpdateBinder != binder) return;
++                    mUpdateIdle = status == UpdateEngine.UpdateStatusConstants.IDLE;
++                    refresh();
++                }
++                @Override public void onPayloadApplicationComplete(int errorCode) { }
++            }, mHandler)) return;
++            mUpdateEngine = engine;
++            mUpdateBinder = binder;
++            binder.linkToDeath(() -> mHandler.post(() -> {
++                if (mUpdateBinder == binder) {
++                    mUpdateBinder = null;
++                    mUpdateIdle = false;
++                    refresh();
++                }
++            }), 0);
++        } catch (RuntimeException | android.os.RemoteException error) {
++            mUpdateIdle = false;
++            Slog.w(TAG, "Update state unavailable; automatic reboot deferred", error);
++        }
++    }
++
++    private void refresh() {
++        mHandler.removeCallbacks(mRefresh);
++        int timeout = Settings.Global.getInt(mContext.getContentResolver(), SETTING, 0);
++        boolean secure = mUserId >= 0
++                && new com.android.internal.widget.LockPatternUtils(mContext).isSecure(mUserId);
++        int enabledTimeout = secure && timeout >= 600000 && timeout <= 259200000 ? timeout : 0;
++        boolean inhibited = true;
++        if (enabledTimeout > 0) {
++            bindUpdateEngine();
++            try {
++                inhibited = !mShowing || mAudio == null || mTelecom == null
++                        || mAudio.getMode() != AudioManager.MODE_NORMAL || mTelecom.isInCall()
++                        || SystemProperties.getBoolean("ril.cdma.inecmmode", false)
++                        || !mUpdateIdle || mUpdateBinder == null || !mUpdateBinder.isBinderAlive();
++            } catch (RuntimeException unavailable) {
++                Slog.w(TAG, "Call state unavailable; automatic reboot deferred", unavailable);
++            }
++        }
++        try { SystemProperties.set(INHIBIT, inhibited ? "1" : "0"); }
++        catch (RuntimeException error) {
++            Slog.e(TAG, "Unable to publish reboot inhibit state", error);
++            control("off");
++            return;
++        }
++        if (enabledTimeout == 0) control("off");
++        else if (mShowing) control(Integer.toString(enabledTimeout / 1000));
++        if (enabledTimeout > 0) mHandler.postDelayed(mRefresh, 30000);
++    }
++}
+diff --git a/services/core/java/com/android/server/policy/keyguard/KeyguardServiceDelegate.java b/services/core/java/com/android/server/policy/keyguard/KeyguardServiceDelegate.java
+index 2d25ee154..cebbd1292 100644
+--- a/services/core/java/com/android/server/policy/keyguard/KeyguardServiceDelegate.java
++++ b/services/core/java/com/android/server/policy/keyguard/KeyguardServiceDelegate.java
+@@ -207,7 +207,10 @@ public class KeyguardServiceDelegate {
+         }
+     }
+ 
++    private final Context mSecurityContext;
++
+     public KeyguardServiceDelegate(@NonNull Context context, @NonNull StateCallback callback) {
++        mSecurityContext = context;
+         mCallback = callback;
+         mLockPatternUtils = new LockPatternUtils(context);
+         mActivityManagerInternal = LocalServices.getService(ActivityManagerInternal.class);
+@@ -217,6 +220,7 @@ public class KeyguardServiceDelegate {
+     public void onShowingStateChanged(boolean showing) {
+         mKeyguardReportedState.showing = showing;
+         mCallback.onShowingChanged();
++        AutoReboot.onKeyguardShowingStateChanged(mSecurityContext, showing, mKeyguardState.userId);
+     }
+ 
+     /**
 diff --git a/services/proguard.flags b/services/proguard.flags
-index 36d0f05f86eed927d4c0cd17b676a6b8ac048c4c..cba49d9fda090e4d68a885750df514fc63f53ac1 100644
+index 36d0f05f8..cba49d9fd 100644
 --- a/services/proguard.flags
 +++ b/services/proguard.flags
 @@ -148,3 +148,9 @@
@@ -9128,7 +9319,7 @@ index 36d0f05f86eed927d4c0cd17b676a6b8ac048c4c..cba49d9fda090e4d68a885750df514fc
 +-keep class com.android.server.display.plugin.types.BrightnessThermalPolicy$* { *; }
 +-keep class com.android.server.display.plugin.types.HdrBrightnessMetadata { *; }
 diff --git a/services/tests/displayservicetests/Android.bp b/services/tests/displayservicetests/Android.bp
-index 02875613e509147c516d22e379dd6a11bbbe6bc3..556448d90c28fc6c3aa13d70b7c45b3e4fa4fb99 100644
+index 02875613e..556448d90 100644
 --- a/services/tests/displayservicetests/Android.bp
 +++ b/services/tests/displayservicetests/Android.bp
 @@ -79,3 +79,67 @@ test_module_config {
@@ -9201,7 +9392,7 @@ index 02875613e509147c516d22e379dd6a11bbbe6bc3..556448d90c28fc6c3aa13d70b7c45b3e
 +}
 diff --git a/services/tests/displayservicetests/CoherentCapsManifest.xml b/services/tests/displayservicetests/CoherentCapsManifest.xml
 new file mode 100644
-index 0000000000000000000000000000000000000000..d3d897143747e9ac5f8f9cf4289155b9635557ce
+index 000000000..d3d897143
 --- /dev/null
 +++ b/services/tests/displayservicetests/CoherentCapsManifest.xml
 @@ -0,0 +1,48 @@
@@ -9254,7 +9445,7 @@ index 0000000000000000000000000000000000000000..d3d897143747e9ac5f8f9cf4289155b9
 +        android:targetPackage="com.android.frameworks.coherentbrightnesstests" />
 +</manifest>
 diff --git a/services/tests/displayservicetests/src/com/android/server/display/AutomaticBrightnessControllerTest.java b/services/tests/displayservicetests/src/com/android/server/display/AutomaticBrightnessControllerTest.java
-index d7a003e5ebeca4013f085e598ea8523d5951c4f6..bd9a7e8390558723ef090cff5e8508765142c28a 100644
+index d7a003e5e..bd9a7e839 100644
 --- a/services/tests/displayservicetests/src/com/android/server/display/AutomaticBrightnessControllerTest.java
 +++ b/services/tests/displayservicetests/src/com/android/server/display/AutomaticBrightnessControllerTest.java
 @@ -202,7 +202,72 @@ public class AutomaticBrightnessControllerTest {
@@ -9484,7 +9675,7 @@ index d7a003e5ebeca4013f085e598ea8523d5951c4f6..bd9a7e8390558723ef090cff5e850876
          // Send a new sensor value
          listener.onSensorChanged(createSensorEvent(mLightSensor, (int) lux));
 diff --git a/services/tests/displayservicetests/src/com/android/server/display/BrightnessMappingStrategyTest.java b/services/tests/displayservicetests/src/com/android/server/display/BrightnessMappingStrategyTest.java
-index f3cd0c960fca9830fcae39f0cc9b6fff1e35820c..e31dc4e9b6b99041d804cd9216cf36430fe3b72d 100644
+index f3cd0c960..e31dc4e9b 100644
 --- a/services/tests/displayservicetests/src/com/android/server/display/BrightnessMappingStrategyTest.java
 +++ b/services/tests/displayservicetests/src/com/android/server/display/BrightnessMappingStrategyTest.java
 @@ -25,17 +25,21 @@ import static org.junit.Assert.assertNotEquals;
@@ -9710,7 +9901,7 @@ index f3cd0c960fca9830fcae39f0cc9b6fff1e35820c..e31dc4e9b6b99041d804cd9216cf3643
  }
 diff --git a/services/tests/displayservicetests/src/com/android/server/display/BrightnessThermalPolicyControllerTest.java b/services/tests/displayservicetests/src/com/android/server/display/BrightnessThermalPolicyControllerTest.java
 new file mode 100644
-index 0000000000000000000000000000000000000000..f47e796f573af4d54db58e970a40fcd02bbb6be5
+index 000000000..f47e796f5
 --- /dev/null
 +++ b/services/tests/displayservicetests/src/com/android/server/display/BrightnessThermalPolicyControllerTest.java
 @@ -0,0 +1,113 @@
@@ -9828,7 +10019,7 @@ index 0000000000000000000000000000000000000000..f47e796f573af4d54db58e970a40fcd0
 +    }
 +}
 diff --git a/services/tests/displayservicetests/src/com/android/server/display/DisplayPowerControllerTest.java b/services/tests/displayservicetests/src/com/android/server/display/DisplayPowerControllerTest.java
-index 9e9bfd42597475197f5f666e3d85373b0bb55b39..518aff2bf4d5796de00290d6af5e30de4c051ee1 100644
+index 9e9bfd425..518aff2bf 100644
 --- a/services/tests/displayservicetests/src/com/android/server/display/DisplayPowerControllerTest.java
 +++ b/services/tests/displayservicetests/src/com/android/server/display/DisplayPowerControllerTest.java
 @@ -44,6 +44,7 @@ import static org.mockito.Mockito.atLeastOnce;
@@ -10496,7 +10687,7 @@ index 9e9bfd42597475197f5f666e3d85373b0bb55b39..518aff2bf4d5796de00290d6af5e30de
 +
  }
 diff --git a/services/tests/displayservicetests/src/com/android/server/display/HighBrightnessModeControllerTest.java b/services/tests/displayservicetests/src/com/android/server/display/HighBrightnessModeControllerTest.java
-index a6ea86f7023c40b4024655682a3cdc5d00c616fd..1c937e4582aad54cd47ea3beccace77a89f839cc 100644
+index a6ea86f70..1c937e458 100644
 --- a/services/tests/displayservicetests/src/com/android/server/display/HighBrightnessModeControllerTest.java
 +++ b/services/tests/displayservicetests/src/com/android/server/display/HighBrightnessModeControllerTest.java
 @@ -868,4 +868,50 @@ public class HighBrightnessModeControllerTest {
@@ -10552,7 +10743,7 @@ index a6ea86f7023c40b4024655682a3cdc5d00c616fd..1c937e4582aad54cd47ea3beccace77a
  }
 diff --git a/services/tests/displayservicetests/src/com/android/server/display/SdrHdrCapTransportTest.java b/services/tests/displayservicetests/src/com/android/server/display/SdrHdrCapTransportTest.java
 new file mode 100644
-index 0000000000000000000000000000000000000000..8df952db021785ce93c6f83f41a31c439ca41a0f
+index 000000000..8df952db0
 --- /dev/null
 +++ b/services/tests/displayservicetests/src/com/android/server/display/SdrHdrCapTransportTest.java
 @@ -0,0 +1,198 @@
@@ -10755,7 +10946,7 @@ index 0000000000000000000000000000000000000000..8df952db021785ce93c6f83f41a31c43
 +
 +}
 diff --git a/services/tests/displayservicetests/src/com/android/server/display/brightness/clamper/BrightnessClamperControllerTest.java b/services/tests/displayservicetests/src/com/android/server/display/brightness/clamper/BrightnessClamperControllerTest.java
-index ec37d95be5da9c78e499c6c9856ba762da0852b1..b0cd43b776ed208f990c5b5bb8d0818e5510c3a2 100644
+index ec37d95be..b0cd43b77 100644
 --- a/services/tests/displayservicetests/src/com/android/server/display/brightness/clamper/BrightnessClamperControllerTest.java
 +++ b/services/tests/displayservicetests/src/com/android/server/display/brightness/clamper/BrightnessClamperControllerTest.java
 @@ -27,6 +27,7 @@ import static org.mockito.ArgumentMatchers.eq;
@@ -10878,7 +11069,7 @@ index ec37d95be5da9c78e499c6c9856ba762da0852b1..b0cd43b776ed208f990c5b5bb8d0818e
 +
  }
 diff --git a/services/tests/displayservicetests/src/com/android/server/display/brightness/clamper/BrightnessPluginModifierTest.java b/services/tests/displayservicetests/src/com/android/server/display/brightness/clamper/BrightnessPluginModifierTest.java
-index d6f79138b1d65f755ca2ce3d5c1cec1eecc03c50..0d0622d03d9c01af7db0ec339b67391b7e600924 100644
+index d6f79138b..0d0622d03 100644
 --- a/services/tests/displayservicetests/src/com/android/server/display/brightness/clamper/BrightnessPluginModifierTest.java
 +++ b/services/tests/displayservicetests/src/com/android/server/display/brightness/clamper/BrightnessPluginModifierTest.java
 @@ -127,6 +127,41 @@ public class BrightnessPluginModifierTest {
@@ -10924,7 +11115,7 @@ index d6f79138b1d65f755ca2ce3d5c1cec1eecc03c50..0d0622d03d9c01af7db0ec339b67391b
      public void testNoOpUpdateDoesNotNotify() {
          // Set an initial cap
 diff --git a/services/tests/displayservicetests/src/com/android/server/display/brightness/clamper/HdrBrightnessModifierTest.kt b/services/tests/displayservicetests/src/com/android/server/display/brightness/clamper/HdrBrightnessModifierTest.kt
-index 0c60f65c7a3e2fe527bbd21ed032a6879e81e0a3..51c979066149247d5674d178639434fba3aac3b3 100644
+index 0c60f65c7..51c979066 100644
 --- a/services/tests/displayservicetests/src/com/android/server/display/brightness/clamper/HdrBrightnessModifierTest.kt
 +++ b/services/tests/displayservicetests/src/com/android/server/display/brightness/clamper/HdrBrightnessModifierTest.kt
 @@ -614,6 +614,117 @@ class HdrBrightnessModifierTest {
@@ -11046,7 +11237,7 @@ index 0c60f65c7a3e2fe527bbd21ed032a6879e81e0a3..51c979066149247d5674d178639434fb
          maxHdrRatio: Float = MAX_HDR_RATIO
      ) {
 diff --git a/services/tests/displayservicetests/src/com/android/server/display/brightness/strategy/AutomaticBrightnessStrategyTest.java b/services/tests/displayservicetests/src/com/android/server/display/brightness/strategy/AutomaticBrightnessStrategyTest.java
-index d630c0f8195651cebd61e4aaf9fdbb253f7114e8..c063b4523696e5eca11a321bfa17e9393aad0c90 100644
+index d630c0f81..c063b4523 100644
 --- a/services/tests/displayservicetests/src/com/android/server/display/brightness/strategy/AutomaticBrightnessStrategyTest.java
 +++ b/services/tests/displayservicetests/src/com/android/server/display/brightness/strategy/AutomaticBrightnessStrategyTest.java
 @@ -142,7 +142,7 @@ public class AutomaticBrightnessStrategyTest {
@@ -11186,7 +11377,7 @@ index d630c0f8195651cebd61e4aaf9fdbb253f7114e8..c063b4523696e5eca11a321bfa17e939
          assertTrue(mAutomaticBrightnessStrategy.isShortTermModelActive());
 diff --git a/services/tests/displayservicetests/src/com/android/server/display/plugin/CapPluginStorageFixture.java b/services/tests/displayservicetests/src/com/android/server/display/plugin/CapPluginStorageFixture.java
 new file mode 100644
-index 0000000000000000000000000000000000000000..4ac14f650395f54575070170a626365bdbdbccbc
+index 000000000..4ac14f650
 --- /dev/null
 +++ b/services/tests/displayservicetests/src/com/android/server/display/plugin/CapPluginStorageFixture.java
 @@ -0,0 +1,30 @@
@@ -11221,7 +11412,7 @@ index 0000000000000000000000000000000000000000..4ac14f650395f54575070170a626365b
 +    }
 +}
 diff --git a/services/tests/servicestests/src/com/android/server/biometrics/sensors/BiometricSchedulerTest.java b/services/tests/servicestests/src/com/android/server/biometrics/sensors/BiometricSchedulerTest.java
-index 41a7ac259d40150247da7eed9bcc5b146a1ebc8c..3a8e409e847a216df4888bd658d970704cca787c 100644
+index 41a7ac259..3a8e409e8 100644
 --- a/services/tests/servicestests/src/com/android/server/biometrics/sensors/BiometricSchedulerTest.java
 +++ b/services/tests/servicestests/src/com/android/server/biometrics/sensors/BiometricSchedulerTest.java
 @@ -956,6 +956,148 @@ public class BiometricSchedulerTest {
@@ -11375,7 +11566,7 @@ index 41a7ac259d40150247da7eed9bcc5b146a1ebc8c..3a8e409e847a216df4888bd658d97070
          mCurrentUserId = 10;
 diff --git a/services/tests/servicestests/src/com/android/server/biometrics/sensors/face/aidl/AidlResponseHandlerTest.java b/services/tests/servicestests/src/com/android/server/biometrics/sensors/face/aidl/AidlResponseHandlerTest.java
 new file mode 100644
-index 0000000000000000000000000000000000000000..2db2508e5ed0867704f677c9f6d808fabb3f2cb5
+index 000000000..2db2508e5
 --- /dev/null
 +++ b/services/tests/servicestests/src/com/android/server/biometrics/sensors/face/aidl/AidlResponseHandlerTest.java
 @@ -0,0 +1,225 @@
@@ -11605,7 +11796,7 @@ index 0000000000000000000000000000000000000000..2db2508e5ed0867704f677c9f6d808fa
 +    }
 +}
 diff --git a/services/tests/servicestests/src/com/android/server/biometrics/sensors/face/aidl/FaceAuthenticationClientTest.java b/services/tests/servicestests/src/com/android/server/biometrics/sensors/face/aidl/FaceAuthenticationClientTest.java
-index 2492687ce2b24d12996b84fd7946070d9c7e525b..cffe6dbaad9bf853048e294aea2051da758fa484 100644
+index 2492687ce..cffe6dbaa 100644
 --- a/services/tests/servicestests/src/com/android/server/biometrics/sensors/face/aidl/FaceAuthenticationClientTest.java
 +++ b/services/tests/servicestests/src/com/android/server/biometrics/sensors/face/aidl/FaceAuthenticationClientTest.java
 @@ -30,6 +30,7 @@ import static org.mockito.ArgumentMatchers.anyInt;
@@ -11673,7 +11864,7 @@ index 2492687ce2b24d12996b84fd7946070d9c7e525b..cffe6dbaad9bf853048e294aea2051da
                  null /* sensorPrivacyManager */, 0 /* biometricStrength */,
                  mAuthenticationStateListeners) {
 diff --git a/services/tests/servicestests/src/com/android/server/biometrics/sensors/face/aidl/FaceGenerateChallengeClientTest.java b/services/tests/servicestests/src/com/android/server/biometrics/sensors/face/aidl/FaceGenerateChallengeClientTest.java
-index c12f13ee8cbe9bffc3c6916bc88d5ac19fa6b643..f4f4d5a1a823d0474e3e213d45b6e35c14e76bf2 100644
+index c12f13ee8..f4f4d5a1a 100644
 --- a/services/tests/servicestests/src/com/android/server/biometrics/sensors/face/aidl/FaceGenerateChallengeClientTest.java
 +++ b/services/tests/servicestests/src/com/android/server/biometrics/sensors/face/aidl/FaceGenerateChallengeClientTest.java
 @@ -17,11 +17,13 @@
@@ -11711,7 +11902,7 @@ index c12f13ee8cbe9bffc3c6916bc88d5ac19fa6b643..f4f4d5a1a823d0474e3e213d45b6e35c
          mClient = new FaceGenerateChallengeClient(mContext, () -> mAidlSession, mToken, listener,
                  USER_ID, TAG, SENSOR_ID, mBiometricLogger, mBiometricContext);
 diff --git a/services/tests/servicestests/src/com/android/server/biometrics/sensors/face/aidl/FaceProviderTest.java b/services/tests/servicestests/src/com/android/server/biometrics/sensors/face/aidl/FaceProviderTest.java
-index abc9d68b0fcf5c0d998830460bd07c198d2b3325..0675690503477a509c1b58e13f3bd4623bf2c092 100644
+index abc9d68b0..067569050 100644
 --- a/services/tests/servicestests/src/com/android/server/biometrics/sensors/face/aidl/FaceProviderTest.java
 +++ b/services/tests/servicestests/src/com/android/server/biometrics/sensors/face/aidl/FaceProviderTest.java
 @@ -122,6 +122,39 @@ public class FaceProviderTest {
@@ -11755,7 +11946,7 @@ index abc9d68b0fcf5c0d998830460bd07c198d2b3325..0675690503477a509c1b58e13f3bd462
      public void setUp() throws RemoteException {
          MockitoAnnotations.initMocks(this);
 diff --git a/services/tests/servicestests/src/com/android/server/biometrics/sensors/face/aidl/SensorTest.java b/services/tests/servicestests/src/com/android/server/biometrics/sensors/face/aidl/SensorTest.java
-index bf970867f1492ae88f04ecb7a0147b81fc89bcda..c52e158e77018a154c9726ae8dd7d17fd74c33c9 100644
+index bf970867f..c52e158e7 100644
 --- a/services/tests/servicestests/src/com/android/server/biometrics/sensors/face/aidl/SensorTest.java
 +++ b/services/tests/servicestests/src/com/android/server/biometrics/sensors/face/aidl/SensorTest.java
 @@ -24,7 +24,10 @@ import static org.mockito.ArgumentMatchers.anyInt;
@@ -11800,7 +11991,7 @@ index bf970867f1492ae88f04ecb7a0147b81fc89bcda..c52e158e77018a154c9726ae8dd7d17f
      public void halSessionCallback_respondsToResetLockout() throws Exception {
          doAnswer((Answer<Void>) invocationOnMock -> {
 diff --git a/services/tests/servicestests/src/com/android/server/biometrics/sensors/fingerprint/aidl/SensorTest.java b/services/tests/servicestests/src/com/android/server/biometrics/sensors/fingerprint/aidl/SensorTest.java
-index 3d05df552137d1f004205918ee79f41d42a26926..dacee0b97cdcf31c9cfe02cafd36f9b39fdfce91 100644
+index 3d05df552..dacee0b97 100644
 --- a/services/tests/servicestests/src/com/android/server/biometrics/sensors/fingerprint/aidl/SensorTest.java
 +++ b/services/tests/servicestests/src/com/android/server/biometrics/sensors/fingerprint/aidl/SensorTest.java
 @@ -212,8 +212,9 @@ public class SensorTest {
@@ -11817,7 +12008,7 @@ index 3d05df552137d1f004205918ee79f41d42a26926..dacee0b97cdcf31c9cfe02cafd36f9b3
  
 diff --git a/services/tests/servicestests/src/com/android/server/health/HonorBatteryManufacturingDateTest.java b/services/tests/servicestests/src/com/android/server/health/HonorBatteryManufacturingDateTest.java
 new file mode 100644
-index 0000000000000000000000000000000000000000..654fdacf7ef731c39981a4a81be5aec56ba08e1b
+index 000000000..654fdacf7
 --- /dev/null
 +++ b/services/tests/servicestests/src/com/android/server/health/HonorBatteryManufacturingDateTest.java
 @@ -0,0 +1,218 @@
@@ -12041,7 +12232,7 @@ index 0000000000000000000000000000000000000000..654fdacf7ef731c39981a4a81be5aec5
 +}
 diff --git a/services/tests/servicestests/src/com/android/server/health/HonorBatterySerialNumberTest.java b/services/tests/servicestests/src/com/android/server/health/HonorBatterySerialNumberTest.java
 new file mode 100644
-index 0000000000000000000000000000000000000000..4b6a0949d6bc6a56b4bc0328aa894160a4315c88
+index 000000000..4b6a0949d
 --- /dev/null
 +++ b/services/tests/servicestests/src/com/android/server/health/HonorBatterySerialNumberTest.java
 @@ -0,0 +1,178 @@
@@ -12224,7 +12415,7 @@ index 0000000000000000000000000000000000000000..4b6a0949d6bc6a56b4bc0328aa894160
 +    }
 +}
 diff --git a/services/tests/servicestests/src/com/android/server/locksettings/SoftwareRateLimiterTest.java b/services/tests/servicestests/src/com/android/server/locksettings/SoftwareRateLimiterTest.java
-index 0bd7271bd2a8626e50992bc460bc53db024661b6..7438eb2d26d3f8bac3471b5572fa77a3858c085c 100644
+index 0bd7271bd..7438eb2d2 100644
 --- a/services/tests/servicestests/src/com/android/server/locksettings/SoftwareRateLimiterTest.java
 +++ b/services/tests/servicestests/src/com/android/server/locksettings/SoftwareRateLimiterTest.java
 @@ -635,7 +635,9 @@ public class SoftwareRateLimiterTest {
@@ -12239,7 +12430,7 @@ index 0bd7271bd2a8626e50992bc460bc53db024661b6..7438eb2d26d3f8bac3471b5572fa77a3
  
      private LockscreenCredential newPassword(String password) {
 diff --git a/services/tests/servicestests/src/com/android/server/locksettings/recoverablekeystore/KeySyncTaskTest.java b/services/tests/servicestests/src/com/android/server/locksettings/recoverablekeystore/KeySyncTaskTest.java
-index dbdb70bcbfdf6cade7247a7fe6e69951593643d9..5ff5bd72dc7b9a6e1553ca1a9c3440a974de024f 100644
+index dbdb70bcb..5ff5bd72d 100644
 --- a/services/tests/servicestests/src/com/android/server/locksettings/recoverablekeystore/KeySyncTaskTest.java
 +++ b/services/tests/servicestests/src/com/android/server/locksettings/recoverablekeystore/KeySyncTaskTest.java
 @@ -974,6 +974,8 @@ public class KeySyncTaskTest {
@@ -12253,7 +12444,7 @@ index dbdb70bcbfdf6cade7247a7fe6e69951593643d9..5ff5bd72dc7b9a6e1553ca1a9c3440a9
      }
  }
 diff --git a/services/tests/servicestests/src/com/android/server/locksettings/recoverablekeystore/TestOnlyInsecureCertificateHelperTest.java b/services/tests/servicestests/src/com/android/server/locksettings/recoverablekeystore/TestOnlyInsecureCertificateHelperTest.java
-index 335155bb94c7e9fe285039b6b15b537ae6b9d813..a8b109ae1b354cf1dd548f12976902e9eb8d326c 100644
+index 335155bb9..a8b109ae1 100644
 --- a/services/tests/servicestests/src/com/android/server/locksettings/recoverablekeystore/TestOnlyInsecureCertificateHelperTest.java
 +++ b/services/tests/servicestests/src/com/android/server/locksettings/recoverablekeystore/TestOnlyInsecureCertificateHelperTest.java
 @@ -160,6 +160,8 @@ public class TestOnlyInsecureCertificateHelperTest {
@@ -12266,8 +12457,166 @@ index 335155bb94c7e9fe285039b6b15b537ae6b9d813..a8b109ae1b354cf1dd548f12976902e9
 +                LockPatternUtils.PATTERN_SIZE_DEFAULT);
      }
  }
+diff --git a/services/usb/java/com/android/server/usb/UsbLockdown.java b/services/usb/java/com/android/server/usb/UsbLockdown.java
+new file mode 100644
+index 000000000..b0524510a
+--- /dev/null
++++ b/services/usb/java/com/android/server/usb/UsbLockdown.java
+@@ -0,0 +1,79 @@
++/* SPDX-License-Identifier: Apache-2.0 */
++package com.android.server.usb;
++
++import android.content.BroadcastReceiver;
++import android.content.Context;
++import android.content.Intent;
++import android.content.IntentFilter;
++import android.database.ContentObserver;
++import android.hardware.usb.IUsbOperationInternal;
++import android.hardware.usb.UsbManager;
++import android.hardware.usb.UsbPort;
++import android.os.Handler;
++import android.os.HandlerThread;
++import android.provider.Settings;
++import android.util.Slog;
++
++/** Lock policy using AOSP's existing USB HAL and disable-request accounting. */
++final class UsbLockdown {
++    static final int DISABLE_REASON_LOCKED = 0x4c4459;
++    private static final String SETTING = "usb_data_when_locked";
++    private final Context mContext;
++    private final UsbService mService;
++    private final UsbManager mManager;
++    private final Handler mHandler;
++    private boolean mLocked = true;
++    private int mOperation;
++    private final android.util.ArraySet<String> mOwnedPorts = new android.util.ArraySet<>();
++
++    UsbLockdown(Context context, UsbService service) {
++        mContext = context;
++        mService = service;
++        mManager = context.getSystemService(UsbManager.class);
++        HandlerThread thread = new HandlerThread("UsbLockdown");
++        thread.start();
++        mHandler = new Handler(thread.getLooper());
++        ContentObserver observer = new ContentObserver(mHandler) {
++            @Override public void onChange(boolean selfChange) { update(); }
++        };
++        context.getContentResolver().registerContentObserver(
++                Settings.Global.getUriFor(SETTING), false, observer);
++        context.getContentResolver().registerContentObserver(
++                Settings.Global.getUriFor(Settings.Global.ADB_ENABLED), false, observer);
++        context.registerReceiver(new BroadcastReceiver() {
++            @Override public void onReceive(Context ctx, Intent intent) { update(); }
++        }, new IntentFilter(UsbManager.ACTION_USB_PORT_CHANGED), null, mHandler,
++                Context.RECEIVER_NOT_EXPORTED);
++    }
++
++    void onLockChanged(boolean locked) {
++        mHandler.post(() -> {
++            mLocked = locked;
++            update();
++        });
++    }
++
++    private void update() {
++        if (mManager == null) return;
++        int mode = Settings.Global.getInt(mContext.getContentResolver(), SETTING, 0);
++        boolean adb = Settings.Global.getInt(mContext.getContentResolver(),
++                Settings.Global.ADB_ENABLED, 0) != 0;
++        boolean restrict = mLocked && (mode == 1 || mode == 2 && !adb);
++        try {
++            for (UsbPort port : mManager.getPorts()) {
++                // Reuse AOSP's distinct internal-request reason. Removing this reason
++                // never removes another caller's or administrator's restriction.
++                if (!restrict && !mOwnedPorts.remove(port.getId())) continue;
++                if (restrict) mOwnedPorts.add(port.getId());
++                mService.enableUsbDataInternal(port.getId(), !restrict, ++mOperation,
++                        new IUsbOperationInternal.Stub() {
++                            @Override public void onOperationComplete(int status) {
++                                if (status != 0) Slog.w("UsbLockdown", "USB request result: " + status);
++                            }
++                        }, DISABLE_REASON_LOCKED, true);
++            }
++        } catch (RuntimeException error) {
++            Slog.e("UsbLockdown", "USB lock policy could not be applied", error);
++        }
++    }
++}
+diff --git a/services/usb/java/com/android/server/usb/UsbService.java b/services/usb/java/com/android/server/usb/UsbService.java
+index ce7ae67f7..2f0a8cf44 100644
+--- a/services/usb/java/com/android/server/usb/UsbService.java
++++ b/services/usb/java/com/android/server/usb/UsbService.java
+@@ -171,6 +171,7 @@ public class UsbService extends IUsbManager.Stub {
+     private UsbDeviceManager mDeviceManager;
+     private UsbHostManager mHostManager;
+     private UsbPortManager mPortManager;
++    private UsbLockdown mUsbLockdown;
+     private Usb4Manager mUsb4Manager;
+     private UsbAuthManager mAuthManager;
+     private final UsbAlsaManager mAlsaManager;
+@@ -328,6 +329,7 @@ public class UsbService extends IUsbManager.Stub {
+ 
+     private void onScreenLockChange(boolean locked) {
+         Slog.d(TAG, "Handling onScreenLockChange: " + locked);
++        if (mUsbLockdown != null) mUsbLockdown.onLockChanged(locked);
+         if (mUsb4Manager != null) {
+             mUsb4Manager.onUpdateScreenLockedState(locked);
+         }
+@@ -415,7 +417,12 @@ public class UsbService extends IUsbManager.Stub {
+             mAuthManager.systemReady();
+         }
+ 
+-        if (com.android.server.usb.flags.Flags.enableUsb4()
++        if (android.os.SystemProperties.getBoolean(
++                "ro.lineage.ldy_an00.security_controls", false) && mPortManager != null) {
++            mUsbLockdown = new UsbLockdown(mContext, this);
++        }
++
++        if (mUsbLockdown != null || com.android.server.usb.flags.Flags.enableUsb4()
+                 || com.android.server.usb.flags.Flags.enableUsb4Tbt()
+                 || com.android.server.usb.flags.Flags.enableUsbHostAuthorization()) {
+             registerForKeyguardCallbacks();
+@@ -426,7 +433,8 @@ public class UsbService extends IUsbManager.Stub {
+         if (mDeviceManager != null) {
+             mDeviceManager.bootCompleted();
+         }
+-        if (android.hardware.usb.flags.Flags.enableUsbDataSignalStaking()) {
++        if (mUsbLockdown != null
++                || android.hardware.usb.flags.Flags.enableUsbDataSignalStaking()) {
+             new PackageUninstallMonitor()
+                     .register(mContext, UserHandle.ALL, BackgroundThread.getHandler());
+ 
+@@ -1205,7 +1213,8 @@ public class UsbService extends IUsbManager.Stub {
+                 + operationId);
+         mContext.enforceCallingOrSelfPermission(android.Manifest.permission.MANAGE_USB, null);
+ 
+-        if (android.hardware.usb.flags.Flags.enableUsbDataSignalStaking()) {
++        if (mUsbLockdown != null
++                || android.hardware.usb.flags.Flags.enableUsbDataSignalStaking()) {
+             if (!shouldUpdateUsbSignaling(portId, enable, requester, isInternalRequest)) {
+                 try {
+                     callback.onOperationComplete(USB_OPERATION_ERROR_INTERNAL);
+@@ -1247,7 +1256,7 @@ public class UsbService extends IUsbManager.Stub {
+      */
+     private boolean shouldUpdateUsbSignaling(String portId, boolean enable,
+         int requester, boolean isInternalRequest) {
+-        if(isInternalRequest &&
++        if (isInternalRequest && mUsbLockdown == null &&
+                !android.hardware.usb.flags.Flags.enableUsbDataSignalStakingInternal())
+           return false;
+         synchronized (mUsbDisableRequesters) {
+@@ -1297,7 +1306,8 @@ public class UsbService extends IUsbManager.Stub {
+                 + operationId);
+         mContext.enforceCallingOrSelfPermission(android.Manifest.permission.MANAGE_USB, null);
+ 
+-        if (android.hardware.usb.flags.Flags.enableUsbDataSignalStaking()) {
++        if (mUsbLockdown != null
++                || android.hardware.usb.flags.Flags.enableUsbDataSignalStaking()) {
+             if (!shouldUpdateUsbSignaling(portId, true, callerUid, isInternalRequest)) {
+                 try {
+                     callback.onOperationComplete(USB_OPERATION_ERROR_INTERNAL);
 diff --git a/telephony/java/android/telephony/ServiceState.java b/telephony/java/android/telephony/ServiceState.java
-index cda465c8f298f4956ec1081f9e8ddecb08b60fa2..ce7044599b9842853b13c31a9550b5dc74e0a48e 100644
+index cda465c8f..ce7044599 100644
 --- a/telephony/java/android/telephony/ServiceState.java
 +++ b/telephony/java/android/telephony/ServiceState.java
 @@ -1760,6 +1760,12 @@ public class ServiceState implements Parcelable {
@@ -12284,7 +12633,7 @@ index cda465c8f298f4956ec1081f9e8ddecb08b60fa2..ce7044599b9842853b13c31a9550b5dc
      public static boolean isPsOnlyTech(int radioTechnology) {
          return radioTechnology == RIL_RADIO_TECHNOLOGY_LTE
 diff --git a/telephony/java/android/telephony/ims/ImsCallForwardInfo.java b/telephony/java/android/telephony/ims/ImsCallForwardInfo.java
-index 1c2cac27eb377c358043b2af9175dce2fa4dee2c..b40d7bc199928cbd70ff0e38bbcb2a3e8310e5eb 100644
+index 1c2cac27e..b40d7bc19 100644
 --- a/telephony/java/android/telephony/ims/ImsCallForwardInfo.java
 +++ b/telephony/java/android/telephony/ims/ImsCallForwardInfo.java
 @@ -147,6 +147,18 @@ public final class ImsCallForwardInfo implements Parcelable {
@@ -12307,7 +12656,7 @@ index 1c2cac27eb377c358043b2af9175dce2fa4dee2c..b40d7bc199928cbd70ff0e38bbcb2a3e
      @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
      public ImsCallForwardInfo() {
 diff --git a/telephony/java/android/telephony/ims/feature/ImsFeature.java b/telephony/java/android/telephony/ims/feature/ImsFeature.java
-index 6e245b2e87913afad4a44911d1db9166cdcaee83..be4e2d20f775e162034514a0c43baeaa32dc1ddc 100644
+index 6e245b2e8..be4e2d20f 100644
 --- a/telephony/java/android/telephony/ims/feature/ImsFeature.java
 +++ b/telephony/java/android/telephony/ims/feature/ImsFeature.java
 @@ -413,6 +413,15 @@ public abstract class ImsFeature {
@@ -12327,7 +12676,7 @@ index 6e245b2e87913afad4a44911d1db9166cdcaee83..be4e2d20f775e162034514a0c43baeaa
       * Internal method called by ImsFeature when setFeatureState has changed.
       */
 diff --git a/telephony/java/android/telephony/ims/feature/MmTelFeature.java b/telephony/java/android/telephony/ims/feature/MmTelFeature.java
-index 8c2471ccb9ae7a2c409342eead8fe3e802ee3e48..24a053f12df85552e51abbc7006893f408b2d901 100644
+index 8c2471ccb..24a053f12 100644
 --- a/telephony/java/android/telephony/ims/feature/MmTelFeature.java
 +++ b/telephony/java/android/telephony/ims/feature/MmTelFeature.java
 @@ -1089,6 +1089,14 @@ public class MmTelFeature extends ImsFeature {

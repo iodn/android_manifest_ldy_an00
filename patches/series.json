@@ -49,15 +49,15 @@
     },
     {
       "path": "frameworks/base",
-      "revision": "31ed7c7656a3ed0e45525731c39e37b854864c86",
-      "tree": "0e424a7c935257b0f94ba13c07a8f6f966fc31f7",
+      "revision": "87c2621e47a4afb65ab5a2bd2160e24271649f20",
+      "tree": "3c18c3cd30cb13c664389a7c380e75a1fb95f440",
       "base_revision": "22de88b7b8eb979c816669c7963dee66ae4953cd",
       "patch": "frameworks_base.patch",
-      "patch_sha256": "d010739d774a1a36e8e6c6f2ed825b1164817a90e0ee144c59e7b52c4d568e5b",
+      "patch_sha256": "e4000c37da0b0873de69a964c8d312c975322cb103736dc535944936a4b545a9",
       "patch_tree_verified": true,
       "remote_url": "https://github.com/LineageOS/android_frameworks_base",
-      "target_snapshot_revision": "31ed7c7656a3ed0e45525731c39e37b854864c86",
-      "target_snapshot_tree": "0e424a7c935257b0f94ba13c07a8f6f966fc31f7",
+      "target_snapshot_revision": "87c2621e47a4afb65ab5a2bd2160e24271649f20",
+      "target_snapshot_tree": "3c18c3cd30cb13c664389a7c380e75a1fb95f440",
       "historical_public_snapshot": {
         "revision": "193c50e5fb7e8278190f57048af9fab5a7098fb4",
         "tree": "5c28bc283ee9569918f5eba680041eedc509e857"
@@ -159,15 +159,15 @@
     },
     {
       "path": "packages/apps/Settings",
-      "revision": "c6d81f2fe2a1b6e23fbd291687fd6266a3fec4dd",
-      "tree": "2248f3dea1525c9195c0d0d260d03c46978bf41e",
+      "revision": "0e1476dea03c2b96b47915a3e78cc45e384bfe27",
+      "tree": "7c107152d44d341b8591a22738f68d95ba97575c",
       "base_revision": "f82184028165ea108335a9745428c26fea3cec47",
       "patch": "packages_apps_Settings.patch",
-      "patch_sha256": "cf277fcb772d38ee1dd4e8cf2cdd8fcbbe493566fc556a8ac516c577ad123b04",
+      "patch_sha256": "9810838f5299f6dbfb0e3fe33f9395ab4605ab6d1edcb28b47bfe5049f87c185",
       "patch_tree_verified": true,
       "remote_url": "https://github.com/LineageOS/android_packages_apps_Settings",
-      "target_snapshot_revision": "c6d81f2fe2a1b6e23fbd291687fd6266a3fec4dd",
-      "target_snapshot_tree": "2248f3dea1525c9195c0d0d260d03c46978bf41e",
+      "target_snapshot_revision": "0e1476dea03c2b96b47915a3e78cc45e384bfe27",
+      "target_snapshot_tree": "7c107152d44d341b8591a22738f68d95ba97575c",
       "historical_public_snapshot": {
         "revision": "8397134ae4ee640f1a26eb9f12d9eddb91650b89",
         "tree": "5f22ecf62a013dbae9b9d336782b93681ddf3489"
@@ -206,6 +206,18 @@
       "patch_sha256": "c310a56e35ccfedede9ff572c2e4e73acd79e37394edd2756830674b16a2ad9e",
       "patch_tree_verified": true,
       "remote_url": "https://github.com/LineageOS/android_system_fs_fs_mgr"
+    },
+    {
+      "path": "system/core",
+      "base_revision": "65d661b1a536701e8b118be4e9728d7b5ca727c9",
+      "remote_url": "https://github.com/LineageOS/android_system_core",
+      "patch": "system_core.patch",
+      "revision": "ef20df81ad1ef54cb600dc3be4279d89ec83629e",
+      "tree": "403b47438b1ca3985d2152d7024f466fa93fe554",
+      "patch_sha256": "911879f86234d940915e7b5aa72c083524eb334555f6d4c9b58c60743ea56dc3",
+      "patch_tree_verified": true,
+      "target_snapshot_revision": "ef20df81ad1ef54cb600dc3be4279d89ec83629e",
+      "target_snapshot_tree": "403b47438b1ca3985d2152d7024f466fa93fe554"
     }
   ]
 }
