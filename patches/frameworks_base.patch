@@ -6381,6 +6381,204 @@ index 8ef6345cf..ce07179b8 100644
          SystemUIDialog dialog = createDialog(displayId);
          prepareDialog();
  
+diff --git a/packages/SystemUI/src/com/android/systemui/screenshot/ImageExporter.java b/packages/SystemUI/src/com/android/systemui/screenshot/ImageExporter.java
+index 2d6381288..dd7252f37 100644
+--- a/packages/SystemUI/src/com/android/systemui/screenshot/ImageExporter.java
++++ b/packages/SystemUI/src/com/android/systemui/screenshot/ImageExporter.java
+@@ -27,7 +27,6 @@ import android.database.Cursor;
+ import android.graphics.Bitmap;
+ import android.graphics.Bitmap.CompressFormat;
+ import android.net.Uri;
+-import android.os.Build;
+ import android.os.Environment;
+ import android.os.ParcelFileDescriptor;
+ import android.os.SystemClock;
+@@ -35,6 +34,7 @@ import android.os.Trace;
+ import android.os.UserHandle;
+ import android.provider.DocumentsContract;
+ import android.provider.MediaStore;
++import android.provider.Settings;
+ import android.util.Log;
+ import android.view.Display;
+ 
+@@ -66,6 +66,8 @@ import javax.inject.Inject;
+ public class ImageExporter {
+     private static final String TAG = LogConfig.logTag(ImageExporter.class);
+ 
++    private static final String SCREENSHOT_TIMESTAMP_EXIF = "screenshot_timestamp_exif";
++
+     static final Duration PENDING_ENTRY_TTL = Duration.ofHours(24);
+ 
+     // ex: 'Screenshot_20201215-090626.png'
+@@ -390,7 +392,7 @@ public class ImageExporter {
+ 
+                 int width = mBitmap.getWidth();
+                 int height = mBitmap.getHeight();
+-                writeExif(mResolver, uri, mRequestId, width, height, mCaptureTime);
++                writeExif(mResolver, uri, mRequestId, width, height, mCaptureTime, mOwner);
+                 throwIfInterrupted();
+ 
+                 if (mCustomSaveUri == null || customUriSaveFailed) {
+@@ -502,7 +504,7 @@ public class ImageExporter {
+     }
+ 
+     private static void writeExif(ContentResolver resolver, Uri uri, UUID requestId, int width,
+-            int height, ZonedDateTime captureTime) throws ImageExportException {
++            int height, ZonedDateTime captureTime, UserHandle owner) throws ImageExportException {
+         Trace.beginSection("ImageExporter_writeExif");
+         ParcelFileDescriptor pfd = null;
+         try {
+@@ -517,6 +519,10 @@ public class ImageExporter {
+                 throw new ImageExportException(EXIF_READ_EXCEPTION, e);
+             }
+ 
++            if (Settings.Secure.getIntForUser(resolver, SCREENSHOT_TIMESTAMP_EXIF, 0,
++                    owner.getIdentifier()) == 0) {
++                captureTime = null;
++            }
+             updateExifAttributes(exif, requestId, width, height, captureTime);
+             try {
+                 exif.saveAttributes();
+@@ -581,13 +587,16 @@ public class ImageExporter {
+     }
+ 
+     static void updateExifAttributes(ExifInterface exif, UUID uniqueId, int width, int height,
+-            ZonedDateTime captureTime) {
++            @Nullable ZonedDateTime captureTime) {
+         exif.setAttribute(ExifInterface.TAG_IMAGE_UNIQUE_ID, uniqueId.toString());
+ 
+-        exif.setAttribute(ExifInterface.TAG_SOFTWARE, "Android " + Build.DISPLAY);
+         exif.setAttribute(ExifInterface.TAG_IMAGE_WIDTH, Integer.toString(width));
+         exif.setAttribute(ExifInterface.TAG_IMAGE_LENGTH, Integer.toString(height));
+ 
++        if (captureTime == null) {
++            return;
++        }
++
+         String dateTime = DateTimeFormatter.ofPattern("yyyy:MM:dd HH:mm:ss").format(captureTime);
+         String subSec = DateTimeFormatter.ofPattern("SSS").format(captureTime);
+         String timeZone = DateTimeFormatter.ofPattern("xxx").format(captureTime);
+diff --git a/packages/SystemUI/tests/src/com/android/systemui/screenshot/ImageExporterTest.java b/packages/SystemUI/tests/src/com/android/systemui/screenshot/ImageExporterTest.java
+index c75e625c4..02f928a27 100644
+--- a/packages/SystemUI/tests/src/com/android/systemui/screenshot/ImageExporterTest.java
++++ b/packages/SystemUI/tests/src/com/android/systemui/screenshot/ImageExporterTest.java
+@@ -21,6 +21,7 @@ import static com.android.systemui.screenshot.ImageExporter.createSystemFileDisp
+ import static org.junit.Assert.assertEquals;
+ import static org.junit.Assert.assertFalse;
+ import static org.junit.Assert.assertNotNull;
++import static org.junit.Assert.assertNull;
+ import static org.junit.Assert.assertTrue;
+ 
+ import static java.nio.charset.StandardCharsets.US_ASCII;
+@@ -35,12 +36,12 @@ import android.graphics.Canvas;
+ import android.graphics.Color;
+ import android.graphics.Paint;
+ import android.net.Uri;
+-import android.os.Build;
+ import android.os.ParcelFileDescriptor;
+ import android.os.Process;
+ import android.os.UserHandle;
+ import android.platform.test.annotations.EnableFlags;
+ import android.provider.MediaStore;
++import android.provider.Settings;
+ import android.testing.AndroidTestingRunner;
+ import android.view.Display;
+ 
+@@ -52,6 +53,7 @@ import com.android.systemui.SysuiTestCase;
+ 
+ import com.google.common.util.concurrent.ListenableFuture;
+ 
++import org.junit.After;
+ import org.junit.Before;
+ import org.junit.Test;
+ import org.junit.runner.RunWith;
+@@ -83,9 +85,62 @@ public class ImageExporterTest extends SysuiTestCase {
+     @Mock
+     private ContentResolver mMockContentResolver;
+ 
++    private String mPreviousTimestampSetting;
++
+     @Before
+     public void setup() {
+         MockitoAnnotations.initMocks(this);
++        ContentResolver resolver = mContext.getContentResolver();
++        mPreviousTimestampSetting = Settings.Secure.getString(resolver,
++                "screenshot_timestamp_exif");
++        Settings.Secure.putInt(resolver, "screenshot_timestamp_exif", 0);
++    }
++
++    @After
++    public void restoreTimestampSetting() {
++        Settings.Secure.putString(mContext.getContentResolver(), "screenshot_timestamp_exif",
++                mPreviousTimestampSetting);
++    }
++
++    @Test
++    public void testUpdateExifAttributes_privateMetadata() throws IOException {
++        ExifInterface exif = new ExifInterface(new ByteArrayInputStream(EXIF_FILE_TAG),
++                ExifInterface.STREAM_TYPE_EXIF_DATA_ONLY);
++        ImageExporter.updateExifAttributes(exif,
++                UUID.fromString("3c11da99-9284-4863-b1d5-6f3684976814"), 100, 100, null);
++
++        assertNull(exif.getAttribute(ExifInterface.TAG_SOFTWARE));
++        assertNull(exif.getAttribute(ExifInterface.TAG_DATETIME_ORIGINAL));
++        assertNull(exif.getAttribute(ExifInterface.TAG_SUBSEC_TIME_ORIGINAL));
++        assertNull(exif.getAttribute(ExifInterface.TAG_OFFSET_TIME_ORIGINAL));
++        assertEquals(100, exif.getAttributeInt(ExifInterface.TAG_IMAGE_WIDTH, 0));
++        assertEquals(100, exif.getAttributeInt(ExifInterface.TAG_IMAGE_LENGTH, 0));
++    }
++
++    @Test
++    public void testImageExport_timestampOptIn()
++            throws ExecutionException, InterruptedException, IOException {
++        ContentResolver resolver = mContext.getContentResolver();
++        Settings.Secure.putInt(resolver, "screenshot_timestamp_exif", 1);
++        Bitmap bitmap = createCheckerBitmap(1, 1, 1);
++        Uri uri = null;
++        try {
++            ImageExporter.Result result = new ImageExporter(resolver).export(DIRECT_EXECUTOR,
++                    UUID.randomUUID(), bitmap, CAPTURE_TIME, Process.myUserHandle(),
++                    Display.DEFAULT_DISPLAY, null).get();
++            uri = result.uri;
++            try (ParcelFileDescriptor pfd = resolver.openFile(uri, "r", null)) {
++                assertNotNull(pfd);
++                ExifInterface exif = new ExifInterface(pfd.getFileDescriptor());
++                assertNull(exif.getAttribute(ExifInterface.TAG_SOFTWARE));
++                assertEquals("2020:12:15 13:15:00",
++                        exif.getAttribute(ExifInterface.TAG_DATETIME_ORIGINAL));
++                assertEquals("-05:00", exif.getAttribute(ExifInterface.TAG_OFFSET_TIME_ORIGINAL));
++            }
++        } finally {
++            bitmap.recycle();
++            if (uri != null) resolver.delete(uri, null);
++        }
+     }
+ 
+     @Test
+@@ -162,7 +217,7 @@ public class ImageExporterTest extends SysuiTestCase {
+                         "3c11da99-9284-4863-b1d5-6f3684976814",
+                         exifInterface.getAttribute(ExifInterface.TAG_IMAGE_UNIQUE_ID));
+ 
+-                assertEquals("Exif " + ExifInterface.TAG_SOFTWARE, "Android " + Build.DISPLAY,
++                assertNull("Exif " + ExifInterface.TAG_SOFTWARE,
+                         exifInterface.getAttribute(ExifInterface.TAG_SOFTWARE));
+ 
+                 assertEquals("Exif " + ExifInterface.TAG_IMAGE_WIDTH, 100,
+@@ -170,11 +225,11 @@ public class ImageExporterTest extends SysuiTestCase {
+                 assertEquals("Exif " + ExifInterface.TAG_IMAGE_LENGTH, 100,
+                         exifInterface.getAttributeInt(ExifInterface.TAG_IMAGE_LENGTH, 0));
+ 
+-                assertEquals("Exif " + ExifInterface.TAG_DATETIME_ORIGINAL, "2020:12:15 13:15:00",
++                assertNull("Exif " + ExifInterface.TAG_DATETIME_ORIGINAL,
+                         exifInterface.getAttribute(ExifInterface.TAG_DATETIME_ORIGINAL));
+-                assertEquals("Exif " + ExifInterface.TAG_SUBSEC_TIME_ORIGINAL, "000",
++                assertNull("Exif " + ExifInterface.TAG_SUBSEC_TIME_ORIGINAL,
+                         exifInterface.getAttribute(ExifInterface.TAG_SUBSEC_TIME_ORIGINAL));
+-                assertEquals("Exif " + ExifInterface.TAG_OFFSET_TIME_ORIGINAL, "-05:00",
++                assertNull("Exif " + ExifInterface.TAG_OFFSET_TIME_ORIGINAL,
+                         exifInterface.getAttribute(ExifInterface.TAG_OFFSET_TIME_ORIGINAL));
+             }
+         } finally {
 diff --git a/services/core/java/com/android/server/audio/AudioService.java b/services/core/java/com/android/server/audio/AudioService.java
 index 7f9555c77..0b808c324 100644
 --- a/services/core/java/com/android/server/audio/AudioService.java

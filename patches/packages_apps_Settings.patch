@@ -119,6 +119,18 @@ index c6aaf2d2..bdd3bee4 100644
 +    <!-- Native hardware details require real platform providers. -->
 +    <bool name="config_show_hardware_info_details">false</bool>
  </resources>
+diff --git a/res/values/private_screenshots.xml b/res/values/private_screenshots.xml
+new file mode 100644
+index 00000000..64d0a8ab
+--- /dev/null
++++ b/res/values/private_screenshots.xml
+@@ -0,0 +1,6 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- SPDX-License-Identifier: Apache-2.0 -->
++<resources>
++    <string name="screenshot_timestamp_exif_title">Screenshot timestamps</string>
++    <string name="screenshot_timestamp_exif_summary">Include capture time and time zone in screenshot file metadata</string>
++</resources>
 diff --git a/res/values/strings.xml b/res/values/strings.xml
 index a84186b9..8ef3ab04 100644
 --- a/res/values/strings.xml
@@ -205,10 +217,10 @@ index e086a486..731de910 100644
 +
  </PreferenceScreen>
 diff --git a/res/xml/more_security_privacy_settings.xml b/res/xml/more_security_privacy_settings.xml
-index af3b5ecb..7a23ce45 100644
+index af3b5ecb..f500bc1a 100644
 --- a/res/xml/more_security_privacy_settings.xml
 +++ b/res/xml/more_security_privacy_settings.xml
-@@ -249,4 +249,10 @@
+@@ -249,4 +249,16 @@
                  android:targetPackage="com.google.attestation.verifier" />
      </Preference>
  
@@ -217,6 +229,12 @@ index af3b5ecb..7a23ce45 100644
 +        android:title="@string/device_protection_title"
 +        android:fragment="com.android.settings.security.DeviceProtectionSettings"
 +        settings:controller="com.android.settings.security.DeviceProtectionPreferenceController" />
++
++    <lineageos.preference.SecureSettingSwitchPreference
++        android:key="screenshot_timestamp_exif"
++        android:title="@string/screenshot_timestamp_exif_title"
++        android:summary="@string/screenshot_timestamp_exif_summary"
++        android:defaultValue="false" />
 +
  </PreferenceScreen>
 diff --git a/res/xml/network_provider_sims_list.xml b/res/xml/network_provider_sims_list.xml
@@ -258,10 +276,10 @@ index ee1f6b34..ea998622 100644
 +
  </PreferenceScreen>
 diff --git a/res/xml/security_advanced_settings.xml b/res/xml/security_advanced_settings.xml
-index 2c0c0bb8..cb7dded7 100644
+index 2c0c0bb8..31dde537 100644
 --- a/res/xml/security_advanced_settings.xml
 +++ b/res/xml/security_advanced_settings.xml
-@@ -163,4 +163,10 @@
+@@ -163,4 +163,16 @@
  
      </PreferenceCategory>
  
@@ -270,6 +288,12 @@ index 2c0c0bb8..cb7dded7 100644
 +        android:title="@string/device_protection_title"
 +        android:fragment="com.android.settings.security.DeviceProtectionSettings"
 +        settings:controller="com.android.settings.security.DeviceProtectionPreferenceController" />
++
++    <lineageos.preference.SecureSettingSwitchPreference
++        android:key="screenshot_timestamp_exif"
++        android:title="@string/screenshot_timestamp_exif_title"
++        android:summary="@string/screenshot_timestamp_exif_summary"
++        android:defaultValue="false" />
 +
  </PreferenceScreen>
 diff --git a/src/com/android/settings/Settings.java b/src/com/android/settings/Settings.java
