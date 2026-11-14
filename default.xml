@@ -1281,6 +1281,6 @@
   <project path="packages/apps/OpenEUICC/libs/lpac-jni/src/main/jni/cjson/cjson" name="cJSON" remote="upstream_5" revision="6d9f2443ab071f86e5d9b43025a40929ec41c46c" />
   <project path="packages/apps/OpenEUICC/libs/lpac-jni/src/main/jni/lpac" name="lpac" remote="upstream_6" revision="50cdf15ab40942b00f8819a1c2ca19997f1a6d34" />
   <project path="prebuilts/openeuicc-deps" name="android_prebuilts_openeuicc-deps" remote="upstream_7" revision="540216793010cabc49782bd01844cd8dd28a4c7c" />
-  <project path="vendor/honor/ldy_an00" name="android_vendor_honor_ldy_an00" remote="iodn" revision="b8e659e8ee55fcc9ece3b3151212e6904104c822" upstream="lineage-24.0" />
+  <project path="vendor/honor/ldy_an00" name="android_vendor_honor_ldy_an00" remote="iodn" revision="dfe5932300e992a2d603ce56a21bef1f1c54fd6a" upstream="lineage-24.0" />
   <contactinfo bugurl="https://github.com/iodn/android_manifest_ldy_an00/issues" />
 </manifest>
