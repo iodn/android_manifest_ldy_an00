@@ -1,0 +1,82 @@
+diff --git a/app/src/main/java/org/lineageos/aperture/SettingsActivity.kt b/app/src/main/java/org/lineageos/aperture/SettingsActivity.kt
+index 9198171ae5f3d891ecbeb6a34d02ed1fe236fe91..155397ac555baab4148167a46247822b36a53002 100644
+--- a/app/src/main/java/org/lineageos/aperture/SettingsActivity.kt
++++ b/app/src/main/java/org/lineageos/aperture/SettingsActivity.kt
+@@ -39,7 +39,6 @@ import org.lineageos.aperture.models.PermissionState
+ import org.lineageos.aperture.repositories.PreferencesRepository.Companion.preferenceStringToGestureAction
+ import org.lineageos.aperture.repositories.PreferencesRepository.Companion.sharedPreferencesKeyPrefix
+ import org.lineageos.aperture.repositories.PreferencesRepository.Companion.toPreferenceString
+-import org.lineageos.aperture.utils.CameraSoundsUtils
+ import org.lineageos.aperture.utils.PermissionsManager
+ 
+ class SettingsActivity : AppCompatActivity(R.layout.activity_settings) {
+@@ -158,7 +157,6 @@ class SettingsActivity : AppCompatActivity(R.layout.activity_settings) {
+             findPreference<ListPreference>("photo_capture_mode")!!
+         }
+         private val saveLocation by lazy { findPreference<SwitchPreference>("save_location") }
+-        private val shutterSound by lazy { findPreference<SwitchPreference>("shutter_sound") }
+ 
+         private val photoCaptureModePreferenceChangeListener =
+             Preference.OnPreferenceChangeListener { preference, newValue ->
+@@ -205,7 +203,6 @@ class SettingsActivity : AppCompatActivity(R.layout.activity_settings) {
+                         true
+                     }
+             }
+-            shutterSound?.isVisible = !CameraSoundsUtils.mustPlaySounds
+ 
+             // Photo capture mode
+             photoCaptureMode.onPreferenceChangeListener = photoCaptureModePreferenceChangeListener
+diff --git a/app/src/main/java/org/lineageos/aperture/utils/CameraSoundsUtils.kt b/app/src/main/java/org/lineageos/aperture/utils/CameraSoundsUtils.kt
+index fc5507192826da24850a75a0d08bb0e6c7a6fbb1..a48c2e1ddde52eb0c9f221db5fc6656ce531fc49 100644
+--- a/app/src/main/java/org/lineageos/aperture/utils/CameraSoundsUtils.kt
++++ b/app/src/main/java/org/lineageos/aperture/utils/CameraSoundsUtils.kt
+@@ -5,9 +5,7 @@
+ 
+ package org.lineageos.aperture.utils
+ 
+-import android.content.res.Resources
+ import android.media.MediaActionSound
+-import android.os.Build
+ import org.lineageos.aperture.repositories.PreferencesRepository
+ 
+ class CameraSoundsUtils(private val preferencesRepository: PreferencesRepository) {
+@@ -19,13 +17,13 @@ class CameraSoundsUtils(private val preferencesRepository: PreferencesRepository
+     }
+ 
+     fun playShutterClick() {
+-        if (preferencesRepository.shutterSound.value || mustPlaySounds) {
++        if (preferencesRepository.shutterSound.value) {
+             mediaActionSound.play(MediaActionSound.SHUTTER_CLICK)
+         }
+     }
+ 
+     fun playStartVideoRecording(): Boolean {
+-        if (preferencesRepository.shutterSound.value || mustPlaySounds) {
++        if (preferencesRepository.shutterSound.value) {
+             mediaActionSound.play(MediaActionSound.START_VIDEO_RECORDING)
+             return true
+         }
+@@ -33,22 +31,10 @@ class CameraSoundsUtils(private val preferencesRepository: PreferencesRepository
+     }
+ 
+     fun playStopVideoRecording() {
+-        if (preferencesRepository.shutterSound.value || mustPlaySounds) {
++        if (preferencesRepository.shutterSound.value) {
+             mediaActionSound.play(MediaActionSound.STOP_VIDEO_RECORDING)
+         }
+     }
+ 
+     fun release() = mediaActionSound.release()
+-
+-    companion object {
+-        val mustPlaySounds: Boolean
+-            @Suppress("DiscouragedApi")
+-            get() = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+-                MediaActionSound.mustPlayShutterSound()
+-            } else {
+-                val resources = Resources.getSystem()
+-                val id = resources.getIdentifier("config_camera_sound_forced", "bool", "android")
+-                id > 0 && resources.getBoolean(id)
+-            }
+-    }
+ }

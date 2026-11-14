@@ -112,6 +112,16 @@
       "remote_url": "https://github.com/LineageOS/android_lineage-sdk"
     },
     {
+      "path": "packages/apps/Aperture",
+      "revision": "2d504a06059484779b77fc2b6617480144f24c49",
+      "tree": "a37dd2e5849753af42c3217ef7cedc75db1cf565",
+      "base_revision": "5c52de5d27f1bc2e6cebb07d6352a299d22cb27d",
+      "remote_url": "https://github.com/LineageOS/android_packages_apps_Aperture",
+      "patch": "packages_apps_Aperture.patch",
+      "patch_sha256": "896183950f6ce818f2c84d40c1df5fd1e4b3f19a15a6560d0cd8ea66ca900993",
+      "patch_tree_verified": true
+    },
+    {
       "path": "packages/apps/AudioFX",
       "revision": "591199ae47db06d9e3222bf75135853e52788b95",
       "tree": "64837e0d2803e7c5ce570119431ec5b3b5bd75c8",
