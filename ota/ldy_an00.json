@@ -1,15 +1,15 @@
 [
   {
-    "datetime": 1794429169,
+    "datetime": 1794627824,
     "files": [
       {
-        "filename": "lineage-24.0-20261111-UNOFFICIAL-ldy_an00.zip",
+        "filename": "lineage-24.0-20261114-UNOFFICIAL-ldy_an00.zip",
         "os_patch_level": "2026-11-01",
         "os_sdk_level": 37,
-        "ota_property_files": "payload_metadata.bin:3570:63670,payload.bin:3570:824824257,payload_properties.txt:824827885:154,apex_info.pb:1840:1357,care_map.pb:3244:279,metadata:69:697,metadata.pb:834:958                       ",
-        "sha256": "66138528bc21a605d44f4b751bf997642b18047df1b798a0fc49b223bccce7ba",
-        "size": 824830940,
-        "url": "https://github.com/iodn/android_manifest_ldy_an00/releases/download/lineage-24.0-20261111-UNOFFICIAL-ldy_an00/lineage-24.0-20261111-UNOFFICIAL-ldy_an00.zip"
+        "ota_property_files": "payload_metadata.bin:3570:63670,payload.bin:3570:824804732,payload_properties.txt:824808360:154,apex_info.pb:1840:1357,care_map.pb:3244:279,metadata:69:697,metadata.pb:834:958                       ",
+        "sha256": "9ee057cbc75e638d4222b77959d3ed1024e4c576b7f48bdac827df9588f67d74",
+        "size": 824811415,
+        "url": "https://github.com/iodn/android_manifest_ldy_an00/releases/download/lineage-24.0-20261114-UNOFFICIAL-ldy_an00/lineage-24.0-20261114-UNOFFICIAL-ldy_an00.zip"
       }
     ],
     "type": "UNOFFICIAL",
