@@ -1,0 +1,40 @@
+diff --git a/daemon/usb.cpp b/daemon/usb.cpp
+index dedf9ac3e05722ea0ce71395c2d6c1bbeb2566e0..b19704d546ccbeb49f975e545c8b79cd7c0ecfbd 100644
+--- a/daemon/usb.cpp
++++ b/daemon/usb.cpp
+@@ -722,6 +722,18 @@ struct UsbFfsConnection : public Connection {
+     static constexpr int kInterruptionSignal = SIGUSR1;
+ };
+ 
++// The framework is not running when init can first start adbd. Keep USB closed
++// until it has evaluated the lock policy; never persist an allow across boots.
++static void wait_for_usb_lockdown() {
++#if !defined(__ANDROID_RECOVERY__)
++    if (android::base::GetBoolProperty("ro.lineage.ldy_an00.security_controls", false)) {
++        while (!android::base::WaitForProperty("sys.ldy_security.usb_adb_allowed", "1")) {
++            std::this_thread::sleep_for(1s);
++        }
++    }
++#endif
++}
++
+ static void usb_ffs_open_thread() {
+     adb_thread_setname("usb ffs open");
+ 
+@@ -740,6 +752,7 @@ static void usb_ffs_open_thread() {
+     });
+ 
+     while (true) {
++        wait_for_usb_lockdown();
+         unique_fd control;
+         unique_fd bulk_out;
+         unique_fd bulk_in;
+@@ -754,6 +767,8 @@ static void usb_ffs_open_thread() {
+             VLOG(USB) << "resuming USB";
+         }
+ 
++        // The vendor-disabled wait can outlive a subsequent screen lock.
++        wait_for_usb_lockdown();
+         atransport* transport = new atransport(kTransportUsb);
+         transport->name = "UsbFfs";
+         std::promise<void> destruction_notifier;

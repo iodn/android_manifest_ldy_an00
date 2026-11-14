@@ -1,5 +1,5 @@
 diff --git a/init/property_service.cpp b/init/property_service.cpp
-index 89adf33..c97f916 100644
+index 89adf3331170a161d922d8b662fe453e5aed2a50..2fbf113d2619fefe9ba3434f6cf31bb3decc6062 100644
 --- a/init/property_service.cpp
 +++ b/init/property_service.cpp
 @@ -23,6 +23,8 @@
@@ -87,13 +87,17 @@ index 89adf33..c97f916 100644
  // This returns one of the enum of PROP_SUCCESS or PROP_ERROR*, or std::nullopt
  // if asynchronous.
  std::optional<uint32_t> HandlePropertySet(const std::string& name, const std::string& value,
-@@ -579,6 +650,14 @@ std::optional<uint32_t> HandlePropertySet(const std::string& name, const std::st
+@@ -579,6 +650,18 @@ std::optional<uint32_t> HandlePropertySet(const std::string& name, const std::st
          return {PROP_SUCCESS};
      }
  
-+    if (name == "sys.ldy_security.reboot_ctl" || name == "sys.ldy_security.reboot_inhibit") {
++    if (name == "sys.ldy_security.reboot_ctl" || name == "sys.ldy_security.reboot_inhibit"
++            || name == "sys.ldy_security.usb_adb_allowed") {
 +        // An explicit credential check also applies when SELinux is permissive.
 +        if (cr.uid != AID_SYSTEM) return PROP_ERROR_PERMISSION_DENIED;
++        if (name == "sys.ldy_security.usb_adb_allowed" && value != "0" && value != "1") {
++            return PROP_ERROR_INVALID_VALUE;
++        }
 +        if (name == "sys.ldy_security.reboot_ctl") {
 +            return auto_reboot_handle_property_set(value);
 +        }
