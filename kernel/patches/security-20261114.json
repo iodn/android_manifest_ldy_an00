@@ -1,0 +1,114 @@
+{
+  "base": "70f67f1acd5b4871106fb7e9e945fd8bd764816a",
+  "head": "d8eddc5fb80b3061efc6541dda5ca97315374f0a",
+  "commits": [
+    {
+      "commit": "78403add1c10ba7ddeba46e5576b3cee0b8f51b4",
+      "parent": "70f67f1acd5b4871106fb7e9e945fd8bd764816a",
+      "tree": "5f22b4e5073725931e3b5a0f495bded0cc35c110",
+      "author": {
+        "name": "T.J. Mercier",
+        "email": "tjmercier@google.com",
+        "date": "1793305138 -0700"
+      },
+      "committer": {
+        "name": "iodn",
+        "email": "114117719+iodn@users.noreply.github.com",
+        "date": "1794628241 +0000"
+      },
+      "message": "UPSTREAM: mm: memcontrol: fix NULL pointer deref and UAF from high_work_func() on dying memcg\n\nWhen memory.high is exceeded in non-task context, try_charge_memcg()\nschedules memcg->high_work without taking a reference on the memcg, and\nhigh_work_func() invokes reclaim_high() without pinning the memcg.\n\nWith obj_cgroup reparenting, introduced in commit bf4f059954dc (\"mm:\nmemcg/slab: obj_cgroup API\"), objects charged to a child memcg are\nreparented to its parent in mem_cgroup_css_offline() instead of holding a\nreference on the child until uncharged.  Subsequent uncharges of those\nobjects go to the parent, which can leave the child's memory use\npermanently above its high limit, so any later charge on the offlined\nmemcg in non-task context schedules high_work.  This was later widened\nfrom kernel memory to LRU folios when commit f1cf8d2f36dc (\"mm:\nmemcontrol: eliminate the problem of dying memory cgroup for LRU folios\")\nconverted LRU folios to use obj_cgroup reparenting.\n\ncancel_work_sync(&memcg->high_work) only runs at the end of teardown in\nmem_cgroup_css_free(), so high_work_func() can start or still be running\nreclaim_high() after mem_cgroup_css_released() or shrink_many() has called\nlru_gen_release_memcg() and unhashed lruvec->lrugen.list.  If reclaim\ntries to rotate the memcg, lru_gen_rotate_memcg() dereferences a NULL\npprev pointer.  This issue is specific to MGLRU and was introduced with\nthe memcg LRU in commit e4dde56cd208 (\"mm: multi-gen LRU: per-node\nlru_gen_folio lists\").\n\nWith either traditional LRU or MGLRU, css_free_rwork_fn() calls\ncss_rstat_exit() which frees per-CPU rstat data before calling\nmem_cgroup_css_free().  If reclaim_high() is still running, rstat updates\nvia mod_lruvec_state() -> __css_rstat_updated() cause a use-after-free on\nthe per-CPU rstat data.  This was introduced when commit 5da3bfa029d6\n(\"cgroup: use separate rstat trees for each subsystem\") moved\ncss_rstat_exit() ahead of ss->css_free().\n\nFix both problems by acquiring a reference with css_tryget_online() in\nhigh_work_func() before calling reclaim_high(), and by resetting\nmemory.high and swap.high to PAGE_COUNTER_MAX in mem_cgroup_css_offline()\nso that charges via references on an offlined memcg do not trigger\nhigh_work on the dead child and skip checking live ancestors in\ntry_charge_memcg().\n\nAcquiring the reference in high_work_func() rather than before scheduling\nhigh_work is safe because mem_cgroup_css_free() calls irq_work_sync() and\ncancel_work_sync() which cancels pending work and waits for an already\nrunning high_work_func() to complete before mem_cgroup_free() frees the\nmemcg.  css_tryget_online() uses percpu_ref_tryget_live() and is safe to\ncall after percpu_ref_exit() before the cgroup is freed unlike\ncss_tryget().\n\nOops: general protection fault, probably for non-canonical address 0xdffffc0000000000: 0000 [#1] SMP KASAN NOPTI\nKASAN: null-ptr-deref in range [0x0000000000000000-0x0000000000000007]\nCPU: 1 UID: 0 PID: 27 Comm: kworker/1:0 Tainted: G    B   W           7.3.0-rc5-g2bba28e98578 #284 PREEMPT(full)\nTainted: [B]=BAD_PAGE, [W]=WARN  <-- Taint from lru_gen_rotate_memcg() VM_WARN_ON_ONCE\nHardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS 1.17.0-debian-1.17.0-1 04/01/2014\nWorkqueue: events high_work_func\nRIP: 0010:lru_gen_rotate_memcg+0x1a3/0xe90\nCall Trace:\n <TASK>\n ? read_ctrl_pos+0x22f/0x3f0\n shrink_lruvec+0x16cb/0x1b80\n ? ret_from_fork_asm+0x1a/0x30\n ? lapic_next_event+0x15/0x20\n ? clockevents_program_event+0x2bb/0x6f0\n ? lapic_next_event+0x15/0x20\n ? __pfx_shrink_lruvec+0x10/0x10\n ? __pfx_clockevents_program_event+0x10/0x10\n ? _raw_spin_lock+0x84/0xe0\n ? __pfx__raw_spin_lock+0x10/0x10\n ? kasan_save_stack+0x30/0x50\n ? psi_group_change+0x381/0x740\n ? __pfx_sched_clock_cpu+0x10/0x10\n ? save_fpregs_to_fpstate+0xc4/0x2c0\n ? finish_task_switch.isra.0+0x1de/0xac0\n ? __schedule+0xf62/0x42c0\n ? __pfx___schedule+0x10/0x10\n ? __pfx___irq_work_queue_local+0x10/0x10\n ? shrink_node+0x626/0x31e0\n shrink_node+0x626/0x31e0\n ? ring_buffer_unlock_commit+0x11d/0x5c0\n ? kswapd_clear_hopeless+0xa0/0x150\n ? __pfx_shrink_node+0x10/0x10\n ? 0xffffffffc0000095\n do_try_to_free_pages+0x255/0x13b0\n ? ring_buffer_unlock_commit+0x11d/0x5c0\n ? reclaim_high+0x10a/0x1b0\n try_to_free_mem_cgroup_pages+0x1f9/0x5a0\n ? __pfx_try_to_free_mem_cgroup_pages+0x10/0x10\n ? irqentry_exit+0xc6/0x670\n reclaim_high+0x10a/0x1b0\n ? __pfx_reclaim_high+0x10/0x10\n ? process_one_work+0x5ff/0x1030\n ? __pfx_high_work_func+0x10/0x10\n process_one_work+0x6e2/0x1030\n ? __pfx___schedule+0x10/0x10\n ? __pfx_process_one_work+0x10/0x10\n worker_thread+0x422/0xbb0\n ? __pfx_worker_thread+0x10/0x10\n kthread+0x2cd/0x3a0\n ? recalc_sigpending+0x15c/0x200\n ? __pfx_kthread+0x10/0x10\n ret_from_fork+0x368/0x590\n ? __pfx_ret_from_fork+0x10/0x10\n ? __switch_to+0x588/0xf50\n ? __pfx_kthread+0x10/0x10\n ret_from_fork_asm+0x1a/0x30\n </TASK>\n\nLink: https://lore.kernel.org/20261029201858.2932905-1-tjmercier@google.com\nFixes: e4dde56cd208 (\"mm: multi-gen LRU: per-node lru_gen_folio lists\")\nFixes: 5da3bfa029d6 (\"cgroup: use separate rstat trees for each subsystem\")\nSigned-off-by: T.J. Mercier <tjmercier@google.com>\nSigned-off-by: Andrew Morton <akpm@linux-foundation.org>\nReviewed-by: Johannes Weiner <hannes@cmpxchg.org>\nAcked-by: Muchun Song <muchun.song@linux.dev>\nAcked-by: Shakeel Butt <shakeel.butt@linux.dev>\nAcked-by: Michal Hocko <mhocko@suse.com>\nCc: Michal Hocko <mhocko@kernel.org>\nCc: Roman Gushchin <roman.gushchin@linux.dev>\nCc: Qi Zheng <qi.zheng@linux.dev>\nCc: JP Kobryn <jp.kobryn@linux.dev>\nCc: <stable@vger.kernel.org>\n(cherry picked from commit dd94d8c7660a60dbfcd425e0d10120de6d02a7bd)\nBug: 574112795\nChange-Id: Id38699ecbad66328c6e5edc5158166475609184a\nSigned-off-by: T.J. Mercier <tjmercier@google.com>\n\n(cherry picked from Android common fbea59ca3306162681dbe47fd881f68ca2996e5b)\nSigned-off-by: iodn <114117719+iodn@users.noreply.github.com>\n",
+      "patch": "0008-UPSTREAM-mm-memcontrol-fix-NULL-pointer-deref-and-UA.patch",
+      "patch_sha256": "ebd992e0647dd3d299e61bdd41bd8a6a7518e7d4fe6c589e4d42e0b195e1a70c"
+    },
+    {
+      "commit": "3db315ffc866a28e2a75ff603476c7f5d1d5d3b7",
+      "parent": "78403add1c10ba7ddeba46e5576b3cee0b8f51b4",
+      "tree": "e669ea4fef170ddb03c3b2ae22b5eb72feca3543",
+      "author": {
+        "name": "Mikhail Gavrilov",
+        "email": "mikhail.v.gavrilov@gmail.com",
+        "date": "1791908057 -0400"
+      },
+      "committer": {
+        "name": "iodn",
+        "email": "114117719+iodn@users.noreply.github.com",
+        "date": "1794628241 +0000"
+      },
+      "message": "UPSTREAM: Bluetooth: RFCOMM: connect the session socket without rfcomm_mutex\n\n[ Upstream commit ac022970e9fb0a5f7e7d1f6c8e104c1ed924dd1c ]\n\nAn RFCOMM connect() issued while a BR/EDR link is being authenticated\nmakes lockdep report a circular dependency, and the reported cycle is a\nreal AB/BA between rfcomm_mutex and hdev->lock.\n\nrfcomm_security_cfm() is called from the HCI event path, which already\nholds hdev->lock:\n\n  hci_rx_work()\n    hci_event_packet()\n      hci_cc_read_enc_key_size()   [hdev->lock]\n        hci_encrypt_cfm()          [hci_cb_list_lock]\n          rfcomm_security_cfm()    [rfcomm_mutex]\n\nwhile an RFCOMM connect() from userspace takes the same two locks the\nother way round:\n\n  rfcomm_sock_connect()\n    rfcomm_dlc_open()              [rfcomm_mutex]\n      __rfcomm_dlc_open()\n        rfcomm_session_create()\n          kernel_connect()\n            l2cap_sock_connect()\n              l2cap_chan_connect() [hdev->lock]\n\n  WARNING: possible circular locking dependency detected\n  kworker/u131:1/1128 is trying to acquire lock:\n  rfcomm_mutex, at: rfcomm_security_cfm+0x31/0x3e0 [rfcomm]\n  but task is already holding lock:\n  hci_cb_list_lock, at: hci_cc_read_enc_key_size+0x1d2/0xcc0\n  Chain exists of:\n    rfcomm_mutex --> &hdev->lock --> hci_cb_list_lock\n\nhci_auth_complete_evt() and hci_encrypt_change_evt() reach the callback\nthe same way.\n\nBoth orders have to be seen in the same boot, which is why a BR/EDR\nconnection alone is not enough to show it: a session set up by the\nremote side is created by rfcomm_accept_connection() in krfcommd, which\ncalls kernel_accept() and never takes hdev->lock under rfcomm_mutex.\nConnecting a device that authenticates and encrypts the link and then\ncalling connect() on an RFCOMM socket towards any address - the connect\ndoes not have to succeed, the order is recorded before the page timeout\n- reports it every time.\n\nOnly the session socket has to be connected with the lock held, and it\ndoes not: nothing else can see the socket before it is put on the\nsession list.  So connect it first and take rfcomm_mutex afterwards,\nwhich removes the rfcomm_mutex -> hdev->lock order for good, rather\nthan keeping the HCI event path out of rfcomm_mutex.\n\nrfcomm_session_create() becomes rfcomm_session_connect(), which returns\nthe connected socket without touching the session list, and\nrfcomm_dlc_open() adds the session once it holds the lock again.  If\nanother opener added a session for the same pair while this socket was\nconnecting, that session is used and this socket is dropped.\n__rfcomm_dlc_open() now takes the session it should use, and its state\ncheck runs after the lock is re-acquired, so a DLC that was opened or\nclosed in the meantime is still handled.\n\nOver an existing ACL link the connection can complete before the\nsession reaches the list, and the wakeup from the socket callback is\nthen lost, so krfcommd is woken once the session is visible.\n\nConnecting without the lock opens a window in which the socket can be\nclosed.  The DLC is not on a session yet, so rfcomm_dlc_close() finds\nnothing to do and returns without touching it, and rfcomm_dlc_open()\nwould then attach a DLC whose owner is gone.  rfcomm_dlc_close() now\nmarks such a DLC with RFCOMM_CLOSED, and rfcomm_dlc_open() checks the\nmark once it holds rfcomm_mutex again and drops the socket instead of\nattaching the DLC.  The mark is cleared when an open starts, so a DLC\nthat is reused is not affected.  This covers both callers of\nrfcomm_dlc_open(), the socket and the tty layer.\n\nBug: 508702335\nFixes: 759c185d0bbd (\"Bluetooth: RFCOMM: serialize security confirmation handling\")\nSuggested-by: Pauli Virtanen <pav@iki.fi>\nReported-by: Pauli Virtanen <pav@iki.fi>\nCloses: https://lore.kernel.org/linux-bluetooth/5e76a95e934e451e7006db28827c2d64af5a88be.camel@iki.fi/\nReported-by: syzbot+74071deb72339c215b2e@syzkaller.appspotmail.com\nCloses: https://lore.kernel.org/linux-bluetooth/6a92fadc.08e933ee.dbf97.008f.GAE@google.com/\nReported-by: Jiaming Zhang <r772577952@gmail.com>\nCloses: https://lore.kernel.org/all/CANypQFabseTuRiyz2pGkc_Qj0moGDnY7KEp1qdTOqkw6gAL3hw@mail.gmail.com/\nCc: stable@vger.kernel.org\nSigned-off-by: Mikhail Gavrilov <mikhail.v.gavrilov@gmail.com>\nTested-by: syzbot+74071deb72339c215b2e@syzkaller.appspotmail.com\nSigned-off-by: Luiz Augusto von Dentz <luiz.von.dentz@intel.com>\n[ sashal: Changed kernel_connect()\u2019s address cast from struct sockaddr_unsized * to struct sockaddr *. ]\nSigned-off-by: Sasha Levin <sashal@kernel.org>\nChange-Id: Idb2e10b69dab7b99897c7ca36c465919bea64a5a\n(cherry picked from commit d2206e8c78be69d21d4f5343c3e99fbaeef41cbb)\nSigned-off-by: Lee Jones <joneslee@google.com>\n\n(cherry picked from Android common c7b2bde1f0066d3d05f4e47ef639f096004fedec)\nSigned-off-by: iodn <114117719+iodn@users.noreply.github.com>\n",
+      "patch": "0009-UPSTREAM-Bluetooth-RFCOMM-connect-the-session-socket.patch",
+      "patch_sha256": "abb89f3107131998266680302fdbc6a1546f29f467e5fc040048d6033e5a1863"
+    },
+    {
+      "commit": "faf591fe549eb89f60223129f75d79bf7c7298bd",
+      "parent": "3db315ffc866a28e2a75ff603476c7f5d1d5d3b7",
+      "tree": "ff1d42ffe606f52885fed20d0e804bed97e2486b",
+      "author": {
+        "name": "Pauli Virtanen",
+        "email": "pav@iki.fi",
+        "date": "1786297361 +0300"
+      },
+      "committer": {
+        "name": "iodn",
+        "email": "114117719+iodn@users.noreply.github.com",
+        "date": "1794628241 +0000"
+      },
+      "message": "BACKPORT: Bluetooth: L2CAP: access chan->conn safely in get/setsockopt\n\n[ Upstream commit ca2c4c26498643f421d35ffe258fafbd3ed461c3 ]\n\nSince commit b66774b48dd9 (\"Bluetooth: L2CAP: Fix UAF in channel timeout by holding conn ref\")\nl2cap_chan::conn has held reference and remains non-NULL also after the\ncorresponding hci_conn is deleted.  In this state accessing various\nfields eg. hci_conn::hdev is invalid, which leads to KASAN crash in\nl2cap_sock_setsockopt() access of conn->hcon->hdev.\n\nCheck l2cap_chan::conn.hcon corresponds to an alive hci_conn before\ntrying to use it in l2cap_sock.c.  Hold l2cap_chan_lock() in\ngetsockopt/setsockopt to ensure it stays alive, and to avoid data races\nin l2cap_chan fields.\n\nBug: 508702624\nFixes: b66774b48dd9 (\"Bluetooth: L2CAP: Fix UAF in channel timeout by holding conn ref\")\nReported-by: syzbot+b106284c2a0b7bc80cf9@syzkaller.appspotmail.com\nLink: https://syzkaller.appspot.com/bug?extid=b106284c2a0b7bc80cf9\nSigned-off-by: Pauli Virtanen <pav@iki.fi>\nSigned-off-by: Luiz Augusto von Dentz <luiz.von.dentz@intel.com>\nSigned-off-by: Sasha Levin <sashal@kernel.org>\nChange-Id: Iae91e10ba96572e7f69ac84d53c4d2509a05b6aa\n(cherry picked from commit 3af72bf8f73c519ee562e6963d5ff8e678924f93)\n[Lee: Resolve conflict prior to commit 22ebe6ab0b67 (\"Bluetooth: L2CAP: convert to getsockopt_iter\")]\nSigned-off-by: Lee Jones <joneslee@google.com>\n\n(cherry picked from Android common 4748ecd552c9a76f7670d0163e82fb0b1803caa1)\nSigned-off-by: iodn <114117719+iodn@users.noreply.github.com>\n",
+      "patch": "0010-BACKPORT-Bluetooth-L2CAP-access-chan-conn-safely-in-.patch",
+      "patch_sha256": "a96fd4858100023fc879eefb63a22ce68f85a010ba5f7917d47a508dff4e3f76"
+    },
+    {
+      "commit": "6dca935d5d2230a6e39a444434696c1741e566ef",
+      "parent": "faf591fe549eb89f60223129f75d79bf7c7298bd",
+      "tree": "25d7a06c80670e2ffb5bc78d9f4b9bda3e92805d",
+      "author": {
+        "name": "Pauli Virtanen",
+        "email": "pav@iki.fi",
+        "date": "1788296676 +0300"
+      },
+      "committer": {
+        "name": "iodn",
+        "email": "114117719+iodn@users.noreply.github.com",
+        "date": "1794628241 +0000"
+      },
+      "message": "BACKPORT: Bluetooth: L2CAP: refuse __l2cap_chan_add if chan already has conn\n\n[ Upstream commit 86b55991d3cd690e73c5ef8d20b75ae4905b357a ]\n\nl2cap_chan may be linked to l2cap_conn at most once. This is assumed in\nseveral places, eg l2cap_chan_del cleanup.\n\nThere is a TOCTOU race where the invariant is violated:\n\n    [Task 1]                          [Task 2]\n    l2cap_chan_connect                l2cap_sock_bind\n      l2cap_chan_lock                   lock_sock\n      l2cap_state_change                if (sk->sk_state != BT_OPEN)\n        chan->state = BT_CONNECT\n        l2cap_sock_state_change_cb      chan->state = BT_BOUND\n                                        sk->sk_state = BT_BOUND\n          lock_sock <------------------ release_sock\n          sk->sk_state = BT_CONNECT\n\nl2cap_sock_connect() does not check sk->sk_state, so since chan->state\nis now BT_BOUND, subsequent connect() ends up with second\n__l2cap_chan_add.\n\nExplicitly document and check the invariant in __l2cap_chan_add with\nWARN_ON_ONCE. The only callsite where it could be hit is\nl2cap_chan_connect, so add pre-check there to avoid relying on\nchan->state. chan->state read/write is not properly guarded currently so\nthere can be other TOCTOUC problems.\n\nAdd l2cap_lock_chan in l2cap_sock_bind() to guard chan->state write.\n\nBug: 508702624\nFixes: b66774b48dd9 (\"Bluetooth: L2CAP: Fix UAF in channel timeout by holding conn ref\")\nAssisted-by: deepseek-4-flash # finding the race condition\nSigned-off-by: Pauli Virtanen <pav@iki.fi>\nSigned-off-by: Luiz Augusto von Dentz <luiz.von.dentz@intel.com>\nSigned-off-by: Sasha Levin <sashal@kernel.org>\nChange-Id: Ifec3777df2f9d073d696bc08b8b7ce1cf3d29154\n(cherry picked from commit 52fe88e4ef87311eee32b45c65603e7c69e75e7d)\n[Lee: Resolve context conflict prior to commit 56c2b5831d39 (\"Bluetooth: L2CAP: fix out-of-bounds write in l2cap_ecred_connect\")]\nSigned-off-by: Lee Jones <joneslee@google.com>\n\n(cherry picked from Android common 6aa9eab95eda2fb3e68d98d964f028a4acf86751)\nSigned-off-by: iodn <114117719+iodn@users.noreply.github.com>\n",
+      "patch": "0011-BACKPORT-Bluetooth-L2CAP-refuse-__l2cap_chan_add-if-.patch",
+      "patch_sha256": "736b46a991693cb4f2be84975ab42d62b487344b31637a87fb0ac1ba82f794e8"
+    },
+    {
+      "commit": "d322ee874a91787cb46f4bf88b8d1f055415f252",
+      "parent": "6dca935d5d2230a6e39a444434696c1741e566ef",
+      "tree": "47500b532289abb281bdd37fe6681b400b7c3994",
+      "author": {
+        "name": "iodn",
+        "email": "114117719+iodn@users.noreply.github.com",
+        "date": "1794628241 +0000"
+      },
+      "committer": {
+        "name": "iodn",
+        "email": "114117719+iodn@users.noreply.github.com",
+        "date": "1794628241 +0000"
+      },
+      "message": "BACKPORT: mm: guard swap cgroup lookup before map registration\n\nAdapt Android common fix 1f08c0c822a15532e5b27a5dd979ea5bad99080b\nto the retained page-array representation. Return the existing invalid-ID\nsentinel before dereferencing an unregistered swap cgroup map.\nNo layout, exported API or configuration changes.\n\nChange-Id: I049f23b0b5ee72e3840bcdb80d18a79701e91b3e\nSigned-off-by: iodn <114117719+iodn@users.noreply.github.com>\n\n\nOriginal fix: Jose Fernandez <jose.fernandez@linux.dev>\n",
+      "patch": "0012-BACKPORT-mm-guard-swap-cgroup-lookup-before-map-regi.patch",
+      "patch_sha256": "7a6037f16592295e6ff9791c400bc209dd00fee1b26f3d9d97ee0f234cceb804"
+    },
+    {
+      "commit": "d8eddc5fb80b3061efc6541dda5ca97315374f0a",
+      "parent": "d322ee874a91787cb46f4bf88b8d1f055415f252",
+      "tree": "ed346641da7b123e986cd46f378cbbdc7c4b0422",
+      "author": {
+        "name": "Willie-TH Huang",
+        "email": "willie-th.huang@mediatek.com",
+        "date": "1793774871 +0800"
+      },
+      "committer": {
+        "name": "iodn",
+        "email": "114117719+iodn@users.noreply.github.com",
+        "date": "1794629285 +0000"
+      },
+      "message": "ANDROID: gzvm: fix leaks in CREATE_DEVICE\n\nfree_pages_exact(ptr, 0) frees nothing, and the attr_size check\nreturns before gzvm_dev is freed. Free each buffer with its real size\nand route that error through the common cleanup label.\n\nAlso drop the eventfd context reference on the kmalloc() and EEXIST\nerror paths in gzvm_assign_ioeventfd().\n\nBug: 585395913\nSigned-off-by: Willie-TH Huang <willie-th.huang@mediatek.com>\nChange-Id: Ia702c6a6f72f357a75ca1d271eb8d8b04440f400\n\n(cherry picked from Android common 49a783c9f498563f2aa26e0b5c8b956ce7ea7301)\nSigned-off-by: iodn <114117719+iodn@users.noreply.github.com>\n",
+      "patch": "0013-ANDROID-gzvm-fix-leaks-in-CREATE_DEVICE.patch",
+      "patch_sha256": "635012e59b2f7e2920daf697b44dac560f49c03ce6b4ce59532e50f00db6dcd6"
+    }
+  ]
+}

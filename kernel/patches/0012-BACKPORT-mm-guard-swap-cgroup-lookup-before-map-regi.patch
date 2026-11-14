@@ -1,0 +1,44 @@
+From d322ee874a91787cb46f4bf88b8d1f055415f252 Mon Sep 17 00:00:00 2001
+From: iodn <114117719+iodn@users.noreply.github.com>
+Date: Sat, 14 Nov 2026 03:50:41 +0000
+Subject: [PATCH 12/12] BACKPORT: mm: guard swap cgroup lookup before map
+ registration
+
+Adapt Android common fix 1f08c0c822a15532e5b27a5dd979ea5bad99080b
+to the retained page-array representation. Return the existing invalid-ID
+sentinel before dereferencing an unregistered swap cgroup map.
+No layout, exported API or configuration changes.
+
+Change-Id: I049f23b0b5ee72e3840bcdb80d18a79701e91b3e
+Signed-off-by: iodn <114117719+iodn@users.noreply.github.com>
+
+
+Original fix: Jose Fernandez <jose.fernandez@linux.dev>
+---
+ mm/swap_cgroup.c | 8 +++++++-
+ 1 file changed, 7 insertions(+), 1 deletion(-)
+
+diff --git a/mm/swap_cgroup.c b/mm/swap_cgroup.c
+index da1278f05..93cfdf8a9 100644
+--- a/mm/swap_cgroup.c
++++ b/mm/swap_cgroup.c
+@@ -161,9 +161,15 @@ unsigned short swap_cgroup_record(swp_entry_t ent, unsigned short id,
+  */
+ unsigned short lookup_swap_cgroup_id(swp_entry_t ent)
+ {
++	struct swap_cgroup_ctrl *ctrl;
++
+ 	if (mem_cgroup_disabled())
+ 		return 0;
+-	return lookup_swap_cgroup(ent, NULL)->id;
++
++	ctrl = &swap_cgroup_ctrl[swp_type(ent)];
++	if (unlikely(!ctrl->map))
++		return 0;
++	return __lookup_swap_cgroup(ctrl, swp_offset(ent))->id;
+ }
+ 
+ int swap_cgroup_swapon(int type, unsigned long max_pages)
+-- 
+2.53.0
+

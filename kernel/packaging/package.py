@@ -73,7 +73,7 @@ def main():
     from gki.certify_bootimg import add_certificate
 
     release = (source / 'include/config/kernel.release').read_text().strip()
-    expected_release = '6.12.38-LDY-AN00-android16-5-g70f67f1acd5b-4k'
+    expected_release = '6.12.38-LDY-AN00-android16-5-gd8eddc5fb80b-4k'
     if release != expected_release:
         raise ValueError('Unexpected kernel release')
     if parse_kmi((source / 'Image').read_bytes()) != 'android16-6.12':
