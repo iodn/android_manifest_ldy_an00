@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 import hashlib
 import json
+import struct
 import tempfile
 import unittest
 import zipfile
@@ -58,6 +59,22 @@ class MigrationTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,"Original OEM metadata changed"):
             v.immutable_metadata(b"a=1\n",b"a=1\n","VENDOR/build.prop","0"*64)
 
+    def test_odm_identity_comes_from_authenticated_image_fields(self):
+        header=bytearray(4096)
+        struct.pack_into("<I",header,1024,0xe0f5e1e2);header[1036]=12
+        struct.pack_into("<Q",header,1048,15)
+        value=v.odm_identity_metadata(b"vendor.feature=1\r\n",header,"signed/fingerprint",10,20)
+        self.assertIn(b"ro.odm.build.date.utc=15\n",value)
+        self.assertIn(b"ro.odm.build.fingerprint=signed/fingerprint\n",value)
+        for minimum,maximum in [(16,20),(10,14)]:
+            with self.assertRaisesRegex(ValueError,"timestamp outside"):
+                v.odm_identity_metadata(b"vendor.feature=1\n",header,"signed/fingerprint",minimum,maximum)
+        with self.assertRaisesRegex(ValueError,"identity already exists"):
+            v.odm_identity_metadata(b"ro.odm.build.date.utc=15\n",header,"signed/fingerprint",10,20)
+        header[1024]=0
+        with self.assertRaisesRegex(ValueError,"Invalid ODM EROFS"):
+            v.odm_identity_metadata(b"a=1\n",header,"signed/fingerprint",10,20)
+
     def test_projection_preserves_system_and_shipping_scope(self):
         receipt=self.project()
         with zipfile.ZipFile(self.out) as z:
@@ -105,7 +122,7 @@ class MigrationTest(unittest.TestCase):
                 b.writestr(n,data)
         tools=self.root/"tools.json";tools.write_text("{}")
         out=self.root/"assembled.zip"
-        with patch.object(v,"generate_migration_caremap",return_value=(b"new caremap",{name+"/etc/build.prop":b"module props" for name in ("SYSTEM_DLKM","VENDOR_DLKM","ODM_DLKM")},{"test":True})):
+        with patch.object(v,"generate_migration_caremap",return_value=(b"new caremap",{name+"/etc/build.prop":b"module props" for name in ("SYSTEM_DLKM","VENDOR_DLKM","ODM_DLKM","ODM")},{"test":True})):
             v.assemble(signed,out,self.contract,self.cohort,receipt_path,tools)
         with zipfile.ZipFile(out) as z:
             for row in self.rows:self.assertEqual(z.read("IMAGES/"+row["file"]),row["partition"].encode())

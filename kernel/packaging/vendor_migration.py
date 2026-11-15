@@ -7,6 +7,7 @@ import json
 import logging
 import os
 import subprocess
+import struct
 import sys
 import tempfile
 import zipfile
@@ -87,7 +88,23 @@ def project(source, out, contract, directory, content):
         copyzip(source, out, replacements, removed, additions)
     return dict(status="SYSTEM_SIGNING_PROJECTION_NOT_INSTALLABLE", source=info(source), output=info(out), contract_sha256=sha(contract), original_misc=m, original_dynamic=original_dynamic, vendor_metadata={n:sha(p) for n,p in additions.items()})
 
-def generate_migration_caremap(system, hardware, system_props, tools, temp):
+def odm_identity_metadata(raw, header, fingerprint, minimum, maximum):
+    # This is target-files metadata only; the authenticated ODM image is unchanged.
+    need(len(header) >= 1152 and struct.unpack_from("<I", header, 1024)[0] == 0xe0f5e1e2
+         and header[1036] == 12, "Invalid ODM EROFS superblock")
+    timestamp = struct.unpack_from("<Q", header, 1048)[0]
+    need(0 < minimum <= timestamp <= maximum, "ODM filesystem timestamp outside the cohort")
+    need(fingerprint and "\n" not in fingerprint and "\r" not in fingerprint,
+         "Invalid ODM signed fingerprint")
+    keys = {line.partition(b"=")[0].strip() for line in raw.splitlines()}
+    need(not keys.intersection({b"ro.odm.build.date.utc", b"ro.odm.build.fingerprint"}),
+         "ODM identity already exists; do not override it")
+    return (raw.rstrip(b"\r\n") + b"\n" +
+            ("ro.odm.build.date.utc=" + str(timestamp) + "\n" +
+             "ro.odm.build.fingerprint=" + fingerprint + "\n").encode())
+
+def generate_migration_caremap(system, hardware, system_props, tools, temp, metadata):
+
     _, dlkmprop, proof = generate(system, hardware["system_dlkm"], system_props, tools, temp)
     paths = {k:check(v) for k,v in tools.items()}
     extra = ("vendor", "odm", "vendor_dlkm", "odm_dlkm")
@@ -112,6 +129,21 @@ def generate_migration_caremap(system, hardware, system_props, tools, temp):
         value = properties[key].decode()
         need(value and "\n" not in value, "Malformed signed hardware fingerprint")
         runtime_key = "ro." + part + ".build.fingerprint"
+        if part == "vendor":
+            vendor_fingerprint = value
+        if part == "odm":
+            # Stock ODM has no runtime identity properties. Its signed fingerprint
+            # equals the vendor cohort, so use that real runtime property.
+            need(value == vendor_fingerprint, "ODM/vendor signed cohort identities disagree")
+            runtime_key = "ro.vendor.build.fingerprint"
+            dates = [line.split(b"=",1)[1] for line in metadata["VENDOR/build.prop"].splitlines()
+                     if line.startswith(b"ro.vendor.build.date.utc=")]
+            need(dates and dates[-1].isdigit(), "Missing actual vendor cohort timestamp")
+            maximum = int(system_props["SYSTEM/build.prop"]["ro.build.date.utc"])
+            with image.open("rb") as handle:
+                header = handle.read(4096)
+            build_properties["ODM/etc/build.prop"] = odm_identity_metadata(
+                metadata["ODM/etc/build.prop"], header, value, int(dates[-1]), maximum)
         if part.endswith("_dlkm"):
             extract = temp / part
             command = [str(paths["fsck.erofs"]),"--extract="+str(extract),
@@ -183,9 +215,9 @@ def assemble(source, out, contract, directory, receipt, tools):
         with z.open("IMAGES/system.img") as a, system.open("wb") as b:
             import shutil
             shutil.copyfileobj(a, b, 1024 * 1024)
-        care, module_props, careproof = generate_migration_caremap(system, hardware, props(z), json.loads(Path(tools).read_text()), temp)
-        need(set(module_props) == {"SYSTEM_DLKM/etc/build.prop", "VENDOR_DLKM/etc/build.prop", "ODM_DLKM/etc/build.prop"}, "Missing actual module version metadata")
-        replacements = {META[0]:encode(final), META[1]:encode(proof["original_dynamic"]), "META/ab_partitions.txt":("\n".join(PARTS)+"\n").encode(), "META/care_map.pb":care, **module_props, **metadata}
+        care, module_props, careproof = generate_migration_caremap(system, hardware, props(z), json.loads(Path(tools).read_text()), temp, metadata)
+        need(set(module_props) == {"SYSTEM_DLKM/etc/build.prop", "VENDOR_DLKM/etc/build.prop", "ODM_DLKM/etc/build.prop", "ODM/etc/build.prop"}, "Missing actual image version metadata")
+        replacements = {META[0]:encode(final), META[1]:encode(proof["original_dynamic"]), "META/ab_partitions.txt":("\n".join(PARTS)+"\n").encode(), "META/care_map.pb":care, **metadata, **module_props}
         removed = DERIVED | {"IMAGES/vbmeta.img"}
         copyzip(source, out, replacements, removed, {"IMAGES/"+p+".img":f for p,f in hardware.items()})
     with zipfile.ZipFile(out) as z:
