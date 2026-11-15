@@ -1,0 +1,21 @@
+{
+  "purpose": "Use matching signed GKI modules at every duplicate packaged path.",
+  "entries": [
+    {
+      "path": "vendor_dlkm/lib/modules/bluetooth.ko",
+      "build_output": "net/bluetooth/bluetooth.ko"
+    },
+    {
+      "path": "vendor_dlkm/lib/modules/netfs.ko",
+      "build_output": "fs/netfs/netfs.ko"
+    },
+    {
+      "path": "vendor_ramdisk/lib/modules/rfkill.ko",
+      "build_output": "net/rfkill/rfkill.ko"
+    },
+    {
+      "path": "vendor_ramdisk/lib/modules/libarc4.ko",
+      "build_output": "lib/crypto/libarc4.ko"
+    }
+  ]
+}

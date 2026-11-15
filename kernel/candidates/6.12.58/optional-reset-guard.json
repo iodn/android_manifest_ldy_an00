@@ -1,0 +1,25 @@
+{
+  "base": "fd92206bcd0a2bd86ecf8343a8e7e81e86a1c483",
+  "head": "a6ebb716965ae17784cbadbd7b4daa99fa01c340",
+  "commits": [
+    {
+      "commit": "a6ebb716965ae17784cbadbd7b4daa99fa01c340",
+      "parent": "fd92206bcd0a2bd86ecf8343a8e7e81e86a1c483",
+      "tree": "b1608fa1cf642400bb776141b9ec449f80f8eb33",
+      "patch": "optional-reset-guard.patch",
+      "patch_sha256": "db5d698f7ed003ee090511fd78a1e28ac35071809095d16485dc99e3ecfb4a50",
+      "message": "Port optional MT6661 locked-device reset protection to 6.12.58\n",
+      "author": {
+        "name": "iodn",
+        "email": "114117719+iodn@users.noreply.github.com",
+        "date": "1794719700 +0000"
+      },
+      "committer": {
+        "name": "iodn",
+        "email": "114117719+iodn@users.noreply.github.com",
+        "date": "1794719700 +0000"
+      }
+    }
+  ],
+  "qualification": "Opt-in source port. Not enabled in the default candidate; full build and hardware qualification pending."
+}

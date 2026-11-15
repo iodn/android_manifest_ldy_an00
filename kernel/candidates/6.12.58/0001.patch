@@ -1,0 +1,105 @@
+diff --git a/include/linux/slab.h b/include/linux/slab.h
+index c33221fa0206c8e0281a4129f4ec041805b7fc83..08d3728f0c3ba50a2469cf34120237eafb5cb0a3 100644
+--- a/include/linux/slab.h
++++ b/include/linux/slab.h
+@@ -60,6 +60,8 @@ enum _slab_flag_bits {
+ #ifdef CONFIG_SLAB_OBJ_EXT
+ 	_SLAB_NO_OBJ_EXT,
+ #endif
++	_SLAB_MM_TRACK,
++	_SLAB_MM_NOTRACK,
+ 	_SLAB_FLAGS_LAST_BIT
+ };
+ 
+@@ -222,6 +224,9 @@ enum _slab_flag_bits {
+ #define SLAB_NO_OBJ_EXT		__SLAB_FLAG_UNUSED
+ #endif
+ 
++#define SLAB_MM_TRACK		__SLAB_FLAG_BIT(_SLAB_MM_TRACK)
++#define SLAB_MM_NOTRACK		__SLAB_FLAG_BIT(_SLAB_MM_NOTRACK)
++
+ /*
+  * ZERO_SIZE_PTR will be returned for zero sized kmalloc requests.
+  *
+diff --git a/mm/slab.h b/mm/slab.h
+index 339d16c90fb3b4d136e96789835aca8f017233d8..f916bdb530dddb85164b2349c86b9ddecc442de7 100644
+--- a/mm/slab.h
++++ b/mm/slab.h
+@@ -484,7 +484,8 @@ static inline bool is_kmalloc_normal(struct kmem_cache *s)
+ 			  SLAB_NO_USER_FLAGS | SLAB_KMALLOC | SLAB_NO_MERGE)
+ 
+ /* Common flags available with current configuration */
+-#define CACHE_CREATE_MASK (SLAB_CORE_FLAGS | SLAB_DEBUG_FLAGS | SLAB_CACHE_FLAGS)
++#define CACHE_CREATE_MASK (SLAB_CORE_FLAGS | SLAB_DEBUG_FLAGS | SLAB_CACHE_FLAGS | \
++			  SLAB_MM_TRACK | SLAB_MM_NOTRACK)
+ 
+ /* Common flags permitted for kmem_cache_create */
+ #define SLAB_FLAGS_PERMITTED (SLAB_CORE_FLAGS | \
+@@ -499,7 +500,9 @@ static inline bool is_kmalloc_normal(struct kmem_cache *s)
+ 			      SLAB_ACCOUNT | \
+ 			      SLAB_KMALLOC | \
+ 			      SLAB_NO_MERGE | \
+-			      SLAB_NO_USER_FLAGS)
++			      SLAB_NO_USER_FLAGS | \
++			      SLAB_MM_TRACK | \
++			      SLAB_MM_NOTRACK)
+ 
+ bool __kmem_cache_empty(struct kmem_cache *);
+ int __kmem_cache_shutdown(struct kmem_cache *);
+diff --git a/mm/slab_common.c b/mm/slab_common.c
+index 1bcb9d628bf47cb2a3634d14fc379f7079679298..1dbef2946a0c6bfc594d7bfd4fb06c3404e54c57 100644
+--- a/mm/slab_common.c
++++ b/mm/slab_common.c
+@@ -47,7 +47,7 @@ struct kmem_cache *kmem_cache;
+  */
+ #define SLAB_NEVER_MERGE (SLAB_RED_ZONE | SLAB_POISON | SLAB_STORE_USER | \
+ 		SLAB_TRACE | SLAB_TYPESAFE_BY_RCU | SLAB_NOLEAKTRACE | \
+-		SLAB_FAILSLAB | SLAB_NO_MERGE)
++		SLAB_FAILSLAB | SLAB_NO_MERGE | SLAB_MM_NOTRACK)
+ 
+ #define SLAB_MERGE_SAME (SLAB_RECLAIM_ACCOUNT | SLAB_CACHE_DMA | \
+ 			 SLAB_CACHE_DMA32 | SLAB_ACCOUNT)
+diff --git a/scripts/build-ldy-an00.sh b/scripts/build-ldy-an00.sh
+new file mode 100755
+index 0000000000000000000000000000000000000000..e35f01b4013859a859609bef37f19ecf1adead93
+--- /dev/null
++++ b/scripts/build-ldy-an00.sh
+@@ -0,0 +1,25 @@
++#!/bin/sh
++# Run from an Android Kleaf workspace; set SOURCE_DATE_EPOCH only to reproduce a build.
++set -eu
++
++workspace_dir=$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)
++if [ ! -x "$workspace_dir/tools/bazel" ]; then
++    echo "An Android Kleaf workspace with tools/bazel is required." >&2
++    exit 2
++fi
++
++SOURCE_DATE_EPOCH=${SOURCE_DATE_EPOCH:-$(date -u +%s)}
++case "$SOURCE_DATE_EPOCH" in
++    *[!0-9]*|"") echo "SOURCE_DATE_EPOCH must be a positive Unix timestamp." >&2; exit 2 ;;
++esac
++if [ "$SOURCE_DATE_EPOCH" -le 0 ]; then
++    echo "SOURCE_DATE_EPOCH must be greater than zero." >&2
++    exit 2
++fi
++export SOURCE_DATE_EPOCH
++export KLEAF_EXTRA_GIT_PROJECTS="${KLEAF_EXTRA_GIT_PROJECTS:+${KLEAF_EXTRA_GIT_PROJECTS}:}common"
++printf 'Kernel build SOURCE_DATE_EPOCH=%s\n' "$SOURCE_DATE_EPOCH" >&2
++
++cd "$workspace_dir"
++exec tools/bazel build --config=stamp --lto=none --rust \
++    --sandbox_default_allow_network=false //common:kernel_aarch64
+diff --git a/scripts/setlocalversion b/scripts/setlocalversion
+index 5818465abba98461817bc86372bdcdb8b006e137..149f2ccb50e9d37a9fc65f8de71bfd2b2adf56b1 100755
+--- a/scripts/setlocalversion
++++ b/scripts/setlocalversion
+@@ -205,4 +205,7 @@ elif [ "${LOCALVERSION+set}" != "set" ]; then
+ 	scm_version="$(scm_version --short)"
+ fi
+ 
+-echo "${KERNELVERSION}${file_localversion}${config_localversion}${LOCALVERSION}${scm_version}"
++# Retain the GKI interface label alongside device branding, revision and page size.
++device_localversion="${file_localversion}${config_localversion}${LOCALVERSION}${scm_version}"
++device_localversion=$(printf '%s' "$device_localversion" | sed -E 's/^-LDY-AN00($|-)/\1/')
++echo "${KERNELVERSION}-LDY-AN00${device_localversion}"

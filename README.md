@@ -114,6 +114,10 @@ and downloads.
 
 The matching kernel source archive is included with each binary release.
 
+The [6.12.58 kernel candidate](kernel/candidates/6.12.58/provenance.json)
+requires the matching MagicOS 11 hardware stack. It is not the current release
+and has not been tested on hardware.
+
 <details>
 <summary>Build integration and release maintenance</summary>
 

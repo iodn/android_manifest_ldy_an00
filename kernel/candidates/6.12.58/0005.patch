@@ -1,0 +1,45 @@
+diff --git a/net/bluetooth/l2cap_core.c b/net/bluetooth/l2cap_core.c
+index bcd5aab3e36413e6bbed3ba878721b2a5a879145..959a1a526cb70e3a4140dce5063e7f7db70507b7 100644
+--- a/net/bluetooth/l2cap_core.c
++++ b/net/bluetooth/l2cap_core.c
+@@ -596,6 +596,10 @@ void __l2cap_chan_add(struct l2cap_conn *conn, struct l2cap_chan *chan)
+ 	BT_DBG("conn %p, psm 0x%2.2x, dcid 0x%4.4x", conn,
+ 	       __le16_to_cpu(chan->psm), chan->dcid);
+ 
++	/* Caller must ensure l2cap_chan is linked to l2cap_conn only once */
++	if (WARN_ON_ONCE(chan->conn || test_bit(FLAG_DEL, &chan->flags)))
++		return;
++
+ 	conn->disc_reason = HCI_ERROR_REMOTE_USER_TERM;
+ 
+ 	chan->conn = l2cap_conn_get(conn);
+@@ -7102,7 +7106,8 @@ int l2cap_chan_connect(struct l2cap_chan *chan, __le16 psm, u16 cid,
+ 	mutex_lock(&conn->lock);
+ 	l2cap_chan_lock(chan);
+ 
+-	if (cid && __l2cap_get_chan_by_dcid(conn, cid)) {
++	if ((cid && __l2cap_get_chan_by_dcid(conn, cid)) || chan->conn ||
++	    test_bit(FLAG_DEL, &chan->flags)) {
+ 		hci_conn_drop(hcon);
+ 		err = -EBUSY;
+ 		goto chan_unlock;
+diff --git a/net/bluetooth/l2cap_sock.c b/net/bluetooth/l2cap_sock.c
+index 6ebe03669a718d419d7c5d75342404ed60802166..fb244fafb10a3662b1a65e880f4bba3f123188e2 100644
+--- a/net/bluetooth/l2cap_sock.c
++++ b/net/bluetooth/l2cap_sock.c
+@@ -110,6 +110,7 @@ static int l2cap_sock_bind(struct socket *sock, struct sockaddr *addr, int alen)
+ 			return -EINVAL;
+ 	}
+ 
++	l2cap_chan_lock(chan);
+ 	lock_sock(sk);
+ 
+ 	if (sk->sk_state != BT_OPEN) {
+@@ -175,6 +176,7 @@ static int l2cap_sock_bind(struct socket *sock, struct sockaddr *addr, int alen)
+ 
+ done:
+ 	release_sock(sk);
++	l2cap_chan_unlock(chan);
+ 	return err;
+ }
+ 

@@ -1,0 +1,55 @@
+{
+  "status": "offline-candidate-not-for-installation",
+  "upstream_url": "https://android.googlesource.com/kernel/common",
+  "upstream_tag": "android16-6.12-2025-12_r63",
+  "upstream_revision": "a0924fec0959b69501d49bdbfefe8a13f53033c4",
+  "source_commit": "fd92206bcd0a2bd86ecf8343a8e7e81e86a1c483",
+  "source_tree": "22b192417f6367273c999933d1a91ee247336f18",
+  "source_date_epoch": 1794719700,
+  "kernel_release": "6.12.58-LDY-AN00-android16-6-gfd92206bcd0a-4k",
+  "banner": "Linux version 6.12.58-LDY-AN00-android16-6-gfd92206bcd0a-4k (kleaf@build-host) (Android (14043575, +pgo, +bolt, +lto, +mlgo, based on r536225) clang version 19.0.1 (https://android.googlesource.com/toolchain/llvm-project b3a530ec6537146650e42be89f1089e9a3588460), LLD 19.0.1) #1 SMP PREEMPT Sun Nov 15 05:15:00 UTC 2026",
+  "reference_artifacts": {
+    "Image": {
+      "sha256": "283b537ba4db7d443cb21930b71b35aef9e0bc82217dc6a7b8a4ea94bce4e97c",
+      "bytes": 41306624
+    },
+    "Image.lz4": {
+      "sha256": "e7f3035cfd657623bbf9ab8e73401789c85fbaa10a16524a161b330378768abb",
+      "bytes": 19868913
+    },
+    "vmlinux": {
+      "sha256": "6ffe5b5963091ae0d2ee6e8ed23b37efbfd771bb8e6347b9302e598dbb1b243f",
+      "bytes": 211393256
+    },
+    "kernel_aarch64_dot_config": {
+      "sha256": "c73eba72d3c8a36363a785974471a08e5c2684fcb478a910265c787c3ab8bcf5",
+      "bytes": 221030
+    },
+    "Module.symvers": {
+      "sha256": "6870c7677bf898cdb8a13e38680142c949e97f70569d17b71730b85f084b1757",
+      "bytes": 633144
+    }
+  },
+  "stock_contract": {
+    "firmware": "LDY-AN00 11.0.0.117(SP3C00E117R103P1)",
+    "core_exports_exact_match": 9735,
+    "vendor_dlkm_modules": 339,
+    "vendor_ramdisk_modules": 318,
+    "rebuilt_system_dlkm_modules": 104,
+    "module_references_checked": 44184,
+    "module_crc_failures": 0,
+    "loader_policy_failures": 0
+  },
+  "requirements": [
+    "Use the matching MagicOS 11 vendor and vendor_boot cohort; do not combine with the retained 6.12.38 drivers.",
+    "Apply all four module-overrides.json entries using the same signed modules as system_dlkm.",
+    "Rebuild and sign the coordinated vendor/kernel images and update their AVB descriptors before hardware testing.",
+    "Preserve the existing patched LK and Lineage Recovery."
+  ],
+  "limits": [
+    "No hardware boot, driver-load, suspend or telephony test has been performed.",
+    "The public baseline does not contain Honor-only F2FS SIS/compression, tracing and diagnostic extensions. ABI checks do not prove identical filesystem behavior.",
+    "Optional reset guard remains opt-in and unqualified.",
+    "Fresh builds generate a new module-signing key, so signed module bytes and kernel certificate bytes differ from this reference build."
+  ]
+}
