@@ -49,6 +49,14 @@ class MigrationTest(unittest.TestCase):
             self.assertNotIn("IMAGES/vendor.img",z.namelist())
             self.assertEqual(z.read("VENDOR/etc/vintf/manifest.xml"),b"<manifest/>")
         self.assertEqual(receipt["original_dynamic"]["dynamic_partition_list"],v.DYNAMIC)
+    def test_accepts_actual_make_sorted_metadata(self):
+        self.entries["META/ab_partitions.txt"]=("\n".join(sorted(v.PARTS))+"\n").encode()
+        self.misc["dynamic_partition_list"]=" ".join(sorted(v.DYNAMIC.split()))
+        for name in v.META:self.entries[name]=v.encode(self.misc)
+        self.project()
+    def test_rejects_duplicate_compiler_partition(self):
+        self.entries["META/ab_partitions.txt"]+=b"boot\n"
+        with self.assertRaisesRegex(ValueError,"Compiler AB scope"):self.project()
     def test_reject_corrupt_input(self):
         (self.cohort/"boot.img").write_bytes(b"wrong")
         with self.assertRaisesRegex(ValueError,"Hardware input mismatch"):self.project()
@@ -78,7 +86,7 @@ class MigrationTest(unittest.TestCase):
                 b.writestr(n,data)
         tools=self.root/"tools.json";tools.write_text("{}")
         out=self.root/"assembled.zip"
-        with patch.object(v,"generate",return_value=(b"new caremap",b"module props",{"test":True})):
+        with patch.object(v,"generate_migration_caremap",return_value=(b"new caremap",{name+"/etc/build.prop":b"module props" for name in ("SYSTEM_DLKM","VENDOR_DLKM","ODM_DLKM")},{"test":True})):
             v.assemble(signed,out,self.contract,self.cohort,receipt_path,tools)
         with zipfile.ZipFile(out) as z:
             for row in self.rows:self.assertEqual(z.read("IMAGES/"+row["file"]),row["partition"].encode())

@@ -3,6 +3,9 @@
 """Explicit target-files projection and assembly for the stock11 hardware trial."""
 import argparse
 import json
+import logging
+import os
+import subprocess
 import sys
 import tempfile
 import zipfile
@@ -10,7 +13,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "tools"))
 from kernel_cohort import copyzip, encode, entryhash, info, names, need, parse, props, sha
-from kernel_caremap import generate
+from kernel_caremap import generate, check, functions
 
 PARTS = tuple("boot init_boot vendor_boot dtbo system system_dlkm vendor vendor_dlkm odm odm_dlkm vbmeta vbmeta_system vbmeta_system_dlkm vbmeta_vendor vbmeta_vendor_dlkm vbmeta_odm vbmeta_odm_dlkm recovery_vbmeta".split())
 DYNAMIC = "system system_dlkm vendor vendor_dlkm odm odm_dlkm"
@@ -41,7 +44,7 @@ def check_metadata(m):
     need(m["super_qti_dynamic_partitions_group_size"] == "17569939456", "Unexpected group geometry")
     need(m["virtual_ab"] == "true" and m.get("virtual_ab_compression", "false") == "false", "Wrong snapshot policy")
     for key in LISTS:
-        need(m[key] == DYNAMIC, "Unexpected dynamic ownership")
+        need(sorted(m[key].split()) == sorted(DYNAMIC.split()), "Unexpected dynamic ownership")
 
 def project(source, out, contract, directory, content):
     c, hardware = verify_hardware(contract, directory)
@@ -54,12 +57,12 @@ def project(source, out, contract, directory, content):
             additions[partition.upper() + "/" + str(p.relative_to(root))] = p
     with zipfile.ZipFile(source) as z:
         ix = names(z)
-        need(tuple(z.read("META/ab_partitions.txt").decode().split()) == PARTS, "Compiler AB scope mismatch")
+        need(sorted(z.read("META/ab_partitions.txt").decode().split()) == sorted(PARTS), "Compiler AB scope mismatch")
         m, d = (parse(z.read(n)) for n in META)
         original_dynamic = dict(d)
         check_metadata(m)
         for key in LISTS:
-            need(d[key] == DYNAMIC, "Dynamic metadata disagrees")
+            need(sorted(d[key].split()) == sorted(DYNAMIC.split()), "Dynamic metadata disagrees")
         shipping = [x["ro.vendor.build.ab_ota_partitions"] for x in props(z).values() if "ro.vendor.build.ab_ota_partitions" in x]
         need(shipping and all(tuple(x.split(",")) == PARTS for x in shipping), "Shipping AB scope mismatch")
         need(z.read("META/kernel_version.txt").decode().strip() == c["kernel_release"], "Kernel identity mismatch")
@@ -82,6 +85,63 @@ def project(source, out, contract, directory, content):
         # Actual immutable vendor metadata is supplied for VINTF checks, never OEM APKs.
         copyzip(source, out, replacements, removed, additions)
     return dict(status="SYSTEM_SIGNING_PROJECTION_NOT_INSTALLABLE", source=info(source), output=info(out), contract_sha256=sha(contract), original_misc=m, original_dynamic=original_dynamic, vendor_metadata={n:sha(p) for n,p in additions.items()})
+
+def generate_migration_caremap(system, hardware, system_props, tools, temp):
+    _, dlkmprop, proof = generate(system, hardware["system_dlkm"], system_props, tools, temp)
+    paths = {k:check(v) for k,v in tools.items()}
+    extra = ("vendor", "odm", "vendor_dlkm", "odm_dlkm")
+    env = dict(os=os, tempfile=tempfile, sparse_img=sys.modules["sparse_img"],
+        avbtool=sys.modules["avbtool"], rangelib=sys.modules["rangelib"],
+        logger=logging.getLogger(__name__), PARTITIONS_WITH_CARE_MAP=extra)
+    functions(paths["common"], {"IsSparseImage"}, env)
+    functions(paths["add_img"], {"ParseAvbFooter", "GetCareMap"}, env)
+    build_properties = {"SYSTEM_DLKM/etc/build.prop":dlkmprop}
+    text = (temp / "care_map.parsed.txt").read_text().splitlines()
+    avb = sys.modules["avbtool"]
+    for part in extra:
+        image = hardware[part]
+        before = sha(image)
+        pair = env["GetCareMap"](part, str(image))
+        need(pair and pair[1], "Missing hardware care-map range")
+        handle = avb.ImageHandler(str(image), read_only=True)
+        _, _, descriptors, _ = avb.Avb()._parse_image(handle)
+        properties = {d.key:d.value for d in descriptors if isinstance(d,avb.AvbPropertyDescriptor)}
+        key = "com.android.build." + part + ".fingerprint"
+        need(key in properties, "Missing signed hardware fingerprint")
+        value = properties[key].decode()
+        need(value and "\n" not in value, "Malformed signed hardware fingerprint")
+        runtime_key = "ro." + part + ".build.fingerprint"
+        if part.endswith("_dlkm"):
+            extract = temp / part
+            command = [str(paths["fsck.erofs"]),"--extract="+str(extract),
+                "--no-preserve","--no-xattrs",str(image)]
+            subprocess.run(command,check=True,capture_output=True)
+            prop = extract / "etc/build.prop"
+            need(prop.is_file() and not prop.is_symlink(), "Missing exact module build properties")
+            raw = prop.read_bytes()
+            actual_props = parse(raw)
+            need(actual_props.get(runtime_key) == value, "Module fingerprint disagrees with signed AVB")
+            need(actual_props.get("ro."+part+".build.date.utc","").isdecimal(),
+                "Missing actual module partition timestamp")
+            build_properties[part.upper()+"/etc/build.prop"] = raw
+        text += pair + [runtime_key, value]
+        need(sha(image) == before, "Care-map changed hardware image")
+        proof["partitions"].append(dict(partition=part, ranges=pair[1],
+            property=runtime_key, fingerprint=value, image_sha256=before,
+            identity_source="signed AVB property descriptor"))
+    text = "\n".join(text)
+    source = temp / "care_map_all.txt"
+    binary = temp / "care_map_all.pb"
+    parsed = temp / "care_map_all.parsed.txt"
+    source.write_text(text)
+    for args in ([str(paths["generator"]),str(source),str(binary)],
+                 [str(paths["generator"]),"--parse_proto",str(binary),str(parsed)]):
+        subprocess.run(args, check=True, capture_output=True)
+    need(binary.stat().st_size > 0 and parsed.read_text() == text,
+         "Six-part care-map roundtrip failed")
+    proof["sha256"] = sha(binary)
+    proof["scope"] = "Official footer-bounded ranges for all six updated logical partitions; existing system properties and signed hardware fingerprints."
+    return binary.read_bytes(), build_properties, proof
 
 def assemble(source, out, contract, directory, receipt, tools):
     c, hardware = verify_hardware(contract, directory)
@@ -110,8 +170,9 @@ def assemble(source, out, contract, directory, receipt, tools):
         with z.open("IMAGES/system.img") as a, system.open("wb") as b:
             import shutil
             shutil.copyfileobj(a, b, 1024 * 1024)
-        care, dlkmprop, careproof = generate(system, hardware["system_dlkm"], props(z), json.loads(Path(tools).read_text()), temp)
-        replacements = {META[0]:encode(final), META[1]:encode(proof["original_dynamic"]), "META/ab_partitions.txt":("\n".join(PARTS)+"\n").encode(), "META/care_map.pb":care, "SYSTEM_DLKM/etc/build.prop":dlkmprop}
+        care, module_props, careproof = generate_migration_caremap(system, hardware, props(z), json.loads(Path(tools).read_text()), temp)
+        need(set(module_props) == {"SYSTEM_DLKM/etc/build.prop", "VENDOR_DLKM/etc/build.prop", "ODM_DLKM/etc/build.prop"}, "Missing actual module version metadata")
+        replacements = {META[0]:encode(final), META[1]:encode(proof["original_dynamic"]), "META/ab_partitions.txt":("\n".join(PARTS)+"\n").encode(), "META/care_map.pb":care, **module_props}
         removed = DERIVED | {"IMAGES/vbmeta.img"}
         copyzip(source, out, replacements, removed, {"IMAGES/"+p+".img":f for p,f in hardware.items()})
     with zipfile.ZipFile(out) as z:
