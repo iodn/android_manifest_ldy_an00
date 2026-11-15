@@ -33,14 +33,14 @@
     },
     {
       "path": "device/honor/ldy_an00",
-      "revision": "1caad8a887f7f1cc4f1886be5b57d820e8832ba8",
-      "tree": "30dc9af02f21ce748e2e13d9a2dad45697bba73f",
+      "revision": "b96a2722be5e35b6ffa22c0f721896587345e0b1",
+      "tree": "fdb50626854ded3e1329a5d27d115ea92d7febe8",
       "repository": "android_device_honor_ldy_an00",
       "excluded_input_count": 3,
-      "public_snapshot_revision": "1caad8a887f7f1cc4f1886be5b57d820e8832ba8",
-      "public_snapshot_tree": "30dc9af02f21ce748e2e13d9a2dad45697bba73f",
-      "target_snapshot_revision": "1caad8a887f7f1cc4f1886be5b57d820e8832ba8",
-      "target_snapshot_tree": "30dc9af02f21ce748e2e13d9a2dad45697bba73f"
+      "public_snapshot_revision": "b96a2722be5e35b6ffa22c0f721896587345e0b1",
+      "public_snapshot_tree": "fdb50626854ded3e1329a5d27d115ea92d7febe8",
+      "target_snapshot_revision": "b96a2722be5e35b6ffa22c0f721896587345e0b1",
+      "target_snapshot_tree": "fdb50626854ded3e1329a5d27d115ea92d7febe8"
     },
     {
       "path": "frameworks/av",
