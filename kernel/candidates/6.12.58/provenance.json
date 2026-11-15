@@ -1,5 +1,5 @@
 {
-  "status": "offline-candidate-not-for-installation",
+  "status": "hardware-boot-tested-final-ota-unqualified",
   "upstream_url": "https://android.googlesource.com/kernel/common",
   "upstream_tag": "android16-6.12-2025-12_r63",
   "upstream_revision": "a0924fec0959b69501d49bdbfefe8a13f53033c4",
@@ -44,12 +44,14 @@
     "Use the matching MagicOS 11 vendor and vendor_boot cohort; do not combine with the retained 6.12.38 drivers.",
     "Apply all four module-overrides.json entries using the same signed modules as system_dlkm.",
     "Rebuild and sign the coordinated vendor/kernel images and update their AVB descriptors before hardware testing.",
-    "Preserve the existing patched LK and Lineage Recovery."
+    "Preserve the existing patched LK and use the separately reviewed Lineage Recovery cohort."
   ],
   "limits": [
-    "No hardware boot, driver-load, suspend or telephony test has been performed.",
+    "Android hardware boot has been demonstrated with the matching MagicOS 11 hardware stack and the proven MagicOS 10.0.0.113 first-stage loader. Full radio, suspend and final OTA migration qualification remain incomplete.",
     "The public baseline does not contain Honor-only F2FS SIS/compression, tracing and diagnostic extensions. ABI checks do not prove identical filesystem behavior.",
     "Optional reset guard remains opt-in and unqualified.",
     "Fresh builds generate a new module-signing key, so signed module bytes and kernel certificate bytes differ from this reference build."
-  ]
+  ],
+  "workspace_manifest": "manifest.xml",
+  "build_entrypoint": "build.sh"
 }
