@@ -49,15 +49,15 @@
     },
     {
       "path": "frameworks/base",
-      "revision": "4bdac1e154db2b4e806911eb03e9c07a3e377420",
-      "tree": "65e9afacea46bcc633b4eb81f35864c2a8259feb",
+      "revision": "acbbd21aa8324864fa2d3e9c516055d4e798ab08",
+      "tree": "bfbfa752a688d91bfeb91c6ceb7e9ee2ba02ef34",
       "base_revision": "22de88b7b8eb979c816669c7963dee66ae4953cd",
       "patch": "frameworks_base.patch",
-      "patch_sha256": "dbd236df293b854426afa14419694f202ea53a6e7433579c9529e2590282886e",
+      "patch_sha256": "f6fcf48ec26a6530310647c1c8d8f6ac3d75acc19526559e6c4f865d7c7ff1a5",
       "patch_tree_verified": true,
       "remote_url": "https://github.com/LineageOS/android_frameworks_base",
-      "target_snapshot_revision": "4bdac1e154db2b4e806911eb03e9c07a3e377420",
-      "target_snapshot_tree": "65e9afacea46bcc633b4eb81f35864c2a8259feb",
+      "target_snapshot_revision": "acbbd21aa8324864fa2d3e9c516055d4e798ab08",
+      "target_snapshot_tree": "bfbfa752a688d91bfeb91c6ceb7e9ee2ba02ef34",
       "historical_public_snapshot": {
         "revision": "193c50e5fb7e8278190f57048af9fab5a7098fb4",
         "tree": "5c28bc283ee9569918f5eba680041eedc509e857"
@@ -234,12 +234,12 @@
       "base_revision": "65d661b1a536701e8b118be4e9728d7b5ca727c9",
       "remote_url": "https://github.com/LineageOS/android_system_core",
       "patch": "system_core.patch",
-      "revision": "7daeaa2253b5887fa6ae4cdbc4e14abc26da5460",
-      "tree": "dc7a782ed1aad54ffe23135652fcf2ca71871d0f",
-      "patch_sha256": "0883acb40e00f051ef042e97f205a7dbad4680899bc0d65edc355b72214a6976",
+      "revision": "6943ad8024045bb1c3802ae6045a948184b23ca9",
+      "tree": "0c26a737845359f6725c7603597b2ad2670ad3c0",
+      "patch_sha256": "f0127ba4424884392abedc6ee6ca79ad66fc4975f5a2fe4b7e443caeb0a50ae2",
       "patch_tree_verified": true,
-      "target_snapshot_revision": "7daeaa2253b5887fa6ae4cdbc4e14abc26da5460",
-      "target_snapshot_tree": "dc7a782ed1aad54ffe23135652fcf2ca71871d0f"
+      "target_snapshot_revision": "6943ad8024045bb1c3802ae6045a948184b23ca9",
+      "target_snapshot_tree": "0c26a737845359f6725c7603597b2ad2670ad3c0"
     }
   ]
 }

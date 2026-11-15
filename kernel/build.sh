@@ -25,7 +25,16 @@ fi
 if [ "$(git -C common rev-parse HEAD)" = "70f67f1acd5b4871106fb7e9e945fd8bd764816a" ]; then
     python3 "$recipe/replay.py" common "$recipe/patches/security-20261114.json"
 fi
+# The reset guard stays opt-in until its device trial and full kernel qualification pass.
+if [ "${LDY_AN00_RESET_GUARD:-0}" = 1 ]; then
+    if [ "$(git -C common rev-parse HEAD)" = "$head" ]; then
+        python3 "$recipe/replay.py" common "$recipe/patches/locked-reset-20261115.json"
+    fi
+    head=fed3ecf0ebdb4e50519d080d25f3cfdb02b782df
+    export SOURCE_DATE_EPOCH=1794700667
+else
+    export SOURCE_DATE_EPOCH=1794629285
+fi
 test "$(git -C common rev-parse HEAD)" = "$head"
 test -z "$(git -C common status --porcelain)"
-export SOURCE_DATE_EPOCH=1794629285
 exec common/scripts/build-ldy-an00.sh

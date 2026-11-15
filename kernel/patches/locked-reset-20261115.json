@@ -1,0 +1,26 @@
+{
+  "base": "d8eddc5fb80b3061efc6541dda5ca97315374f0a",
+  "head": "fed3ecf0ebdb4e50519d080d25f3cfdb02b782df",
+  "commits": [
+    {
+      "commit": "fed3ecf0ebdb4e50519d080d25f3cfdb02b782df",
+      "parent": "d8eddc5fb80b3061efc6541dda5ca97315374f0a",
+      "tree": "35bde2d31f94a4977c21dfd8a6f68e8f6fd7aea4",
+      "patch": "0014-Add-lock-dependent-MT6661-reset-protection.patch",
+      "patch_sha256": "4a2f3f5f77e6d745920e5d829e4c5f0e620a0a146e3ad34ddcfbd3947737f2ef",
+      "message": "Add lock-dependent MT6661 reset protection for LDY-AN00\n\nChange-Id: I1732f663ca0f0ce5921810da1e3dd8b85a80727e\n",
+      "author": {
+        "name": "iodn",
+        "email": "114117719+iodn@users.noreply.github.com",
+        "date": "1794700667 +0000"
+      },
+      "committer": {
+        "name": "iodn",
+        "email": "114117719+iodn@users.noreply.github.com",
+        "date": "1794700667 +0000"
+      }
+    }
+  ],
+  "hardware_tested": false,
+  "qualification": "Source candidate; focused object and host checks only. Existing release artifacts are unchanged."
+}

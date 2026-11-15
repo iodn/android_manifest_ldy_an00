@@ -9480,7 +9480,7 @@ index 0000000000000000000000000000000000000000..7cbd711d5a594dad64106a88a4004e43
 +    }
 +}
 diff --git a/services/core/java/com/android/server/policy/keyguard/KeyguardServiceDelegate.java b/services/core/java/com/android/server/policy/keyguard/KeyguardServiceDelegate.java
-index 2d25ee154c6dcbd4782123483c84f594c271fc8b..cebbd12921da1c58792a18f8e3d58bdd513d6e71 100644
+index 2d25ee154c6dcbd4782123483c84f594c271fc8b..5b01e50001bb268ee09244e5c9821928ba988d1a 100644
 --- a/services/core/java/com/android/server/policy/keyguard/KeyguardServiceDelegate.java
 +++ b/services/core/java/com/android/server/policy/keyguard/KeyguardServiceDelegate.java
 @@ -207,7 +207,10 @@ public class KeyguardServiceDelegate {
@@ -9494,14 +9494,120 @@ index 2d25ee154c6dcbd4782123483c84f594c271fc8b..cebbd12921da1c58792a18f8e3d58bdd
          mCallback = callback;
          mLockPatternUtils = new LockPatternUtils(context);
          mActivityManagerInternal = LocalServices.getService(ActivityManagerInternal.class);
-@@ -217,6 +220,7 @@ public class KeyguardServiceDelegate {
+@@ -217,6 +220,8 @@ public class KeyguardServiceDelegate {
      public void onShowingStateChanged(boolean showing) {
          mKeyguardReportedState.showing = showing;
          mCallback.onShowingChanged();
 +        AutoReboot.onKeyguardShowingStateChanged(mSecurityContext, showing, mKeyguardState.userId);
++        LockedResetGuard.onKeyguardStateChanged(mSecurityContext, showing);
      }
  
      /**
+@@ -226,6 +231,7 @@ public class KeyguardServiceDelegate {
+      * @param handler the handler to run the ServiceConnection callbacks on.
+      */
+     public void bindService(@NonNull Context context, @NonNull Handler handler) {
++        LockedResetGuard.onKeyguardStateChanged(mSecurityContext, true);
+         Intent intent = new Intent();
+         final Resources resources = context.getApplicationContext().getResources();
+ 
+@@ -667,6 +673,7 @@ public class KeyguardServiceDelegate {
+             }
+         }
+         mKeyguardState.userId = userId;
++        LockedResetGuard.onKeyguardStateChanged(mSecurityContext, true);
+     }
+ 
+     /**
+diff --git a/services/core/java/com/android/server/policy/keyguard/LockedResetGuard.java b/services/core/java/com/android/server/policy/keyguard/LockedResetGuard.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..45a2ca7028ecfa4edcec6d814b570198ef26f2b5
+--- /dev/null
++++ b/services/core/java/com/android/server/policy/keyguard/LockedResetGuard.java
+@@ -0,0 +1,83 @@
++/* SPDX-License-Identifier: Apache-2.0 */
++package com.android.server.policy.keyguard;
++
++import android.app.ActivityManager;
++import android.app.KeyguardManager;
++import android.content.BroadcastReceiver;
++import android.content.Context;
++import android.content.Intent;
++import android.content.IntentFilter;
++import android.database.ContentObserver;
++import android.os.Handler;
++import android.os.HandlerThread;
++import android.os.SystemProperties;
++import android.os.UserHandle;
++import android.os.UserManager;
++import android.util.Slog;
++import java.io.File;
++import lineageos.providers.LineageSettings;
++
++/** Device-specific hardware companion to the lock-screen power-menu policy. */
++final class LockedResetGuard {
++    private static final String TAG = "LockedResetGuard";
++    private static final String CONTROL = "sys.ldy_security.reset_protected";
++    private static LockedResetGuard sInstance;
++    private final Context mContext;
++    private final Handler mHandler;
++    private boolean mShowing = true;
++    private final Runnable mRefresh = this::refresh;
++
++    private LockedResetGuard(Context context) {
++        mContext = context;
++        HandlerThread thread = new HandlerThread(TAG);
++        thread.start();
++        mHandler = new Handler(thread.getLooper());
++        context.getContentResolver().registerContentObserver(LineageSettings.Secure.getUriFor(
++                LineageSettings.Secure.POWER_MENU_BLOCK_ON_LOCKSCREEN), false,
++                new ContentObserver(mHandler) {
++                    @Override public void onChange(boolean selfChange) { refresh(); }
++                }, UserHandle.USER_ALL);
++        IntentFilter filter = new IntentFilter(Intent.ACTION_USER_SWITCHED);
++        filter.addAction(Intent.ACTION_USER_UNLOCKED);
++        filter.addAction(Intent.ACTION_USER_PRESENT);
++        context.registerReceiverAsUser(new BroadcastReceiver() {
++            @Override public void onReceive(Context context, Intent intent) { refresh(); }
++        }, UserHandle.ALL, filter, null, mHandler);
++    }
++
++    static synchronized void onKeyguardStateChanged(Context context, boolean showing) {
++        if (!SystemProperties.getBoolean("ro.lineage.ldy_an00.reset_guard", false)
++                || !new File("/sys/kernel/ldy_reset_guard/protected").exists()) return;
++        if (sInstance == null) sInstance = new LockedResetGuard(context);
++        LockedResetGuard guard = sInstance;
++        guard.mHandler.post(() -> {
++            guard.mShowing = showing;
++            guard.refresh();
++        });
++    }
++
++    // Shared with the focused policy regression tests. Screen-off is not a lock signal.
++    static boolean shouldProtect(boolean enabled, boolean showing, boolean userUnlocked,
++            boolean deviceLocked) {
++        return enabled && (showing || !userUnlocked || deviceLocked);
++    }
++
++    private void refresh() {
++        mHandler.removeCallbacks(mRefresh);
++        try {
++            int user = ActivityManager.getCurrentUser();
++            boolean enabled = LineageSettings.Secure.getIntForUser(mContext.getContentResolver(),
++                    LineageSettings.Secure.POWER_MENU_BLOCK_ON_LOCKSCREEN, 0, user) != 0;
++            UserManager users = mContext.getSystemService(UserManager.class);
++            KeyguardManager keyguard = mContext.getSystemService(KeyguardManager.class);
++            boolean protect = shouldProtect(enabled, mShowing, users != null && users.isUserUnlocked(user),
++                    keyguard == null || keyguard.isDeviceLocked(user));
++            SystemProperties.set(CONTROL, protect ? "1" : "0");
++        } catch (RuntimeException error) {
++            // Retain existing protection on failure. Init reports failed writes, including EAGAIN
++            // while the stock key driver has not yet bound. Retry without waking a sleeping phone.
++            Slog.w(TAG, "Unable to confirm hardware reset policy; retrying", error);
++            mHandler.postDelayed(mRefresh, 5000);
++        }
++    }
++}
 diff --git a/services/proguard.flags b/services/proguard.flags
 index 36d0f05f86eed927d4c0cd17b676a6b8ac048c4c..cba49d9fda090e4d68a885750df514fc63f53ac1 100644
 --- a/services/proguard.flags
