@@ -272,14 +272,14 @@
     },
     {
       "path": "vendor/honor/ldy_an00",
-      "revision": "5e0c6d76016b13ab13d86a3d1841d9cf02dd7379",
-      "tree": "4e12ccf2536f4825b701f3491b6cb8c6467d93c7",
+      "revision": "3d4ede9f4c666b040505f620d0e77963b1f16e69",
+      "tree": "d6d35a4a5429cd2800e7b6e5996d2f7affc8f822",
       "repository": "android_vendor_honor_ldy_an00",
       "excluded_input_count": 18,
-      "public_snapshot_revision": "5e0c6d76016b13ab13d86a3d1841d9cf02dd7379",
-      "public_snapshot_tree": "4e12ccf2536f4825b701f3491b6cb8c6467d93c7",
-      "target_snapshot_revision": "5e0c6d76016b13ab13d86a3d1841d9cf02dd7379",
-      "target_snapshot_tree": "4e12ccf2536f4825b701f3491b6cb8c6467d93c7"
+      "public_snapshot_revision": "3d4ede9f4c666b040505f620d0e77963b1f16e69",
+      "public_snapshot_tree": "d6d35a4a5429cd2800e7b6e5996d2f7affc8f822",
+      "target_snapshot_revision": "3d4ede9f4c666b040505f620d0e77963b1f16e69",
+      "target_snapshot_tree": "d6d35a4a5429cd2800e7b6e5996d2f7affc8f822"
     },
     {
       "path": "vendor/lineage",
