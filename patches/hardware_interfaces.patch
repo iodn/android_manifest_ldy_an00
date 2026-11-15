@@ -1,5 +1,5 @@
 diff --git a/common/aidl/Android.bp b/common/aidl/Android.bp
-index 792c29daffdf52be0de9ec3e6b6d87f8252f3f0b..1b41c6fa92f749d6c9234c5f0bdf73d9ef591a4f 100644
+index 792c29da..1b41c6fa 100644
 --- a/common/aidl/Android.bp
 +++ b/common/aidl/Android.bp
 @@ -50,3 +50,10 @@ aidl_interface {
@@ -13,3 +13,287 @@ index 792c29daffdf52be0de9ec3e6b6d87f8252f3f0b..1b41c6fa92f749d6c9234c5f0bdf73d9
 +    srcs: ["aidl_api/android.hardware.common/2/android/hardware/common/NativeHandle.aidl"],
 +    visibility: ["//frameworks/native/services/surfaceflinger/ldy_an00_composerext:__pkg__"],
 +}
+diff --git a/sensors/aidl/convert/Android.bp b/sensors/aidl/convert/Android.bp
+index 548308e4..0e4b6251 100644
+--- a/sensors/aidl/convert/Android.bp
++++ b/sensors/aidl/convert/Android.bp
+@@ -49,3 +49,21 @@ cc_library_static {
+         "libhardware",
+     ],
+ }
++
++cc_test {
++    name: "SensorsAidlConvertTest",
++    host_supported: true,
++    srcs: ["convert_test.cpp"],
++    static_libs: ["android.hardware.sensors-V1-convert"],
++    shared_libs: [
++        "android.hardware.sensors-V3-ndk",
++        "libbase",
++        "libbinder_ndk",
++        "libcutils",
++        "libhardware",
++        "liblog",
++        "libutils",
++    ],
++    cflags: ["-Wall", "-Werror"],
++    test_suites: ["general-tests"],
++}
+diff --git a/sensors/aidl/convert/convert.cpp b/sensors/aidl/convert/convert.cpp
+index 940699c8..b90cbc3e 100644
+--- a/sensors/aidl/convert/convert.cpp
++++ b/sensors/aidl/convert/convert.cpp
+@@ -16,6 +16,7 @@
+ 
+ #include "aidl/sensors/convert.h"
+ #include "android-base/logging.h"
++#include "android-base/properties.h"
+ 
+ namespace android {
+ namespace hardware {
+@@ -90,6 +91,18 @@ void convertToSensorEvent(const Event& src, sensors_event_t* dst) {
+             .reserved0 = 0,
+             .timestamp = src.timestamp};
+ 
++    // Honor encodes these scalar sensor types using the generic data payload.
++    // Preserve its additional light/proximity channels and full hinge payload.
++    if ((src.sensorType == SensorType::LIGHT || src.sensorType == SensorType::PROXIMITY ||
++         src.sensorType == SensorType::HINGE_ANGLE) &&
++        src.payload.getTag() == Event::EventPayload::data) {
++        const auto& values = src.payload.get<Event::EventPayload::data>().values;
++        const size_t size = src.sensorType == SensorType::HINGE_ANGLE ? sizeof(dst->data)
++                                                                   : 3 * sizeof(float);
++        memcpy(dst->data, values.data(), size);
++        return;
++    }
++
+     switch (src.sensorType) {
+         case SensorType::META_DATA: {
+             // Legacy HALs expect the handle reference in the meta data field.
+@@ -293,12 +306,28 @@ void convertToSensorEvent(const Event& src, sensors_event_t* dst) {
+ }
+ 
+ void convertFromSensorEvent(const sensors_event_t& src, Event* dst) {
++    static const bool useHonorPayload = ::android::base::GetProperty("ro.product.brand", "") == "HONOR";
++    convertFromSensorEvent(src, dst, useHonorPayload);
++}
++
++void convertFromSensorEvent(const sensors_event_t& src, Event* dst, bool useHonorPayload) {
+     *dst = {
+             .timestamp = src.timestamp,
+             .sensorHandle = src.sensor,
+             .sensorType = (SensorType)src.type,
+     };
+ 
++    if (useHonorPayload &&
++        (dst->sensorType == SensorType::LIGHT || dst->sensorType == SensorType::PROXIMITY ||
++         dst->sensorType == SensorType::HINGE_ANGLE)) {
++        Event::EventPayload::Data data{};
++        const size_t size = dst->sensorType == SensorType::HINGE_ANGLE ? sizeof(src.data)
++                                                                    : 3 * sizeof(float);
++        memcpy(data.values.data(), src.data, size);
++        dst->payload.set<Event::EventPayload::data>(data);
++        return;
++    }
++
+     switch (dst->sensorType) {
+         case SensorType::META_DATA: {
+             Event::EventPayload::MetaData meta;
+diff --git a/sensors/aidl/convert/convert_test.cpp b/sensors/aidl/convert/convert_test.cpp
+new file mode 100644
+index 00000000..8f1a59b4
+--- /dev/null
++++ b/sensors/aidl/convert/convert_test.cpp
+@@ -0,0 +1,178 @@
++/*
++ * Copyright (C) 2022 The Android Open Source Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++#include "aidl/sensors/convert.h"
++
++#include <gtest/gtest.h>
++
++#include <iterator>
++
++namespace android::hardware::sensors::implementation {
++namespace {
++
++using aidl::android::hardware::sensors::Event;
++using aidl::android::hardware::sensors::SensorStatus;
++using aidl::android::hardware::sensors::SensorType;
++
++Event makeEvent(SensorType type) {
++    Event event{};
++    event.timestamp = 1234567890123;
++    event.sensorHandle = 17;
++    event.sensorType = type;
++    return event;
++}
++
++void expectHeader(const Event& event, const sensors_event_t& converted) {
++    EXPECT_EQ(sizeof(sensors_event_t), converted.version);
++    EXPECT_EQ(event.timestamp, converted.timestamp);
++    EXPECT_EQ(event.sensorHandle, converted.sensor);
++    EXPECT_EQ(static_cast<int32_t>(event.sensorType), converted.type);
++}
++
++class HonorScalarPayloadTest : public testing::TestWithParam<SensorType> {};
++
++TEST_P(HonorScalarPayloadTest, StandardScalarRemainsSupported) {
++    Event event = makeEvent(GetParam());
++    event.payload.set<Event::EventPayload::scalar>(12.5f);
++    sensors_event_t converted{};
++    convertToSensorEvent(event, &converted);
++    expectHeader(event, converted);
++    EXPECT_FLOAT_EQ(12.5f, converted.data[0]);
++    for (size_t i = 1; i < std::size(converted.data); ++i) {
++        EXPECT_FLOAT_EQ(0.0f, converted.data[i]);
++    }
++}
++
++TEST_P(HonorScalarPayloadTest, HonorDataPreservesDocumentedChannels) {
++    Event event = makeEvent(GetParam());
++    Event::EventPayload::Data data{};
++    for (size_t i = 0; i < data.values.size(); ++i) {
++        data.values[i] = static_cast<float>(i) + 0.25f;
++    }
++    event.payload.set<Event::EventPayload::data>(data);
++    sensors_event_t converted{};
++    convertToSensorEvent(event, &converted);
++    expectHeader(event, converted);
++    const size_t channels = GetParam() == SensorType::HINGE_ANGLE ? 16 : 3;
++    for (size_t i = 0; i < std::size(converted.data); ++i) {
++        EXPECT_FLOAT_EQ(i < channels ? data.values[i] : 0.0f, converted.data[i]);
++    }
++}
++
++TEST_P(HonorScalarPayloadTest, StandardOutboundUsesScalar) {
++    sensors_event_t source{};
++    source.version = sizeof(source);
++    source.type = static_cast<int32_t>(GetParam());
++    source.sensor = 23;
++    source.timestamp = 2345678901234;
++    for (size_t i = 0; i < std::size(source.data); ++i) {
++        source.data[i] = static_cast<float>(i) + 0.75f;
++    }
++    Event converted{};
++    convertFromSensorEvent(source, &converted, false);
++    expectHeader(converted, source);
++    ASSERT_EQ(Event::EventPayload::scalar, converted.payload.getTag());
++    EXPECT_FLOAT_EQ(source.data[0], converted.payload.get<Event::EventPayload::scalar>());
++}
++
++TEST_P(HonorScalarPayloadTest, HonorOutboundPreservesDocumentedChannels) {
++    sensors_event_t source{};
++    source.version = sizeof(source);
++    source.type = static_cast<int32_t>(GetParam());
++    source.sensor = 23;
++    source.timestamp = 2345678901234;
++    for (size_t i = 0; i < std::size(source.data); ++i) {
++        source.data[i] = static_cast<float>(i) + 0.75f;
++    }
++    Event converted{};
++    convertFromSensorEvent(source, &converted, true);
++    expectHeader(converted, source);
++    ASSERT_EQ(Event::EventPayload::data, converted.payload.getTag());
++    const auto& values = converted.payload.get<Event::EventPayload::data>().values;
++    const size_t channels = GetParam() == SensorType::HINGE_ANGLE ? 16 : 3;
++    for (size_t i = 0; i < values.size(); ++i) {
++        EXPECT_FLOAT_EQ(i < channels ? source.data[i] : 0.0f, values[i]);
++    }
++
++    sensors_event_t roundTrip{};
++    convertToSensorEvent(converted, &roundTrip);
++    expectHeader(converted, roundTrip);
++    for (size_t i = 0; i < std::size(roundTrip.data); ++i) {
++        EXPECT_FLOAT_EQ(i < channels ? source.data[i] : 0.0f, roundTrip.data[i]);
++    }
++}
++
++INSTANTIATE_TEST_SUITE_P(Honor, HonorScalarPayloadTest,
++                        testing::Values(SensorType::LIGHT, SensorType::PROXIMITY,
++                                        SensorType::HINGE_ANGLE));
++
++TEST(SensorsAidlConvertTest, OtherScalarTypeIsUnchanged) {
++    Event event = makeEvent(SensorType::PRESSURE);
++    event.payload.set<Event::EventPayload::scalar>(1001.5f);
++    sensors_event_t converted{};
++    convertToSensorEvent(event, &converted);
++    expectHeader(event, converted);
++    EXPECT_FLOAT_EQ(1001.5f, converted.data[0]);
++}
++
++TEST(SensorsAidlConvertTest, HonorModeLeavesOtherScalarTypesUnchanged) {
++    sensors_event_t source{};
++    source.version = sizeof(source);
++    source.type = static_cast<int32_t>(SensorType::PRESSURE);
++    source.sensor = 29;
++    source.timestamp = 3456789012345;
++    source.data[0] = 999.5f;
++    Event converted{};
++    convertFromSensorEvent(source, &converted, true);
++    expectHeader(converted, source);
++    ASSERT_EQ(Event::EventPayload::scalar, converted.payload.getTag());
++    EXPECT_FLOAT_EQ(source.data[0], converted.payload.get<Event::EventPayload::scalar>());
++}
++
++TEST(SensorsAidlConvertTest, StandardVectorIsUnchanged) {
++    Event event = makeEvent(SensorType::ACCELEROMETER);
++    Event::EventPayload::Vec3 vector{};
++    vector.x = 1.25f;
++    vector.y = -2.5f;
++    vector.z = 9.75f;
++    vector.status = SensorStatus::ACCURACY_HIGH;
++    event.payload.set<Event::EventPayload::vec3>(vector);
++    sensors_event_t converted{};
++    convertToSensorEvent(event, &converted);
++    expectHeader(event, converted);
++    EXPECT_FLOAT_EQ(vector.x, converted.acceleration.x);
++    EXPECT_FLOAT_EQ(vector.y, converted.acceleration.y);
++    EXPECT_FLOAT_EQ(vector.z, converted.acceleration.z);
++    EXPECT_EQ(static_cast<int32_t>(vector.status), converted.acceleration.status);
++}
++
++TEST(SensorsAidlConvertTest, StandardDataVectorIsUnchanged) {
++    Event event = makeEvent(SensorType::ROTATION_VECTOR);
++    Event::EventPayload::Data data{};
++    for (size_t i = 0; i < 5; ++i) {
++        data.values[i] = static_cast<float>(i) + 0.5f;
++    }
++    event.payload.set<Event::EventPayload::data>(data);
++    sensors_event_t converted{};
++    convertToSensorEvent(event, &converted);
++    expectHeader(event, converted);
++    for (size_t i = 0; i < 5; ++i) {
++        EXPECT_FLOAT_EQ(data.values[i], converted.data[i]);
++    }
++}
++
++}  // namespace
++}  // namespace android::hardware::sensors::implementation
+diff --git a/sensors/aidl/convert/include/aidl/sensors/convert.h b/sensors/aidl/convert/include/aidl/sensors/convert.h
+index 44504fef..6d337b1a 100644
+--- a/sensors/aidl/convert/include/aidl/sensors/convert.h
++++ b/sensors/aidl/convert/include/aidl/sensors/convert.h
+@@ -30,6 +30,9 @@ void convertToSensor(const aidl::android::hardware::sensors::SensorInfo& src, se
+ void convertToSensorEvent(const aidl::android::hardware::sensors::Event& src, sensors_event_t* dst);
+ void convertFromSensorEvent(const sensors_event_t& src,
+                             aidl::android::hardware::sensors::Event* dst);
++// Explicit wire format for Honor vendor callbacks; false retains the standard AIDL payload.
++void convertFromSensorEvent(const sensors_event_t& src,
++                            aidl::android::hardware::sensors::Event* dst, bool useHonorPayload);
+ void convertFromASensorEvent(const ASensorEvent& src, aidl::android::hardware::sensors::Event* dst);
+ 
+ }  // namespace implementation

@@ -93,11 +93,11 @@
     },
     {
       "path": "hardware/interfaces",
-      "revision": "282943dc889ef54a7505872196833794a676fd20",
-      "tree": "1a34b9c159571c2317766d3d56c7234434d2c9a8",
+      "revision": "509ef3983f0341168264ab9b582b49db7b40a496",
+      "tree": "746e6b496b5c4913d0daa7f2c71f8948fd638052",
       "base_revision": "a0221f11248a924532444fc7de85d41998b9fe1e",
       "patch": "hardware_interfaces.patch",
-      "patch_sha256": "fc81af936188d8987629541017df7e90807c500bb4b224c4807ca36fd5718bd7",
+      "patch_sha256": "a440a03a911e38fc5980957551d79a853e3af0153c581ccfcba01a76dfb2ba55",
       "patch_tree_verified": true,
       "remote_url": "https://github.com/LineageOS/android_hardware_interfaces"
     },

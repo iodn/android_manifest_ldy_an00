@@ -23,7 +23,7 @@ class PayloadTest(unittest.TestCase):
     def check(self):
         return v.validate_manifest(self.m,self.expected,42)
     def test_valid_exact_migration(self):
-        self.assertEqual(len(self.check()),18)
+        self.assertEqual(len(self.check()),20)
     def test_metadata_order_has_no_semantic_effect(self):
         rows=list(self.m.partitions);del self.m.partitions[:];self.m.partitions.extend(reversed(rows))
         self.check()

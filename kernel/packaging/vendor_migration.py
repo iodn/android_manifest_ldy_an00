@@ -17,7 +17,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "tools"))
 from kernel_cohort import copyzip, encode, entryhash, info, names, need, parse, props, sha
 from kernel_caremap import generate, check, functions
 
-PARTS = tuple("boot init_boot vendor_boot dtbo system system_dlkm vendor vendor_dlkm odm odm_dlkm vbmeta vbmeta_system vbmeta_system_dlkm vbmeta_vendor vbmeta_vendor_dlkm vbmeta_odm vbmeta_odm_dlkm recovery_vbmeta".split())
+PARTS = tuple("boot init_boot vendor_boot dtbo system system_dlkm vendor vendor_dlkm odm odm_dlkm vbmeta vbmeta_system vbmeta_system_dlkm vbmeta_vendor vbmeta_vendor_dlkm vbmeta_odm vbmeta_odm_dlkm recovery_vbmeta modem mcf_ota".split())
+RAW = ("modem", "mcf_ota")
 DYNAMIC = "system system_dlkm vendor vendor_dlkm odm odm_dlkm"
 LISTS = ("dynamic_partition_list", "super_qti_dynamic_partitions_partition_list")
 META = ("META/misc_info.txt", "META/dynamic_partitions_info.txt")
@@ -70,6 +71,16 @@ def project(source, out, contract, directory, content):
         need(z.read("META/kernel_version.txt").decode().strip() == c["kernel_release"], "Kernel identity mismatch")
         for partition in PARTS:
             need(any(n in ix for n in ("IMAGES/" + partition + ".img", "RADIO/" + partition + ".img")), "Missing compiler partition: " + partition)
+        # Raw OEM-signed baseband images are opaque RADIO inputs, never AVB inputs.
+        for partition in RAW:
+            radio = "RADIO/" + partition + ".img"
+            need(radio in ix, "Missing raw RADIO partition: " + partition)
+            for name in (radio, "IMAGES/" + partition + ".img"):
+                if name in ix:
+                    need(entryhash(z, name) == sha(hardware[partition]),
+                         "Raw compiler image mismatch: " + partition)
+            need(not any(key.startswith("avb_" + partition + "_") for key in m),
+                 "Raw partition must not have AVB signing metadata: " + partition)
         removed = {n for n in ix if n in DERIVED or n.startswith(PREFIXES) or n.startswith("IMAGES/") and n not in ("IMAGES/system.img", "IMAGES/vbmeta_system.img", "IMAGES/vbmeta.img")}
         signed_meta = {}
         frozen = set(PARTS) - set(TWO) - {"vbmeta"}
@@ -219,15 +230,22 @@ def assemble(source, out, contract, directory, receipt, tools):
         need(set(module_props) == {"SYSTEM_DLKM/etc/build.prop", "VENDOR_DLKM/etc/build.prop", "ODM_DLKM/etc/build.prop", "ODM/etc/build.prop"}, "Missing actual image version metadata")
         replacements = {META[0]:encode(final), META[1]:encode(proof["original_dynamic"]), "META/ab_partitions.txt":("\n".join(PARTS)+"\n").encode(), "META/care_map.pb":care, **metadata, **module_props}
         removed = DERIVED | {"IMAGES/vbmeta.img"}
-        copyzip(source, out, replacements, removed, {"IMAGES/"+p+".img":f for p,f in hardware.items()})
+        additions = {"IMAGES/"+p+".img":f for p,f in hardware.items()}
+        additions.update({"RADIO/"+p+".img":hardware[p] for p in RAW})
+        copyzip(source, out, replacements, removed, additions)
     with zipfile.ZipFile(out) as z:
         need({n for n in names(z) if n.startswith("IMAGES/") and n.endswith(".img")} == {"IMAGES/"+p+".img" for p in PARTS}, "Final image set mismatch")
         for p,f in hardware.items():
             need(entryhash(z, "IMAGES/"+p+".img") == sha(f), "Hardware image changed during assembly")
+        need({n for n in names(z) if n.startswith("RADIO/")} ==
+             {"RADIO/"+p+".img" for p in RAW}, "Final raw RADIO set mismatch")
+        for p in RAW:
+            need(entryhash(z, "RADIO/"+p+".img") == sha(hardware[p]),
+                 "Raw RADIO image changed during assembly")
         for n in ("IMAGES/system.img", "IMAGES/vbmeta_system.img"):
             with zipfile.ZipFile(source) as before:
                 need(entryhash(z,n)==entryhash(before,n), "Signed system changed")
-    return dict(status="ASSEMBLED_NOT_HARDWARE_QUALIFIED", input=info(source), output=info(out), parts=PARTS, kernel_release=c["kernel_release"], caremap=careproof, preserves=["lk", "preloader", "tee", "modem", "recovery_ramdisk"])
+    return dict(status="ASSEMBLED_NOT_HARDWARE_QUALIFIED", input=info(source), output=info(out), parts=PARTS, kernel_release=c["kernel_release"], caremap=careproof, preserves=["lk", "preloader", "tee", "nvram", "nvdata", "nvcfg", "md_sec", "recovery_ramdisk"], raw_oem_signed_parts=RAW)
 
 def main():
     p=argparse.ArgumentParser(description=__doc__)
