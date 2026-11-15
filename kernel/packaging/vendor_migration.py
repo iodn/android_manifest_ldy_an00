@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 """Explicit target-files projection and assembly for the stock11 hardware trial."""
 import argparse
+import hashlib
 import json
 import logging
 import os
@@ -143,6 +144,14 @@ def generate_migration_caremap(system, hardware, system_props, tools, temp):
     proof["scope"] = "Official footer-bounded ranges for all six updated logical partitions; existing system properties and signed hardware fingerprints."
     return binary.read_bytes(), build_properties, proof
 
+def immutable_metadata(original, signed, name, digest):
+    need(hashlib.sha256(original).hexdigest() == digest, "Original OEM metadata changed")
+    if original != signed:
+        normalize = lambda raw: raw.replace(b"\r\n", b"\n").rstrip(b"\n")
+        need(name.endswith("/build.prop") and normalize(original) == normalize(signed),
+             "Immutable OEM metadata changed: " + name)
+    return original
+
 def assemble(source, out, contract, directory, receipt, tools):
     c, hardware = verify_hardware(contract, directory)
     proof = json.loads(Path(receipt).read_text())
@@ -153,8 +162,12 @@ def assemble(source, out, contract, directory, receipt, tools):
         need({n for n in ix if n.startswith("IMAGES/") and n.endswith(".img")} == {"IMAGES/system.img", "IMAGES/vbmeta_system.img", "IMAGES/vbmeta.img"}, "Unexpected signed projection images")
         m = parse(z.read(META[0]))
         need(m["avb_vbmeta_system_key_path"] == "/keys/avb/vbmeta-system.pem" and m["avb_vbmeta_system_rollback_index_location"] == "2", "Wrong signed system identity")
-        for n, digest in proof["vendor_metadata"].items():
-            need(entryhash(z, n) == digest, "Immutable OEM metadata changed")
+        original = proof["output"]
+        need(info(original["path"]) == original, "Original signing projection changed")
+        with zipfile.ZipFile(original["path"]) as projected:
+            names(projected)
+            metadata = {n:immutable_metadata(projected.read(n), z.read(n), n, digest)
+                        for n,digest in proof["vendor_metadata"].items()}
         final = dict(proof["original_misc"])
         for key, value in m.items():
             if key.startswith(("avb_system_", "avb_vbmeta_system_")):
@@ -172,7 +185,7 @@ def assemble(source, out, contract, directory, receipt, tools):
             shutil.copyfileobj(a, b, 1024 * 1024)
         care, module_props, careproof = generate_migration_caremap(system, hardware, props(z), json.loads(Path(tools).read_text()), temp)
         need(set(module_props) == {"SYSTEM_DLKM/etc/build.prop", "VENDOR_DLKM/etc/build.prop", "ODM_DLKM/etc/build.prop"}, "Missing actual module version metadata")
-        replacements = {META[0]:encode(final), META[1]:encode(proof["original_dynamic"]), "META/ab_partitions.txt":("\n".join(PARTS)+"\n").encode(), "META/care_map.pb":care, **module_props}
+        replacements = {META[0]:encode(final), META[1]:encode(proof["original_dynamic"]), "META/ab_partitions.txt":("\n".join(PARTS)+"\n").encode(), "META/care_map.pb":care, **module_props, **metadata}
         removed = DERIVED | {"IMAGES/vbmeta.img"}
         copyzip(source, out, replacements, removed, {"IMAGES/"+p+".img":f for p,f in hardware.items()})
     with zipfile.ZipFile(out) as z:

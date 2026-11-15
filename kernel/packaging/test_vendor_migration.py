@@ -40,6 +40,24 @@ class MigrationTest(unittest.TestCase):
     def project(self):
         self.write_source()
         return v.project(self.source,self.out,self.contract,self.cohort,self.content)
+    def test_accept_only_property_line_ending_normalization(self):
+        original=b"ro.vendor.flag=1\r\n"
+        digest=hashlib.sha256(original).hexdigest()
+        self.assertEqual(v.immutable_metadata(original,b"ro.vendor.flag=1\n\n",
+                                             "VENDOR/build.prop",digest),original)
+        with self.assertRaisesRegex(ValueError,"Immutable OEM metadata changed"):
+            v.immutable_metadata(original,b"ro.vendor.flag=0\n","VENDOR/build.prop",digest)
+
+    def test_xml_metadata_must_remain_byte_exact(self):
+        original=b"<manifest/>\r\n"
+        with self.assertRaisesRegex(ValueError,"Immutable OEM metadata changed"):
+            v.immutable_metadata(original,b"<manifest/>\n","VENDOR/etc/vintf/manifest.xml",
+                                 hashlib.sha256(original).hexdigest())
+
+    def test_original_metadata_hash_is_checked(self):
+        with self.assertRaisesRegex(ValueError,"Original OEM metadata changed"):
+            v.immutable_metadata(b"a=1\n",b"a=1\n","VENDOR/build.prop","0"*64)
+
     def test_projection_preserves_system_and_shipping_scope(self):
         receipt=self.project()
         with zipfile.ZipFile(self.out) as z:
@@ -83,6 +101,7 @@ class MigrationTest(unittest.TestCase):
                 data=a.read(n)
                 if n==v.META[0]:
                     m=v.parse(data);m["avb_vbmeta_system_key_path"]="/keys/avb/vbmeta-system.pem";data=v.encode(m)
+                if n=="VENDOR/build.prop":data+=b"\n"
                 b.writestr(n,data)
         tools=self.root/"tools.json";tools.write_text("{}")
         out=self.root/"assembled.zip"
@@ -92,6 +111,7 @@ class MigrationTest(unittest.TestCase):
             for row in self.rows:self.assertEqual(z.read("IMAGES/"+row["file"]),row["partition"].encode())
             self.assertEqual(tuple(z.read("META/ab_partitions.txt").decode().split()),v.PARTS)
             self.assertEqual(z.read("META/care_map.pb"),b"new caremap")
+            self.assertEqual(z.read("VENDOR/build.prop"),(self.content/"vendor/build.prop").read_bytes())
     def test_reject_immutable_vendor_metadata_mutation(self):
         receipt=self.project()
         receipt_path=self.root/"receipt.json";receipt_path.write_text(json.dumps(receipt))
