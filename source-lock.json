@@ -33,30 +33,30 @@
     },
     {
       "path": "device/honor/ldy_an00",
-      "revision": "8b6e27c9b9040ee2ac9c696fd90de2af87efddc8",
-      "tree": "0912f47c2017a37e19013e04aa9aeee7e5a819c0",
+      "revision": "58c808430b26c97e92d2e6654c6fa7d3af073b8d",
+      "tree": "ff9077fd06f6bb3e3c6475def9ded3635e3ef43c",
       "repository": "android_device_honor_ldy_an00",
       "excluded_input_count": 3,
-      "public_snapshot_revision": "8b6e27c9b9040ee2ac9c696fd90de2af87efddc8",
-      "public_snapshot_tree": "0912f47c2017a37e19013e04aa9aeee7e5a819c0",
-      "target_snapshot_revision": "8b6e27c9b9040ee2ac9c696fd90de2af87efddc8",
-      "target_snapshot_tree": "0912f47c2017a37e19013e04aa9aeee7e5a819c0"
+      "public_snapshot_revision": "58c808430b26c97e92d2e6654c6fa7d3af073b8d",
+      "public_snapshot_tree": "ff9077fd06f6bb3e3c6475def9ded3635e3ef43c",
+      "target_snapshot_revision": "58c808430b26c97e92d2e6654c6fa7d3af073b8d",
+      "target_snapshot_tree": "ff9077fd06f6bb3e3c6475def9ded3635e3ef43c"
     },
     {
       "path": "frameworks/av",
-      "revision": "f8f0907035fd48876fbc479258b5f9667b772d5a",
-      "tree": "088be389da37e561e255c377ad06f9e2319a0c14",
+      "revision": "12cb454bc5b7a67bf9aca2385bf676e3d36c4f5a",
+      "tree": "b4a1d1478e534e37b1ee2b9022682aea4e8fab80",
       "base_revision": "1c5914737a1a89d0c5b3e52e8289019eab3f8cbf",
       "patch": "patches/frameworks_av.patch",
-      "patch_sha256": "5cdd1bc47b402861dac3adc97231a7c834679039d8f943bed552bfe3e96f98a8",
+      "patch_sha256": "2b155d3c7d980546b1f2d9d0bb0dcf1982b2f9b55b3048f0a44dee0b3fa403ae",
       "patch_tree_verified": true,
       "remote_url": "https://github.com/LineageOS/android_frameworks_av",
       "historical_public_snapshot": {
         "revision": "c8a71a8b71c841910ea2d2a8479eace463db3494",
         "tree": "c12b9f9d4a831365b0c210c6ca863020aa04d438"
       },
-      "target_snapshot_revision": "f8f0907035fd48876fbc479258b5f9667b772d5a",
-      "target_snapshot_tree": "088be389da37e561e255c377ad06f9e2319a0c14"
+      "target_snapshot_revision": "12cb454bc5b7a67bf9aca2385bf676e3d36c4f5a",
+      "target_snapshot_tree": "b4a1d1478e534e37b1ee2b9022682aea4e8fab80"
     },
     {
       "path": "frameworks/base",
@@ -170,9 +170,9 @@
     },
     {
       "path": "packages/apps/LineageParts",
-      "revision": "60f2b3706aab6f3362a81b6a8c05c6bd5155f836",
-      "tree": "f0fb67e05486ebfdae5b2d57701663c80dd015d7",
-      "base_revision": "b9bf232ca06f34368356c9e46613bfb24076b6cf",
+      "revision": "76382445df0f4a2de5f9594c396d512a1a88d2a1",
+      "tree": "19a97a2a6a29c28f583bcb7ed1451086d04dd9bc",
+      "base_revision": "2ce948052f7f7675075c2ec9d68129c99b6e4ee7",
       "patch": "patches/packages_apps_LineageParts.patch",
       "patch_sha256": "23db4d92d561ac9f4e805fa7d11269a853896a2b34d739a194c47bd46c64e455",
       "patch_tree_verified": true,
@@ -208,15 +208,15 @@
     },
     {
       "path": "packages/apps/Settings",
-      "revision": "c6d81f2fe2a1b6e23fbd291687fd6266a3fec4dd",
-      "tree": "2248f3dea1525c9195c0d0d260d03c46978bf41e",
-      "base_revision": "f82184028165ea108335a9745428c26fea3cec47",
+      "revision": "8e2bfdec32522f0d617da250809df02e096ad6f9",
+      "tree": "b27c692af15dbb1fdc77797456fb7bcd59d2eb70",
+      "base_revision": "31b1a9f1cab9638bc6af9f4e6412fbf3b3a7947a",
       "patch": "patches/packages_apps_Settings.patch",
-      "patch_sha256": "cf277fcb772d38ee1dd4e8cf2cdd8fcbbe493566fc556a8ac516c577ad123b04",
+      "patch_sha256": "10b6d904ce929d26f878898bbdd271a114e53445a58324a2f4b1a3ffe70fdce1",
       "patch_tree_verified": true,
       "remote_url": "https://github.com/LineageOS/android_packages_apps_Settings",
-      "target_snapshot_revision": "c6d81f2fe2a1b6e23fbd291687fd6266a3fec4dd",
-      "target_snapshot_tree": "2248f3dea1525c9195c0d0d260d03c46978bf41e",
+      "target_snapshot_revision": "4954f4c34ac491f75ebcf3c1a1d06d883c19285a",
+      "target_snapshot_tree": "377bb32b1198f1e130618d897ef73671f04ce321",
       "historical_public_snapshot": {
         "revision": "8397134ae4ee640f1a26eb9f12d9eddb91650b89",
         "tree": "5f22ecf62a013dbae9b9d336782b93681ddf3489"
@@ -272,14 +272,14 @@
     },
     {
       "path": "vendor/honor/ldy_an00",
-      "revision": "470840ca7953200aecd1f657ed361db3351f1f6c",
-      "tree": "994bf5cf373c1814afa4f0ef38c411d39ce27dd5",
+      "revision": "5e0c6d76016b13ab13d86a3d1841d9cf02dd7379",
+      "tree": "4e12ccf2536f4825b701f3491b6cb8c6467d93c7",
       "repository": "android_vendor_honor_ldy_an00",
       "excluded_input_count": 18,
-      "public_snapshot_revision": "b8e659e8ee55fcc9ece3b3151212e6904104c822",
-      "public_snapshot_tree": "5798b78f922f7e895100934c650eb6d992811d62",
-      "target_snapshot_revision": "b8e659e8ee55fcc9ece3b3151212e6904104c822",
-      "target_snapshot_tree": "5798b78f922f7e895100934c650eb6d992811d62"
+      "public_snapshot_revision": "5e0c6d76016b13ab13d86a3d1841d9cf02dd7379",
+      "public_snapshot_tree": "4e12ccf2536f4825b701f3491b6cb8c6467d93c7",
+      "target_snapshot_revision": "5e0c6d76016b13ab13d86a3d1841d9cf02dd7379",
+      "target_snapshot_tree": "4e12ccf2536f4825b701f3491b6cb8c6467d93c7"
     },
     {
       "path": "vendor/lineage",
