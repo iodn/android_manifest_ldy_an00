@@ -25,15 +25,20 @@ fi
 if [ "$(git -C common rev-parse HEAD)" = "70f67f1acd5b4871106fb7e9e945fd8bd764816a" ]; then
     python3 "$recipe/replay.py" common "$recipe/patches/security-20261114.json"
 fi
+# Apply the standard kernel hardening default independently of the reset guard.
+if [ "$(git -C common rev-parse HEAD)" = "$head" ]; then
+    python3 "$recipe/replay.py" common "$recipe/patches/security-defaults-20261115.json"
+fi
+head=d8bf79b03e8bcbd109856645137c3d9f73866d90
 # The reset guard stays opt-in until its device trial and full kernel qualification pass.
 if [ "${LDY_AN00_RESET_GUARD:-0}" = 1 ]; then
     if [ "$(git -C common rev-parse HEAD)" = "$head" ]; then
         python3 "$recipe/replay.py" common "$recipe/patches/locked-reset-20261115.json"
     fi
-    head=fed3ecf0ebdb4e50519d080d25f3cfdb02b782df
-    export SOURCE_DATE_EPOCH=1794700667
+    head=acdabf942f39cb4e7aaf37fa4fe7659350b924b4
+    export SOURCE_DATE_EPOCH=1794703819
 else
-    export SOURCE_DATE_EPOCH=1794629285
+    export SOURCE_DATE_EPOCH=1794703819
 fi
 test "$(git -C common rev-parse HEAD)" = "$head"
 test -z "$(git -C common status --porcelain)"

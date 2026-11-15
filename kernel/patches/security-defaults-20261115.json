@@ -1,0 +1,26 @@
+{
+  "base": "d8eddc5fb80b3061efc6541dda5ca97315374f0a",
+  "head": "d8bf79b03e8bcbd109856645137c3d9f73866d90",
+  "commits": [
+    {
+      "commit": "d8bf79b03e8bcbd109856645137c3d9f73866d90",
+      "parent": "d8eddc5fb80b3061efc6541dda5ca97315374f0a",
+      "tree": "dc585f4d03ad882779c5fc190ea70f3ef34452de",
+      "patch": "0014-Enable-kernel-stack-offset-randomization.patch",
+      "patch_sha256": "3340ade8e9a33ccaa942bbf31a0e17def87bf585334c54b571da19418048970e",
+      "message": "Enable kernel stack offset randomization by default\n\nChange-Id: If0ddf4e4b6b8da7b39b5adb7ce98d7162032ed1a\n",
+      "author": {
+        "name": "iodn",
+        "email": "114117719+iodn@users.noreply.github.com",
+        "date": "1794703819 +0000"
+      },
+      "committer": {
+        "name": "iodn",
+        "email": "114117719+iodn@users.noreply.github.com",
+        "date": "1794703819 +0000"
+      }
+    }
+  ],
+  "hardware_tested": false,
+  "qualification": "Source candidate; focused arm64 compilation and configuration checks passed. Full kernel ABI/module and runtime qualification remain required."
+}

@@ -21,5 +21,13 @@
     "The kernel retains its android16-5 GKI interface label alongside LDY-AN00 branding. Packaging checks the built kernel with KernelSU v3.3.1 recognition semantics; the ROM remains unrooted and personal root runtime compatibility is a separate test.",
     "Adds Android common Bluetooth RFCOMM/L2CAP and memory-cgroup safety fixes reviewed on 2026-11-14; the kernel version and GKI interface are retained.",
     "Includes the Android common GenieZone CREATE_DEVICE allocation-leak fix for the enabled CONFIG_MTK_GZVM module."
-  ]
+  ],
+  "next_source_candidate": {
+    "source_commit": "d8bf79b03e8bcbd109856645137c3d9f73866d90",
+    "source_tree": "dc585f4d03ad882779c5fc190ea70f3ef34452de",
+    "patch_series": "patches/security-defaults-20261115.json",
+    "change": "CONFIG_RANDOMIZE_KSTACK_OFFSET_DEFAULT=y",
+    "full_kernel_qualification_pending": true,
+    "release_image_record_unchanged": true
+  }
 }

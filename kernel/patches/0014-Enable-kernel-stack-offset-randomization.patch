@@ -1,0 +1,12 @@
+diff --git a/arch/arm64/configs/gki_defconfig b/arch/arm64/configs/gki_defconfig
+index 1014f4c318b324bb5909998dbdf35c382038dcf9..95f1f53f79ddf3b2e929bd93eb9f11a9c720b08a 100644
+--- a/arch/arm64/configs/gki_defconfig
++++ b/arch/arm64/configs/gki_defconfig
+@@ -103,6 +103,7 @@ CONFIG_JUMP_LABEL=y
+ CONFIG_SHADOW_CALL_STACK=y
+ CONFIG_AUTOFDO_CLANG=y
+ CONFIG_CFI_CLANG=y
++CONFIG_RANDOMIZE_KSTACK_OFFSET_DEFAULT=y
+ CONFIG_MODULES=y
+ CONFIG_MODULE_UNLOAD=y
+ CONFIG_MODVERSIONS=y

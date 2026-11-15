@@ -1,13 +1,13 @@
 {
-  "base": "d8eddc5fb80b3061efc6541dda5ca97315374f0a",
-  "head": "fed3ecf0ebdb4e50519d080d25f3cfdb02b782df",
+  "base": "d8bf79b03e8bcbd109856645137c3d9f73866d90",
+  "head": "acdabf942f39cb4e7aaf37fa4fe7659350b924b4",
   "commits": [
     {
-      "commit": "fed3ecf0ebdb4e50519d080d25f3cfdb02b782df",
-      "parent": "d8eddc5fb80b3061efc6541dda5ca97315374f0a",
-      "tree": "35bde2d31f94a4977c21dfd8a6f68e8f6fd7aea4",
-      "patch": "0014-Add-lock-dependent-MT6661-reset-protection.patch",
-      "patch_sha256": "4a2f3f5f77e6d745920e5d829e4c5f0e620a0a146e3ad34ddcfbd3947737f2ef",
+      "commit": "acdabf942f39cb4e7aaf37fa4fe7659350b924b4",
+      "parent": "d8bf79b03e8bcbd109856645137c3d9f73866d90",
+      "tree": "5ea4ae72b2c2db3dbef1e0fef803ba5cca6386ab",
+      "patch": "0015-Add-lock-dependent-MT6661-reset-protection.patch",
+      "patch_sha256": "5439c1868b6cc4cb73f8401690d7bcf193a46a57d76546436af3eba949e64514",
       "message": "Add lock-dependent MT6661 reset protection for LDY-AN00\n\nChange-Id: I1732f663ca0f0ce5921810da1e3dd8b85a80727e\n",
       "author": {
         "name": "iodn",
@@ -17,10 +17,10 @@
       "committer": {
         "name": "iodn",
         "email": "114117719+iodn@users.noreply.github.com",
-        "date": "1794700667 +0000"
+        "date": "1794703819 +0000"
       }
     }
   ],
   "hardware_tested": false,
-  "qualification": "Source candidate; focused object and host checks only. Existing release artifacts are unchanged."
+  "qualification": "Source candidate; focused arm64 compilation and configuration checks passed. Full kernel ABI/module and runtime qualification remain required."
 }

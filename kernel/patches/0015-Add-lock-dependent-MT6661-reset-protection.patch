@@ -15,10 +15,10 @@ index 613605de333178c724b0735e6e90ca047a44729d..7e8bbe7ad92f94c2248f7a572acae8e1
  M:	Clemens Ladisch <clemens@ladisch.de>
  S:	Maintained
 diff --git a/arch/arm64/configs/gki_defconfig b/arch/arm64/configs/gki_defconfig
-index 1014f4c318b324bb5909998dbdf35c382038dcf9..1ddc55a8d008e2b5a8713d779047b36a9468aafa 100644
+index 95f1f53f79ddf3b2e929bd93eb9f11a9c720b08a..4e33e71ebab1fbf584bf4ad1085e16782a99d2dd 100644
 --- a/arch/arm64/configs/gki_defconfig
 +++ b/arch/arm64/configs/gki_defconfig
-@@ -618,6 +618,7 @@ CONFIG_VHOST_VSOCK=y
+@@ -619,6 +619,7 @@ CONFIG_VHOST_VSOCK=y
  CONFIG_STAGING=y
  CONFIG_ASHMEM=y
  CONFIG_ASHMEM_RUST=y
