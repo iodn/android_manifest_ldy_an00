@@ -114,10 +114,12 @@ and downloads.
 
 The matching kernel source archive is included with each binary release.
 
-The [6.12.58 kernel candidate](kernel/candidates/6.12.58/provenance.json)
-requires the matching MagicOS 11 hardware stack, including modem firmware.
+The November 16 migration uses the [Linux 6.12.58 kernel](kernel/candidates/6.12.58/provenance.json)
+and matching MagicOS 11.0.0.117 vendor and modem stack, tested on LDY-AN00 hardware.
 Its init_boot retains the proven first-stage loader from MagicOS 10.0.0.113.
-It is not the current release; hardware qualification is still in progress.
+The package remains a draft while the update path from existing releases is
+qualified. It is not a first-install package; the November 1 installer above
+remains separate.
 
 <details>
 <summary>Build integration and release maintenance</summary>
