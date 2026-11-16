@@ -21,5 +21,5 @@
       }
     }
   ],
-  "qualification": "Default source profile for this device candidate. Kernel, module-cohort CRC/signature, loader-policy and BTF host checks passed; hardware reset-control qualification remains pending. LDY_AN00_RESET_GUARD=0 retains the unprotected baseline."
+  "qualification": "Default source profile for this device candidate. Kernel, module-cohort CRC/signature, loader-policy and BTF host checks passed. Hardware boot, user functional checks, physical locked-screen power/reset blocking and automatic Virtual A/B merge passed on LDY-AN00 build 20261116.015015 with the matching MagicOS 11.0.0.117 stack. The legacy-release migration bridge and fresh installer were not covered by these hardware tests. LDY_AN00_RESET_GUARD=0 retains the unprotected baseline."
 }

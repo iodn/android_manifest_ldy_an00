@@ -1,5 +1,5 @@
 {
-  "status": "host-qualified-reset-guard-hardware-test-pending",
+  "status": "hardware-boot-and-locked-reset-tested",
   "upstream_url": "https://android.googlesource.com/kernel/common",
   "upstream_tag": "android16-6.12-2025-12_r63",
   "upstream_revision": "a0924fec0959b69501d49bdbfefe8a13f53033c4",
@@ -47,7 +47,7 @@
     "Preserve the existing patched LK and use the separately reviewed Lineage Recovery cohort."
   ],
   "limits": [
-    "This enabled reset-guard kernel has not been booted or physically tested. Earlier Android hardware qualification covered the fd922 baseline, not this new a6ebb716 build.",
+    "The a6ebb716 reset-guard kernel booted on LDY-AN00 with the matching MagicOS 11.0.0.117 stack. User functional checks, physical locked-screen power/reset blocking and automatic Virtual A/B merge passed on build 20261116.015015. This does not qualify every hardware mode, the legacy-release migration bridge or a fresh installer.",
     "Private BTF comparison found no changed existing named layout versus the boot-qualified fd922 baseline; inherited stock differences remain.",
     "Static ABI, signatures and loader checks do not prove runtime module load order or hardware behavior.",
     "Use LDY_AN00_RESET_GUARD=1 for the matching Android product."
@@ -60,7 +60,7 @@
     "source_tree": "b1608fa1cf642400bb776141b9ec449f80f8eb33",
     "required_config": "CONFIG_LDY_AN00_LOCKED_RESET_GUARD=y",
     "android_product_flag": "LDY_AN00_RESET_GUARD=1",
-    "qualification": "Kernel, module signatures, CRC/loader policy and private BTF host checks passed; hardware reset-control qualification pending.",
+    "qualification": "Kernel, module signatures, CRC/loader policy and private BTF host checks passed. Hardware boot, user functional checks, physical locked-screen power/reset blocking and automatic Virtual A/B merge passed on LDY-AN00 build 20261116.015015.",
     "reference_artifacts_match": true
   },
   "baseline_build_profile": {

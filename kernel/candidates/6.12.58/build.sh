@@ -11,7 +11,8 @@ Create the pinned 6.12.58 Kleaf workspace:
 
 Run this script from the workspace root. It builds the kernel and modules;
 coordinated image packaging and final OTA qualification are separate steps.
-Reset protection is included by default; its hardware qualification is pending.
+Reset protection is included by default and tested on LDY-AN00 with the matching
+MagicOS 11.0.0.117 stack. Legacy migration and fresh installation are separate.
 Use LDY_AN00_RESET_GUARD=0 to reproduce the unprotected baseline kernel.
 Set LDY_AN00_RESET_GUARD=1 in the matching Android product build too.
 EOF
