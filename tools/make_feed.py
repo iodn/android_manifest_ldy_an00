@@ -11,11 +11,21 @@ import zipfile
 import validate_ota_vendor_retention
 
 
-def entry(package, url, *, kernel_admission=None, kernel_admission_sha256=None):
+def entry(package, url, *, kernel_admission=None, kernel_admission_sha256=None,
+          vendor_admission=None, vendor_admission_sha256=None):
     if urlparse(url).scheme != 'https' or not urlparse(url).netloc:
         raise ValueError('An absolute HTTPS release-asset URL is required')
     authenticated = None
-    if kernel_admission is None and kernel_admission_sha256 is None:
+    vendor_mode = vendor_admission is not None or vendor_admission_sha256 is not None
+    kernel_mode = kernel_admission is not None or kernel_admission_sha256 is not None
+    if vendor_mode and kernel_mode:
+        raise ValueError("Choose either kernel or vendor admission, never both")
+    if vendor_mode:
+        if vendor_admission is None or vendor_admission_sha256 is None:
+            raise ValueError("Vendor admission and expected SHA256 must be supplied together")
+        from validate_ota_vendor_feed import validate_zip
+        authenticated = validate_zip(package, vendor_admission, vendor_admission_sha256)
+    elif not kernel_mode:
         validate_ota_vendor_retention.validate_zip(package)
     elif kernel_admission is not None and kernel_admission_sha256 is not None:
         from validate_ota_kernel_cohort import validate_zip
@@ -34,7 +44,7 @@ def entry(package, url, *, kernel_admission=None, kernel_admission_sha256=None):
     with package.open('rb') as stream:
         digest = hashlib.file_digest(stream, 'sha256').hexdigest()
     if authenticated is not None and digest != authenticated['ota_sha256']:
-        raise ValueError('OTA changed after authenticated kernel admission')
+        raise ValueError('OTA changed after authenticated admission')
     return [{
         'datetime': int(metadata['post-timestamp']),
         'files': [{
@@ -58,9 +68,13 @@ def main():
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--kernel-admission', type=Path)
     parser.add_argument('--kernel-admission-sha256')
+    parser.add_argument('--vendor-admission', type=Path)
+    parser.add_argument('--vendor-admission-sha256')
     args = parser.parse_args()
     result = entry(args.package, args.url, kernel_admission=args.kernel_admission,
-                   kernel_admission_sha256=args.kernel_admission_sha256)
+                   kernel_admission_sha256=args.kernel_admission_sha256,
+                   vendor_admission=args.vendor_admission,
+                   vendor_admission_sha256=args.vendor_admission_sha256)
     with args.output.open('x') as stream:
         json.dump(result, stream, indent=2)
         stream.write('\n')

@@ -154,7 +154,8 @@ The installed update endpoint stays at
 `https://raw.githubusercontent.com/iodn/android_manifest_ldy_an00/main/ota/ldy_an00.json`.
 Publish and test signed assets before adding an entry. The Updater protocol uses
 an array containing `files[]`. `tools/make_feed.py` prepares an entry from a signed OTA.
-The feed tool checks the OTA partition scope; verify release signatures separately.
+The default feed mode checks partition scope; authenticated kernel and hardware
+modes also verify the fixed-owner release signatures.
 
 Run host checks with:
 
@@ -230,11 +231,56 @@ system_dlkm only. FILE_HASH/SIZE and METADATA_HASH/SIZE are recomputed. Full
 activation metadata length includes the CrAU2 signature bytes separately.
 
 vendor_boot, init_boot, recovery, main vbmeta, LK, vendor, ODM and calibration
-are outside this contract. A required expansion needs a separate reviewed
-contract; it cannot be accomplished by changing the package's metadata.
+are outside the FIVE contract. The separate reviewed twenty-part mode below
+handles the stock11 cohort; package metadata cannot expand either contract.
 
 Tests use synthetic images and explicit crypto boundary doubles. Their success
 proves rejection/joins, not a real release's RSA/AVB verification. Actual release
 signatures, module compatibility and retained parent trust remain separate
 mandatory evidence. No runtime, OEM trust or universal addon.d/GApps survival
 claim follows from feed admission.
+
+
+## Twenty-part OTA feed admission
+
+After the one-time stock11 preparation, monthly updates use the reviewed
+twenty-part cohort and six logical partitions. Generate their feed entry with:
+
+    python3 tools/make_feed.py UPDATE.zip --url HTTPS_RELEASE_ASSET_URL \
+      --vendor-admission REVIEWED_ADMISSION.json \
+      --vendor-admission-sha256 REVIEWER_SUPPLIED_SHA256 \
+      --output NEW_FEED.json
+
+This mode is separate from TWO and FIVE admission. It accepts full partition
+replacements only, preserves LK and userdata, and does not publish anything.
+The Updater feed format and release-notes links remain unchanged.
+
+The externally pinned admission uses schema
+ldy-vendor-migration-ota-feed-v1. It contains:
+
+- ota_sha256, build_number, build_epoch and platform_spl for the final OTA.
+- target_files: the actual signed twenty-part target-files archive.
+- cohort and cohort_directory: the reviewed
+  ldy-stock11-hardware-inputs-v1 contract and its eighteen regular images.
+- hardware_avb_proof, final_avb_proof and verification_transcripts: pinned
+  reviewed evidence for that cohort and the final signed image chains.
+- kernel_qualification: pinned qualification with all_checks_pass=true,
+  the matching kernel_release and its pinned artifacts["Image.lz4"].
+- The same fixed-owner certificate, official signature verifier,
+  delta_generator and verifier dependency pins used by FIVE admission.
+
+Each pinned file uses path, bytes and sha256. The existing hardware receipt
+status is
+PASS_CURRENT18_HARDWARE_INPUT_HASHES_AVAILABLE_AVB_SIGNATURES_CONTENT_AND_CHAIN_KEYS;
+its contract hash and every image hash/size must match. The final receipt status
+is FINAL_MIGRATION_AVB_SIGNATURES_CONTENT_AND_AVAILABLE_CHAIN_KEYS_PASS, with
+all seventeen AVB images verified, the unchanged root flags and complete parent
+chain. Main and Recovery parent flags remain 1; other verified flags and all
+rollback indices remain 0. The raw OEM modem/MCF images and retained DTBO remain bound by their exact
+cohort hashes, without claiming they are AVB-signed.
+
+Admission joins the qualified kernel bytes to the actual boot image, all
+eighteen hardware images to the signed target files, and all twenty payload
+targets to those files. It verifies the owner ZIP/payload signatures, payload
+property hashes, snapshot geometry and required system postinstall. Pinned
+review receipts do not replace the underlying AVB verification or hardware tests.

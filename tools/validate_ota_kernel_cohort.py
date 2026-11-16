@@ -36,6 +36,70 @@ def pinned(row):
     return path
 
 
+def authenticate_zip_payload(package, admission):
+    """Use the pinned official verifier and fixed owner certificate, then hash payload properties."""
+    cert = pinned(admission["certificate"])
+    der = subprocess.check_output(["openssl", "x509", "-in", str(cert), "-outform", "DER"])
+    need(hashlib.sha256(der).hexdigest() == CERT_SHA, "Wrong release certificate")
+    verifier = pinned(admission["signature_verifier"])
+    delta = pinned(admission["delta_generator"])
+    need(bool(admission["verifier_dependencies"]), "Missing verifier dependency pins")
+    dependencies = [pinned(row) for row in admission["verifier_dependencies"]]
+    need((verifier.parent / "common.py").resolve() in {p.resolve() for p in dependencies},
+         "Official verifier common.py dependency must be pinned")
+    env = dict(os.environ)
+    env.pop("PYTHONOPTIMIZE", None)  # Official verifier uses security assertions.
+    env["PATH"] = str(delta.parent) + os.pathsep + env.get("PATH", "")
+    need(delta.name == "delta_generator" and os.access(delta, os.X_OK)
+         and Path(shutil.which("delta_generator", path=env["PATH"]) or "").resolve()
+         == delta.resolve(), "Official payload verifier resolves to another executable")
+    # Official verifier authenticates BOTH whole-ZIP and payload/metadata signatures.
+    result = subprocess.run([sys.executable, str(verifier), str(cert), str(package)],
+                            env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    need(result.returncode == 0, "Official OTA/payload signature verification failed")
+
+    signature_output_sha256 = hashlib.sha256(result.stdout + result.stderr).hexdigest()
+    with zipfile.ZipFile(package) as archive:
+        for name in ["payload.bin", "payload_properties.txt", "META-INF/com/android/metadata"]:
+            entries = [row for row in archive.infolist() if row.filename == name]
+            need(len(entries) == 1 and not entries[0].is_dir()
+                 and not entries[0].flag_bits & 1, "Duplicate/invalid critical OTA ZIP entry")
+        props_raw = archive.read("payload_properties.txt").decode()
+        props = {}
+        for line in props_raw.splitlines():
+            if "=" not in line:
+                continue
+            key, value = line.split("=", 1)
+            need(key not in props, "Duplicate payload property")
+            props[key] = value
+        payload_entry = archive.getinfo("payload.bin")
+        with archive.open(payload_entry) as stream:
+            header = retention.read_exact(stream, 24)
+            _, _, manifest_size, signature_size = struct.unpack(">4sQQI", header)
+            metadata_size = 24 + manifest_size
+            digest = hashlib.sha256()
+            prefix = hashlib.sha256()
+            digest.update(header)
+            prefix.update(header)
+            remaining = metadata_size - 24
+            while remaining:
+                data = retention.read_exact(stream, min(1024 * 1024, remaining))
+                digest.update(data)
+                prefix.update(data)
+                remaining -= len(data)
+            for data in iter(lambda: stream.read(1024 * 1024), b""):
+                digest.update(data)
+        need(int(props["FILE_SIZE"]) == payload_entry.file_size
+             and base64.b64decode(props["FILE_HASH"], validate=True) == digest.digest(),
+             "Whole payload property hash/size differs")
+        need(int(props["METADATA_SIZE"]) == metadata_size
+             and base64.b64decode(props["METADATA_HASH"], validate=True) == prefix.digest(),
+             "Payload metadata property hash/size differs")
+    return dict(signature_output_sha256=signature_output_sha256,
+                metadata_file_bytes=metadata_size + signature_size,
+                ota_certificate_der_sha256=CERT_SHA)
+
+
 def validate_zip(package, admission_path, expected_sha256):
     """The external admission hash is supplied by the release reviewer, not the ZIP."""
     admission_path = Path(admission_path)
@@ -80,64 +144,8 @@ def validate_zip(package, admission_path, expected_sha256):
          and all(value is True for value in proof["image_signature_verified"].values()),
          "Kernel image signatures not verified")
 
-    cert = pinned(admission["certificate"])
-    der = subprocess.check_output(["openssl", "x509", "-in", str(cert), "-outform", "DER"])
-    need(hashlib.sha256(der).hexdigest() == CERT_SHA, "Wrong release certificate")
-    verifier = pinned(admission["signature_verifier"])
-    delta = pinned(admission["delta_generator"])
-    need(bool(admission["verifier_dependencies"]), "Missing verifier dependency pins")
-    dependencies = [pinned(row) for row in admission["verifier_dependencies"]]
-    need((verifier.parent / "common.py").resolve() in {p.resolve() for p in dependencies},
-         "Official verifier common.py dependency must be pinned")
-    env = dict(os.environ)
-    env.pop("PYTHONOPTIMIZE", None)  # Official verifier uses security assertions.
-    env["PATH"] = str(delta.parent) + os.pathsep + env.get("PATH", "")
-    need(delta.name == "delta_generator" and os.access(delta, os.X_OK)
-         and Path(shutil.which("delta_generator", path=env["PATH"]) or "").resolve()
-         == delta.resolve(), "Official payload verifier resolves to another executable")
-    # Official verifier authenticates BOTH whole-ZIP and payload/metadata signatures.
-    result = subprocess.run([sys.executable, str(verifier), str(cert), str(package)],
-                            env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    need(result.returncode == 0, "Official OTA/payload signature verification failed")
-
-    signature_output_sha256 = hashlib.sha256(result.stdout + result.stderr).hexdigest()
+    crypto = authenticate_zip_payload(package, admission)
     result = retention.validate_zip(package, kernel_images=images)
-    with zipfile.ZipFile(package) as archive:
-        for name in ["payload.bin", "payload_properties.txt", "META-INF/com/android/metadata"]:
-            entries = [row for row in archive.infolist() if row.filename == name]
-            need(len(entries) == 1 and not entries[0].is_dir()
-                 and not entries[0].flag_bits & 1, "Duplicate/invalid critical OTA ZIP entry")
-        props_raw = archive.read("payload_properties.txt").decode()
-        props = {}
-        for line in props_raw.splitlines():
-            if "=" not in line:
-                continue
-            key, value = line.split("=", 1)
-            need(key not in props, "Duplicate payload property")
-            props[key] = value
-        payload_entry = archive.getinfo("payload.bin")
-        with archive.open(payload_entry) as stream:
-            header = retention.read_exact(stream, 24)
-            _, _, manifest_size, signature_size = struct.unpack(">4sQQI", header)
-            metadata_size = 24 + manifest_size
-            digest = hashlib.sha256()
-            prefix = hashlib.sha256()
-            digest.update(header)
-            prefix.update(header)
-            remaining = metadata_size - 24
-            while remaining:
-                data = retention.read_exact(stream, min(1024 * 1024, remaining))
-                digest.update(data)
-                prefix.update(data)
-                remaining -= len(data)
-            for data in iter(lambda: stream.read(1024 * 1024), b""):
-                digest.update(data)
-        need(int(props["FILE_SIZE"]) == payload_entry.file_size
-             and base64.b64decode(props["FILE_HASH"], validate=True) == digest.digest(),
-             "Whole payload property hash/size differs")
-        need(int(props["METADATA_SIZE"]) == metadata_size
-             and base64.b64decode(props["METADATA_HASH"], validate=True) == prefix.digest(),
-             "Payload metadata property hash/size differs")
     need(sha(package) == package_before, "OTA changed during admission")
     need(sha(admission_path) == expected_sha256, "Admission changed during verification")
     # Re-run the existing image file gate after external verification.
@@ -147,10 +155,8 @@ def validate_zip(package, admission_path, expected_sha256):
                 + [admission["certificate"], admission["signature_verifier"],
                    admission["delta_generator"], admission["avb_proof"]]):
         pinned(row)
-    result.update(signature_output_sha256=signature_output_sha256, status="OTA_OWNED_KERNEL_COHORT_AUTHENTICATED",
+    result.update(**crypto, status="OTA_OWNED_KERNEL_COHORT_AUTHENTICATED",
                   ota_sha256=package_before, admission_sha256=expected_sha256,
-                  ota_certificate_der_sha256=CERT_SHA,
-                  metadata_file_bytes=metadata_size + signature_size,
                   scope="Authenticated exact FIVE payload/cohort and externally reviewed AVB "
                         "chain evidence. No device installation, runtime, addon survival or "
                         "OEM boot trust guarantee.")
