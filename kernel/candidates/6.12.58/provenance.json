@@ -1,5 +1,5 @@
 {
-  "status": "hardware-boot-tested-final-ota-unqualified",
+  "status": "hardware-boot-tested-baseline-reset-guard-default-unqualified",
   "upstream_url": "https://android.googlesource.com/kernel/common",
   "upstream_tag": "android16-6.12-2025-12_r63",
   "upstream_revision": "a0924fec0959b69501d49bdbfefe8a13f53033c4",
@@ -49,9 +49,24 @@
   "limits": [
     "Android hardware boot has been demonstrated with the matching MagicOS 11 hardware stack and the proven MagicOS 10.0.0.113 first-stage loader. Full radio, suspend and final OTA migration qualification remain incomplete.",
     "The public baseline does not contain Honor-only F2FS SIS/compression, tracing and diagnostic extensions. ABI checks do not prove identical filesystem behavior.",
-    "Optional reset guard remains opt-in and unqualified.",
+    "Default builds add the reset guard; enabled kernel and firmware qualification are pending. The reference artifacts describe the earlier unprotected baseline.",
     "Fresh builds generate a new module-signing key, so signed module bytes and kernel certificate bytes differ from this reference build."
   ],
   "workspace_manifest": "manifest.xml",
-  "build_entrypoint": "build.sh"
+  "build_entrypoint": "build.sh",
+  "default_build_profile": {
+    "reset_guard": true,
+    "source_commit": "a6ebb716965ae17784cbadbd7b4daa99fa01c340",
+    "source_tree": "b1608fa1cf642400bb776141b9ec449f80f8eb33",
+    "required_config": "CONFIG_LDY_AN00_LOCKED_RESET_GUARD=y",
+    "android_product_flag": "LDY_AN00_RESET_GUARD=1",
+    "qualification": "Source prepared; no enabled kernel artifact or hardware test is claimed.",
+    "reference_artifacts_match": false
+  },
+  "baseline_build_profile": {
+    "environment": "LDY_AN00_RESET_GUARD=0",
+    "source_commit": "fd92206bcd0a2bd86ecf8343a8e7e81e86a1c483",
+    "source_tree": "22b192417f6367273c999933d1a91ee247336f18",
+    "reference_artifacts_match": true
+  }
 }

@@ -11,16 +11,24 @@ Create the pinned 6.12.58 Kleaf workspace:
 
 Run this script from the workspace root. It builds the kernel and modules;
 coordinated image packaging and final OTA qualification are separate steps.
+Reset protection is included by default; its hardware qualification is pending.
+Use LDY_AN00_RESET_GUARD=0 to reproduce the unprotected baseline kernel.
+Set LDY_AN00_RESET_GUARD=1 in the matching Android product build too.
 EOF
     exit 0
 fi
 recipe=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+reset_guard=${LDY_AN00_RESET_GUARD:-1}
+case "$reset_guard" in
+    0|1) ;;
+    *) echo "LDY_AN00_RESET_GUARD must be 0 or 1" >&2; exit 2 ;;
+esac
 base=a0924fec0959b69501d49bdbfefe8a13f53033c4
 head=fd92206bcd0a2bd86ecf8343a8e7e81e86a1c483
 if [ "$(git -C common rev-parse HEAD)" = "$base" ]; then
     python3 "$recipe/../../replay.py" common "$recipe/series.json"
 fi
-if [ "${LDY_AN00_RESET_GUARD:-0}" = 1 ]; then
+if [ "$reset_guard" = 1 ]; then
     if [ "$(git -C common rev-parse HEAD)" = "$head" ]; then
         python3 "$recipe/../../replay.py" common "$recipe/optional-reset-guard.json"
     fi
