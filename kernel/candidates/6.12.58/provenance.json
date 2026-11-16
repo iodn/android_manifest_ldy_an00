@@ -1,33 +1,33 @@
 {
-  "status": "hardware-boot-tested-baseline-reset-guard-default-unqualified",
+  "status": "host-qualified-reset-guard-hardware-test-pending",
   "upstream_url": "https://android.googlesource.com/kernel/common",
   "upstream_tag": "android16-6.12-2025-12_r63",
   "upstream_revision": "a0924fec0959b69501d49bdbfefe8a13f53033c4",
-  "source_commit": "fd92206bcd0a2bd86ecf8343a8e7e81e86a1c483",
-  "source_tree": "22b192417f6367273c999933d1a91ee247336f18",
+  "source_commit": "a6ebb716965ae17784cbadbd7b4daa99fa01c340",
+  "source_tree": "b1608fa1cf642400bb776141b9ec449f80f8eb33",
   "source_date_epoch": 1794719700,
-  "kernel_release": "6.12.58-LDY-AN00-android16-6-gfd92206bcd0a-4k",
-  "banner": "Linux version 6.12.58-LDY-AN00-android16-6-gfd92206bcd0a-4k (kleaf@build-host) (Android (14043575, +pgo, +bolt, +lto, +mlgo, based on r536225) clang version 19.0.1 (https://android.googlesource.com/toolchain/llvm-project b3a530ec6537146650e42be89f1089e9a3588460), LLD 19.0.1) #1 SMP PREEMPT Sun Nov 15 05:15:00 UTC 2026",
+  "kernel_release": "6.12.58-LDY-AN00-android16-6-ga6ebb716965a-4k",
+  "banner": "Linux version 6.12.58-LDY-AN00-android16-6-ga6ebb716965a-4k (kleaf@build-host) (Android (14043575, +pgo, +bolt, +lto, +mlgo, based on r536225) clang version 19.0.1 (https://android.googlesource.com/toolchain/llvm-project b3a530ec6537146650e42be89f1089e9a3588460), LLD 19.0.1) #1 SMP PREEMPT Sun Nov 15 05:15:00 UTC 2026",
   "reference_artifacts": {
     "Image": {
-      "sha256": "283b537ba4db7d443cb21930b71b35aef9e0bc82217dc6a7b8a4ea94bce4e97c",
-      "bytes": 41306624
+      "bytes": 41306624,
+      "sha256": "167fa877aa95af2c240ec43899742e564ce14eb4c75720f8aa7fa7e3ef87ac99"
     },
     "Image.lz4": {
-      "sha256": "e7f3035cfd657623bbf9ab8e73401789c85fbaa10a16524a161b330378768abb",
-      "bytes": 19868913
+      "bytes": 19870751,
+      "sha256": "84db0615299646c6e6fef51bcc892498975ae5ce5a74a66247fe22b8c0d0e3da"
     },
     "vmlinux": {
-      "sha256": "6ffe5b5963091ae0d2ee6e8ed23b37efbfd771bb8e6347b9302e598dbb1b243f",
-      "bytes": 211393256
+      "bytes": 211362840,
+      "sha256": "03f626b80f6b847b12ade4c67fe14dc8fd32f7887420a9bd90441873ddc823f3"
     },
     "kernel_aarch64_dot_config": {
-      "sha256": "c73eba72d3c8a36363a785974471a08e5c2684fcb478a910265c787c3ab8bcf5",
-      "bytes": 221030
+      "bytes": 221067,
+      "sha256": "2f63de755a5d5cfd1dcab2ec870b04f7ba7726b73d95206627ad8ffca16772b6"
     },
     "Module.symvers": {
-      "sha256": "6870c7677bf898cdb8a13e38680142c949e97f70569d17b71730b85f084b1757",
-      "bytes": 633144
+      "bytes": 633144,
+      "sha256": "6870c7677bf898cdb8a13e38680142c949e97f70569d17b71730b85f084b1757"
     }
   },
   "stock_contract": {
@@ -47,10 +47,10 @@
     "Preserve the existing patched LK and use the separately reviewed Lineage Recovery cohort."
   ],
   "limits": [
-    "Android hardware boot has been demonstrated with the matching MagicOS 11 hardware stack and the proven MagicOS 10.0.0.113 first-stage loader. Full radio, suspend and final OTA migration qualification remain incomplete.",
-    "The public baseline does not contain Honor-only F2FS SIS/compression, tracing and diagnostic extensions. ABI checks do not prove identical filesystem behavior.",
-    "Default builds add the reset guard; enabled kernel and firmware qualification are pending. The reference artifacts describe the earlier unprotected baseline.",
-    "Fresh builds generate a new module-signing key, so signed module bytes and kernel certificate bytes differ from this reference build."
+    "This enabled reset-guard kernel has not been booted or physically tested. Earlier Android hardware qualification covered the fd922 baseline, not this new a6ebb716 build.",
+    "Private BTF comparison found no changed existing named layout versus the boot-qualified fd922 baseline; inherited stock differences remain.",
+    "Static ABI, signatures and loader checks do not prove runtime module load order or hardware behavior.",
+    "Use LDY_AN00_RESET_GUARD=1 for the matching Android product."
   ],
   "workspace_manifest": "manifest.xml",
   "build_entrypoint": "build.sh",
@@ -60,13 +60,35 @@
     "source_tree": "b1608fa1cf642400bb776141b9ec449f80f8eb33",
     "required_config": "CONFIG_LDY_AN00_LOCKED_RESET_GUARD=y",
     "android_product_flag": "LDY_AN00_RESET_GUARD=1",
-    "qualification": "Source prepared; no enabled kernel artifact or hardware test is claimed.",
-    "reference_artifacts_match": false
+    "qualification": "Kernel, module signatures, CRC/loader policy and private BTF host checks passed; hardware reset-control qualification pending.",
+    "reference_artifacts_match": true
   },
   "baseline_build_profile": {
     "environment": "LDY_AN00_RESET_GUARD=0",
     "source_commit": "fd92206bcd0a2bd86ecf8343a8e7e81e86a1c483",
     "source_tree": "22b192417f6367273c999933d1a91ee247336f18",
-    "reference_artifacts_match": true
+    "reference_artifacts_match": false,
+    "reference_artifacts": {
+      "Image": {
+        "sha256": "283b537ba4db7d443cb21930b71b35aef9e0bc82217dc6a7b8a4ea94bce4e97c",
+        "bytes": 41306624
+      },
+      "Image.lz4": {
+        "sha256": "e7f3035cfd657623bbf9ab8e73401789c85fbaa10a16524a161b330378768abb",
+        "bytes": 19868913
+      },
+      "vmlinux": {
+        "sha256": "6ffe5b5963091ae0d2ee6e8ed23b37efbfd771bb8e6347b9302e598dbb1b243f",
+        "bytes": 211393256
+      },
+      "kernel_aarch64_dot_config": {
+        "sha256": "c73eba72d3c8a36363a785974471a08e5c2684fcb478a910265c787c3ab8bcf5",
+        "bytes": 221030
+      },
+      "Module.symvers": {
+        "sha256": "6870c7677bf898cdb8a13e38680142c949e97f70569d17b71730b85f084b1757",
+        "bytes": 633144
+      }
+    }
   }
 }
