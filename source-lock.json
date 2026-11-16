@@ -33,14 +33,14 @@
     },
     {
       "path": "device/honor/ldy_an00",
-      "revision": "b96a2722be5e35b6ffa22c0f721896587345e0b1",
-      "tree": "fdb50626854ded3e1329a5d27d115ea92d7febe8",
+      "revision": "38a3019875aee89350cb75a6b262a9f1809226b2",
+      "tree": "09289997ac2ae541fb41af6fde35c7e16f03498b",
       "repository": "android_device_honor_ldy_an00",
       "excluded_input_count": 3,
-      "public_snapshot_revision": "b96a2722be5e35b6ffa22c0f721896587345e0b1",
-      "public_snapshot_tree": "fdb50626854ded3e1329a5d27d115ea92d7febe8",
-      "target_snapshot_revision": "b96a2722be5e35b6ffa22c0f721896587345e0b1",
-      "target_snapshot_tree": "fdb50626854ded3e1329a5d27d115ea92d7febe8"
+      "public_snapshot_revision": "38a3019875aee89350cb75a6b262a9f1809226b2",
+      "public_snapshot_tree": "09289997ac2ae541fb41af6fde35c7e16f03498b",
+      "target_snapshot_revision": "38a3019875aee89350cb75a6b262a9f1809226b2",
+      "target_snapshot_tree": "09289997ac2ae541fb41af6fde35c7e16f03498b"
     },
     {
       "path": "frameworks/av",
@@ -60,15 +60,15 @@
     },
     {
       "path": "frameworks/base",
-      "revision": "acbbd21aa8324864fa2d3e9c516055d4e798ab08",
-      "tree": "bfbfa752a688d91bfeb91c6ceb7e9ee2ba02ef34",
+      "revision": "2fc721e33c22298bae2093599df2f9eb39816935",
+      "tree": "129eb6cb03ffbbf76e7a56c719d859a95366d80a",
       "base_revision": "22de88b7b8eb979c816669c7963dee66ae4953cd",
       "patch": "patches/frameworks_base.patch",
-      "patch_sha256": "f6fcf48ec26a6530310647c1c8d8f6ac3d75acc19526559e6c4f865d7c7ff1a5",
+      "patch_sha256": "deaec414dd26ab1464d0c08e58cbbe79f1f837b16ce294817178695dc4a10008",
       "patch_tree_verified": true,
       "remote_url": "https://github.com/LineageOS/android_frameworks_base",
-      "target_snapshot_revision": "acbbd21aa8324864fa2d3e9c516055d4e798ab08",
-      "target_snapshot_tree": "bfbfa752a688d91bfeb91c6ceb7e9ee2ba02ef34",
+      "target_snapshot_revision": "2fc721e33c22298bae2093599df2f9eb39816935",
+      "target_snapshot_tree": "129eb6cb03ffbbf76e7a56c719d859a95366d80a",
       "historical_public_snapshot": {
         "revision": "193c50e5fb7e8278190f57048af9fab5a7098fb4",
         "tree": "5c28bc283ee9569918f5eba680041eedc509e857"
@@ -299,6 +299,28 @@
       "patch_tree_verified": true,
       "target_snapshot_revision": "6943ad8024045bb1c3802ae6045a948184b23ca9",
       "target_snapshot_tree": "0c26a737845359f6725c7603597b2ad2670ad3c0"
+    },
+    {
+      "path": "packages/modules/adb",
+      "base_revision": "f83360242ba6a66ae7570e126009ab530eeef120",
+      "remote_url": "https://github.com/LineageOS/android_packages_modules_adb",
+      "patch": "patches/packages_modules_adb.patch",
+      "revision": "3e5bb8a0a13f2459d53d8fc0b384824822ae1283",
+      "tree": "58a7560ef6a360e88cbcc6a9e501c2982a7e781c",
+      "patch_sha256": "aa8cca233afb184c7f0ecc81b0fe44a8f31489affd90f1b01117b02f0282d28d",
+      "patch_tree_verified": true,
+      "target_snapshot_revision": "3e5bb8a0a13f2459d53d8fc0b384824822ae1283",
+      "target_snapshot_tree": "58a7560ef6a360e88cbcc6a9e501c2982a7e781c"
+    },
+    {
+      "path": "packages/apps/Aperture",
+      "revision": "2d504a06059484779b77fc2b6617480144f24c49",
+      "tree": "a37dd2e5849753af42c3217ef7cedc75db1cf565",
+      "base_revision": "5c52de5d27f1bc2e6cebb07d6352a299d22cb27d",
+      "remote_url": "https://github.com/LineageOS/android_packages_apps_Aperture",
+      "patch": "patches/packages_apps_Aperture.patch",
+      "patch_sha256": "896183950f6ce818f2c84d40c1df5fd1e4b3f19a15a6560d0cd8ea66ca900993",
+      "patch_tree_verified": true
     }
   ],
   "public_source_status": "Development snapshot; not a tested release.",

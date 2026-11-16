@@ -18,17 +18,29 @@ def git(root, *args):
     return result.stdout.strip()
 
 
-def verify(source, series):
-    source, series = Path(source).resolve(), Path(series).resolve()
+def verify(source, series, lock):
+    source, series, lock = Path(source).resolve(), Path(series).resolve(), Path(lock).resolve()
     projects = json.loads(series.read_text())['projects']
     paths = [row['path'] for row in projects]
     if not projects or len(set(paths)) != len(paths):
         raise ValueError('Maintained project inventory is empty or duplicated')
+    if any(Path(path).is_absolute() or '..' in Path(path).parts for path in paths):
+        raise ValueError('Invalid maintained project path')
+    locked_rows = json.loads(lock.read_text())['projects']
+    locked = {row['path']: row for row in locked_rows}
+    if len(locked) != len(locked_rows):
+        raise ValueError('Duplicate source-lock project')
+    for row in projects:
+        record = locked.get(row['path'])
+        if record is None:
+            raise ValueError('Maintained project absent from source-lock: ' + row['path'])
+        if any(record.get(key) != row.get(key) for key in
+               ('revision', 'tree', 'base_revision', 'patch_sha256')) or (
+                lock.parent / record['patch']).resolve() != (series.parent / row['patch']).resolve():
+            raise ValueError('Source-lock disagrees with maintained patch: ' + row['path'])
     verified = []
     for row in projects:
         relative = Path(row['path'])
-        if relative.is_absolute() or '..' in relative.parts:
-            raise ValueError('Invalid maintained project path')
         root = (source / relative).resolve()
         try:
             root.relative_to(source)
@@ -57,9 +69,11 @@ def main():
                         help='Actual mounted workspace used by the compiler')
     parser.add_argument('--series', type=Path,
                         default=Path(__file__).resolve().parents[1] / 'patches/series.json')
+    parser.add_argument('--lock', type=Path,
+                        default=Path(__file__).resolve().parents[1] / 'source-lock.json')
     args = parser.parse_args()
     try:
-        projects = verify(args.source, args.series)
+        projects = verify(args.source, args.series, args.lock)
     except (ValueError, OSError, KeyError) as error:
         print('PATCH_COVERAGE_FAIL: ' + str(error), file=sys.stderr)
         return 1

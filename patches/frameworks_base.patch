@@ -12763,10 +12763,10 @@ index 335155bb94c7e9fe285039b6b15b537ae6b9d813..a8b109ae1b354cf1dd548f12976902e9
  }
 diff --git a/services/usb/java/com/android/server/usb/UsbLockdown.java b/services/usb/java/com/android/server/usb/UsbLockdown.java
 new file mode 100644
-index 0000000000000000000000000000000000000000..d63e8bca2ba025877e2cb26a64593610b11195d2
+index 0000000000000000000000000000000000000000..053b6cece6ee086fc7df7eb1a0810fd416dad5db
 --- /dev/null
 +++ b/services/usb/java/com/android/server/usb/UsbLockdown.java
-@@ -0,0 +1,118 @@
+@@ -0,0 +1,121 @@
 +/* SPDX-License-Identifier: Apache-2.0 */
 +package com.android.server.usb;
 +
@@ -12841,9 +12841,12 @@ index 0000000000000000000000000000000000000000..d63e8bca2ba025877e2cb26a64593610
 +
 +    static boolean shouldRestrictUsbData(int mode, boolean adb, boolean locked,
 +            boolean userUnlocked) {
-+        if (mode == 0 || mode == 2 && adb) return false;
++        if (mode == 0) return false;
 +        if (mode != 1 && mode != 2) return true;
-+        return locked || !userUnlocked;
++        // Debugging exceptions apply only after the current user's first unlock.
++        if (!userUnlocked) return true;
++        if (mode == 2 && adb) return false;
++        return locked;
 +    }
 +
 +    private void update() {
@@ -13038,3 +13041,50 @@ index 8c2471ccb9ae7a2c409342eead8fe3e802ee3e48..24a053f12df85552e51abbc7006893f4
      /**
       * The current capability status that this MmTelFeature has defined is available. This
       * configuration will be used by the platform to figure out which capabilities are CURRENTLY
+diff --git a/tests/UsbTests/src/com/android/server/usb/UsbLockdownTest.java b/tests/UsbTests/src/com/android/server/usb/UsbLockdownTest.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..62495b7b34ecf59d673b35465f97945ee779a8c2
+--- /dev/null
++++ b/tests/UsbTests/src/com/android/server/usb/UsbLockdownTest.java
+@@ -0,0 +1,41 @@
++// SPDX-License-Identifier: Apache-2.0
++package com.android.server.usb;
++
++import static org.junit.Assert.assertFalse;
++import static org.junit.Assert.assertTrue;
++
++import org.junit.Test;
++
++public class UsbLockdownTest {
++    @Test
++    public void debuggingExceptionRequiresFirstUnlock() {
++        assertTrue(UsbLockdown.shouldRestrictUsbData(2, true, false, false));
++        assertTrue(UsbLockdown.shouldRestrictUsbData(2, true, true, false));
++        assertFalse(UsbLockdown.shouldRestrictUsbData(2, true, true, true));
++    }
++
++    @Test
++    public void restrictedModeBlocksBootAndRelock() {
++        assertTrue(UsbLockdown.shouldRestrictUsbData(1, true, false, false));
++        assertTrue(UsbLockdown.shouldRestrictUsbData(1, true, true, true));
++        assertFalse(UsbLockdown.shouldRestrictUsbData(1, true, false, true));
++    }
++
++    @Test
++    public void disabledModeRetainsNormalUsbBehavior() {
++        assertFalse(UsbLockdown.shouldRestrictUsbData(0, true, true, false));
++        assertFalse(UsbLockdown.shouldRestrictUsbData(0, false, true, false));
++    }
++
++    @Test
++    public void debuggingExceptionRequiresAdbEnabled() {
++        assertTrue(UsbLockdown.shouldRestrictUsbData(2, false, true, true));
++        assertFalse(UsbLockdown.shouldRestrictUsbData(2, false, false, true));
++    }
++
++    @Test
++    public void unknownModeKeepsUsbRestricted() {
++        assertTrue(UsbLockdown.shouldRestrictUsbData(3, true, false, true));
++        assertTrue(UsbLockdown.shouldRestrictUsbData(-1, true, false, false));
++    }
++}
