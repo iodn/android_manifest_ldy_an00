@@ -11,10 +11,20 @@ import zipfile
 import validate_ota_vendor_retention
 
 
+GITHUB_ASSET_LIMIT = 2 * 1024**3
+
+
+def validate_release_asset_size(package, url):
+    if urlparse(url).hostname in ("github.com", "www.github.com"):
+        if package.stat().st_size >= GITHUB_ASSET_LIMIT:
+            raise ValueError("GitHub release assets must be smaller than 2 GiB")
+
+
 def entry(package, url, *, kernel_admission=None, kernel_admission_sha256=None,
           vendor_admission=None, vendor_admission_sha256=None):
     if urlparse(url).scheme != 'https' or not urlparse(url).netloc:
         raise ValueError('An absolute HTTPS release-asset URL is required')
+    validate_release_asset_size(package, url)
     authenticated = None
     vendor_mode = vendor_admission is not None or vendor_admission_sha256 is not None
     kernel_mode = kernel_admission is not None or kernel_admission_sha256 is not None

@@ -254,6 +254,9 @@ twenty-part cohort and six logical partitions. Generate their feed entry with:
 This mode is separate from TWO and FIVE admission. It accepts full partition
 replacements only, preserves LK and userdata, and does not publish anything.
 The Updater feed format and release-notes links remain unchanged.
+GitHub assets must be smaller than 2 GiB; the feed tool refuses larger files
+with GitHub download URLs. An oversized OTA needs a separately reviewed
+hosting or payload plan before publication.
 
 The externally pinned admission uses schema
 ldy-vendor-migration-ota-feed-v1. It contains:

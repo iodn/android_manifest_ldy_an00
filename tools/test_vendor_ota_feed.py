@@ -247,5 +247,38 @@ class VendorFeedTest(unittest.TestCase):
                     vendor_admission=self.path, vendor_admission_sha256="0" * 64)
 
 
+class GitHubAssetLimitTest(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.package = Path(self.temp.name) / "sparse.zip"
+
+    def size(self, value):
+        # Sparse stat-only fixtures allocate no multi-gigabyte package data.
+        with self.package.open("wb") as stream:
+            stream.truncate(value)
+
+    def test_github_boundary_is_strictly_below_two_gib(self):
+        url = "https://github.com/iodn/android_manifest_ldy_an00/releases/download/test/update.zip"
+        self.size(make_feed.GITHUB_ASSET_LIMIT - 1)
+        make_feed.validate_release_asset_size(self.package, url)
+        for size in (make_feed.GITHUB_ASSET_LIMIT, 2560128465):
+            self.size(size)
+            with self.subTest(size=size), self.assertRaisesRegex(ValueError, "smaller than 2 GiB"):
+                make_feed.validate_release_asset_size(self.package, url)
+
+    def test_oversized_github_feed_refused_before_crypto(self):
+        self.size(2560128465)
+        with patch.object(vendor, "validate_zip") as authenticate:
+            with self.assertRaisesRegex(ValueError, "smaller than 2 GiB"):
+                make_feed.entry(self.package, "https://github.com/iodn/repo/releases/download/v/update.zip",
+                    vendor_admission=Path("not-read"), vendor_admission_sha256="0" * 64)
+            authenticate.assert_not_called()
+
+    def test_external_host_does_not_inherit_github_limit(self):
+        self.size(2560128465)
+        make_feed.validate_release_asset_size(self.package, "https://updates.example.org/update.zip")
+
+
 if __name__ == "__main__":
     unittest.main()
