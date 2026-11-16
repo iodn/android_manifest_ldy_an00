@@ -139,6 +139,14 @@ Supply the excluded, matching proprietary inputs before building. The pinned
 repository layout has passed a cached integration rebuild. Every new release
 requires signature and compatibility checks.
 
+Before configuring Android or standalone Recovery, prepare and check the pinned
+boot-control inputs from an extracted matching stock vendor partition:
+
+```sh
+python3 vendor/honor/ldy_an00/tools/prepare_recovery.py --vendor-root /path/to/vendor
+python3 vendor/honor/ldy_an00/tools/prepare_recovery.py --check
+```
+
 Read-only container builds can use `tools/prepare_repo_config_cache.py` to redirect
 `repo` JSON caches into the build output. Mount the generated adapter over
 `.repo/repo/git_config.py` and this repository's `default.xml` as the active
@@ -262,6 +270,8 @@ The externally pinned admission uses schema
 ldy-vendor-migration-ota-feed-v1. It contains:
 
 - ota_sha256, build_number, build_epoch and platform_spl for the final OTA.
+- payload_mode: full. Twenty-part feed admission rejects partial payloads;
+  standalone historical validation requires --full-update for this mode.
 - target_files: the actual signed twenty-part target-files archive.
 - cohort and cohort_directory: the reviewed
   ldy-stock11-hardware-inputs-v1 contract and its eighteen regular images.
@@ -287,3 +297,11 @@ eighteen hardware images to the signed target files, and all twenty payload
 targets to those files. It verifies the owner ZIP/payload signatures, payload
 property hashes, snapshot geometry and required system postinstall. Pinned
 review receipts do not replace the underlying AVB verification or hardware tests.
+
+### Recovery trust finalization
+
+Use tools/recovery_trust.py before AVB-signing a Recovery built with upstream
+test certificates. It requires SHA-pinned unsigned input, public release
+certificate, LZ4 tool and build admission. Only the OTA trust ZIP and the
+proven unbuilt-ODM timestamp are changed; its receipt records both unsigned
+image hashes and the bounded CPIO changes. Run --help for the required inputs.

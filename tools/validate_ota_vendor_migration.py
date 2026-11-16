@@ -16,10 +16,11 @@ from postinstall_policy import validate_partition
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/"kernel/packaging"))
 from vendor_migration import PARTS, DYNAMIC
 
-def validate_manifest(m, expected, epoch):
+def validate_manifest(m, expected, epoch, full_update=False):
     need(m.IsInitialized(), "Uninitialized payload protobuf")
     need(m.block_size==4096, "Unexpected payload block size")
-    need(m.partial_update and m.max_timestamp==epoch, "Wrong partial-update identity")
+    need(m.partial_update is (not full_update) and m.max_timestamp==epoch, "Wrong full/partial-update identity")
+    need(set(expected)==set(PARTS), "Unexpected target image set")
     need(sorted(p.partition_name for p in m.partitions)==sorted(PARTS), "Unexpected payload partition set")
     d=m.dynamic_partition_metadata
     need(d.snapshot_enabled and not d.vabc_enabled, "Wrong snapshot implementation")
@@ -34,7 +35,7 @@ def validate_manifest(m, expected, epoch):
             need(part.run_postinstall, "Missing system add-on postinstall")
         if name in ("boot","system","system_dlkm","vendor","vendor_dlkm","odm","odm_dlkm"):
             need(part.HasField("version") and part.version.isdecimal() and int(part.version)>0,
-                "Missing/invalid partial OTA partition timestamp: "+name)
+                "Missing/invalid OTA partition timestamp: "+name)
         info=part.new_partition_info
         need(info.size==expected[name]["bytes"] and info.hash.hex()==expected[name]["sha256"], "Payload target mismatch: "+name)
         need(not part.HasField("old_partition_info"), "Migration must be a complete partition replacement")
@@ -60,7 +61,7 @@ def validate_manifest(m, expected, epoch):
         result.append(dict(partition=name,bytes=info.size,sha256=info.hash.hex(),operations=len(part.operations)))
     return result
 
-def validate(ota,target,number,epoch,spl):
+def validate(ota,target,number,epoch,spl,full_update=False):
     with zipfile.ZipFile(target) as z:
         names(z)
         need(sorted(z.read("META/ab_partitions.txt").decode().split())==sorted(PARTS),"Signed target-files scope mismatch")
@@ -87,15 +88,16 @@ def validate(ota,target,number,epoch,spl):
         m=pb.DeltaArchiveManifest();m.ParseFromString(raw)
         need(m.HasField("signatures_offset") and m.signatures_offset>0,"Missing payload signatures")
         need(24+length+signature+m.signatures_offset+m.signatures_size==entry.file_size,"Wrong signed payload boundaries")
-        parts=validate_manifest(m,expected,epoch)
-    return dict(status="MIGRATION_PAYLOAD_STRUCTURE_AND_EXACT_IMAGE_HASHES_OK",partitions=parts,build_number=number,build_epoch=epoch,platform_spl=spl,preserves_lk=True,phone_actions=False,scope="Requires separate official ZIP/payload signature verification, AVB proof and live layout gate before installation.")
+        parts=validate_manifest(m,expected,epoch,full_update=full_update)
+    return dict(status="MIGRATION_PAYLOAD_STRUCTURE_AND_EXACT_IMAGE_HASHES_OK",payload_partial_update=not full_update,partitions=parts,build_number=number,build_epoch=epoch,platform_spl=spl,preserves_lk=True,phone_actions=False,scope="Requires separate official ZIP/payload signature verification, AVB proof and live layout gate before installation.")
 
 def main():
     p=argparse.ArgumentParser(description=__doc__)
     for n in ("ota","target-files","build-number","build-epoch","platform-spl","report"):
         p.add_argument("--"+n,required=True)
+    p.add_argument("--full-update",action="store_true",help="Require a full managed payload; reject partial_update=true")
     a=p.parse_args()
-    result=validate(a.ota,a.target_files,a.build_number,int(a.build_epoch),a.platform_spl)
+    result=validate(a.ota,a.target_files,a.build_number,int(a.build_epoch),a.platform_spl,full_update=a.full_update)
     Path(a.report).write_text(json.dumps(result,indent=2)+"\n")
     print(result["status"])
 if __name__=="__main__":main()

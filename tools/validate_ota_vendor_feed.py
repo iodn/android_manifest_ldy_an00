@@ -99,13 +99,14 @@ def validate_zip(package, admission_path, expected_sha256):
     admission = json.loads(admission_path.read_text())
     need(admission["schema"] == "ldy-vendor-migration-ota-feed-v1",
          "Unknown vendor feed admission schema")
+    need(admission.get("payload_mode") == "full", "Twenty-part feed requires explicit full payload mode")
     before = sha(package)
     need(before == admission["ota_sha256"], "OTA differs from vendor admission")
     _, refs = evidence(admission)
     crypto = authenticate_zip_payload(package, admission)
     result = validate(package, admission["target_files"]["path"],
                       admission["build_number"], admission["build_epoch"],
-                      admission["platform_spl"])
+                      admission["platform_spl"], full_update=True)
     need(sha(package) == before, "OTA changed during vendor admission")
     need(sha(admission_path) == expected_sha256, "Vendor admission changed during verification")
     for row in refs + admission["verifier_dependencies"] + [
@@ -116,7 +117,7 @@ def validate_zip(package, admission_path, expected_sha256):
     verify_hardware(admission["cohort"]["path"], admission["cohort_directory"])
     result.update(**crypto, status="OTA_VENDOR_MIGRATION_COHORT_AUTHENTICATED",
                   ota_sha256=before, admission_sha256=expected_sha256,
-                  scope="Authenticated exact twenty-part full replacements, six logical partitions "
+                  scope="Authenticated full managed payload (partial_update=false), exact twenty-part replacements, six logical partitions "
                         "and pinned kernel/vendor/modem/AVB evidence. No publishing, installation "
                         "or hardware qualification is performed.")
     return result

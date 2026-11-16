@@ -24,6 +24,37 @@ class PayloadTest(unittest.TestCase):
         return v.validate_manifest(self.m,self.expected,42)
     def test_valid_exact_migration(self):
         self.assertEqual(len(self.check()),20)
+    def test_explicit_full_mode_requires_nonpartial(self):
+        with self.assertRaisesRegex(ValueError,"full/partial-update identity"):
+            v.validate_manifest(self.m,self.expected,42,full_update=True)
+        self.m.partial_update=False
+        self.assertEqual(len(v.validate_manifest(self.m,self.expected,42,full_update=True)),20)
+        with self.assertRaisesRegex(ValueError,"full/partial-update identity"):self.check()
+    def test_full_mode_rejects_wrong_groups_and_logical_set(self):
+        self.m.partial_update=False
+        group=self.m.dynamic_partition_metadata.groups[0]
+        original=list(group.partition_names)
+        for names in [original[:-1],original+["product"],original[:-1]+[original[0]]]:
+            del group.partition_names[:];group.partition_names.extend(names)
+            with self.assertRaisesRegex(ValueError,"dynamic group"):
+                v.validate_manifest(self.m,self.expected,42,full_update=True)
+        del group.partition_names[:];group.partition_names.extend(original)
+        group.name="wrong"
+        with self.assertRaisesRegex(ValueError,"dynamic group"):
+            v.validate_manifest(self.m,self.expected,42,full_update=True)
+    def test_full_mode_requires_all_exact_target_hashes(self):
+        self.m.partial_update=False
+        for part in self.m.partitions:
+            original=part.new_partition_info.hash
+            part.new_partition_info.hash=b"x"*32
+            with self.assertRaisesRegex(ValueError,"target mismatch"):
+                v.validate_manifest(self.m,self.expected,42,full_update=True)
+            part.new_partition_info.hash=original
+    def test_full_mode_rejects_wrong_partition_scope(self):
+        self.m.partial_update=False
+        self.m.partitions[0].partition_name="tee"
+        with self.assertRaisesRegex(ValueError,"partition set"):
+            v.validate_manifest(self.m,self.expected,42,full_update=True)
     def test_metadata_order_has_no_semantic_effect(self):
         rows=list(self.m.partitions);del self.m.partitions[:];self.m.partitions.extend(reversed(rows))
         self.check()

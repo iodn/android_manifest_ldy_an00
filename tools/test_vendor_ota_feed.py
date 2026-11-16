@@ -76,7 +76,7 @@ class VendorFeedTest(unittest.TestCase):
         self.transcript = self.root / "avb.log"
         self.transcript.write_text("synthetic external verification transcript")
         self.package = self.root / "update.zip"
-        manifest = pb.DeltaArchiveManifest(block_size=4096, partial_update=True,
+        manifest = pb.DeltaArchiveManifest(block_size=4096, partial_update=False,
                                           max_timestamp=42, signatures_size=3)
         d = manifest.dynamic_partition_metadata
         d.snapshot_enabled = True
@@ -108,7 +108,7 @@ class VendorFeedTest(unittest.TestCase):
                        "ota-type=AB\npre-device=ldy_an00\npost-build-incremental=test42\n"
                        "post-timestamp=42\npost-sdk-level=37\npost-security-patch-level=2026-11-01\n"
                        "ota-property-files=payload.bin:0:1\n")
-        self.admission = dict(schema="ldy-vendor-migration-ota-feed-v1",
+        self.admission = dict(schema="ldy-vendor-migration-ota-feed-v1", payload_mode="full",
             ota_sha256=digest(self.package.read_bytes()), target_files=self.pin(self.target),
             cohort=self.pin(self.contract), cohort_directory=str(self.directory),
             hardware_avb_proof=self.pin(self.hardware_proof), final_avb_proof=self.pin(self.final_proof),
@@ -136,6 +136,26 @@ class VendorFeedTest(unittest.TestCase):
         result = self.admit()
         self.assertEqual(len(result["partitions"]), 20)
         self.assertEqual(result["status"], "OTA_VENDOR_MIGRATION_COHORT_AUTHENTICATED")
+
+    def test_twenty_part_feed_requires_explicit_full_mode(self):
+        self.admission.pop("payload_mode")
+        with self.assertRaisesRegex(ValueError,"explicit full payload mode"):
+            self.admit()
+
+    def test_partial_twenty_payload_rejected_even_with_full_admission(self):
+        with zipfile.ZipFile(self.package) as z:
+            entries={n:z.read(n) for n in z.namelist()}
+        payload=entries["payload.bin"]
+        magic,version,length,signature=struct.unpack(">4sQQI",payload[:24])
+        manifest=pb.DeltaArchiveManifest();manifest.ParseFromString(payload[24:24+length])
+        manifest.partial_update=True
+        raw=manifest.SerializeToString()
+        entries["payload.bin"]=struct.pack(">4sQQI",magic,version,len(raw),signature)+raw+payload[24+length:]
+        with zipfile.ZipFile(self.package,"w") as z:
+            for name,data in entries.items():z.writestr(name,data)
+        self.admission["ota_sha256"]=digest(self.package.read_bytes())
+        with self.assertRaisesRegex(ValueError,"full/partial-update identity"):
+            self.admit()
 
     def test_untrusted_admission_digest(self):
         self.write(self.path, self.admission)
