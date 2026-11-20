@@ -15,6 +15,8 @@ Reset protection is included by default and tested on LDY-AN00 with the matching
 MagicOS 11.0.0.117 stack. Legacy migration and fresh installation are separate.
 Use LDY_AN00_RESET_GUARD=0 to reproduce the unprotected baseline kernel.
 Set LDY_AN00_RESET_GUARD=1 in the matching Android product build too.
+Use LDY_AN00_NOVEMBER_SECURITY=1 to build the November F2FS test candidate
+with reset protection enabled.
 EOF
     exit 0
 fi
@@ -23,6 +25,11 @@ reset_guard=${LDY_AN00_RESET_GUARD:-1}
 case "$reset_guard" in
     0|1) ;;
     *) echo "LDY_AN00_RESET_GUARD must be 0 or 1" >&2; exit 2 ;;
+esac
+november_security=${LDY_AN00_NOVEMBER_SECURITY:-0}
+case "$november_security:$reset_guard" in
+    0:0|0:1|1:1) ;;
+    *) echo "LDY_AN00_NOVEMBER_SECURITY=1 requires LDY_AN00_RESET_GUARD=1" >&2; exit 2 ;;
 esac
 base=a0924fec0959b69501d49bdbfefe8a13f53033c4
 head=fd92206bcd0a2bd86ecf8343a8e7e81e86a1c483
@@ -34,6 +41,12 @@ if [ "$reset_guard" = 1 ]; then
         python3 "$recipe/../../replay.py" common "$recipe/optional-reset-guard.json"
     fi
     head=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["head"])' "$recipe/optional-reset-guard.json")
+fi
+if [ "$november_security" = 1 ]; then
+    if [ "$(git -C common rev-parse HEAD)" = "$head" ]; then
+        python3 "$recipe/../../replay.py" common "$recipe/november26-security.json"
+    fi
+    head=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["head"])' "$recipe/november26-security.json")
 fi
 test "$(git -C common rev-parse HEAD)" = "$head"
 test -z "$(git -C common status --porcelain)"

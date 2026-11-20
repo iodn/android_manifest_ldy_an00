@@ -1,0 +1,24 @@
+{
+  "base": "a6ebb716965ae17784cbadbd7b4daa99fa01c340",
+  "head": "87e5e884fd2d353d7fa46769301b111cfdeb028e",
+  "commits": [
+    {
+      "commit": "87e5e884fd2d353d7fa46769301b111cfdeb028e",
+      "parent": "a6ebb716965ae17784cbadbd7b4daa99fa01c340",
+      "tree": "8014f8eab84f325d336d5367dc38072df29ec2e5",
+      "patch": "november26-f2fs.patch",
+      "patch_sha256": "c07640f35e28bf401a888a9a411b541e03206cac59b966a9f7eff601770e5731",
+      "message": "f2fs: use the saved superblock for decompression buffers\n\nComplete the CVE-2025-38627 backport for the shipped 6.12.58 cohort.\nThis tree already caches the superblock and compression algorithm in\nthe decompression context. Use that saved superblock at the remaining\ntemporary page allocation and delayed cleanup sites.\n\nBackport reference: https://android.googlesource.com/kernel/common/+/5d604d40cd3232b09cb339941ef958e49283ed0a\n",
+      "author": {
+        "name": "iodn",
+        "email": "114117719+iodn@users.noreply.github.com",
+        "date": "1795146892 +0000"
+      },
+      "committer": {
+        "name": "iodn",
+        "email": "114117719+iodn@users.noreply.github.com",
+        "date": "1795146892 +0000"
+      }
+    }
+  ]
+}
