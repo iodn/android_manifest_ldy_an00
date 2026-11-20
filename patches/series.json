@@ -49,15 +49,15 @@
     },
     {
       "path": "frameworks/base",
-      "revision": "2fc721e33c22298bae2093599df2f9eb39816935",
-      "tree": "129eb6cb03ffbbf76e7a56c719d859a95366d80a",
+      "revision": "94c20aa45b5e5639655403ffbed298433d25f7bd",
+      "tree": "cab8dbb34cdcb9885e58a742de0c2e76f6e8dc55",
       "base_revision": "22de88b7b8eb979c816669c7963dee66ae4953cd",
       "patch": "frameworks_base.patch",
-      "patch_sha256": "deaec414dd26ab1464d0c08e58cbbe79f1f837b16ce294817178695dc4a10008",
+      "patch_sha256": "cdb8650adb9d9a4e7b324f70b59345df08413edfc419769e0a02a3cd51d44364",
       "patch_tree_verified": true,
       "remote_url": "https://github.com/LineageOS/android_frameworks_base",
-      "target_snapshot_revision": "2fc721e33c22298bae2093599df2f9eb39816935",
-      "target_snapshot_tree": "129eb6cb03ffbbf76e7a56c719d859a95366d80a",
+      "target_snapshot_revision": "94c20aa45b5e5639655403ffbed298433d25f7bd",
+      "target_snapshot_tree": "cab8dbb34cdcb9885e58a742de0c2e76f6e8dc55",
       "historical_public_snapshot": {
         "revision": "193c50e5fb7e8278190f57048af9fab5a7098fb4",
         "tree": "5c28bc283ee9569918f5eba680041eedc509e857"
@@ -169,15 +169,15 @@
     },
     {
       "path": "packages/apps/Settings",
-      "revision": "8e2bfdec32522f0d617da250809df02e096ad6f9",
-      "tree": "b27c692af15dbb1fdc77797456fb7bcd59d2eb70",
+      "revision": "de5c13244c937101df886b42f87138b3ad29d24a",
+      "tree": "fda49b7ceb7c4d4282fea39486a5c6cd59562dda",
       "base_revision": "31b1a9f1cab9638bc6af9f4e6412fbf3b3a7947a",
       "patch": "packages_apps_Settings.patch",
-      "patch_sha256": "10b6d904ce929d26f878898bbdd271a114e53445a58324a2f4b1a3ffe70fdce1",
+      "patch_sha256": "f0fec27a3fc0c5ab3867e365ea698ba399833153f923955d0b371c6d23ea384e",
       "patch_tree_verified": true,
       "remote_url": "https://github.com/LineageOS/android_packages_apps_Settings",
-      "target_snapshot_revision": "8e2bfdec32522f0d617da250809df02e096ad6f9",
-      "target_snapshot_tree": "b27c692af15dbb1fdc77797456fb7bcd59d2eb70",
+      "target_snapshot_revision": "de5c13244c937101df886b42f87138b3ad29d24a",
+      "target_snapshot_tree": "fda49b7ceb7c4d4282fea39486a5c6cd59562dda",
       "historical_public_snapshot": {
         "revision": "8397134ae4ee640f1a26eb9f12d9eddb91650b89",
         "tree": "5f22ecf62a013dbae9b9d336782b93681ddf3489"

@@ -3002,6 +3002,21 @@ index 733da596426ab686181893340d3602403e629d45..3fcf40b3e431ebfcd9e850179c2d0fc4
      /**
       * Returns true if the given attribution tag is found within this instance under any package.
       * Only returns true if the attribution tag literal is found, not if any package contains the
+diff --git a/core/java/android/provider/Settings.java b/core/java/android/provider/Settings.java
+index 090c41d92bc77f745be3e42bd9ecbeff34b6450c..4f9c5ef2620f41fe28650e06baf7ae0b878c7416 100644
+--- a/core/java/android/provider/Settings.java
++++ b/core/java/android/provider/Settings.java
+@@ -12815,6 +12815,10 @@ public final class Settings {
+         public static final String LOCK_SCREEN_SHOW_QR_CODE_SCANNER =
+                 "lock_screen_show_qr_code_scanner";
+ 
++        /** Whether Quick Settings are hidden until the lock screen is dismissed. @hide */
++        public static final String LOCK_SCREEN_REQUIRE_UNLOCK_FOR_QUICK_SETTINGS =
++                "lock_screen_require_unlock_for_quick_settings";
++
+         /**
+          * Whether or not to enable qr code code scanner setting to enable/disable lockscreen
+          * entry point. Any value apart from null means setting needs to be enabled
 diff --git a/core/java/android/view/SurfaceControl.java b/core/java/android/view/SurfaceControl.java
 index c94e6998867525f7b4d910f46cfbf1fe9fa3e0d3..786411bd4fa25f445af2a1698c5a87569221fcc0 100644
 --- a/core/java/android/view/SurfaceControl.java
@@ -9480,10 +9495,18 @@ index 0000000000000000000000000000000000000000..7cbd711d5a594dad64106a88a4004e43
 +    }
 +}
 diff --git a/services/core/java/com/android/server/policy/keyguard/KeyguardServiceDelegate.java b/services/core/java/com/android/server/policy/keyguard/KeyguardServiceDelegate.java
-index 2d25ee154c6dcbd4782123483c84f594c271fc8b..5b01e50001bb268ee09244e5c9821928ba988d1a 100644
+index 2d25ee154c6dcbd4782123483c84f594c271fc8b..8da46ba0ba46392546aadbba796907c6ab88adaf 100644
 --- a/services/core/java/com/android/server/policy/keyguard/KeyguardServiceDelegate.java
 +++ b/services/core/java/com/android/server/policy/keyguard/KeyguardServiceDelegate.java
-@@ -207,7 +207,10 @@ public class KeyguardServiceDelegate {
+@@ -45,6 +45,7 @@ import com.android.internal.policy.IKeyguardStateCallback;
+ import com.android.internal.policy.KeyguardState;
+ import com.android.internal.widget.LockPatternUtils;
+ import com.android.server.LocalServices;
++import com.android.server.statusbar.StatusBarManagerInternal;
+ import com.android.server.wm.EventLogTags;
+ 
+ import java.io.PrintWriter;
+@@ -207,7 +208,10 @@ public class KeyguardServiceDelegate {
          }
      }
  
@@ -9494,16 +9517,26 @@ index 2d25ee154c6dcbd4782123483c84f594c271fc8b..5b01e50001bb268ee09244e5c9821928
          mCallback = callback;
          mLockPatternUtils = new LockPatternUtils(context);
          mActivityManagerInternal = LocalServices.getService(ActivityManagerInternal.class);
-@@ -217,6 +220,8 @@ public class KeyguardServiceDelegate {
+@@ -216,7 +220,18 @@ public class KeyguardServiceDelegate {
+ 
      public void onShowingStateChanged(boolean showing) {
          mKeyguardReportedState.showing = showing;
++        updateQuickSettingsLock(showing);
          mCallback.onShowingChanged();
 +        AutoReboot.onKeyguardShowingStateChanged(mSecurityContext, showing, mKeyguardState.userId);
 +        LockedResetGuard.onKeyguardStateChanged(mSecurityContext, showing);
++    }
++
++    private void updateQuickSettingsLock(boolean showing) {
++        final StatusBarManagerInternal statusBar = LocalServices.getService(
++                StatusBarManagerInternal.class);
++        if (statusBar != null) {
++            statusBar.onKeyguardShowingChanged(showing, mKeyguardState.userId);
++        }
      }
  
      /**
-@@ -226,6 +231,7 @@ public class KeyguardServiceDelegate {
+@@ -226,6 +241,7 @@ public class KeyguardServiceDelegate {
       * @param handler the handler to run the ServiceConnection callbacks on.
       */
      public void bindService(@NonNull Context context, @NonNull Handler handler) {
@@ -9511,10 +9544,27 @@ index 2d25ee154c6dcbd4782123483c84f594c271fc8b..5b01e50001bb268ee09244e5c9821928
          Intent intent = new Intent();
          final Resources resources = context.getApplicationContext().getResources();
  
-@@ -667,6 +673,7 @@ public class KeyguardServiceDelegate {
+@@ -238,6 +254,7 @@ public class KeyguardServiceDelegate {
+                 handler, UserHandle.SYSTEM)) {
+             Log.v(TAG, "*** Keyguard: can't bind to " + keyguardComponent);
+             mKeyguardReportedState.disable();
++            updateQuickSettingsLock(false);
+         } else {
+             if (DEBUG) Log.v(TAG, "*** Keyguard started");
+         }
+@@ -283,6 +300,7 @@ public class KeyguardServiceDelegate {
+             if (DEBUG) Log.v(TAG, "*** Keyguard disconnected (boo!)");
+             mKeyguardService = null;
+             mKeyguardReportedState.reset();
++            updateQuickSettingsLock(true);
+             try {
+                 ActivityTaskManager.getService().setLockScreenShown(true /* showingKeyguard */,
+                         false /* showingAod */);
+@@ -667,6 +685,8 @@ public class KeyguardServiceDelegate {
              }
          }
          mKeyguardState.userId = userId;
++        updateQuickSettingsLock(true);
 +        LockedResetGuard.onKeyguardStateChanged(mSecurityContext, true);
      }
  
@@ -9608,6 +9658,150 @@ index 0000000000000000000000000000000000000000..45a2ca7028ecfa4edcec6d814b570198
 +        }
 +    }
 +}
+diff --git a/services/core/java/com/android/server/statusbar/StatusBarManagerInternal.java b/services/core/java/com/android/server/statusbar/StatusBarManagerInternal.java
+index 55f5f5d012784badf8d32d15e0aebf4f31df7bf6..21f6612a2a3901c46c368cfb1880fffac015037e 100644
+--- a/services/core/java/com/android/server/statusbar/StatusBarManagerInternal.java
++++ b/services/core/java/com/android/server/statusbar/StatusBarManagerInternal.java
+@@ -141,6 +141,9 @@ public interface StatusBarManagerInternal {
+ 
+     void setCurrentUser(int newUserId);
+ 
++    /** Reports whether keyguard is showing for the given user. */
++    void onKeyguardShowingChanged(boolean showing, int userId);
++
+     /**
+      * Set whether the top app currently hides the statusbar.
+      *
+diff --git a/services/core/java/com/android/server/statusbar/StatusBarManagerService.java b/services/core/java/com/android/server/statusbar/StatusBarManagerService.java
+index 34aa2d86a724426f82d3d0fac1116972a3445e2e..c367832992a98ce571868cf8e7e7bdb92ce6e334 100644
+--- a/services/core/java/com/android/server/statusbar/StatusBarManagerService.java
++++ b/services/core/java/com/android/server/statusbar/StatusBarManagerService.java
+@@ -64,6 +64,7 @@ import android.content.om.IOverlayManager;
+ import android.content.pm.PackageManager;
+ import android.content.pm.PackageManagerInternal;
+ import android.content.pm.ResolveInfo;
++import android.database.ContentObserver;
+ import android.graphics.drawable.Icon;
+ import android.hardware.biometrics.BiometricAuthenticator.Modality;
+ import android.hardware.biometrics.IBiometricContextListener;
+@@ -211,6 +212,10 @@ public class StatusBarManagerService extends IStatusBarService.Stub implements D
+     private final UserManagerInternal mUserManagerInternal;
+     private final SessionMonitor mSessionMonitor;
+     private int mCurrentUserId;
++    @GuardedBy("mLock")
++    private int mKeyguardDismissedUserId = UserHandle.USER_NULL;
++    @GuardedBy("mLock")
++    private boolean mRequireUnlockForQuickSettings;
+     private boolean mTracingEnabled;
+     private int mLastSystemKey = -1;
+ 
+@@ -365,6 +370,20 @@ public class StatusBarManagerService extends IStatusBarService.Stub implements D
+         mSessionMonitor = new SessionMonitor(mContext);
+ 
+         mVisibleBackgroundUsersEnabled = isVisibleBackgroundUsersEnabled();
++
++        mContext.getContentResolver().registerContentObserver(Settings.Secure.getUriFor(
++                Settings.Secure.LOCK_SCREEN_REQUIRE_UNLOCK_FOR_QUICK_SETTINGS),
++                false, new ContentObserver(mHandler) {
++                    @Override
++                    public void onChange(boolean selfChange) {
++                        synchronized (mLock) {
++                            updateQuickSettingsLockLocked();
++                        }
++                    }
++                }, UserHandle.USER_ALL);
++        synchronized (mLock) {
++            updateQuickSettingsLockLocked();
++        }
+     }
+ 
+     /**
+@@ -497,7 +516,18 @@ public class StatusBarManagerService extends IStatusBarService.Stub implements D
+         @Override
+         public void setCurrentUser(int newUserId) {
+             if (SPEW) Slog.d(TAG, "Setting current user to user " + newUserId);
+-            mCurrentUserId = newUserId;
++            synchronized (mLock) {
++                mCurrentUserId = newUserId;
++                updateQuickSettingsLockLocked();
++            }
++        }
++
++        @Override
++        public void onKeyguardShowingChanged(boolean showing, int userId) {
++            synchronized (mLock) {
++                mKeyguardDismissedUserId = showing ? UserHandle.USER_NULL : userId;
++                applyQuickSettingsLockLocked();
++            }
+         }
+ 
+ 
+@@ -1184,6 +1214,23 @@ public class StatusBarManagerService extends IStatusBarService.Stub implements D
+         }
+     }
+ 
++    @GuardedBy("mLock")
++    private void updateQuickSettingsLockLocked() {
++        mRequireUnlockForQuickSettings = Settings.Secure.getIntForUser(mContext.getContentResolver(),
++                Settings.Secure.LOCK_SCREEN_REQUIRE_UNLOCK_FOR_QUICK_SETTINGS, 0,
++                mCurrentUserId) != 0;
++        applyQuickSettingsLockLocked();
++    }
++
++    @GuardedBy("mLock")
++    private void applyQuickSettingsLockLocked() {
++        final IntArray displays = new IntArray(mDisplayUiState.size());
++        for (int i = 0; i < mDisplayUiState.size(); i++) {
++            displays.add(mDisplayUiState.keyAt(i));
++        }
++        updateDisableStatesLocked(displays);
++    }
++
+     // This method batches disable state across all displays into a single remote call
+     // (IStatusBar#disableForAllDisplays) for efficiency and calls
+     // NotificationDelegate#onSetDisabled only if any display's disable state changes.
+@@ -1194,8 +1241,11 @@ public class StatusBarManagerService extends IStatusBarService.Stub implements D
+         // so they are paired correctly.  The messages on the handler will be
+         // handled in the order they were enqueued, but will be outside the lock.
+         manageDisableListLocked(userId, what, token, pkg, whichFlag);
++        updateDisableStatesLocked(displayIds);
++    }
+ 
+-        // Ensure state for the current user is applied, even if passed a non-current user.
++    @GuardedBy("mLock")
++    private void updateDisableStatesLocked(IntArray displayIds) {
+         final int net1 = gatherDisableActionsLocked(mCurrentUserId, 1);
+         final int net2 = gatherDisableActionsLocked(mCurrentUserId, 2);
+ 
+@@ -1207,11 +1257,13 @@ public class StatusBarManagerService extends IStatusBarService.Stub implements D
+                 displaysWithNewDisableStates.put(displayId, new Pair(net1, net2));
+             }
+         }
+-        runWithStatusBarIfPresent(
+-                bar -> bar.disableForAllDisplays(new DisableStates(displaysWithNewDisableStates)),
+-                "Unable to disable Status bar.");
+         if (!displaysWithNewDisableStates.isEmpty()) {
+-            mHandler.post(() -> mNotificationDelegate.onSetDisabled(net1));
++            runWithStatusBarIfPresent(
++                    bar -> bar.disableForAllDisplays(new DisableStates(displaysWithNewDisableStates)),
++                    "Unable to disable Status bar.");
++            if (mNotificationDelegate != null) {
++                mHandler.post(() -> mNotificationDelegate.onSetDisabled(net1));
++            }
+         }
+     }
+ 
+@@ -2698,6 +2750,10 @@ public class StatusBarManagerService extends IStatusBarService.Stub implements D
+                 net |= rec.getFlags(which);
+             }
+         }
++        if (which == 2 && userId == mCurrentUserId && mRequireUnlockForQuickSettings
++                && mKeyguardDismissedUserId != userId) {
++            net |= StatusBarManager.DISABLE2_QUICK_SETTINGS;
++        }
+         return net;
+     }
+ 
 diff --git a/services/proguard.flags b/services/proguard.flags
 index 36d0f05f86eed927d4c0cd17b676a6b8ac048c4c..cba49d9fda090e4d68a885750df514fc63f53ac1 100644
 --- a/services/proguard.flags

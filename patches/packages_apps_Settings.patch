@@ -132,10 +132,20 @@ index 0000000000000000000000000000000000000000..64d0a8ab079e73588df2a71dca56fb0c
 +    <string name="screenshot_timestamp_exif_summary">Include capture time and time zone in screenshot file metadata</string>
 +</resources>
 diff --git a/res/values/strings.xml b/res/values/strings.xml
-index a84186b96bc4ca1e74cebec9aa1ed86e4cd819e0..8ef3ab0416d6fee48369321ce18d8a7b5b51a071 100644
+index a84186b96bc4ca1e74cebec9aa1ed86e4cd819e0..a23c39237aadab51fda996c967eba2ac45224883 100644
 --- a/res/values/strings.xml
 +++ b/res/values/strings.xml
-@@ -15590,4 +15590,16 @@
+@@ -14118,6 +14118,9 @@
+ 
+     <!-- Device controls toggle name [CHAR LIMIT=60] -->
+     <string name="lockscreen_privacy_controls_setting_toggle">Show device controls</string>
++    <!-- Lock screen setting to hide Quick Settings until the device is unlocked. -->
++    <string name="lockscreen_quick_settings_unlock_title">Require unlock for Quick Settings</string>
++    <string name="lockscreen_quick_settings_unlock_summary">Hide Quick Settings and the brightness slider while locked</string>
+     <!-- Device controls summary [CHAR LIMIT=NONE] -->
+     <string name="lockscreen_privacy_controls_summary">From the lockscreen</string>
+     <!-- Trivial Device controls toggle name [CHAR LIMIT=60] -->
+@@ -15590,4 +15593,16 @@
      <!-- Search keywords for Human interface device access setting -->
      <string name="keywords_access_hid">hid, human, access, device</string>
      <!-- Access HID end -->
@@ -296,6 +306,23 @@ index 2c0c0bb8bc8538a53beadf64271e9cba436e27ba..31dde5373f36dfbec47db9a5e76fae5e
 +        android:defaultValue="false" />
 +
  </PreferenceScreen>
+diff --git a/res/xml/security_lockscreen_settings.xml b/res/xml/security_lockscreen_settings.xml
+index 49a56255981f5e816d435c6c069df5168a312577..7f9554f4c6d1bb45fbf3304c84dba710150f872f 100644
+--- a/res/xml/security_lockscreen_settings.xml
++++ b/res/xml/security_lockscreen_settings.xml
+@@ -82,6 +82,12 @@
+             android:summary="@string/lockscreen_trivial_controls_summary"
+             settings:controller="com.android.settings.display.ControlsTrivialPrivacyPreferenceController"/>
+ 
++        <SwitchPreferenceCompat
++            android:key="lock_screen_require_unlock_for_quick_settings"
++            android:title="@string/lockscreen_quick_settings_unlock_title"
++            android:summary="@string/lockscreen_quick_settings_unlock_summary"
++            settings:controller="com.android.settings.display.LockscreenQuickSettingsPreferenceController" />
++
+         <!-- Shortcuts -->
+         <Preference
+             android:key="customizable_lock_screen_quick_affordances"
 diff --git a/src/com/android/settings/Settings.java b/src/com/android/settings/Settings.java
 index 5562158557e9ab4ac94536d6759e2dda7f77f785..1b378c1579ea4ac37c94b4de413d68314c084e77 100644
 --- a/src/com/android/settings/Settings.java
@@ -1245,6 +1272,57 @@ index 0000000000000000000000000000000000000000..c02d31b3c8d61e5d9090f8597c19c140
 +    public CharSequence getSummary() {
 +        String summary = getMemorySummary(mContext);
 +        return summary != null ? summary : mContext.getString(R.string.unknown);
++    }
++}
+diff --git a/src/com/android/settings/display/LockscreenQuickSettingsPreferenceController.java b/src/com/android/settings/display/LockscreenQuickSettingsPreferenceController.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..e4a8b58d340b371d987f15a9d3d1b419e6739459
+--- /dev/null
++++ b/src/com/android/settings/display/LockscreenQuickSettingsPreferenceController.java
+@@ -0,0 +1,45 @@
++/*
++ * Copyright (C) 2026 The Android Open Source Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.settings.display;
++
++import android.content.Context;
++import android.provider.Settings;
++
++import com.android.settings.core.TogglePreferenceController;
++
++public class LockscreenQuickSettingsPreferenceController extends TogglePreferenceController {
++    public LockscreenQuickSettingsPreferenceController(Context context, String preferenceKey) {
++        super(context, preferenceKey);
++    }
++
++    @Override
++    public int getAvailabilityStatus() {
++        return AVAILABLE;
++    }
++
++    @Override
++    public boolean isChecked() {
++        return Settings.Secure.getInt(mContext.getContentResolver(),
++                Settings.Secure.LOCK_SCREEN_REQUIRE_UNLOCK_FOR_QUICK_SETTINGS, 0) != 0;
++    }
++
++    @Override
++    public boolean setChecked(boolean checked) {
++        return Settings.Secure.putInt(mContext.getContentResolver(),
++                Settings.Secure.LOCK_SCREEN_REQUIRE_UNLOCK_FOR_QUICK_SETTINGS, checked ? 1 : 0);
 +    }
 +}
 diff --git a/src/com/android/settings/display/MinRefreshRatePreferenceController.java b/src/com/android/settings/display/MinRefreshRatePreferenceController.java
