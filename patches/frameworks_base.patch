@@ -3003,14 +3003,17 @@ index 733da596426ab686181893340d3602403e629d45..3fcf40b3e431ebfcd9e850179c2d0fc4
       * Returns true if the given attribution tag is found within this instance under any package.
       * Only returns true if the attribution tag literal is found, not if any package contains the
 diff --git a/core/java/android/provider/Settings.java b/core/java/android/provider/Settings.java
-index 090c41d92bc77f745be3e42bd9ecbeff34b6450c..4f9c5ef2620f41fe28650e06baf7ae0b878c7416 100644
+index 090c41d92bc77f745be3e42bd9ecbeff34b6450c..3295a4fcef522a6bc474b99ef18843ed2ea08f11 100644
 --- a/core/java/android/provider/Settings.java
 +++ b/core/java/android/provider/Settings.java
-@@ -12815,6 +12815,10 @@ public final class Settings {
+@@ -12815,6 +12815,13 @@ public final class Settings {
          public static final String LOCK_SCREEN_SHOW_QR_CODE_SCANNER =
                  "lock_screen_show_qr_code_scanner";
  
-+        /** Whether Quick Settings are hidden until the lock screen is dismissed. @hide */
++        /**
++         * Whether Quick Settings actions require authentication while the device is locked.
++         * @hide
++         */
 +        public static final String LOCK_SCREEN_REQUIRE_UNLOCK_FOR_QUICK_SETTINGS =
 +                "lock_screen_require_unlock_for_quick_settings";
 +
