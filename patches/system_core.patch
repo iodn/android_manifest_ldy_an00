@@ -51,7 +51,7 @@ index 0000000000000000000000000000000000000000..2c9a77614af59e0211ca800b6baf9342
 +};
 +}  // namespace android::init
 diff --git a/init/property_service.cpp b/init/property_service.cpp
-index 89adf3331170a161d922d8b662fe453e5aed2a50..7b72894cabbddc3d4852c6b8b72ca7347ba34cb1 100644
+index 89adf3331170a161d922d8b662fe453e5aed2a50..1ad01960f3680df44cc2b012eab2633ecb6506bf 100644
 --- a/init/property_service.cpp
 +++ b/init/property_service.cpp
 @@ -15,6 +15,7 @@
@@ -199,3 +199,18 @@ index 89adf3331170a161d922d8b662fe453e5aed2a50..7b72894cabbddc3d4852c6b8b72ca734
      return PropertySet(name, value, socket, error);
  }
  
+@@ -853,7 +970,13 @@ static void LoadPropertiesFromSecondStageRes(std::map<std::string, std::string>*
+ // on runtime.
+ static void update_sys_usb_config() {
+     // emulators don't have USB, they enable adb another way.
+-    const bool add_adb_func = android::base::GetBoolProperty("ro.debuggable", false) &&
++    // A native release may require user opt-in while remaining a userdebug build.
++    // Explicit developer debug ramdisks retain their existing ADB behavior.
++    const bool adb_default_off =
++            android::base::GetBoolProperty("ro.lineage.ldy_an00.adb_default_off", false) &&
++            !android::base::GetBoolProperty("ro.force.debuggable", false);
++    const bool add_adb_func = !adb_default_off &&
++                              android::base::GetBoolProperty("ro.debuggable", false) &&
+                               android::base::GetBoolProperty("ro.adb.has_usb", true);
+ 
+     std::string config = android::base::GetProperty("persist.sys.usb.config", "");

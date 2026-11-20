@@ -234,12 +234,12 @@
       "base_revision": "65d661b1a536701e8b118be4e9728d7b5ca727c9",
       "remote_url": "https://github.com/LineageOS/android_system_core",
       "patch": "system_core.patch",
-      "revision": "6943ad8024045bb1c3802ae6045a948184b23ca9",
-      "tree": "0c26a737845359f6725c7603597b2ad2670ad3c0",
-      "patch_sha256": "f0127ba4424884392abedc6ee6ca79ad66fc4975f5a2fe4b7e443caeb0a50ae2",
+      "revision": "fe69e73167d69f1532db07724e85aed430b00dac",
+      "tree": "7a3f8d900007390ffdb02fba563f4a4f9f7a512b",
+      "patch_sha256": "7bd6a7fb7be1b8546979dbe309b14e88fc970db457d297f754559072cec5b64d",
       "patch_tree_verified": true,
-      "target_snapshot_revision": "6943ad8024045bb1c3802ae6045a948184b23ca9",
-      "target_snapshot_tree": "0c26a737845359f6725c7603597b2ad2670ad3c0"
+      "target_snapshot_revision": "fe69e73167d69f1532db07724e85aed430b00dac",
+      "target_snapshot_tree": "7a3f8d900007390ffdb02fba563f4a4f9f7a512b"
     }
   ]
 }
