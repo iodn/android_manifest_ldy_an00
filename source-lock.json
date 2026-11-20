@@ -37,10 +37,10 @@
       "tree": "bf119b96f823ad4bd1e8788ce3991eb1ef830843",
       "repository": "android_device_honor_ldy_an00",
       "excluded_input_count": 3,
-      "public_snapshot_revision": "d2fb1ba98d8c83116f36730393270a11d1bc1bae",
-      "public_snapshot_tree": "620999553010af070ccca1411b10486dd4505dfc",
-      "target_snapshot_revision": "d2fb1ba98d8c83116f36730393270a11d1bc1bae",
-      "target_snapshot_tree": "620999553010af070ccca1411b10486dd4505dfc"
+      "public_snapshot_revision": "c6898dda7d4cc3f19ec5fc73ab3729223fe8921b",
+      "public_snapshot_tree": "8505b6f10e59bb13b1fedb3ddb139d617adc7fec",
+      "target_snapshot_revision": "c6898dda7d4cc3f19ec5fc73ab3729223fe8921b",
+      "target_snapshot_tree": "8505b6f10e59bb13b1fedb3ddb139d617adc7fec"
     },
     {
       "path": "frameworks/av",
