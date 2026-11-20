@@ -132,7 +132,7 @@ index 0000000000000000000000000000000000000000..64d0a8ab079e73588df2a71dca56fb0c
 +    <string name="screenshot_timestamp_exif_summary">Include capture time and time zone in screenshot file metadata</string>
 +</resources>
 diff --git a/res/values/strings.xml b/res/values/strings.xml
-index a84186b96bc4ca1e74cebec9aa1ed86e4cd819e0..a23c39237aadab51fda996c967eba2ac45224883 100644
+index a84186b96bc4ca1e74cebec9aa1ed86e4cd819e0..027a8a5ddc1dfa15ea4d49d9eadf0e84e7915e8f 100644
 --- a/res/values/strings.xml
 +++ b/res/values/strings.xml
 @@ -14118,6 +14118,9 @@
@@ -145,7 +145,7 @@ index a84186b96bc4ca1e74cebec9aa1ed86e4cd819e0..a23c39237aadab51fda996c967eba2ac
      <!-- Device controls summary [CHAR LIMIT=NONE] -->
      <string name="lockscreen_privacy_controls_summary">From the lockscreen</string>
      <!-- Trivial Device controls toggle name [CHAR LIMIT=60] -->
-@@ -15590,4 +15593,16 @@
+@@ -15590,4 +15593,23 @@
      <!-- Search keywords for Human interface device access setting -->
      <string name="keywords_access_hid">hid, human, access, device</string>
      <!-- Access HID end -->
@@ -161,6 +161,13 @@ index a84186b96bc4ca1e74cebec9aa1ed86e4cd819e0..a23c39237aadab51fda996c967eba2ac
 +    <string name="hardware_info_cpu_limit">Maximum reported frequency: %1$s GHz</string>
 +    <string name="honor_data_selection_refused">Could not switch mobile data. Finish any call or SIM operation and try again.</string>
 +    <string name="honor_data_selection_unknown">Could not confirm the SIM change. Restart your phone to recover SIM controls.</string>
++    <!-- Settings for requiring authentication when opening selected apps. -->
++    <string name="app_lock_settings_title">App lock</string>
++    <string name="app_lock_settings_summary">Require authentication to open selected apps</string>
++    <string name="app_lock_settings_locked">Locked</string>
++    <string name="app_lock_settings_unlocked">Unlocked</string>
++    <string name="app_lock_settings_empty">No apps available to lock</string>
++    <string name="app_lock_settings_launch_failed">Couldn’t open app lock. Try again.</string>
  </resources>
 diff --git a/res/xml/device_protection_settings.xml b/res/xml/device_protection_settings.xml
 new file mode 100644
@@ -227,10 +234,24 @@ index e086a486ee0d8df918e6099316fb92f14af65d76..731de9101b0b0860b32f3ae58b9f1867
 +
  </PreferenceScreen>
 diff --git a/res/xml/more_security_privacy_settings.xml b/res/xml/more_security_privacy_settings.xml
-index af3b5ecb22d3ebda2b3db36656514008596ef938..f500bc1ade73dcdb86ced60734111b218353e252 100644
+index af3b5ecb22d3ebda2b3db36656514008596ef938..8dcf95d74279663900eb04e9007a1c2a943c7bdb 100644
 --- a/res/xml/more_security_privacy_settings.xml
 +++ b/res/xml/more_security_privacy_settings.xml
-@@ -249,4 +249,16 @@
+@@ -21,6 +21,13 @@
+     android:key="more_security_privacy_settings"
+     android:title="@string/more_security_privacy_settings">
+ 
++    <Preference
++        android:key="app_lock"
++        android:title="@string/app_lock_settings_title"
++        android:summary="@string/app_lock_settings_summary"
++        android:fragment="com.android.settings.security.AppLockSettings"
++        settings:controller="com.android.settings.security.AppLockPreferenceController" />
++
+     <!-- work profile security section. See also: security_advanced_settings.xml and
+     privacy_advanced_settings.xml. That page also has these same entries.
+      The order is -10 to make sure it is always at the top. -->
+@@ -249,4 +256,16 @@
                  android:targetPackage="com.google.attestation.verifier" />
      </Preference>
  
@@ -4047,6 +4068,174 @@ index f4d2ce2b03c076ab1daa9eaa245b3c19610e3af1..1fb8b0abb7da568f3689d555bcb44231
      private void handleTogglePsimAction() {
          if (mSubscriptionManager.canDisablePhysicalSubscription() && mSubInfo != null) {
              mSubscriptionManager.setUiccApplicationsEnabled(mSubInfo.getSubscriptionId(), mEnable);
+diff --git a/src/com/android/settings/security/AppLockPreferenceController.java b/src/com/android/settings/security/AppLockPreferenceController.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..004503ae7d791b7aa58ad2271aa83b74de224701
+--- /dev/null
++++ b/src/com/android/settings/security/AppLockPreferenceController.java
+@@ -0,0 +1,43 @@
++/*
++ * Copyright (C) 2026 The Android Open Source Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++package com.android.settings.security;
++
++import android.Manifest;
++import android.content.Context;
++import android.content.pm.PackageManager;
++import android.os.UserManager;
++import android.security.Flags;
++
++import com.android.settings.core.BasePreferenceController;
++
++public final class AppLockPreferenceController extends BasePreferenceController {
++    public AppLockPreferenceController(Context context, String preferenceKey) {
++        super(context, preferenceKey);
++    }
++
++    @Override
++    public int getAvailabilityStatus() {
++        return isSupported(mContext) ? AVAILABLE : UNSUPPORTED_ON_DEVICE;
++    }
++
++    static boolean isSupported(Context context) {
++        final UserManager users = context.getSystemService(UserManager.class);
++        return Flags.appLockApis() && Flags.appLockCore()
++                && users != null && !users.isProfile()
++                && context.checkSelfPermission(Manifest.permission.LOCK_APPS)
++                        == PackageManager.PERMISSION_GRANTED;
++    }
++}
+diff --git a/src/com/android/settings/security/AppLockSettings.java b/src/com/android/settings/security/AppLockSettings.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..31f787efc72af9d4aeb8ad3c78a2e9c5f03ca4a4
+--- /dev/null
++++ b/src/com/android/settings/security/AppLockSettings.java
+@@ -0,0 +1,113 @@
++/*
++ * Copyright (C) 2026 The Android Open Source Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++package com.android.settings.security;
++
++import android.app.PendingIntent;
++import android.app.settings.SettingsEnums;
++import android.content.Context;
++import android.content.Intent;
++import android.content.pm.ApplicationInfo;
++import android.content.pm.PackageManager;
++import android.os.Bundle;
++import android.widget.Toast;
++
++import androidx.preference.Preference;
++import androidx.preference.PreferenceScreen;
++
++import com.android.settings.R;
++import com.android.settings.SettingsPreferenceFragment;
++
++import java.util.HashSet;
++import java.util.List;
++import java.util.Set;
++
++public final class AppLockSettings extends SettingsPreferenceFragment {
++    @Override
++    public int getMetricsCategory() {
++        return SettingsEnums.SECURITY;
++    }
++
++    @Override
++    public void onCreatePreferences(Bundle savedInstanceState, String rootKey) {
++        final PreferenceScreen screen = getPreferenceManager()
++                .createPreferenceScreen(requireContext());
++        screen.setTitle(R.string.app_lock_settings_title);
++        setPreferenceScreen(screen);
++    }
++
++    @Override
++    public void onResume() {
++        super.onResume();
++        final Context context = requireContext();
++        if (!AppLockPreferenceController.isSupported(context)) {
++            finish();
++            return;
++        }
++
++        final PackageManager pm = context.getPackageManager();
++        final PreferenceScreen screen = getPreferenceScreen();
++        screen.removeAll();
++
++        // Keep the user's way back to Home available, including third-party launchers.
++        final Set<String> homePackages = new HashSet<>();
++        pm.queryIntentActivities(new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME),
++                PackageManager.MATCH_DEFAULT_ONLY).forEach(
++                        resolveInfo -> homePackages.add(resolveInfo.activityInfo.packageName));
++
++        final List<ApplicationInfo> apps = pm.getInstalledApplications(
++                PackageManager.ApplicationInfoFlags.of(PackageManager.GET_APP_LOCK_INFO));
++        apps.stream().filter(app -> app.isAppLockSupported
++                        && (!homePackages.contains(app.packageName) || app.isAppLockEnabled))
++                .sorted(new ApplicationInfo.DisplayNameComparator(pm))
++                .forEach(app -> {
++                    final Preference preference = new Preference(context);
++                    preference.setKey(app.packageName);
++                    preference.setTitle(app.loadLabel(pm));
++                    preference.setIcon(app.loadIcon(pm));
++                    preference.setSummary(app.isAppLockEnabled
++                            ? R.string.app_lock_settings_locked : R.string.app_lock_settings_unlocked);
++                    preference.setOnPreferenceClickListener(ignored -> {
++                        openConfirmation(pm, app.packageName);
++                        return true;
++                    });
++                    screen.addPreference(preference);
++                });
++
++        if (screen.getPreferenceCount() == 0) {
++            final Preference empty = new Preference(context);
++            empty.setTitle(R.string.app_lock_settings_empty);
++            empty.setSelectable(false);
++            screen.addPreference(empty);
++        }
++    }
++
++    private void openConfirmation(PackageManager pm, String packageName) {
++        try {
++            final ApplicationInfo app = pm.getApplicationInfo(packageName,
++                    PackageManager.ApplicationInfoFlags.of(PackageManager.GET_APP_LOCK_INFO));
++            final PendingIntent confirmation = pm.getEnableAppLockIntentForPackage(
++                    packageName, !app.isAppLockEnabled);
++            if (confirmation != null) {
++                confirmation.send();
++                return;
++            }
++        } catch (PackageManager.NameNotFoundException | PendingIntent.CanceledException ignored) {
++            // The package or confirmation is no longer available.
++        }
++        Toast.makeText(requireContext(), R.string.app_lock_settings_launch_failed,
++                Toast.LENGTH_SHORT).show();
++    }
++}
 diff --git a/src/com/android/settings/security/DeviceProtectionPreferenceController.java b/src/com/android/settings/security/DeviceProtectionPreferenceController.java
 new file mode 100644
 index 0000000000000000000000000000000000000000..d0ae12c07ed4b45e153adf368a8e41c42fc97854
