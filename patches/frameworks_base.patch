@@ -6378,6 +6378,76 @@ index fbed45d0b35c827a2d56ecabde5bece12559ac38..c338b0d68ffd93bd907b0b59ef7ce50b
 +    @EnforcePermission("MODIFY_AUDIO_ROUTING")
 +    boolean isAudioEffectAutoAttachSuppressed();
  }
+diff --git a/packages/SystemUI/compose/features/src/com/android/systemui/shade/ui/composable/ShadeHeader.kt b/packages/SystemUI/compose/features/src/com/android/systemui/shade/ui/composable/ShadeHeader.kt
+index fa73ce5783c5bffbe6fb8d2ee0a55f94be20a577..dbe7ba4c3c8712346a55c006c8cd4bb3edeb8e46 100644
+--- a/packages/SystemUI/compose/features/src/com/android/systemui/shade/ui/composable/ShadeHeader.kt
++++ b/packages/SystemUI/compose/features/src/com/android/systemui/shade/ui/composable/ShadeHeader.kt
+@@ -311,7 +311,21 @@ fun ContentScope.ExpandedShadeHeader(
+                 Modifier.fillMaxWidth()
+                     .defaultMinSize(minHeight = ShadeHeader.Dimensions.ExpandedHeight),
+         ) {
+-            Box(modifier = Modifier.fillMaxWidth()) {
++            Row(
++                modifier = Modifier.fillMaxWidth(),
++                verticalAlignment = Alignment.CenterVertically,
++            ) {
++                Box(
++                    modifier =
++                        Modifier.element(ShadeHeader.Elements.ShadeCarrierGroup).weight(1f)
++                ) {
++                    if (!viewModel.isPrivacyChipVisible) {
++                        ShadeCarrierGroup(
++                            viewModel = viewModel,
++                            modifier = Modifier.align(Alignment.CenterStart).widthIn(max = 180.dp),
++                        )
++                    }
++                }
+                 Clock(
+                     onClick = viewModel::onClockClicked,
+                     scale = 2.57f,
+@@ -319,19 +333,8 @@ fun ContentScope.ExpandedShadeHeader(
+                     modifier =
+                         Modifier.sysuiResTag("expanded_header_clock")
+                             .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
+-                            .wrapContentSize(Alignment.CenterStart),
++                            .wrapContentSize(Alignment.CenterEnd),
+                 )
+-                if (!viewModel.isPrivacyChipVisible) {
+-                    Box(
+-                        modifier =
+-                            Modifier.element(ShadeHeader.Elements.ShadeCarrierGroup).fillMaxWidth()
+-                    ) {
+-                        ShadeCarrierGroup(
+-                            viewModel = viewModel,
+-                            modifier = Modifier.align(Alignment.CenterEnd).widthIn(max = 180.dp),
+-                        )
+-                    }
+-                }
+             }
+             Row(
+                 verticalAlignment = Alignment.CenterVertically,
+diff --git a/packages/SystemUI/res/xml/qs_header.xml b/packages/SystemUI/res/xml/qs_header.xml
+index f47327c8513ef603b7b86b96434d3072dbf27ba4..d168b812879849497a2479693b118fa0cb84e727 100644
+--- a/packages/SystemUI/res/xml/qs_header.xml
++++ b/packages/SystemUI/res/xml/qs_header.xml
+@@ -38,7 +38,7 @@
+         <Layout
+             android:layout_width="wrap_content"
+             android:layout_height="@dimen/large_screen_shade_header_min_height"
+-            app:layout_constraintStart_toStartOf="parent"
++            app:layout_constraintEnd_toEndOf="parent"
+             app:layout_constraintTop_toBottomOf="@id/privacy_container"
+             app:layout_constraintBottom_toBottomOf="@id/carrier_group"
+         />
+@@ -67,7 +67,7 @@
+             android:layout_height="@dimen/large_screen_shade_header_min_height"
+             app:layout_constraintWidth_min="48dp"
+             app:layout_constraintWidth_default="wrap"
+-            app:layout_constraintStart_toStartOf="@id/clock"
++            app:layout_constraintStart_toStartOf="parent"
+             app:layout_constraintTop_toBottomOf="@id/privacy_container"
+             app:layout_constraintEnd_toEndOf="parent"
+             app:layout_constraintBottom_toTopOf="@id/statusIcons"
 diff --git a/packages/SystemUI/src/com/android/systemui/globalactions/GlobalActionsDialogLite.java b/packages/SystemUI/src/com/android/systemui/globalactions/GlobalActionsDialogLite.java
 index 8ef6345cf946104087a2b5f74a1141748884a0ca..ce07179b88866de05338b716a38f5f7d4215798c 100644
 --- a/packages/SystemUI/src/com/android/systemui/globalactions/GlobalActionsDialogLite.java
@@ -6395,6 +6465,225 @@ index 8ef6345cf946104087a2b5f74a1141748884a0ca..ce07179b88866de05338b716a38f5f7d
 +        }
          SystemUIDialog dialog = createDialog(displayId);
          prepareDialog();
+ 
+diff --git a/packages/SystemUI/src/com/android/systemui/qs/QsActionAuthentication.java b/packages/SystemUI/src/com/android/systemui/qs/QsActionAuthentication.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..fb9baf1f7f1fbf93d271a9e1d6d2518c89c423e2
+--- /dev/null
++++ b/packages/SystemUI/src/com/android/systemui/qs/QsActionAuthentication.java
+@@ -0,0 +1,36 @@
++/* SPDX-License-Identifier: Apache-2.0 */
++package com.android.systemui.qs;
++
++import android.app.ActivityManager;
++import android.app.KeyguardManager;
++import android.content.Context;
++import android.provider.Settings;
++
++import com.android.systemui.plugins.ActivityStarter;
++
++/** Applies the lock screen preference to Quick Settings actions, independently of panel visibility. */
++public final class QsActionAuthentication {
++    private QsActionAuthentication() {}
++
++    public static void run(Context context, ActivityStarter activityStarter, Runnable action) {
++        final int userId = ActivityManager.getCurrentUser();
++        if (Settings.Secure.getIntForUser(context.getContentResolver(),
++                Settings.Secure.LOCK_SCREEN_REQUIRE_UNLOCK_FOR_QUICK_SETTINGS, 0, userId) == 0) {
++            action.run();
++            return;
++        }
++
++        final KeyguardManager keyguard = context.getSystemService(KeyguardManager.class);
++        if (!keyguard.isKeyguardLocked() || !keyguard.isDeviceSecure(userId)) {
++            action.run();
++            return;
++        }
++
++        activityStarter.dismissKeyguardThenExecute(() -> {
++            if (ActivityManager.getCurrentUser() == userId && !keyguard.isDeviceLocked(userId)) {
++                action.run();
++            }
++            return false;
++        }, null, true);
++    }
++}
+diff --git a/packages/SystemUI/src/com/android/systemui/qs/footer/domain/interactor/FooterActionsInteractor.kt b/packages/SystemUI/src/com/android/systemui/qs/footer/domain/interactor/FooterActionsInteractor.kt
+index a3cdd7341281a898ca15bf1a6f7520c65a13e424..8a6b91c435f8b87064840d1638caced38fd3499f 100644
+--- a/packages/SystemUI/src/com/android/systemui/qs/footer/domain/interactor/FooterActionsInteractor.kt
++++ b/packages/SystemUI/src/com/android/systemui/qs/footer/domain/interactor/FooterActionsInteractor.kt
+@@ -37,6 +37,7 @@ import com.android.systemui.globalactions.shared.model.GlobalActionsEvent
+ import com.android.systemui.plugins.ActivityStarter
+ import com.android.systemui.qs.FgsManagerController
+ import com.android.systemui.qs.QSSecurityFooterUtils
++import com.android.systemui.qs.QsActionAuthentication
+ import com.android.systemui.qs.footer.data.model.UserSwitcherStatusModel
+ import com.android.systemui.qs.footer.data.repository.ForegroundServicesRepository
+ import com.android.systemui.qs.footer.domain.model.SecurityButtonConfig
+@@ -147,8 +148,12 @@ constructor(
+         quickSettingsContext: Context,
+         expandable: Expandable?,
+     ) {
+-        qsSecurityFooterUtils.showDeviceMonitoringDialog(quickSettingsContext, expandable)
+-        if (expandable != null) {
++        if (expandable == null) {
++            qsSecurityFooterUtils.showDeviceMonitoringDialog(quickSettingsContext, null)
++            return
++        }
++        QsActionAuthentication.run(context, activityStarter) {
++            qsSecurityFooterUtils.showDeviceMonitoringDialog(quickSettingsContext, expandable)
+             DevicePolicyEventLogger.createEvent(
+                     FrameworkStatsLog.DEVICE_POLICY_EVENT__EVENT_ID__DO_USER_INFO_CLICKED
+                 )
+@@ -156,14 +161,14 @@ constructor(
+         }
+     }
+ 
+-    override fun showForegroundServicesDialog(expandable: Expandable) {
++    override fun showForegroundServicesDialog(expandable: Expandable) = QsActionAuthentication.run(context, activityStarter) {
+         fgsManagerController.showDialog(expandable)
+     }
+ 
+     override fun showPowerMenuDialog(
+         globalActionsDialogLite: GlobalActionsDialogLite,
+         expandable: Expandable,
+-    ) {
++    ) = QsActionAuthentication.run(context, activityStarter) {
+         uiEventLogger.log(GlobalActionsEvent.GA_OPEN_QS)
+         globalActionsDialogLite.showOrHideDialog(
+             keyguardStateController.isShowing(),
+@@ -173,11 +178,11 @@ constructor(
+         )
+     }
+ 
+-    override fun showSettings(expandable: Expandable) {
++    override fun showSettings(expandable: Expandable) = QsActionAuthentication.run(context, activityStarter) {
+         if (!deviceProvisionedController.isCurrentUserSetup) {
+             // If user isn't setup just unlock the device and dump them back at SUW.
+             activityStarter.postQSRunnableDismissingKeyguard {}
+-            return
++            return@run
+         }
+ 
+         metricsLogger.action(MetricsProto.MetricsEvent.ACTION_QS_EXPANDED_SETTINGS_LAUNCH)
+@@ -190,7 +195,7 @@ constructor(
+         )
+     }
+ 
+-    override fun showUserSwitcher(expandable: Expandable) {
++    override fun showUserSwitcher(expandable: Expandable) = QsActionAuthentication.run(context, activityStarter) {
+         userSwitcherInteractor.showUserSwitcher(expandable)
+     }
+ }
+diff --git a/packages/SystemUI/src/com/android/systemui/qs/tileimpl/QSTileImpl.java b/packages/SystemUI/src/com/android/systemui/qs/tileimpl/QSTileImpl.java
+index 67d901ec836c1c296eeeaf0af6b8589b58d5abf0..7f2cb1066f31158c030a78b48b3dce42f8773426 100644
+--- a/packages/SystemUI/src/com/android/systemui/qs/tileimpl/QSTileImpl.java
++++ b/packages/SystemUI/src/com/android/systemui/qs/tileimpl/QSTileImpl.java
+@@ -67,6 +67,7 @@ import com.android.systemui.plugins.qs.QSTile.State;
+ import com.android.systemui.plugins.statusbar.StatusBarStateController;
+ import com.android.systemui.qs.QSEvent;
+ import com.android.systemui.qs.QSHost;
++import com.android.systemui.qs.QsActionAuthentication;
+ import com.android.systemui.qs.QsEventLogger;
+ import com.android.systemui.qs.logging.QSLogger;
+ 
+@@ -302,7 +303,11 @@ public abstract class QSTileImpl<TState extends State> implements QSTile, Lifecy
+         mQSLogger.logTileClick(mTileSpec, mStatusBarStateController.getState(), mState.state,
+                 eventId);
+         if (!mFalsingManager.isFalseTap(FalsingManager.LOW_PENALTY)) {
+-            mHandler.obtainMessage(H.CLICK, eventId, 0, expandable).sendToTarget();
++            QsActionAuthentication.run(mContext, mActivityStarter, () -> {
++                if (!mIsDestroyed.get()) {
++                    mHandler.obtainMessage(H.CLICK, eventId, 0, expandable).sendToTarget();
++                }
++            });
+         }
+     }
+ 
+@@ -317,7 +322,11 @@ public abstract class QSTileImpl<TState extends State> implements QSTile, Lifecy
+         mQSLogger.logTileSecondaryClick(mTileSpec, mStatusBarStateController.getState(),
+                 mState.state, eventId);
+         if (!mFalsingManager.isFalseTap(FalsingManager.LOW_PENALTY)) {
+-            mHandler.obtainMessage(H.SECONDARY_CLICK, eventId, 0, expandable).sendToTarget();
++            QsActionAuthentication.run(mContext, mActivityStarter, () -> {
++                if (!mIsDestroyed.get()) {
++                    mHandler.obtainMessage(H.SECONDARY_CLICK, eventId, 0, expandable).sendToTarget();
++                }
++            });
+         }
+     }
+ 
+@@ -332,7 +341,11 @@ public abstract class QSTileImpl<TState extends State> implements QSTile, Lifecy
+         mQSLogger.logTileLongClick(mTileSpec, mStatusBarStateController.getState(), mState.state,
+                 eventId);
+         if (!mFalsingManager.isFalseLongTap(FalsingManager.LOW_PENALTY)) {
+-            mHandler.obtainMessage(H.LONG_CLICK, eventId, 0, expandable).sendToTarget();
++            QsActionAuthentication.run(mContext, mActivityStarter, () -> {
++                if (!mIsDestroyed.get()) {
++                    mHandler.obtainMessage(H.LONG_CLICK, eventId, 0, expandable).sendToTarget();
++                }
++            });
+         }
+     }
+ 
+diff --git a/packages/SystemUI/src/com/android/systemui/qs/tiles/base/ui/viewmodel/QSTileViewModelAdapter.kt b/packages/SystemUI/src/com/android/systemui/qs/tiles/base/ui/viewmodel/QSTileViewModelAdapter.kt
+index ff9c32cbe3d2b8c7893e258a0eab3bb55e6374e9..64e3cd76d7dffd7feb1444b3b95ee780a6b8875f 100644
+--- a/packages/SystemUI/src/com/android/systemui/qs/tiles/base/ui/viewmodel/QSTileViewModelAdapter.kt
++++ b/packages/SystemUI/src/com/android/systemui/qs/tiles/base/ui/viewmodel/QSTileViewModelAdapter.kt
+@@ -25,9 +25,11 @@ import com.android.systemui.animation.Expandable
+ import com.android.systemui.common.shared.model.Icon
+ import com.android.systemui.dagger.qualifiers.MainImmediate
+ import com.android.systemui.dagger.qualifiers.UiBackground
++import com.android.systemui.plugins.ActivityStarter
+ import com.android.systemui.plugins.qs.QSTile
+ import com.android.systemui.plugins.qs.TileDetailsViewModel
+ import com.android.systemui.qs.QSHost
++import com.android.systemui.qs.QsActionAuthentication
+ import com.android.systemui.qs.tileimpl.QSTileImpl.DrawableIcon
+ import com.android.systemui.qs.tileimpl.QSTileImpl.DrawableIconWithRes
+ import com.android.systemui.qs.tileimpl.QSTileImpl.ResourceIcon
+@@ -58,6 +60,7 @@ class QSTileViewModelAdapter
+ constructor(
+     @MainImmediate private val applicationScope: CoroutineScope,
+     private val qsHost: QSHost,
++    private val activityStarter: ActivityStarter,
+     @Assisted private val qsTileViewModel: QSTileViewModel,
+     @UiBackground private val uiBgDispatcher: CoroutineDispatcher,
+ ) : QSTile, Dumpable {
+@@ -136,19 +139,31 @@ constructor(
+ 
+     override fun click(expandable: Expandable?) {
+         if (isActionSupported(QSTileState.UserAction.CLICK)) {
+-            qsTileViewModel.onActionPerformed(QSTileUserAction.Click(expandable))
++            QsActionAuthentication.run(context, activityStarter) {
++                if (tileAdapterJob != null) {
++                    qsTileViewModel.onActionPerformed(QSTileUserAction.Click(expandable))
++                }
++            }
+         }
+     }
+ 
+     override fun secondaryClick(expandable: Expandable?) {
+         if (isActionSupported(QSTileState.UserAction.TOGGLE_CLICK)) {
+-            qsTileViewModel.onActionPerformed(QSTileUserAction.ToggleClick(expandable))
++            QsActionAuthentication.run(context, activityStarter) {
++                if (tileAdapterJob != null) {
++                    qsTileViewModel.onActionPerformed(QSTileUserAction.ToggleClick(expandable))
++                }
++            }
+         }
+     }
+ 
+     override fun longClick(expandable: Expandable?) {
+         if (isActionSupported(QSTileState.UserAction.LONG_CLICK)) {
+-            qsTileViewModel.onActionPerformed(QSTileUserAction.LongClick(expandable))
++            QsActionAuthentication.run(context, activityStarter) {
++                if (tileAdapterJob != null) {
++                    qsTileViewModel.onActionPerformed(QSTileUserAction.LongClick(expandable))
++                }
++            }
+         }
+     }
  
 diff --git a/packages/SystemUI/src/com/android/systemui/screenshot/ImageExporter.java b/packages/SystemUI/src/com/android/systemui/screenshot/ImageExporter.java
 index 2d6381288bf7e2ab5106036eb2de36e5f80f764b..dd7252f3755cb4127622a2ca483fcba7bfe21ed0 100644
@@ -6473,6 +6762,51 @@ index 2d6381288bf7e2ab5106036eb2de36e5f80f764b..dd7252f3755cb4127622a2ca483fcba7
          String dateTime = DateTimeFormatter.ofPattern("yyyy:MM:dd HH:mm:ss").format(captureTime);
          String subSec = DateTimeFormatter.ofPattern("SSS").format(captureTime);
          String timeZone = DateTimeFormatter.ofPattern("xxx").format(captureTime);
+diff --git a/packages/SystemUI/src/com/android/systemui/shade/ShadeHeaderController.kt b/packages/SystemUI/src/com/android/systemui/shade/ShadeHeaderController.kt
+index 15bb93fade3285f5a519c3558372c4dd030ed63b..c04aa2071376e63d892d31f9cda68c042eddd291 100644
+--- a/packages/SystemUI/src/com/android/systemui/shade/ShadeHeaderController.kt
++++ b/packages/SystemUI/src/com/android/systemui/shade/ShadeHeaderController.kt
+@@ -422,10 +422,9 @@ constructor(
+ 
+         header.setOnApplyWindowInsetsListener(insetListener)
+ 
+-        clock.addOnLayoutChangeListener { v, _, _, _, _, _, _, _, _ ->
+-            val newPivot = if (v.isLayoutRtl) v.width.toFloat() else 0f
+-            v.pivotX = newPivot
+-            v.pivotY = v.height.toFloat() / 2
++        clock.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
++            updateClockPivot()
++            updateCarrierGroupPadding()
+         }
+         clock.setOnClickListener { launchClockActivity() }
+ 
+@@ -510,7 +509,7 @@ constructor(
+         clock.doOnLayout {
+             val maxClockWidth =
+                 (clock.width * resources.getFloat(R.dimen.qqs_expand_clock_scale)).toInt()
+-            mShadeCarrierGroup.setPaddingRelative(maxClockWidth, 0, 0, 0)
++            mShadeCarrierGroup.setPaddingRelative(0, 0, maxClockWidth, 0)
+         }
+     }
+ 
+@@ -618,10 +617,17 @@ constructor(
+         updateScrollY()
+     }
+ 
++    private fun updateClockPivot() {
++        val fraction = if (largeScreenActive) 0f else qsExpandedFraction
++        clock.pivotX = clock.width * if (clock.isLayoutRtl) 1f - fraction else fraction
++        clock.pivotY = clock.height / 2f
++    }
++
+     private fun updatePosition() {
+         if (!largeScreenActive && visible) {
+             logInstantEvent("updatePosition: $qsExpandedFraction")
+             header.progress = qsExpandedFraction
++            updateClockPivot()
+             updateBatteryMode()
+         }
+     }
 diff --git a/packages/SystemUI/tests/src/com/android/systemui/screenshot/ImageExporterTest.java b/packages/SystemUI/tests/src/com/android/systemui/screenshot/ImageExporterTest.java
 index c75e625c4b79b93dd426f9618eae8c2a3f7606e0..02f928a2702c816f124f576d6b39cc3682ced862 100644
 --- a/packages/SystemUI/tests/src/com/android/systemui/screenshot/ImageExporterTest.java
@@ -6594,6 +6928,18 @@ index c75e625c4b79b93dd426f9618eae8c2a3f7606e0..02f928a2702c816f124f576d6b39cc36
                          exifInterface.getAttribute(ExifInterface.TAG_OFFSET_TIME_ORIGINAL));
              }
          } finally {
+diff --git a/packages/SystemUI/tests/utils/src/com/android/systemui/qs/tiles/base/ui/viewmodel/QSTileViewModelAdapterKosmos.kt b/packages/SystemUI/tests/utils/src/com/android/systemui/qs/tiles/base/ui/viewmodel/QSTileViewModelAdapterKosmos.kt
+index bf55081cf5eb3f52aa29c8167846afc890d76bbd..a5497c6e42d3d6e29aa18f658bd1ea9c23860b35 100644
+--- a/packages/SystemUI/tests/utils/src/com/android/systemui/qs/tiles/base/ui/viewmodel/QSTileViewModelAdapterKosmos.kt
++++ b/packages/SystemUI/tests/utils/src/com/android/systemui/qs/tiles/base/ui/viewmodel/QSTileViewModelAdapterKosmos.kt
+@@ -31,6 +31,7 @@ val Kosmos.qsTileViewModelAdapterFactory by
+                 return QSTileViewModelAdapter(
+                     applicationCoroutineScope,
+                     mock<QSHost> { whenever(context).thenReturn(testableContext) },
++                    mock(),
+                     qsTileViewModel,
+                     testDispatcher,
+                 )
 diff --git a/services/core/java/com/android/server/audio/AudioService.java b/services/core/java/com/android/server/audio/AudioService.java
 index 7f9555c7713cf23cfe9bf21a1ed0d0985b9bde2b..0b808c324953113245da076812d5a5be606c710b 100644
 --- a/services/core/java/com/android/server/audio/AudioService.java
@@ -9495,18 +9841,10 @@ index 0000000000000000000000000000000000000000..7cbd711d5a594dad64106a88a4004e43
 +    }
 +}
 diff --git a/services/core/java/com/android/server/policy/keyguard/KeyguardServiceDelegate.java b/services/core/java/com/android/server/policy/keyguard/KeyguardServiceDelegate.java
-index 2d25ee154c6dcbd4782123483c84f594c271fc8b..8da46ba0ba46392546aadbba796907c6ab88adaf 100644
+index 2d25ee154c6dcbd4782123483c84f594c271fc8b..5b01e50001bb268ee09244e5c9821928ba988d1a 100644
 --- a/services/core/java/com/android/server/policy/keyguard/KeyguardServiceDelegate.java
 +++ b/services/core/java/com/android/server/policy/keyguard/KeyguardServiceDelegate.java
-@@ -45,6 +45,7 @@ import com.android.internal.policy.IKeyguardStateCallback;
- import com.android.internal.policy.KeyguardState;
- import com.android.internal.widget.LockPatternUtils;
- import com.android.server.LocalServices;
-+import com.android.server.statusbar.StatusBarManagerInternal;
- import com.android.server.wm.EventLogTags;
- 
- import java.io.PrintWriter;
-@@ -207,7 +208,10 @@ public class KeyguardServiceDelegate {
+@@ -207,7 +207,10 @@ public class KeyguardServiceDelegate {
          }
      }
  
@@ -9517,26 +9855,16 @@ index 2d25ee154c6dcbd4782123483c84f594c271fc8b..8da46ba0ba46392546aadbba796907c6
          mCallback = callback;
          mLockPatternUtils = new LockPatternUtils(context);
          mActivityManagerInternal = LocalServices.getService(ActivityManagerInternal.class);
-@@ -216,7 +220,18 @@ public class KeyguardServiceDelegate {
- 
+@@ -217,6 +220,8 @@ public class KeyguardServiceDelegate {
      public void onShowingStateChanged(boolean showing) {
          mKeyguardReportedState.showing = showing;
-+        updateQuickSettingsLock(showing);
          mCallback.onShowingChanged();
 +        AutoReboot.onKeyguardShowingStateChanged(mSecurityContext, showing, mKeyguardState.userId);
 +        LockedResetGuard.onKeyguardStateChanged(mSecurityContext, showing);
-+    }
-+
-+    private void updateQuickSettingsLock(boolean showing) {
-+        final StatusBarManagerInternal statusBar = LocalServices.getService(
-+                StatusBarManagerInternal.class);
-+        if (statusBar != null) {
-+            statusBar.onKeyguardShowingChanged(showing, mKeyguardState.userId);
-+        }
      }
  
      /**
-@@ -226,6 +241,7 @@ public class KeyguardServiceDelegate {
+@@ -226,6 +231,7 @@ public class KeyguardServiceDelegate {
       * @param handler the handler to run the ServiceConnection callbacks on.
       */
      public void bindService(@NonNull Context context, @NonNull Handler handler) {
@@ -9544,27 +9872,10 @@ index 2d25ee154c6dcbd4782123483c84f594c271fc8b..8da46ba0ba46392546aadbba796907c6
          Intent intent = new Intent();
          final Resources resources = context.getApplicationContext().getResources();
  
-@@ -238,6 +254,7 @@ public class KeyguardServiceDelegate {
-                 handler, UserHandle.SYSTEM)) {
-             Log.v(TAG, "*** Keyguard: can't bind to " + keyguardComponent);
-             mKeyguardReportedState.disable();
-+            updateQuickSettingsLock(false);
-         } else {
-             if (DEBUG) Log.v(TAG, "*** Keyguard started");
-         }
-@@ -283,6 +300,7 @@ public class KeyguardServiceDelegate {
-             if (DEBUG) Log.v(TAG, "*** Keyguard disconnected (boo!)");
-             mKeyguardService = null;
-             mKeyguardReportedState.reset();
-+            updateQuickSettingsLock(true);
-             try {
-                 ActivityTaskManager.getService().setLockScreenShown(true /* showingKeyguard */,
-                         false /* showingAod */);
-@@ -667,6 +685,8 @@ public class KeyguardServiceDelegate {
+@@ -667,6 +673,7 @@ public class KeyguardServiceDelegate {
              }
          }
          mKeyguardState.userId = userId;
-+        updateQuickSettingsLock(true);
 +        LockedResetGuard.onKeyguardStateChanged(mSecurityContext, true);
      }
  
@@ -9658,150 +9969,6 @@ index 0000000000000000000000000000000000000000..45a2ca7028ecfa4edcec6d814b570198
 +        }
 +    }
 +}
-diff --git a/services/core/java/com/android/server/statusbar/StatusBarManagerInternal.java b/services/core/java/com/android/server/statusbar/StatusBarManagerInternal.java
-index 55f5f5d012784badf8d32d15e0aebf4f31df7bf6..21f6612a2a3901c46c368cfb1880fffac015037e 100644
---- a/services/core/java/com/android/server/statusbar/StatusBarManagerInternal.java
-+++ b/services/core/java/com/android/server/statusbar/StatusBarManagerInternal.java
-@@ -141,6 +141,9 @@ public interface StatusBarManagerInternal {
- 
-     void setCurrentUser(int newUserId);
- 
-+    /** Reports whether keyguard is showing for the given user. */
-+    void onKeyguardShowingChanged(boolean showing, int userId);
-+
-     /**
-      * Set whether the top app currently hides the statusbar.
-      *
-diff --git a/services/core/java/com/android/server/statusbar/StatusBarManagerService.java b/services/core/java/com/android/server/statusbar/StatusBarManagerService.java
-index 34aa2d86a724426f82d3d0fac1116972a3445e2e..c367832992a98ce571868cf8e7e7bdb92ce6e334 100644
---- a/services/core/java/com/android/server/statusbar/StatusBarManagerService.java
-+++ b/services/core/java/com/android/server/statusbar/StatusBarManagerService.java
-@@ -64,6 +64,7 @@ import android.content.om.IOverlayManager;
- import android.content.pm.PackageManager;
- import android.content.pm.PackageManagerInternal;
- import android.content.pm.ResolveInfo;
-+import android.database.ContentObserver;
- import android.graphics.drawable.Icon;
- import android.hardware.biometrics.BiometricAuthenticator.Modality;
- import android.hardware.biometrics.IBiometricContextListener;
-@@ -211,6 +212,10 @@ public class StatusBarManagerService extends IStatusBarService.Stub implements D
-     private final UserManagerInternal mUserManagerInternal;
-     private final SessionMonitor mSessionMonitor;
-     private int mCurrentUserId;
-+    @GuardedBy("mLock")
-+    private int mKeyguardDismissedUserId = UserHandle.USER_NULL;
-+    @GuardedBy("mLock")
-+    private boolean mRequireUnlockForQuickSettings;
-     private boolean mTracingEnabled;
-     private int mLastSystemKey = -1;
- 
-@@ -365,6 +370,20 @@ public class StatusBarManagerService extends IStatusBarService.Stub implements D
-         mSessionMonitor = new SessionMonitor(mContext);
- 
-         mVisibleBackgroundUsersEnabled = isVisibleBackgroundUsersEnabled();
-+
-+        mContext.getContentResolver().registerContentObserver(Settings.Secure.getUriFor(
-+                Settings.Secure.LOCK_SCREEN_REQUIRE_UNLOCK_FOR_QUICK_SETTINGS),
-+                false, new ContentObserver(mHandler) {
-+                    @Override
-+                    public void onChange(boolean selfChange) {
-+                        synchronized (mLock) {
-+                            updateQuickSettingsLockLocked();
-+                        }
-+                    }
-+                }, UserHandle.USER_ALL);
-+        synchronized (mLock) {
-+            updateQuickSettingsLockLocked();
-+        }
-     }
- 
-     /**
-@@ -497,7 +516,18 @@ public class StatusBarManagerService extends IStatusBarService.Stub implements D
-         @Override
-         public void setCurrentUser(int newUserId) {
-             if (SPEW) Slog.d(TAG, "Setting current user to user " + newUserId);
--            mCurrentUserId = newUserId;
-+            synchronized (mLock) {
-+                mCurrentUserId = newUserId;
-+                updateQuickSettingsLockLocked();
-+            }
-+        }
-+
-+        @Override
-+        public void onKeyguardShowingChanged(boolean showing, int userId) {
-+            synchronized (mLock) {
-+                mKeyguardDismissedUserId = showing ? UserHandle.USER_NULL : userId;
-+                applyQuickSettingsLockLocked();
-+            }
-         }
- 
- 
-@@ -1184,6 +1214,23 @@ public class StatusBarManagerService extends IStatusBarService.Stub implements D
-         }
-     }
- 
-+    @GuardedBy("mLock")
-+    private void updateQuickSettingsLockLocked() {
-+        mRequireUnlockForQuickSettings = Settings.Secure.getIntForUser(mContext.getContentResolver(),
-+                Settings.Secure.LOCK_SCREEN_REQUIRE_UNLOCK_FOR_QUICK_SETTINGS, 0,
-+                mCurrentUserId) != 0;
-+        applyQuickSettingsLockLocked();
-+    }
-+
-+    @GuardedBy("mLock")
-+    private void applyQuickSettingsLockLocked() {
-+        final IntArray displays = new IntArray(mDisplayUiState.size());
-+        for (int i = 0; i < mDisplayUiState.size(); i++) {
-+            displays.add(mDisplayUiState.keyAt(i));
-+        }
-+        updateDisableStatesLocked(displays);
-+    }
-+
-     // This method batches disable state across all displays into a single remote call
-     // (IStatusBar#disableForAllDisplays) for efficiency and calls
-     // NotificationDelegate#onSetDisabled only if any display's disable state changes.
-@@ -1194,8 +1241,11 @@ public class StatusBarManagerService extends IStatusBarService.Stub implements D
-         // so they are paired correctly.  The messages on the handler will be
-         // handled in the order they were enqueued, but will be outside the lock.
-         manageDisableListLocked(userId, what, token, pkg, whichFlag);
-+        updateDisableStatesLocked(displayIds);
-+    }
- 
--        // Ensure state for the current user is applied, even if passed a non-current user.
-+    @GuardedBy("mLock")
-+    private void updateDisableStatesLocked(IntArray displayIds) {
-         final int net1 = gatherDisableActionsLocked(mCurrentUserId, 1);
-         final int net2 = gatherDisableActionsLocked(mCurrentUserId, 2);
- 
-@@ -1207,11 +1257,13 @@ public class StatusBarManagerService extends IStatusBarService.Stub implements D
-                 displaysWithNewDisableStates.put(displayId, new Pair(net1, net2));
-             }
-         }
--        runWithStatusBarIfPresent(
--                bar -> bar.disableForAllDisplays(new DisableStates(displaysWithNewDisableStates)),
--                "Unable to disable Status bar.");
-         if (!displaysWithNewDisableStates.isEmpty()) {
--            mHandler.post(() -> mNotificationDelegate.onSetDisabled(net1));
-+            runWithStatusBarIfPresent(
-+                    bar -> bar.disableForAllDisplays(new DisableStates(displaysWithNewDisableStates)),
-+                    "Unable to disable Status bar.");
-+            if (mNotificationDelegate != null) {
-+                mHandler.post(() -> mNotificationDelegate.onSetDisabled(net1));
-+            }
-         }
-     }
- 
-@@ -2698,6 +2750,10 @@ public class StatusBarManagerService extends IStatusBarService.Stub implements D
-                 net |= rec.getFlags(which);
-             }
-         }
-+        if (which == 2 && userId == mCurrentUserId && mRequireUnlockForQuickSettings
-+                && mKeyguardDismissedUserId != userId) {
-+            net |= StatusBarManager.DISABLE2_QUICK_SETTINGS;
-+        }
-         return net;
-     }
- 
 diff --git a/services/proguard.flags b/services/proguard.flags
 index 36d0f05f86eed927d4c0cd17b676a6b8ac048c4c..cba49d9fda090e4d68a885750df514fc63f53ac1 100644
 --- a/services/proguard.flags

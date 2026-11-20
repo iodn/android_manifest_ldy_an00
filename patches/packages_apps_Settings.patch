@@ -132,16 +132,16 @@ index 0000000000000000000000000000000000000000..64d0a8ab079e73588df2a71dca56fb0c
 +    <string name="screenshot_timestamp_exif_summary">Include capture time and time zone in screenshot file metadata</string>
 +</resources>
 diff --git a/res/values/strings.xml b/res/values/strings.xml
-index a84186b96bc4ca1e74cebec9aa1ed86e4cd819e0..027a8a5ddc1dfa15ea4d49d9eadf0e84e7915e8f 100644
+index a84186b96bc4ca1e74cebec9aa1ed86e4cd819e0..9ce84dbfde9e20571d000547873e36bed807146a 100644
 --- a/res/values/strings.xml
 +++ b/res/values/strings.xml
 @@ -14118,6 +14118,9 @@
  
      <!-- Device controls toggle name [CHAR LIMIT=60] -->
      <string name="lockscreen_privacy_controls_setting_toggle">Show device controls</string>
-+    <!-- Lock screen setting to hide Quick Settings until the device is unlocked. -->
++    <!-- Lock screen setting to require authentication for Quick Settings actions. -->
 +    <string name="lockscreen_quick_settings_unlock_title">Require unlock for Quick Settings</string>
-+    <string name="lockscreen_quick_settings_unlock_summary">Hide Quick Settings and the brightness slider while locked</string>
++    <string name="lockscreen_quick_settings_unlock_summary">Require authentication to use Quick Settings actions while locked. Brightness can still be adjusted.</string>
      <!-- Device controls summary [CHAR LIMIT=NONE] -->
      <string name="lockscreen_privacy_controls_summary">From the lockscreen</string>
      <!-- Trivial Device controls toggle name [CHAR LIMIT=60] -->
