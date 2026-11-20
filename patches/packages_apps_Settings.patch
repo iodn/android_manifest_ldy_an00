@@ -1297,7 +1297,7 @@ index 0000000000000000000000000000000000000000..c02d31b3c8d61e5d9090f8597c19c140
 +}
 diff --git a/src/com/android/settings/display/LockscreenQuickSettingsPreferenceController.java b/src/com/android/settings/display/LockscreenQuickSettingsPreferenceController.java
 new file mode 100644
-index 0000000000000000000000000000000000000000..8a93ccd5689190dda8b4e36826f159307dff9ed1
+index 0000000000000000000000000000000000000000..51067baa226a3a0023e335e621e25ac1763951ce
 --- /dev/null
 +++ b/src/com/android/settings/display/LockscreenQuickSettingsPreferenceController.java
 @@ -0,0 +1,51 @@
@@ -1343,7 +1343,7 @@ index 0000000000000000000000000000000000000000..8a93ccd5689190dda8b4e36826f15930
 +    @Override
 +    public boolean isChecked() {
 +        return Settings.Secure.getInt(mContext.getContentResolver(),
-+                Settings.Secure.LOCK_SCREEN_REQUIRE_UNLOCK_FOR_QUICK_SETTINGS, 0) != 0;
++                Settings.Secure.LOCK_SCREEN_REQUIRE_UNLOCK_FOR_QUICK_SETTINGS, 1) != 0;
 +    }
 +
 +    @Override

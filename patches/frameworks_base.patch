@@ -6381,76 +6381,6 @@ index fbed45d0b35c827a2d56ecabde5bece12559ac38..c338b0d68ffd93bd907b0b59ef7ce50b
 +    @EnforcePermission("MODIFY_AUDIO_ROUTING")
 +    boolean isAudioEffectAutoAttachSuppressed();
  }
-diff --git a/packages/SystemUI/compose/features/src/com/android/systemui/shade/ui/composable/ShadeHeader.kt b/packages/SystemUI/compose/features/src/com/android/systemui/shade/ui/composable/ShadeHeader.kt
-index fa73ce5783c5bffbe6fb8d2ee0a55f94be20a577..dbe7ba4c3c8712346a55c006c8cd4bb3edeb8e46 100644
---- a/packages/SystemUI/compose/features/src/com/android/systemui/shade/ui/composable/ShadeHeader.kt
-+++ b/packages/SystemUI/compose/features/src/com/android/systemui/shade/ui/composable/ShadeHeader.kt
-@@ -311,7 +311,21 @@ fun ContentScope.ExpandedShadeHeader(
-                 Modifier.fillMaxWidth()
-                     .defaultMinSize(minHeight = ShadeHeader.Dimensions.ExpandedHeight),
-         ) {
--            Box(modifier = Modifier.fillMaxWidth()) {
-+            Row(
-+                modifier = Modifier.fillMaxWidth(),
-+                verticalAlignment = Alignment.CenterVertically,
-+            ) {
-+                Box(
-+                    modifier =
-+                        Modifier.element(ShadeHeader.Elements.ShadeCarrierGroup).weight(1f)
-+                ) {
-+                    if (!viewModel.isPrivacyChipVisible) {
-+                        ShadeCarrierGroup(
-+                            viewModel = viewModel,
-+                            modifier = Modifier.align(Alignment.CenterStart).widthIn(max = 180.dp),
-+                        )
-+                    }
-+                }
-                 Clock(
-                     onClick = viewModel::onClockClicked,
-                     scale = 2.57f,
-@@ -319,19 +333,8 @@ fun ContentScope.ExpandedShadeHeader(
-                     modifier =
-                         Modifier.sysuiResTag("expanded_header_clock")
-                             .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
--                            .wrapContentSize(Alignment.CenterStart),
-+                            .wrapContentSize(Alignment.CenterEnd),
-                 )
--                if (!viewModel.isPrivacyChipVisible) {
--                    Box(
--                        modifier =
--                            Modifier.element(ShadeHeader.Elements.ShadeCarrierGroup).fillMaxWidth()
--                    ) {
--                        ShadeCarrierGroup(
--                            viewModel = viewModel,
--                            modifier = Modifier.align(Alignment.CenterEnd).widthIn(max = 180.dp),
--                        )
--                    }
--                }
-             }
-             Row(
-                 verticalAlignment = Alignment.CenterVertically,
-diff --git a/packages/SystemUI/res/xml/qs_header.xml b/packages/SystemUI/res/xml/qs_header.xml
-index f47327c8513ef603b7b86b96434d3072dbf27ba4..d168b812879849497a2479693b118fa0cb84e727 100644
---- a/packages/SystemUI/res/xml/qs_header.xml
-+++ b/packages/SystemUI/res/xml/qs_header.xml
-@@ -38,7 +38,7 @@
-         <Layout
-             android:layout_width="wrap_content"
-             android:layout_height="@dimen/large_screen_shade_header_min_height"
--            app:layout_constraintStart_toStartOf="parent"
-+            app:layout_constraintEnd_toEndOf="parent"
-             app:layout_constraintTop_toBottomOf="@id/privacy_container"
-             app:layout_constraintBottom_toBottomOf="@id/carrier_group"
-         />
-@@ -67,7 +67,7 @@
-             android:layout_height="@dimen/large_screen_shade_header_min_height"
-             app:layout_constraintWidth_min="48dp"
-             app:layout_constraintWidth_default="wrap"
--            app:layout_constraintStart_toStartOf="@id/clock"
-+            app:layout_constraintStart_toStartOf="parent"
-             app:layout_constraintTop_toBottomOf="@id/privacy_container"
-             app:layout_constraintEnd_toEndOf="parent"
-             app:layout_constraintBottom_toTopOf="@id/statusIcons"
 diff --git a/packages/SystemUI/src/com/android/systemui/globalactions/GlobalActionsDialogLite.java b/packages/SystemUI/src/com/android/systemui/globalactions/GlobalActionsDialogLite.java
 index 8ef6345cf946104087a2b5f74a1141748884a0ca..ce07179b88866de05338b716a38f5f7d4215798c 100644
 --- a/packages/SystemUI/src/com/android/systemui/globalactions/GlobalActionsDialogLite.java
@@ -6471,10 +6401,10 @@ index 8ef6345cf946104087a2b5f74a1141748884a0ca..ce07179b88866de05338b716a38f5f7d
  
 diff --git a/packages/SystemUI/src/com/android/systemui/qs/QsActionAuthentication.java b/packages/SystemUI/src/com/android/systemui/qs/QsActionAuthentication.java
 new file mode 100644
-index 0000000000000000000000000000000000000000..fb9baf1f7f1fbf93d271a9e1d6d2518c89c423e2
+index 0000000000000000000000000000000000000000..74edb12ca20c6e5fe7411501ff769c34dfae93fa
 --- /dev/null
 +++ b/packages/SystemUI/src/com/android/systemui/qs/QsActionAuthentication.java
-@@ -0,0 +1,36 @@
+@@ -0,0 +1,35 @@
 +/* SPDX-License-Identifier: Apache-2.0 */
 +package com.android.systemui.qs;
 +
@@ -6492,7 +6422,7 @@ index 0000000000000000000000000000000000000000..fb9baf1f7f1fbf93d271a9e1d6d2518c
 +    public static void run(Context context, ActivityStarter activityStarter, Runnable action) {
 +        final int userId = ActivityManager.getCurrentUser();
 +        if (Settings.Secure.getIntForUser(context.getContentResolver(),
-+                Settings.Secure.LOCK_SCREEN_REQUIRE_UNLOCK_FOR_QUICK_SETTINGS, 0, userId) == 0) {
++                Settings.Secure.LOCK_SCREEN_REQUIRE_UNLOCK_FOR_QUICK_SETTINGS, 1, userId) == 0) {
 +            action.run();
 +            return;
 +        }
@@ -6503,12 +6433,11 @@ index 0000000000000000000000000000000000000000..fb9baf1f7f1fbf93d271a9e1d6d2518c
 +            return;
 +        }
 +
-+        activityStarter.dismissKeyguardThenExecute(() -> {
++        activityStarter.postQSRunnableDismissingKeyguard(() -> {
 +            if (ActivityManager.getCurrentUser() == userId && !keyguard.isDeviceLocked(userId)) {
 +                action.run();
 +            }
-+            return false;
-+        }, null, true);
++        });
 +    }
 +}
 diff --git a/packages/SystemUI/src/com/android/systemui/qs/footer/domain/interactor/FooterActionsInteractor.kt b/packages/SystemUI/src/com/android/systemui/qs/footer/domain/interactor/FooterActionsInteractor.kt
@@ -6765,51 +6694,6 @@ index 2d6381288bf7e2ab5106036eb2de36e5f80f764b..dd7252f3755cb4127622a2ca483fcba7
          String dateTime = DateTimeFormatter.ofPattern("yyyy:MM:dd HH:mm:ss").format(captureTime);
          String subSec = DateTimeFormatter.ofPattern("SSS").format(captureTime);
          String timeZone = DateTimeFormatter.ofPattern("xxx").format(captureTime);
-diff --git a/packages/SystemUI/src/com/android/systemui/shade/ShadeHeaderController.kt b/packages/SystemUI/src/com/android/systemui/shade/ShadeHeaderController.kt
-index 15bb93fade3285f5a519c3558372c4dd030ed63b..c04aa2071376e63d892d31f9cda68c042eddd291 100644
---- a/packages/SystemUI/src/com/android/systemui/shade/ShadeHeaderController.kt
-+++ b/packages/SystemUI/src/com/android/systemui/shade/ShadeHeaderController.kt
-@@ -422,10 +422,9 @@ constructor(
- 
-         header.setOnApplyWindowInsetsListener(insetListener)
- 
--        clock.addOnLayoutChangeListener { v, _, _, _, _, _, _, _, _ ->
--            val newPivot = if (v.isLayoutRtl) v.width.toFloat() else 0f
--            v.pivotX = newPivot
--            v.pivotY = v.height.toFloat() / 2
-+        clock.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
-+            updateClockPivot()
-+            updateCarrierGroupPadding()
-         }
-         clock.setOnClickListener { launchClockActivity() }
- 
-@@ -510,7 +509,7 @@ constructor(
-         clock.doOnLayout {
-             val maxClockWidth =
-                 (clock.width * resources.getFloat(R.dimen.qqs_expand_clock_scale)).toInt()
--            mShadeCarrierGroup.setPaddingRelative(maxClockWidth, 0, 0, 0)
-+            mShadeCarrierGroup.setPaddingRelative(0, 0, maxClockWidth, 0)
-         }
-     }
- 
-@@ -618,10 +617,17 @@ constructor(
-         updateScrollY()
-     }
- 
-+    private fun updateClockPivot() {
-+        val fraction = if (largeScreenActive) 0f else qsExpandedFraction
-+        clock.pivotX = clock.width * if (clock.isLayoutRtl) 1f - fraction else fraction
-+        clock.pivotY = clock.height / 2f
-+    }
-+
-     private fun updatePosition() {
-         if (!largeScreenActive && visible) {
-             logInstantEvent("updatePosition: $qsExpandedFraction")
-             header.progress = qsExpandedFraction
-+            updateClockPivot()
-             updateBatteryMode()
-         }
-     }
 diff --git a/packages/SystemUI/tests/src/com/android/systemui/screenshot/ImageExporterTest.java b/packages/SystemUI/tests/src/com/android/systemui/screenshot/ImageExporterTest.java
 index c75e625c4b79b93dd426f9618eae8c2a3f7606e0..02f928a2702c816f124f576d6b39cc3682ced862 100644
 --- a/packages/SystemUI/tests/src/com/android/systemui/screenshot/ImageExporterTest.java
