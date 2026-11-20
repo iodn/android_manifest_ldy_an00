@@ -1297,10 +1297,10 @@ index 0000000000000000000000000000000000000000..c02d31b3c8d61e5d9090f8597c19c140
 +}
 diff --git a/src/com/android/settings/display/LockscreenQuickSettingsPreferenceController.java b/src/com/android/settings/display/LockscreenQuickSettingsPreferenceController.java
 new file mode 100644
-index 0000000000000000000000000000000000000000..e4a8b58d340b371d987f15a9d3d1b419e6739459
+index 0000000000000000000000000000000000000000..8a93ccd5689190dda8b4e36826f159307dff9ed1
 --- /dev/null
 +++ b/src/com/android/settings/display/LockscreenQuickSettingsPreferenceController.java
-@@ -0,0 +1,45 @@
+@@ -0,0 +1,51 @@
 +/*
 + * Copyright (C) 2026 The Android Open Source Project
 + *
@@ -1322,6 +1322,7 @@ index 0000000000000000000000000000000000000000..e4a8b58d340b371d987f15a9d3d1b419
 +import android.content.Context;
 +import android.provider.Settings;
 +
++import com.android.settings.R;
 +import com.android.settings.core.TogglePreferenceController;
 +
 +public class LockscreenQuickSettingsPreferenceController extends TogglePreferenceController {
@@ -1332,6 +1333,11 @@ index 0000000000000000000000000000000000000000..e4a8b58d340b371d987f15a9d3d1b419
 +    @Override
 +    public int getAvailabilityStatus() {
 +        return AVAILABLE;
++    }
++
++    @Override
++    public int getSliceHighlightMenuRes() {
++        return R.string.menu_key_security;
 +    }
 +
 +    @Override
